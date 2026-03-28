@@ -1,9 +1,10 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Zap, Mountain, Database, Lock, AlertTriangle, MousePointer, Upload, Pickaxe, ArrowUp } from 'lucide-react';
+import { X, Zap, Mountain, Database, Lock, AlertTriangle, MousePointer, Upload, Pickaxe, ArrowUp, Info } from 'lucide-react';
 import { useGameStore, GameNode, Resources } from '../store/gameStore';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { ChipSlotManager } from './ChipSlotManager';
+import { NODE_DIALOG_REGISTRY, NodeDialogConfig, NodeInfoDialog } from './NodeInfoDialog';
 import { DeployDialog } from './DeployDialog';
 
 function CostBadge({ cost }: { cost: Partial<Resources> }) {
@@ -216,6 +217,7 @@ export function NodeDetailPanel() {
   const [unlocking, setUnlocking] = useState(false);
   const [msg, setMsg] = useState('');
   const [deployOpen, setDeployOpen] = useState(false);
+  const [activeDialog, setActiveDialog] = useState<NodeDialogConfig | null>(null);
 
   const node = nodes.find((n: any) => n.id === selectedNodeId);
 
@@ -469,6 +471,25 @@ export function NodeDetailPanel() {
                 <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.5, marginTop: 4 }}>
                   Send a worker here, then <span style={{ color: 'var(--accent)' }}>node = self.get_current_node()</span> to get a ComputeNode. Call <span style={{ color: 'var(--accent)' }}>node.get_task()</span> and <span style={{ color: 'var(--accent)' }}>node.submit(task_id, answer)</span>.
                 </div>
+                {/* Pluggable dialog buttons */}
+                {NODE_DIALOG_REGISTRY[node.type] && (
+                  <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                    {Object.entries(NODE_DIALOG_REGISTRY[node.type]).map(([key, configFn]) => {
+                      const cfg = configFn(node.data);
+                      return (
+                        <button key={key} onClick={() => setActiveDialog(cfg)} style={{
+                          display: 'flex', alignItems: 'center', gap: 4,
+                          padding: '5px 10px', borderRadius: 'var(--radius-sm)',
+                          background: 'var(--bg-elevated)', border: '1px solid var(--border-bright)',
+                          color: 'var(--text-secondary)', fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 600,
+                          cursor: 'pointer', transition: 'all 0.1s',
+                        }}>
+                          <Info size={10} /> {cfg.buttonLabel}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
@@ -534,6 +555,13 @@ export function NodeDetailPanel() {
             nodeName={node.data.label}
             onClose={() => setDeployOpen(false)}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Node info dialog (pluggable) */}
+      <AnimatePresence>
+        {activeDialog && (
+          <NodeInfoDialog config={activeDialog} onClose={() => setActiveDialog(null)} />
         )}
       </AnimatePresence>
     </>
