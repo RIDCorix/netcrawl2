@@ -33,39 +33,67 @@ function ToggleSwitch({ value, onChange }: { value: boolean; onChange: (v: boole
   );
 }
 
-function KeyCapture({ value, onChange }: { value: string; onChange: (key: string) => void }) {
-  const [listening, setListening] = useState(false);
+const displayKey = (k: string) => {
+  if (k === 'Escape') return 'Esc';
+  if (k === ' ') return 'Space';
+  return k.toUpperCase();
+};
 
-  const displayKey = (k: string) => {
-    if (k === 'Escape') return 'Esc';
-    if (k === ' ') return 'Space';
-    return k.toUpperCase();
-  };
+function KeyCapture({ value, onChange, allBindings, actionKey }: {
+  value: string;
+  onChange: (key: string) => void;
+  allBindings: Record<string, string>;
+  actionKey: string;
+}) {
+  const [listening, setListening] = useState(false);
+  const [conflict, setConflict] = useState('');
 
   return (
-    <button
-      onClick={() => setListening(true)}
-      onKeyDown={e => {
-        if (!listening) return;
-        e.preventDefault();
-        e.stopPropagation();
-        onChange(e.key);
-        setListening(false);
-      }}
-      onBlur={() => setListening(false)}
-      style={{
-        padding: '3px 10px', borderRadius: 'var(--radius-sm)',
-        background: listening ? 'var(--accent-dim)' : 'var(--bg-elevated)',
-        border: `1px solid ${listening ? 'var(--accent)' : 'var(--border)'}`,
-        color: listening ? 'var(--accent)' : 'var(--text-primary)',
-        fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)',
-        cursor: 'pointer', minWidth: 50, textAlign: 'center',
-        transition: 'all 0.15s',
-        outline: 'none',
-      }}
-    >
-      {listening ? '...' : displayKey(value)}
-    </button>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <button
+        onClick={() => { setListening(true); setConflict(''); }}
+        onKeyDown={e => {
+          if (!listening) return;
+          e.preventDefault();
+          e.stopPropagation();
+
+          // Esc cancels capture — revert to original
+          if (e.key === 'Escape') {
+            setListening(false);
+            setConflict('');
+            return;
+          }
+
+          // Check for duplicate — is this key used by another action?
+          const conflictAction = Object.entries(allBindings).find(
+            ([k, v]) => k !== actionKey && (v === e.key || v.toLowerCase() === e.key.toLowerCase())
+          );
+          if (conflictAction) {
+            setConflict(`Already used by "${conflictAction[0]}"`);
+            return;
+          }
+
+          setConflict('');
+          onChange(e.key);
+          setListening(false);
+        }}
+        onBlur={() => { setListening(false); setConflict(''); }}
+        style={{
+          padding: '3px 10px', borderRadius: 'var(--radius-sm)',
+          background: listening ? 'var(--accent-dim)' : conflict ? 'var(--danger-dim)' : 'var(--bg-elevated)',
+          border: `1px solid ${listening ? 'var(--accent)' : conflict ? 'rgba(255,71,87,0.3)' : 'var(--border)'}`,
+          color: listening ? 'var(--accent)' : conflict ? 'var(--danger)' : 'var(--text-primary)',
+          fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)',
+          cursor: 'pointer', minWidth: 50, textAlign: 'center',
+          transition: 'all 0.15s', outline: 'none',
+        }}
+      >
+        {listening ? 'Press key...' : displayKey(value)}
+      </button>
+      {conflict && (
+        <span style={{ fontSize: 8, color: 'var(--danger)', fontFamily: 'var(--font-mono)' }}>{conflict}</span>
+      )}
+    </div>
   );
 }
 
@@ -202,10 +230,25 @@ export function SettingsPanel() {
                       background: 'var(--bg-primary)', border: '1px solid var(--border)',
                     }}>
                       <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{kb.label}</span>
-                      <KeyCapture
-                        value={settings.keybindings[kb.key] || ''}
-                        onChange={key => updateKeybinding(kb.key, key)}
-                      />
+                      {kb.key === 'settings' ? (
+                        // Settings key is locked to Esc
+                        <span style={{
+                          padding: '3px 10px', borderRadius: 'var(--radius-sm)',
+                          background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                          color: 'var(--text-muted)', fontSize: 11, fontWeight: 700,
+                          fontFamily: 'var(--font-mono)', minWidth: 50, textAlign: 'center',
+                          opacity: 0.5,
+                        }}>
+                          {displayKey(settings.keybindings[kb.key] || 'Escape')}
+                        </span>
+                      ) : (
+                        <KeyCapture
+                          value={settings.keybindings[kb.key] || ''}
+                          onChange={key => updateKeybinding(kb.key, key)}
+                          allBindings={settings.keybindings}
+                          actionKey={kb.key}
+                        />
+                      )}
                     </div>
                   ))}
 

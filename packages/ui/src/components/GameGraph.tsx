@@ -400,6 +400,15 @@ function WorkerEdge(props: EdgeProps) {
   const showTraffic = useGameStore(s => s.settings.showTrafficDots);
   const hasTraffic = showTraffic && dots.length > 0;
 
+  // Track when traffic starts to force animation remount
+  const trafficEpochRef = React.useRef(0);
+  const prevHadTraffic = React.useRef(false);
+  if (hasTraffic && !prevHadTraffic.current) {
+    trafficEpochRef.current++;
+  }
+  prevHadTraffic.current = hasTraffic;
+  const trafficEpoch = trafficEpochRef.current;
+
   return (
     <>
       <BaseEdge
@@ -413,7 +422,7 @@ function WorkerEdge(props: EdgeProps) {
         id={id}
       />
       {hasTraffic && dots.map((dot, i) => (
-        <circle key={`${dot.color}-${dot.reverse}-${i}`} r={4} fill={dot.color} stroke="#000" strokeWidth={1}>
+        <circle key={`${id}-${trafficEpoch}-${i}`} r={4} fill={dot.color} stroke="#000" strokeWidth={1}>
           <animateMotion
             dur="1.1s"
             repeatCount="indefinite"
