@@ -4,6 +4,7 @@
 
 import type { RecipeCost, Resources } from './db.js';
 import type { ChipRarity } from './upgradeDefinitions.js';
+import { QUEST_GUIDES } from './questGuides.js';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -24,6 +25,11 @@ export type RewardType =
   | { kind: 'unique_equipment'; itemType: string; name: string; description: string; metadata: any }
   | { kind: 'resources'; resources: Partial<Resources> };
 
+export interface GuideStep {
+  title: string;
+  content: string; // supports simple markdown-like formatting
+}
+
 export interface QuestDef {
   id: string;
   chapter: number;
@@ -35,6 +41,7 @@ export interface QuestDef {
   objectives: QuestObjective[];
   rewards: RewardType[];
   position: { x: number; y: number };
+  guide?: GuideStep[];
 }
 
 // ── Chapter colors ──────────────────────────────────────────────────────────
@@ -286,6 +293,11 @@ export const QUESTS: QuestDef[] = [
     position: { x: 400, y: 1800 },
   },
 ];
+
+// Attach guide steps to each quest
+for (const q of QUESTS) {
+  (q as any).guide = QUEST_GUIDES[q.id] || [{ title: q.name, content: q.description }];
+}
 
 // ── New unlockable recipes ──────────────────────────────────────────────────
 

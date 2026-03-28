@@ -187,6 +187,7 @@ export function getQuestList() {
       objectives,
       rewards: q.rewards,
       position: q.position,
+      guide: q.guide || [],
       claimedAt: getQuestState().claimedAt[q.id] || null,
     };
   });

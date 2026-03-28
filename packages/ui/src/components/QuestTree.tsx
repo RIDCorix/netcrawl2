@@ -8,6 +8,7 @@ import { X, Lock, Check, BookOpen, Star, Gift } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { QuestGuideDialog } from './QuestGuideDialog';
 
 const CHAPTER_COLORS: Record<number, string> = {
   1: '#4ade80', 2: '#60a5fa', 3: '#a78bfa', 4: '#ef4444', 5: '#f59e0b', 6: '#00d4aa',
@@ -350,16 +351,10 @@ export function QuestTree() {
             </ReactFlow>
           </div>
 
-          {/* Detail panel */}
+          {/* Guide dialog */}
           <AnimatePresence>
-            {selectedQuest && (
-              <motion.div
-                key="quest-detail"
-                initial={{ x: 300, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 300, opacity: 0 }}
-                transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-              >
-                <QuestDetail quest={selectedQuest} onClose={() => selectQuest(null)} />
-              </motion.div>
+            {selectedQuest && selectedQuest.status !== 'locked' && (
+              <QuestGuideDialog quest={selectedQuest} onClose={() => selectQuest(null)} />
             )}
           </AnimatePresence>
         </motion.div>

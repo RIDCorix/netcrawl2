@@ -12,6 +12,7 @@ import { AchievementToast } from './components/AchievementToast';
 import { AchievementsPanel } from './components/AchievementsPanel';
 import { QuestTree } from './components/QuestTree';
 import { QuestToast } from './components/QuestToast';
+import { ActiveQuestsPanel } from './components/ActiveQuestsPanel';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -55,6 +56,7 @@ function GameView() {
       <div style={{ paddingTop: 64, height: '100%', position: 'relative' }}>
         <GameGraph />
       </div>
+      <ActiveQuestsPanel />
       <NodeDetailPanel />
       <WorkerDetailPanel />
       <WorkerListPanel />
