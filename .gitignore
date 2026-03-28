@@ -7,3 +7,6 @@ data/
 .env
 .env.local
 packages/ui/dist/
+
+# Player workspace (copy from workspace_example/ to start)
+workspace/
