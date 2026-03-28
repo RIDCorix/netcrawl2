@@ -127,6 +127,28 @@ class WorkerClass(metaclass=WorkerMeta):
         """Called repeatedly in a loop. Override with your worker logic."""
         pass
 
+    # ── Node access ─────────────────────────────────────────────────────────
+
+    def get_current_node(self):
+        """
+        Get a typed node object for the worker's current position.
+
+        Returns a subclass of BaseNode based on node type:
+        - HubNode, ResourceNode, RelayNode, ComputeNode, LockedNode, InfectedNode
+
+        Example:
+            node = self.get_current_node()
+            if isinstance(node, ComputeNode):
+                task = node.get_task()
+                answer = task.parameters['a'] + task.parameters['b']
+                node.submit(task.task_id, answer)
+        """
+        from netcrawl.nodes import create_node
+        result = self._client.action("get_node_info", {})
+        if not result.get("ok"):
+            raise ValueError(f"get_current_node() failed: {result.get('error')}")
+        return create_node(result, self._client, self._worker_id)
+
     # ── Movement ────────────────────────────────────────────────────────────
 
     def move(self, target: str) -> None:

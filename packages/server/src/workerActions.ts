@@ -452,6 +452,33 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       return { ok: true, edges: connectedEdges, currentNode: curNode };
     }
 
+    case 'get_node_info': {
+      const infoNode = worker.current_node || worker.node_id;
+      const nodeInfo = nodes.find((n: any) => n.id === infoNode);
+      if (!nodeInfo) return { ok: false, error: 'Node not found' };
+      const infoEdges = edges
+        .filter((e: any) => e.source === infoNode || e.target === infoNode)
+        .map((e: any) => ({ id: e.id, otherNode: e.source === infoNode ? e.target : e.source }));
+      return {
+        ok: true,
+        id: nodeInfo.id,
+        type: nodeInfo.type,
+        label: nodeInfo.data.label,
+        data: {
+          resource: nodeInfo.data.resource,
+          rate: nodeInfo.data.rate,
+          difficulty: nodeInfo.data.difficulty,
+          rewardResource: nodeInfo.data.rewardResource,
+          unlocked: nodeInfo.data.unlocked,
+          infected: nodeInfo.data.infected,
+          mineable: nodeInfo.data.mineable,
+          upgradeLevel: nodeInfo.data.upgradeLevel,
+          solveCount: nodeInfo.data.solveCount,
+        },
+        edges: infoEdges,
+      };
+    }
+
     case 'compute': {
       const computeNode = worker.current_node || worker.node_id;
       const node = nodes.find((n: any) => n.id === computeNode);
