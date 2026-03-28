@@ -19,7 +19,10 @@
     "lucide-react": "^0.400.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
+    "react-markdown": "^10.1.0",
+    "react-syntax-highlighter": "^16.1.1",
     "reactflow": "^11.0.0",
+    "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.5.0",
     "tailwindcss-animate": "^1.0.7",
     "zustand": "^4.0.0"
@@ -27,6 +30,7 @@
   "devDependencies": {
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
+    "@types/react-syntax-highlighter": "^15.5.13",
     "@vitejs/plugin-react": "^4.0.0",
     "autoprefixer": "^10.0.0",
     "postcss": "^8.0.0",

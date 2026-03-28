@@ -8,6 +8,7 @@ import { X, ChevronLeft, ChevronRight, BookOpen, Check, Gift } from 'lucide-reac
 import { useGameStore } from '../store/gameStore';
 import { useState } from 'react';
 import axios from 'axios';
+import { Markdown } from './ui/markdown';
 
 const CHAPTER_COLORS: Record<number, string> = {
   1: '#4ade80', 2: '#60a5fa', 3: '#a78bfa', 4: '#ef4444', 5: '#f59e0b', 6: '#00d4aa',
@@ -103,27 +104,8 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
                 <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginBottom: 14 }}>
                   {guide[page].title}
                 </div>
-                <div style={{
-                  fontSize: 13, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)',
-                  lineHeight: 1.8, whiteSpace: 'pre-wrap',
-                }}>
-                  {guide[page].content.split('\n').map((line: string, i: number) => {
-                    // Simple code block detection
-                    const isCode = line.startsWith('  ') || line.startsWith('from ') || line.startsWith('class ') || line.startsWith('def ') || line.match(/^[a-z_]+\s*[=(]/);
-                    if (isCode) {
-                      return (
-                        <div key={i} style={{
-                          background: 'var(--bg-primary)', borderRadius: 'var(--radius-sm)',
-                          padding: '2px 8px', margin: '2px 0',
-                          fontFamily: 'var(--font-mono)', fontSize: 12,
-                          color: 'var(--accent)', borderLeft: `2px solid ${color}`,
-                        }}>
-                          {line}
-                        </div>
-                      );
-                    }
-                    return <div key={i}>{line || <br />}</div>;
-                  })}
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                  <Markdown content={guide[page].content} />
                 </div>
               </motion.div>
             ) : (
