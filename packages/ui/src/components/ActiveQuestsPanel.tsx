@@ -30,9 +30,16 @@ export function ActiveQuestsPanel() {
     }).catch(() => {});
   }, [questSummary]);
 
+  const [claimedIds, setClaimedIds] = useState<Set<string>>(new Set());
+
   const handleClaim = useCallback(async (questId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    try { await axios.post(`/api/quests/${questId}/claim`); } catch {}
+    try {
+      await axios.post(`/api/quests/${questId}/claim`);
+      setClaimedIds(prev => new Set([...prev, questId]));
+      // Remove after animation completes
+      setTimeout(() => setClaimedIds(prev => { const n = new Set(prev); n.delete(questId); return n; }), 1500);
+    } catch {}
   }, []);
 
   if (quests.length === 0) return null;
@@ -97,60 +104,88 @@ export function ActiveQuestsPanel() {
                     ? q.objectives.reduce((sum: number, o: any) => sum + Math.min(1, o.current / o.target), 0) / q.objectives.length
                     : 0;
 
+                  const justClaimed = claimedIds.has(q.id);
+
                   return (
-                    <button
+                    <motion.div
                       key={q.id}
-                      onClick={() => setSelectedQuest(q)}
-                      style={{
-                        width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-                        padding: '6px 8px', marginBottom: 2,
-                        background: 'none', border: 'none', borderRadius: 'var(--radius-sm)',
-                        cursor: 'pointer', textAlign: 'left',
-                        transition: 'background 0.1s',
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      layout
+                      initial={{ opacity: 1, x: 0 }}
+                      animate={justClaimed ? { opacity: 0, x: -60, scale: 0.9 } : { opacity: 1, x: 0, scale: 1 }}
+                      transition={justClaimed ? { duration: 0.5, delay: 0.6 } : { duration: 0.15 }}
                     >
-                      {/* Status indicator */}
-                      <div style={{
-                        width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: allMet ? `${color}20` : 'var(--bg-primary)',
-                        border: `1.5px solid ${allMet ? color : 'var(--border)'}`,
-                      }}>
-                        {allMet ? <Gift size={9} style={{ color }} /> : null}
-                      </div>
-
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {q.name}
-                        </div>
-                        {/* Progress bar */}
-                        <div style={{ height: 2, borderRadius: 1, background: 'var(--bg-primary)', marginTop: 3, overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${progress * 100}%`, background: color, borderRadius: 1, transition: 'width 0.3s' }} />
-                        </div>
-                      </div>
-
-                      {/* Claim button or chapter badge */}
-                      {allMet && q.status === 'completed' ? (
-                        <button
-                          onClick={(e) => handleClaim(q.id, e)}
+                      <button
+                        onClick={() => !justClaimed && setSelectedQuest(q)}
+                        style={{
+                          width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                          padding: '6px 8px', marginBottom: 2,
+                          background: justClaimed ? 'rgba(74,222,128,0.08)' : 'none',
+                          border: justClaimed ? '1px solid rgba(74,222,128,0.2)' : 'none',
+                          borderRadius: 'var(--radius-sm)',
+                          cursor: justClaimed ? 'default' : 'pointer', textAlign: 'left',
+                          transition: 'all 0.3s',
+                        }}
+                        onMouseEnter={e => { if (!justClaimed) e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+                        onMouseLeave={e => { if (!justClaimed) e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        {/* Status indicator */}
+                        <motion.div
+                          animate={justClaimed ? { scale: [1, 1.4, 1], rotate: [0, 360] } : {}}
+                          transition={{ duration: 0.5 }}
                           style={{
-                            padding: '3px 8px', borderRadius: 'var(--radius-sm)',
-                            background: 'var(--accent)', color: '#000', border: 'none',
-                            fontSize: 9, fontWeight: 800, fontFamily: 'var(--font-mono)',
-                            cursor: 'pointer', flexShrink: 0,
-                            display: 'flex', alignItems: 'center', gap: 3,
+                            width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            background: justClaimed ? 'rgba(74,222,128,0.2)' : allMet ? `${color}20` : 'var(--bg-primary)',
+                            border: `1.5px solid ${justClaimed ? '#4ade80' : allMet ? color : 'var(--border)'}`,
                           }}
                         >
-                          <Gift size={8} /> Claim
-                        </button>
-                      ) : (
-                        <span style={{ fontSize: 8, color, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
-                          Ch.{q.chapter}
-                        </span>
-                      )}
-                    </button>
+                          {justClaimed ? <Check size={10} style={{ color: '#4ade80' }} /> : allMet ? <Gift size={9} style={{ color }} /> : null}
+                        </motion.div>
+
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)',
+                            color: justClaimed ? '#4ade80' : 'var(--text-primary)',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            textDecoration: justClaimed ? 'line-through' : 'none',
+                          }}>
+                            {q.name}
+                          </div>
+                          {!justClaimed && (
+                            <div style={{ height: 2, borderRadius: 1, background: 'var(--bg-primary)', marginTop: 3, overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${progress * 100}%`, background: color, borderRadius: 1, transition: 'width 0.3s' }} />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Claim button / claimed state / chapter badge */}
+                        {justClaimed ? (
+                          <motion.span
+                            initial={{ scale: 0 }} animate={{ scale: 1 }}
+                            style={{ fontSize: 9, fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#4ade80', flexShrink: 0 }}
+                          >
+                            Done!
+                          </motion.span>
+                        ) : allMet && q.status === 'completed' ? (
+                          <button
+                            onClick={(e) => handleClaim(q.id, e)}
+                            style={{
+                              padding: '3px 8px', borderRadius: 'var(--radius-sm)',
+                              background: 'var(--accent)', color: '#000', border: 'none',
+                              fontSize: 9, fontWeight: 800, fontFamily: 'var(--font-mono)',
+                              cursor: 'pointer', flexShrink: 0,
+                              display: 'flex', alignItems: 'center', gap: 3,
+                            }}
+                          >
+                            <Gift size={8} /> Claim
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: 8, color, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
+                            Ch.{q.chapter}
+                          </span>
+                        )}
+                      </button>
+                    </motion.div>
                   );
                 })}
               </div>

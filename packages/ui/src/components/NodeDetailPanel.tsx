@@ -467,7 +467,7 @@ export function NodeDetailPanel() {
                   </div>
                 </div>
                 <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.5, marginTop: 4 }}>
-                  Send a worker here and call <span style={{ color: 'var(--accent)' }}>self.compute()</span> to get a puzzle, then <span style={{ color: 'var(--accent)' }}>self.submit(taskId, answer)</span> to earn resources.
+                  Send a worker here, then <span style={{ color: 'var(--accent)' }}>node = self.get_current_node()</span> to get a ComputeNode. Call <span style={{ color: 'var(--accent)' }}>node.get_task()</span> and <span style={{ color: 'var(--accent)' }}>node.submit(task_id, answer)</span>.
                 </div>
               </div>
             )}
