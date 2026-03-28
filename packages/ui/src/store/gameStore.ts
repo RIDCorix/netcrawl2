@@ -104,6 +104,13 @@ export interface GameState {
   questsOpen: boolean;
   selectedQuestId: string | null;
   questToasts: Array<{ id: string; name: string; type: 'available' | 'completed'; timestamp: number }>;
+  // Settings
+  settingsOpen: boolean;
+  settings: {
+    edgeStyle: 'straight' | 'smoothstep' | 'bezier';
+    showTrafficDots: boolean;
+    showWorkerDots: boolean;
+  };
   // Deploy wizard — edge selection mode
   edgeSelectMode: {
     fieldName: string;
@@ -119,6 +126,8 @@ interface GameActions {
   updateFromServer: (data: any) => void;
   toggleInventory: () => void;
   toggleAchievements: () => void;
+  toggleSettings: () => void;
+  updateSettings: (patch: Partial<GameState['settings']>) => void;
   toggleQuests: () => void;
   selectQuest: (questId: string | null) => void;
   addQuestToast: (toast: { id: string; name: string; type: 'available' | 'completed' }) => void;
@@ -145,6 +154,12 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   achievements: { unlocked: {}, stats: {}, totalUnlocked: 0, totalAchievements: 0 },
   achievementToasts: [],
   achievementsOpen: false,
+  settingsOpen: false,
+  settings: {
+    edgeStyle: 'smoothstep' as const,
+    showTrafficDots: true,
+    showWorkerDots: true,
+  },
   questSummary: { total: 0, claimed: 0, completed: 0, available: 0 },
   questsOpen: false,
   selectedQuestId: null,
@@ -158,6 +173,10 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   setEdgeSelectMode: (mode) => set({ edgeSelectMode: mode }),
   toggleInventory: () => set((state) => ({ inventoryOpen: !state.inventoryOpen })),
   toggleAchievements: () => set((state) => ({ achievementsOpen: !state.achievementsOpen })),
+  toggleSettings: () => set((state) => ({ settingsOpen: !state.settingsOpen })),
+  updateSettings: (patch) => set((state) => ({
+    settings: { ...state.settings, ...patch },
+  })),
   toggleQuests: () => set((state) => ({ questsOpen: !state.questsOpen })),
   selectQuest: (questId) => set({ selectedQuestId: questId }),
   addQuestToast: (toast) => set((state) => ({

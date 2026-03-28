@@ -14,6 +14,8 @@ import ReactFlow, {
   Position,
   EdgeProps,
   BaseEdge,
+  getSmoothStepPath,
+  getBezierPath,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useGameStore, GameNode, GameEdge, Worker } from '../store/gameStore';
@@ -343,8 +345,17 @@ const NODE_TYPES: NodeTypes = {
 // Uses CSS offset-path animation — survives React re-renders without glitch.
 
 function WorkerEdge(props: EdgeProps) {
-  const { sourceX, sourceY, targetX, targetY, style, markerEnd, id, source, target } = props;
-  const edgePath = `M ${sourceX} ${sourceY} L ${targetX} ${targetY}`;
+  const { sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, markerEnd, id, source, target } = props;
+  const edgeStyle = useGameStore(s => s.settings.edgeStyle);
+
+  let edgePath: string;
+  if (edgeStyle === 'straight') {
+    edgePath = `M ${sourceX} ${sourceY} L ${targetX} ${targetY}`;
+  } else if (edgeStyle === 'bezier') {
+    [edgePath] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
+  } else {
+    [edgePath] = getSmoothStepPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
+  }
 
   // Sample traffic once per second via interval, stored in a ref to avoid re-renders
   const [snapshot, setSnapshot] = React.useState('');
