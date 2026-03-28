@@ -133,13 +133,14 @@ interface Store {
 // ── Initial data ──────────────────────────────────────────────────────────────
 
 export const INITIAL_NODES = [
-  { id: 'hub', type: 'hub', position: { x: 300, y: 250 }, data: { label: 'Hub', unlocked: true } },
-  { id: 'r1', type: 'resource', position: { x: 150, y: 100 }, data: { label: 'Energy Node', resource: 'energy', rate: 5, unlocked: false, unlockCost: { energy: 20 }, mineable: true, drops: [], mineCount: 0 } },
-  { id: 'r2', type: 'resource', position: { x: 500, y: 120 }, data: { label: 'Ore Mine', resource: 'ore', rate: 3, unlocked: false, unlockCost: { energy: 30 }, mineable: true, drops: [], mineCount: 0 } },
-  { id: 'r3', type: 'resource', position: { x: 480, y: 380 }, data: { label: 'Data Cache', resource: 'data', rate: 2, unlocked: false, unlockCost: { energy: 40, ore: 20 }, mineable: true, drops: [], mineCount: 0 } },
-  { id: 'relay1', type: 'relay', position: { x: 320, y: 420 }, data: { label: 'Relay Alpha', unlocked: false, unlockCost: { energy: 50, ore: 30 } } },
-  { id: 'locked1', type: 'locked', position: { x: 650, y: 280 }, data: { label: 'Unknown Node', unlocked: false, unlockCost: { energy: 100, ore: 50, data: 20 } } },
-  { id: 'infected1', type: 'infected', position: { x: 100, y: 350 }, data: { label: 'Infected Node', infected: true, unlocked: true } },
+  { id: 'hub', type: 'hub', position: { x: 400, y: 300 }, data: { label: 'Hub', unlocked: true } },
+  { id: 'r1', type: 'resource', position: { x: 200, y: 120 }, data: { label: 'Energy Node', resource: 'energy', rate: 5, unlocked: false, unlockCost: { energy: 20 }, mineable: true, drops: [], mineCount: 0 } },
+  { id: 'r2', type: 'resource', position: { x: 620, y: 120 }, data: { label: 'Ore Mine', resource: 'ore', rate: 3, unlocked: false, unlockCost: { energy: 30 }, mineable: true, drops: [], mineCount: 0 } },
+  { id: 'r3', type: 'resource', position: { x: 620, y: 480 }, data: { label: 'Data Cache', resource: 'data', rate: 2, unlocked: false, unlockCost: { energy: 40, ore: 20 }, mineable: true, drops: [], mineCount: 0 } },
+  { id: 'relay1', type: 'relay', position: { x: 200, y: 480 }, data: { label: 'Relay Alpha', unlocked: false, unlockCost: { energy: 15 } } },
+  { id: 'firewall1', type: 'relay', position: { x: 80, y: 300 }, data: { label: 'Firewall Gate', unlocked: false, unlockCost: { energy: 25 } } },
+  { id: 'locked1', type: 'locked', position: { x: 750, y: 300 }, data: { label: 'Unknown Node', unlocked: false, unlockCost: { energy: 100, ore: 50, data: 20 } } },
+  { id: 'infected1', type: 'infected', position: { x: -120, y: 300 }, data: { label: 'Infected Node', infected: true, unlocked: true } },
 ];
 
 export const INITIAL_EDGES = [
@@ -147,8 +148,10 @@ export const INITIAL_EDGES = [
   { id: 'e2', source: 'hub', target: 'r2' },
   { id: 'e3', source: 'hub', target: 'r3' },
   { id: 'e4', source: 'hub', target: 'relay1' },
-  { id: 'e5', source: 'relay1', target: 'locked1' },
-  { id: 'e6', source: 'hub', target: 'infected1' },
+  { id: 'e5', source: 'r2', target: 'locked1' },
+  { id: 'e6', source: 'hub', target: 'firewall1' },
+  { id: 'e7', source: 'firewall1', target: 'infected1' },
+  { id: 'e8', source: 'relay1', target: 'firewall1' },
 ];
 
 export const INITIAL_RESOURCES: Resources = { energy: 50, ore: 0, data: 0 };

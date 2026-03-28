@@ -8,6 +8,8 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   BackgroundVariant,
+  Handle,
+  Position,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useGameStore, GameNode, GameEdge } from '../store/gameStore';
@@ -17,43 +19,79 @@ import { motion } from 'framer-motion';
 
 // ── Custom Node Components ──────────────────────────────────────────────────
 
-function NodeWrapper({ children, selected, style = {} }: { children: React.ReactNode; selected?: boolean; style?: React.CSSProperties }) {
+function NodeWrapper({ children, selected, glowColor, style = {} }: {
+  children: React.ReactNode;
+  selected?: boolean;
+  glowColor?: string;
+  style?: React.CSSProperties;
+}) {
+  const borderColor = selected ? 'var(--accent)' : glowColor || 'var(--border-bright)';
+
   return (
-    <div
-      style={{
-        padding: '10px 14px',
-        borderRadius: '10px',
-        background: 'var(--bg-glass)',
-        backdropFilter: 'blur(12px)',
-        border: `1.5px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
-        boxShadow: selected ? '0 0 0 2px var(--accent-dim), 0 4px 24px rgba(0,0,0,0.4)' : '0 4px 24px rgba(0,0,0,0.3)',
-        minWidth: '100px',
-        textAlign: 'center',
-        cursor: 'pointer',
-        transition: 'all 0.15s',
-        position: 'relative',
-        ...style,
-      }}
-    >
+    <div style={{
+      position: 'relative',
+      padding: '14px 20px',
+      borderRadius: 'var(--radius-lg)',
+      background: 'var(--bg-glass-heavy)',
+      backdropFilter: 'blur(16px)',
+      border: `1px solid ${borderColor}`,
+      boxShadow: selected
+        ? `0 0 0 1px var(--accent-dim), 0 0 24px rgba(0, 212, 170, 0.15), 0 8px 32px rgba(0, 0, 0, 0.5)`
+        : glowColor
+          ? `0 0 16px ${glowColor}33, 0 8px 32px rgba(0, 0, 0, 0.4)`
+          : '0 4px 24px rgba(0, 0, 0, 0.4)',
+      minWidth: 120,
+      textAlign: 'center' as const,
+      cursor: 'pointer',
+      transition: 'all 0.2s ease',
+      ...style,
+    }}>
+      <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
+      <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
+      <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
+      <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
       {children}
     </div>
   );
 }
 
-function NodeLabel({ label, subtitle, icon: Icon, iconColor }: {
+function NodeLabel({ label, subtitle, icon: Icon, iconColor, iconBg }: {
   label: string;
   subtitle?: string;
   icon: any;
   iconColor: string;
+  iconBg?: string;
 }) {
   return (
-    <div className="flex flex-col items-center gap-1">
-      <Icon size={18} color={iconColor} />
-      <div className="text-xs font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+      <div style={{
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: iconBg || `color-mix(in srgb, ${iconColor} 15%, transparent)`,
+        border: `1px solid color-mix(in srgb, ${iconColor} 25%, transparent)`,
+      }}>
+        <Icon size={18} color={iconColor} />
+      </div>
+      <div style={{
+        fontSize: 12,
+        fontWeight: 700,
+        color: 'var(--text-primary)',
+        fontFamily: 'var(--font-mono)',
+        letterSpacing: '0.02em',
+      }}>
         {label}
       </div>
       {subtitle && (
-        <div className="text-xs" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+        <div style={{
+          fontSize: 10,
+          color: 'var(--text-muted)',
+          fontFamily: 'var(--font-mono)',
+          letterSpacing: '0.05em',
+        }}>
           {subtitle}
         </div>
       )}
@@ -100,7 +138,7 @@ function DepletedOverlay({ depletedUntil }: { depletedUntil?: number }) {
       style={{
         position: 'absolute',
         inset: 0,
-        borderRadius: '9px',
+        borderRadius: 'var(--radius-lg)',
         background: 'rgba(0,0,0,0.55)',
         display: 'flex',
         alignItems: 'center',
@@ -108,7 +146,7 @@ function DepletedOverlay({ depletedUntil }: { depletedUntil?: number }) {
         zIndex: 1,
       }}
     >
-      <span style={{ color: '#f87171', fontSize: '11px', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
+      <span style={{ color: 'var(--danger)', fontSize: '11px', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
         {remaining > 0 ? `${remaining}s` : 'depleted'}
       </span>
     </div>
@@ -117,8 +155,11 @@ function DepletedOverlay({ depletedUntil }: { depletedUntil?: number }) {
 
 function HubNode({ data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} style={{ border: '1.5px solid var(--accent)', minWidth: '110px' }}>
-      <NodeLabel label={data.label} icon={Shield} iconColor="var(--accent)" subtitle="Central Hub" />
+    <NodeWrapper selected={selected} glowColor="var(--accent)" style={{
+      animation: 'hub-pulse 3s ease-in-out infinite',
+      minWidth: 130,
+    }}>
+      <NodeLabel label={data.label} icon={Shield} iconColor="var(--accent)" subtitle="CENTRAL HUB" />
     </NodeWrapper>
   );
 }
@@ -134,8 +175,9 @@ function ResourceNode({ data, selected }: any) {
   return (
     <NodeWrapper
       selected={selected}
+      glowColor={data.unlocked && !isDepleted ? color : undefined}
       style={{
-        opacity: data.unlocked ? (isDepleted ? 0.7 : 1) : 0.6,
+        opacity: data.unlocked ? (isDepleted ? 0.7 : 1) : 0.5,
         filter: isDepleted ? 'grayscale(60%)' : undefined,
       }}
     >
@@ -147,10 +189,10 @@ function ResourceNode({ data, selected }: any) {
         iconColor={data.unlocked ? (isDepleted ? 'var(--text-muted)' : color) : 'var(--text-muted)'}
         subtitle={
           isDepleted
-            ? 'Depleted'
+            ? 'DEPLETED'
             : data.unlocked
             ? `+${data.rate}/harvest`
-            : 'Locked'
+            : 'LOCKED'
         }
       />
     </NodeWrapper>
@@ -159,30 +201,35 @@ function ResourceNode({ data, selected }: any) {
 
 function RelayNode({ data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} style={{ opacity: data.unlocked ? 1 : 0.6 }}>
-      <NodeLabel label={data.label} icon={Radio} iconColor="var(--accent-secondary)" subtitle={data.unlocked ? 'Active' : 'Locked'} />
+    <NodeWrapper selected={selected} glowColor={data.unlocked ? 'var(--accent-secondary)' : undefined} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
+      <NodeLabel
+        label={data.label}
+        icon={Radio}
+        iconColor={data.unlocked ? 'var(--accent-secondary)' : 'var(--text-muted)'}
+        subtitle={data.unlocked ? 'ACTIVE' : 'LOCKED'}
+      />
     </NodeWrapper>
   );
 }
 
 function InfectedNode({ data, selected }: any) {
   return (
-    <motion.div
-      animate={{ boxShadow: ['0 0 0 0 rgba(239,68,68,0.4)', '0 0 0 8px rgba(239,68,68,0)', '0 0 0 0 rgba(239,68,68,0.4)'] }}
-      transition={{ duration: 1.5, repeat: Infinity }}
-      style={{ borderRadius: '10px' }}
-    >
-      <NodeWrapper selected={selected} style={{ border: '1.5px solid var(--danger)' }}>
-        <NodeLabel label={data.label} icon={AlertTriangle} iconColor="var(--danger)" subtitle="Infected!" />
-      </NodeWrapper>
-    </motion.div>
+    <NodeWrapper selected={selected} glowColor="var(--danger)" style={{
+      animation: 'infected-pulse 1.5s ease-in-out infinite',
+      borderColor: 'var(--danger)',
+    }}>
+      <NodeLabel label={data.label} icon={AlertTriangle} iconColor="var(--danger)" subtitle="INFECTED" />
+    </NodeWrapper>
   );
 }
 
 function LockedNode({ data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} style={{ opacity: 0.5, border: '1.5px dashed var(--border)' }}>
-      <NodeLabel label={data.label} icon={Lock} iconColor="var(--text-muted)" subtitle="Unknown" />
+    <NodeWrapper selected={selected} style={{
+      opacity: 0.4,
+      border: '1px dashed var(--border-bright)',
+    }}>
+      <NodeLabel label={data.label} icon={Lock} iconColor="var(--text-muted)" subtitle="UNKNOWN" />
     </NodeWrapper>
   );
 }
@@ -195,7 +242,7 @@ const NODE_TYPES: NodeTypes = {
   locked: LockedNode,
 };
 
-// ── Conversion helpers ──────────────────────────────────────────────────────
+// ── Conversion helpers ──────────────────────────────────────────────────
 
 function toRFNodes(gameNodes: GameNode[], selectedId: string | null): Node[] {
   return gameNodes.map(n => ({
@@ -212,12 +259,16 @@ function toRFEdges(gameEdges: GameEdge[]): Edge[] {
     id: e.id,
     source: e.source,
     target: e.target,
-    style: { stroke: 'var(--border-bright)', strokeWidth: 1.5 },
+    style: {
+      stroke: 'var(--border-bright)',
+      strokeWidth: 1.5,
+    },
     animated: false,
+    type: 'smoothstep',
   }));
 }
 
-// ── Main Graph ──────────────────────────────────────────────────────────────
+// ── Main Graph ──────────────────────────────────────────────────────────
 
 export function GameGraph() {
   const { nodes: gameNodes, edges: gameEdges, selectedNodeId, selectNode } = useGameStore();
@@ -243,36 +294,42 @@ export function GameGraph() {
         onNodeClick={onNodeClick}
         nodeTypes={NODE_TYPES}
         fitView
-        fitViewOptions={{ padding: 0.2 }}
+        fitViewOptions={{ padding: 0.3 }}
         style={{ background: 'transparent' }}
         proOptions={{ hideAttribution: true }}
+        minZoom={0.4}
+        maxZoom={2}
       >
         <Background
           variant={BackgroundVariant.Dots}
-          gap={24}
+          gap={32}
           size={1}
-          color="rgba(255,255,255,0.05)"
+          color="rgba(0, 212, 170, 0.06)"
         />
         <Controls
+          showInteractive={false}
           style={{
-            background: 'var(--bg-glass)',
-            border: '1px solid var(--border)',
-            borderRadius: '8px',
+            background: 'var(--bg-glass-heavy)',
+            border: '1px solid var(--border-bright)',
+            borderRadius: 'var(--radius-md)',
           }}
         />
         <MiniMap
           style={{
             background: 'var(--bg-secondary)',
-            border: '1px solid var(--border)',
-            borderRadius: '8px',
+            border: '1px solid var(--border-bright)',
+            borderRadius: 'var(--radius-md)',
           }}
           nodeColor={(node) => {
-            if (node.type === 'hub') return 'var(--accent)';
-            if (node.type === 'infected') return 'var(--danger)';
-            if (node.type === 'locked') return '#333';
-            return '#555';
+            if (node.type === 'hub') return '#00d4aa';
+            if (node.type === 'infected') return '#ff4757';
+            if (node.type === 'resource') return '#45aaf2';
+            if (node.type === 'relay') return '#7c6af0';
+            return '#333';
           }}
-          maskColor="rgba(0,0,0,0.5)"
+          maskColor="rgba(0, 0, 0, 0.6)"
+          pannable
+          zoomable
         />
       </ReactFlow>
     </div>

@@ -1,29 +1,35 @@
 /* ── Design Tokens ─────────────────────────────────────────────────── */
 :root {
-  /* Colors */
-  --bg-primary:        #080c14;
-  --bg-secondary:      #0d1220;
-  --bg-elevated:       #12192a;
-  --bg-glass:          rgba(13, 18, 32, 0.7);
-  --bg-glass-heavy:    rgba(8, 12, 20, 0.85);
+  /* Colors — deep space command center */
+  --bg-primary:        #060a10;
+  --bg-secondary:      #0a0f1a;
+  --bg-elevated:       #101828;
+  --bg-glass:          rgba(10, 15, 26, 0.75);
+  --bg-glass-heavy:    rgba(6, 10, 16, 0.92);
 
-  --border:            rgba(255, 255, 255, 0.08);
-  --border-bright:     rgba(255, 255, 255, 0.15);
+  --border:            rgba(0, 212, 170, 0.08);
+  --border-bright:     rgba(0, 212, 170, 0.18);
+  --border-glow:       rgba(0, 212, 170, 0.35);
 
-  --text-primary:      #e8edf5;
-  --text-muted:        rgba(232, 237, 245, 0.45);
+  --text-primary:      #e0ecf5;
+  --text-secondary:    rgba(224, 236, 245, 0.65);
+  --text-muted:        rgba(224, 236, 245, 0.35);
 
   --accent:            #00d4aa;
-  --accent-dim:        rgba(0, 212, 170, 0.2);
+  --accent-dim:        rgba(0, 212, 170, 0.15);
+  --accent-glow:       rgba(0, 212, 170, 0.4);
   --accent-secondary:  #7c6af0;
+  --accent-secondary-dim: rgba(124, 106, 240, 0.15);
 
-  --danger:            #ef4444;
-  --success:           #22c55e;
-  --warning:           #f59e0b;
+  --danger:            #ff4757;
+  --danger-dim:        rgba(255, 71, 87, 0.12);
+  --danger-glow:       rgba(255, 71, 87, 0.5);
+  --success:           #2ed573;
+  --warning:           #ffa502;
 
-  --energy-color:      #fbbf24;
+  --energy-color:      #ffd32a;
   --ore-color:         #a78bfa;
-  --data-color:        #38bdf8;
+  --data-color:        #45aaf2;
 
   /* Typography */
   --font-sans:  'Inter', system-ui, -apple-system, sans-serif;
@@ -36,6 +42,11 @@
   --space-4: 16px;
   --space-5: 20px;
   --space-6: 24px;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
 }
 
 /* ── Reset ─────────────────────────────────────────────────────────── */
@@ -59,6 +70,22 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ── Scanline overlay ──────────────────────────────────────────────── */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+}
+
 /* ── Scrollbar ─────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 4px;
@@ -68,11 +95,11 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--accent-dim);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--accent-glow);
 }
 
 /* ── ReactFlow overrides ────────────────────────────────────────────── */
@@ -80,27 +107,68 @@ body {
   background: transparent !important;
 }
 
+.react-flow__controls {
+  border-radius: var(--radius-md) !important;
+  overflow: hidden;
+  border: 1px solid var(--border-bright) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+}
+
 .react-flow__controls button {
   background: var(--bg-elevated) !important;
   border-bottom: 1px solid var(--border) !important;
   color: var(--text-muted) !important;
   fill: var(--text-muted) !important;
+  width: 28px !important;
+  height: 28px !important;
 }
 
 .react-flow__controls button:hover {
   background: var(--bg-glass) !important;
-  color: var(--text-primary) !important;
-  fill: var(--text-primary) !important;
+  color: var(--accent) !important;
+  fill: var(--accent) !important;
 }
 
 .react-flow__attribution {
   display: none !important;
 }
 
+.react-flow__minimap {
+  border-radius: var(--radius-md) !important;
+  overflow: hidden;
+  border: 1px solid var(--border-bright) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ── Edge glow on infected connections ─────────────────────────────── */
+.react-flow__edge-path {
+  filter: drop-shadow(0 0 2px rgba(0, 212, 170, 0.15));
+}
+
 /* ── Animations ────────────────────────────────────────────────────── */
 @keyframes pulse-glow {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
+}
+
+@keyframes infected-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.5), inset 0 0 12px rgba(255, 71, 87, 0.1); }
+  50% { box-shadow: 0 0 20px 4px rgba(255, 71, 87, 0.3), inset 0 0 20px rgba(255, 71, 87, 0.15); }
+}
+
+@keyframes hub-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 212, 170, 0.3), 0 0 20px rgba(0, 212, 170, 0.1); }
+  50% { box-shadow: 0 0 16px 4px rgba(0, 212, 170, 0.2), 0 0 30px rgba(0, 212, 170, 0.15); }
+}
+
+@keyframes grid-scroll {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 40px; }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 
 .pulse {
@@ -110,4 +178,8 @@ body {
 /* ── Utility classes ────────────────────────────────────────────────── */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+.game-over-banner {
+  animation: blink 1s ease-in-out infinite;
 }

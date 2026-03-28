@@ -13,12 +13,25 @@ const queryClient = new QueryClient({
 });
 
 function GameView() {
-  useGameState(); // sets up WS + initial fetch
+  useGameState();
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: 'var(--bg-primary)' }}>
+    <div style={{
+      width: '100vw',
+      height: '100vh',
+      background: 'var(--bg-primary)',
+      position: 'relative',
+    }}>
+      {/* Subtle radial gradient backdrop */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        background: 'radial-gradient(ellipse at 50% 40%, rgba(0, 212, 170, 0.03) 0%, transparent 60%)',
+        pointerEvents: 'none',
+      }} />
+
       <ResourceBar />
-      <div style={{ paddingTop: '60px', height: '100%' }}>
+      <div style={{ paddingTop: 64, height: '100%', position: 'relative' }}>
         <GameGraph />
       </div>
       <NodeDetailPanel />

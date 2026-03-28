@@ -326,7 +326,7 @@ router.get('/workers', (req: Request, res: Response) => {
 
 // GET /api/worker/:id/logs
 router.get('/worker/:id/logs', (req: Request, res: Response) => {
-  const logs = getWorkerLogs(req.params.id);
+  const logs = getWorkerLogs(req.params.id as string);
   res.json({ logs });
 });
 
