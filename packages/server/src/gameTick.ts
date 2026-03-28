@@ -62,13 +62,13 @@ function tick() {
   // Check if hub is infected → game over
   const hub = nodes.find((n: any) => n.id === 'hub');
   if (hub && (hub.data.infected || hub.type === 'infected')) {
-    saveGameState({ nodes, edges, resources, tick: tick + 1, gameOver: true, playerInventory: state.playerInventory });
+    saveGameState({ ...state, nodes, edges, resources, tick: tick + 1, gameOver: true });
     broadcast({ type: 'STATE_UPDATE', payload: { nodes, edges, resources, tick: tick + 1, gameOver: true, workers: getWorkers() } });
     console.log('[Tick] GAME OVER - Hub infected!');
     return;
   }
 
-  saveGameState({ nodes, edges, resources, tick: tick + 1, gameOver: false, playerInventory: state.playerInventory });
+  saveGameState({ ...state, nodes, edges, resources, tick: tick + 1, gameOver: false });
 
   if (changed || tick % 5 === 0) {
     broadcast({ type: 'STATE_UPDATE', payload: { nodes, edges, resources, tick: tick + 1, gameOver: false, workers: getWorkers() } });

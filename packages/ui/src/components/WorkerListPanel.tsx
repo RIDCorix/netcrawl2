@@ -16,15 +16,15 @@ interface StatusConfig {
 }
 
 const STATUS_CONFIG: Record<string, StatusConfig> = {
-  running:    { color: '#4ade80', dot: '●', label: 'active' },
-  moving:     { color: '#4ade80', dot: '●', label: 'moving' },
-  idle:       { color: '#4ade80', dot: '●', label: 'active' },
-  harvesting: { color: '#4ade80', dot: '●', label: 'mining' },
-  deploying:  { color: '#60a5fa', dot: '◌', label: 'deploying', spin: true },
-  suspending: { color: '#facc15', dot: '⏸', label: 'suspending', spin: true },
-  suspended:  { color: '#9ca3af', dot: '○', label: 'suspended' },
-  crashed:    { color: '#f87171', dot: '✕', label: 'crashed' },
-  dead:       { color: '#f87171', dot: '✕', label: 'dead' },
+  running:    { color: '#4ade80', dot: 'filled', label: 'active' },
+  moving:     { color: '#4ade80', dot: 'filled', label: 'moving' },
+  idle:       { color: '#4ade80', dot: 'filled', label: 'active' },
+  harvesting: { color: '#4ade80', dot: 'filled', label: 'mining' },
+  deploying:  { color: '#60a5fa', dot: 'ring', label: 'deploying', spin: true },
+  suspending: { color: '#facc15', dot: 'ring', label: 'suspending', spin: true },
+  suspended:  { color: '#9ca3af', dot: 'ring', label: 'suspended' },
+  crashed:    { color: '#f87171', dot: 'x', label: 'crashed' },
+  dead:       { color: '#f87171', dot: 'x', label: 'dead' },
 };
 
 // ── Class Group ──────────────────────────────────────────────────────────────
@@ -152,9 +152,13 @@ function WorkerRow({ worker, onSuspend, onDismiss }: {
         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
       >
         {/* Status dot */}
-        <span style={{ color: config.color, fontSize: 10, width: 12, textAlign: 'center' }}
+        <span style={{ width: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               className={config.spin ? 'animate-pulse' : ''}>
-          {config.dot}
+          <svg width={8} height={8} viewBox="0 0 8 8">
+            {config.dot === 'filled' && <circle cx={4} cy={4} r={3.5} fill={config.color} />}
+            {config.dot === 'ring' && <circle cx={4} cy={4} r={3} fill="none" stroke={config.color} strokeWidth={1.5} />}
+            {config.dot === 'x' && <><line x1={1.5} y1={1.5} x2={6.5} y2={6.5} stroke={config.color} strokeWidth={1.5} /><line x1={6.5} y1={1.5} x2={1.5} y2={6.5} stroke={config.color} strokeWidth={1.5} /></>}
+          </svg>
         </span>
 
         {/* Node location */}

@@ -19,7 +19,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { useGameStore, GameNode, GameEdge, Worker } from '../store/gameStore';
 import React, { useEffect, useCallback } from 'react';
-import { Zap, Mountain, Database, Shield, Lock, AlertTriangle, Radio } from 'lucide-react';
+import { Zap, Mountain, Database, Shield, Lock, AlertTriangle, Radio, Pickaxe, Package } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 // ── Custom Node Components ──────────────────────────────────────────────────
@@ -74,7 +74,7 @@ function NodeWrapper({ children, selected, glowColor, style = {}, workers: nodeW
             const c = CLASS_COLORS[w.class_name] || '#a78bfa';
             const isActive = ['running', 'harvesting', 'idle'].includes(w.status);
             const isSelected = w.id === selectedWorkerId;
-            const actionLabel = w.status === 'harvesting' ? '⛏' : w.holding ? '📦' : null;
+            const showAction = w.status === 'harvesting' || w.holding;
 
             return (
               <div
@@ -97,18 +97,19 @@ function NodeWrapper({ children, selected, glowColor, style = {}, workers: nodeW
                 }}
               >
                 {/* Action indicator */}
-                {actionLabel && (
+                {showAction && (
                   <div style={{
                     position: 'absolute',
                     top: -16,
                     left: '50%',
                     transform: 'translateX(-50%)',
-                    fontSize: 10,
-                    lineHeight: 1,
                     pointerEvents: 'none',
                     animation: 'worker-action-bounce 0.6s ease-in-out infinite',
+                    color: c,
                   }}>
-                    {actionLabel}
+                    {w.status === 'harvesting'
+                      ? <Pickaxe size={10} />
+                      : <Package size={10} />}
                   </div>
                 )}
               </div>

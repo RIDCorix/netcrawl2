@@ -1,8 +1,9 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Zap, Mountain, Database, Lock, AlertTriangle, MousePointer, Upload, Pickaxe } from 'lucide-react';
+import { X, Zap, Mountain, Database, Lock, AlertTriangle, MousePointer, Upload, Pickaxe, ArrowUp } from 'lucide-react';
 import { useGameStore, GameNode, Resources } from '../store/gameStore';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { ChipSlotManager } from './ChipSlotManager';
 import { DeployDialog } from './DeployDialog';
 
 function CostBadge({ cost }: { cost: Partial<Resources> }) {
@@ -115,6 +116,97 @@ function StatusMessage({ msg }: { msg: string }) {
     >
       {msg}
     </motion.div>
+  );
+}
+
+function NodeUpgradeSection({ nodeId, node }: { nodeId: string; node: GameNode }) {
+  const { resources } = useGameStore();
+  const [upgradeData, setUpgradeData] = useState<any>(null);
+  const [upgrading, setUpgrading] = useState(false);
+  const [upgradeMsg, setUpgradeMsg] = useState('');
+
+  useEffect(() => {
+    axios.get(`/api/node/upgrades?nodeId=${nodeId}`)
+      .then(r => setUpgradeData(r.data))
+      .catch(() => {});
+  }, [nodeId, node.data.upgradeLevel]);
+
+  const handleUpgrade = async () => {
+    setUpgrading(true);
+    try {
+      const res = await axios.post('/api/node/upgrade', { nodeId });
+      setUpgradeMsg(`Upgraded to ${res.data.name}!`);
+      setTimeout(() => setUpgradeMsg(''), 2000);
+    } catch (err: any) {
+      setUpgradeMsg(err.response?.data?.error || 'Upgrade failed');
+      setTimeout(() => setUpgradeMsg(''), 2000);
+    } finally {
+      setUpgrading(false);
+    }
+  };
+
+  if (!upgradeData) return null;
+  const { currentLevel, maxLevel, levels } = upgradeData;
+  const nextLevel = levels?.find((l: any) => l.level === currentLevel + 1);
+  const chipSlots = node.data.chipSlots || 0;
+  const installedChips = node.data.installedChips || [];
+
+  return (
+    <>
+      <Divider />
+
+      {/* Upgrade */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <SectionLabel>Upgrade</SectionLabel>
+          <span style={{
+            fontSize: 10, fontWeight: 800, fontFamily: 'var(--font-mono)',
+            padding: '2px 8px', borderRadius: 'var(--radius-sm)',
+            background: currentLevel >= maxLevel ? 'rgba(245,158,11,0.15)' : 'var(--accent-dim)',
+            color: currentLevel >= maxLevel ? '#f59e0b' : 'var(--accent)',
+            border: `1px solid ${currentLevel >= maxLevel ? 'rgba(245,158,11,0.25)' : 'rgba(0,212,170,0.25)'}`,
+          }}>
+            {currentLevel >= maxLevel ? 'MAX' : `LV.${currentLevel}`}
+          </span>
+        </div>
+
+        {nextLevel && (
+          <div style={{
+            padding: '10px 12px', borderRadius: 'var(--radius-md)',
+            background: 'var(--bg-primary)', border: '1px solid var(--border)',
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+              {nextLevel.name}
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+              {nextLevel.description}
+            </div>
+            <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+              <CostBadge cost={nextLevel.cost} />
+            </div>
+          </div>
+        )}
+
+        {nextLevel && (
+          <ActionButton onClick={handleUpgrade} disabled={upgrading || !nextLevel.affordable}>
+            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <ArrowUp size={12} />
+              {upgrading ? 'UPGRADING...' : nextLevel.affordable ? `UPGRADE TO LV.${nextLevel.level}` : 'INSUFFICIENT RESOURCES'}
+            </span>
+          </ActionButton>
+        )}
+
+        {upgradeMsg && <StatusMessage msg={upgradeMsg} />}
+      </div>
+
+      {/* Chip Slots */}
+      {chipSlots > 0 && (
+        <>
+          <Divider />
+          <ChipSlotManager nodeId={nodeId} chipSlots={chipSlots} installedChips={installedChips} />
+        </>
+      )}
+    </>
   );
 }
 
@@ -379,6 +471,11 @@ export function NodeDetailPanel() {
 
               {msg && <StatusMessage msg={msg} />}
             </div>
+
+            {/* Upgrade + Chip section (unlocked nodes only) */}
+            {(node.id === 'hub' || node.data.unlocked) && (
+              <NodeUpgradeSection nodeId={node.id} node={node} />
+            )}
 
             {/* Deploy button */}
             {canDeploy && (

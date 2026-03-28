@@ -1,8 +1,10 @@
 import {
   getGameState, saveGameState, getWorker, upsertWorker,
   addWorkerLog, getWorkers, Resources, Drop,
+  getNodeChipEffects, incrementStat, setStatMax,
 } from './db.js';
 import { broadcast } from './websocket.js';
+import { checkAchievements } from './achievements.js';
 
 // ── Per-worker action lock ──────────────────────────────────────────────────
 // Each worker can only do one action at a time. The lock resolves when the
@@ -112,11 +114,14 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         return { ok: false, error: `No edge between ${currentNode} and ${targetNodeId}` };
       }
 
-      // Set status to moving immediately, set lock for travel duration
+      // Apply move speed chip effects from target node
+      const moveEffects = getNodeChipEffects(targetNodeId);
+      const moveDelay = Math.round(MOVE_DELAY * (moveEffects['move_speed_mult'] || 1));
+
       upsertWorker({ ...worker, status: 'moving', current_node: targetNodeId, previous_node: currentNode, move_id: Date.now() } as any);
       broadcastFullState();
 
-      setLock(workerId, MOVE_DELAY);
+      setLock(workerId, moveDelay);
       await workerLocks.get(workerId);
 
       // Arrive
@@ -137,11 +142,15 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       if (!node || node.type !== 'resource') {
         return { ok: false, error: 'Not at a resource node' };
       }
+      const chipEffects = getNodeChipEffects(currentNode);
       const resourceType = node.data.resource as keyof Resources;
-      const rate = node.data.rate || 1;
+      const baseRate = node.data.rate || 1;
+      const rateBonus = chipEffects['production_rate'] || 0;
+      const rate = Math.floor((baseRate + rateBonus) * (chipEffects['harvest_speed_mult'] || 1));
       const carrying = { ...worker.carrying } as Record<string, number>;
       const totalCarrying = Object.values(carrying).reduce((a, b) => a + b, 0);
-      const canCarry = Math.min(rate, 50 - totalCarrying);
+      const capacityBonus = chipEffects['capacity_bonus'] || 0;
+      const canCarry = Math.min(rate, (50 + capacityBonus) - totalCarrying);
       if (canCarry <= 0) return { ok: false, error: 'Carrying capacity full' };
 
       upsertWorker({ ...worker, status: 'harvesting' });
@@ -149,7 +158,8 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
 
       carrying[resourceType] = (carrying[resourceType] || 0) + canCarry;
 
-      setLock(workerId, ACTION_DELAY);
+      const harvestDelay = Math.round(ACTION_DELAY / (chipEffects['harvest_speed_mult'] || 1));
+      setLock(workerId, harvestDelay);
       await workerLocks.get(workerId);
 
       const w2 = getWorker(workerId);
@@ -171,10 +181,13 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       if (node.data.depleted) return { ok: false, error: 'Node is depleted', reason: 'node_depleted', depletedUntil: node.data.depletedUntil };
       if (!worker.equippedPickaxe) return { ok: false, error: 'No pickaxe equipped' };
 
+      const mineChipEffects = getNodeChipEffects(currentNode);
+      const mineDelay = Math.round(MINE_DELAY / (mineChipEffects['harvest_speed_mult'] || 1));
+
       upsertWorker({ ...worker, status: 'harvesting' });
       broadcastFullState();
 
-      setLock(workerId, MINE_DELAY);
+      setLock(workerId, mineDelay);
       await workerLocks.get(workerId);
 
       const dropType = getDropTypeForNode(node);
@@ -216,6 +229,8 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       if (w3) upsertWorker({ ...w3, status: 'running' });
       saveGameState({ ...freshState, nodes: newNodes });
       broadcastFullState();
+      incrementStat('total_mines', 1);
+      checkAchievements();
       return { ok: true, drop: { type: dropType, amount } };
     }
 
@@ -282,6 +297,12 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         }
         upsertWorker({ ...w5, holding: null, carrying: {}, status: 'running' });
         broadcastFullState();
+        // Track achievement stats
+        if (resourceKey) {
+          incrementStat(`total_${resourceKey}_deposited`, held.amount);
+          incrementStat('total_deposits', 1);
+        }
+        checkAchievements();
         return { ok: true, deposited: held };
       }
 
@@ -295,6 +316,11 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       upsertWorker({ ...w5, carrying: {}, status: 'running' });
       saveGameState({ ...freshState3, resources: newResources as any });
       broadcastFullState();
+      for (const [k, v] of Object.entries(carrying)) {
+        if (v > 0) incrementStat(`total_${k}_deposited`, v);
+      }
+      incrementStat('total_deposits', 1);
+      checkAchievements();
       return { ok: true, deposited: carrying };
     }
 
@@ -331,6 +357,8 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const newResources2 = { ...(freshState4.resources as any), energy: (freshState4.resources as any).energy - 30 };
       saveGameState({ ...freshState4, nodes: newNodes3, resources: newResources2 });
       broadcastFullState();
+      incrementStat('total_repairs', 1);
+      checkAchievements();
       return { ok: true };
     }
 

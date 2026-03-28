@@ -8,6 +8,8 @@ import { NodeDetailPanel } from './components/NodeDetailPanel';
 import { WorkerListPanel } from './components/WorkerListPanel';
 import { WorkerDetailPanel } from './components/WorkerDetailPanel';
 import { InventoryPanel } from './components/InventoryPanel';
+import { AchievementToast } from './components/AchievementToast';
+import { AchievementsPanel } from './components/AchievementsPanel';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,18 +20,17 @@ const queryClient = new QueryClient({
 function GameView() {
   useGameState();
   const toggleInventory = useGameStore(s => s.toggleInventory);
+  const toggleAchievements = useGameStore(s => s.toggleAchievements);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Don't trigger when typing in inputs
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
-      if (e.key === 'e' || e.key === 'E') {
-        toggleInventory();
-      }
+      if (e.key === 'e' || e.key === 'E') toggleInventory();
+      if (e.key === 'a' || e.key === 'A') toggleAchievements();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [toggleInventory]);
+  }, [toggleInventory, toggleAchievements]);
 
   return (
     <div style={{
@@ -54,6 +55,8 @@ function GameView() {
       <WorkerDetailPanel />
       <WorkerListPanel />
       <InventoryPanel />
+      <AchievementsPanel />
+      <AchievementToast />
     </div>
   );
 }

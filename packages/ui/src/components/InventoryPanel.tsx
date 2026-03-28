@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Pickaxe, Shield, Radio, Package, Zap, Mountain, Database, Search, Hammer, Check } from 'lucide-react';
-import { useGameStore, InventoryItem } from '../store/gameStore';
+import { X, Pickaxe, Shield, Radio, Package, Zap, Mountain, Database, Search, Hammer, Check, Cpu, Gift } from 'lucide-react';
+import { useGameStore, InventoryItem, Chip, ChipRarity } from '../store/gameStore';
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 
@@ -10,18 +10,21 @@ const ITEM_ICONS: Record<string, any> = {
   pickaxe_basic: Pickaxe, pickaxe_iron: Pickaxe, pickaxe_diamond: Pickaxe,
   shield: Shield, beacon: Radio,
   ore_chunk: Mountain, energy_crystal: Zap, data_shard: Database,
+  chip_pack_basic: Gift, chip_pack_premium: Gift,
 };
 
 const ITEM_LABELS: Record<string, string> = {
   pickaxe_basic: 'Basic Pickaxe', pickaxe_iron: 'Iron Pickaxe', pickaxe_diamond: 'Diamond Pickaxe',
   shield: 'Shield', beacon: 'Beacon',
   ore_chunk: 'Ore Chunk', energy_crystal: 'Energy Crystal', data_shard: 'Data Shard',
+  chip_pack_basic: 'Basic Pack', chip_pack_premium: 'Premium Pack',
 };
 
 const ITEM_COLORS: Record<string, string> = {
   pickaxe_basic: '#9ca3af', pickaxe_iron: '#c0c0c0', pickaxe_diamond: '#60a5fa',
   shield: '#4ade80', beacon: '#00d4aa',
   ore_chunk: '#a78bfa', energy_crystal: '#ffd32a', data_shard: '#45aaf2',
+  chip_pack_basic: '#9ca3af', chip_pack_premium: '#f59e0b',
 };
 
 // ── Categories ──────────────────────────────────────────────────────────────
@@ -30,7 +33,15 @@ const INV_TABS = [
   { key: 'all', label: 'All' },
   { key: 'equipment', label: 'Equipment', types: ['pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond', 'shield', 'beacon'] },
   { key: 'materials', label: 'Materials', types: ['ore_chunk', 'energy_crystal', 'data_shard'] },
+  { key: 'packs', label: 'Packs', types: ['chip_pack_basic', 'chip_pack_premium'] },
 ];
+
+const RARITY_COLORS: Record<ChipRarity, string> = {
+  common: '#9ca3af',
+  uncommon: '#4ade80',
+  rare: '#60a5fa',
+  legendary: '#f59e0b',
+};
 
 const CRAFT_TABS = [
   { key: 'all', label: 'All' },
@@ -213,6 +224,177 @@ function CraftConfirm({ recipe, onConfirm, onCancel, crafting }: {
 }
 
 // ── Main panel ──────────────────────────────────────────────────────────────
+
+// ── Chip Pack Buy/Open Section ───────────────────────────────────────────
+
+function ChipPackSection() {
+  const { resources } = useGameStore();
+  const [packs, setPacks] = useState<any[]>([]);
+  const [opening, setOpening] = useState(false);
+  const [revealed, setRevealed] = useState<Chip[]>([]);
+
+  useEffect(() => {
+    axios.get('/api/chip-packs').then(r => setPacks(r.data.packs || [])).catch(() => {});
+  }, [resources]);
+
+  const handleBuy = async (packType: string) => {
+    try {
+      await axios.post('/api/chip-pack/buy', { packType });
+    } catch {}
+  };
+
+  const handleOpen = async (packType: string) => {
+    setOpening(true);
+    try {
+      const res = await axios.post('/api/chip-pack/open', { packType });
+      setRevealed(res.data.chips || []);
+    } catch {} finally { setOpening(false); }
+  };
+
+  if (packs.length === 0) return null;
+
+  return (
+    <>
+      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, var(--border-bright), transparent)' }} />
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+          <Gift size={12} style={{ color: 'var(--text-muted)' }} />
+          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>CHIP PACKS</span>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {packs.map(p => (
+            <div key={p.packType} style={{
+              flex: 1, minWidth: 160, padding: '10px 12px', borderRadius: 'var(--radius-md)',
+              background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+              display: 'flex', flexDirection: 'column', gap: 6,
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{p.name}</div>
+              <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{p.description}</div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {Object.entries(p.cost).map(([k, v]) => (
+                  <span key={k} style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: k === 'energy' ? 'var(--energy-color)' : k === 'ore' ? 'var(--ore-color)' : 'var(--data-color)' }}>
+                    {v as number} {k}
+                  </span>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button onClick={() => handleBuy(p.packType)} disabled={!p.affordable} style={{
+                  flex: 1, padding: '5px', borderRadius: 'var(--radius-sm)',
+                  background: p.affordable ? 'var(--accent)' : 'var(--bg-primary)',
+                  color: p.affordable ? '#000' : 'var(--text-muted)',
+                  border: 'none', fontSize: 9, fontWeight: 700, fontFamily: 'var(--font-mono)',
+                  cursor: p.affordable ? 'pointer' : 'not-allowed', opacity: p.affordable ? 1 : 0.5,
+                }}>
+                  Buy
+                </button>
+                {p.owned > 0 && (
+                  <button onClick={() => handleOpen(p.packType)} disabled={opening} style={{
+                    flex: 1, padding: '5px', borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)',
+                    color: '#f59e0b', fontSize: 9, fontWeight: 700, fontFamily: 'var(--font-mono)',
+                    cursor: 'pointer',
+                  }}>
+                    Open ({p.owned})
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Reveal */}
+      <AnimatePresence>
+        {revealed.length > 0 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => setRevealed([])}
+          >
+            <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} exit={{ scale: 0.8 }}
+              onClick={e => e.stopPropagation()}
+              style={{ background: 'var(--bg-glass-heavy)', border: '1px solid var(--border-bright)', borderRadius: 'var(--radius-lg)', padding: 24, display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center', minWidth: 300 }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>Chips Obtained!</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                {revealed.map((chip, i) => (
+                  <motion.div
+                    key={chip.id}
+                    initial={{ opacity: 0, y: 20, scale: 0.8 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ delay: i * 0.15, type: 'spring', damping: 20 }}
+                    style={{
+                      width: 80, padding: '10px 8px', borderRadius: 'var(--radius-md)',
+                      background: 'var(--bg-elevated)',
+                      border: `2px solid ${RARITY_COLORS[chip.rarity]}`,
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                      boxShadow: chip.rarity === 'legendary' ? `0 0 16px ${RARITY_COLORS.legendary}40` : chip.rarity === 'rare' ? `0 0 8px ${RARITY_COLORS.rare}30` : 'none',
+                    }}
+                  >
+                    <Cpu size={18} style={{ color: RARITY_COLORS[chip.rarity] }} />
+                    <div style={{ fontSize: 8, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', textAlign: 'center', lineHeight: 1.2 }}>{chip.name}</div>
+                    <div style={{ fontSize: 7, color: RARITY_COLORS[chip.rarity], fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: 700 }}>{chip.rarity}</div>
+                  </motion.div>
+                ))}
+              </div>
+              <button onClick={() => setRevealed([])} style={{
+                padding: '8px 24px', borderRadius: 'var(--radius-sm)',
+                background: 'var(--accent)', color: '#000', border: 'none',
+                fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)', cursor: 'pointer',
+              }}>
+                Nice!
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
+// ── Owned Chips Section ─────────────────────────────────────────────────────
+
+function OwnedChipsSection({ search }: { search: string }) {
+  const { playerChips } = useGameStore();
+  if (playerChips.length === 0) return null;
+
+  const q = search.toLowerCase();
+  const filtered = q
+    ? playerChips.filter(c => c.name.toLowerCase().includes(q) || c.chipType.toLowerCase().includes(q) || c.rarity.includes(q))
+    : playerChips;
+
+  return (
+    <>
+      <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, var(--border-bright), transparent)' }} />
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+          <Cpu size={12} style={{ color: 'var(--text-muted)' }} />
+          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>CHIPS</span>
+          <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>({playerChips.length})</span>
+        </div>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          {filtered.map(chip => {
+            const color = RARITY_COLORS[chip.rarity];
+            const dimmed = q && !chip.name.toLowerCase().includes(q);
+            return (
+              <div key={chip.id} title={`${chip.name}\n${chip.rarity}\n${chip.effect.type}: ${chip.effect.value}`} style={{
+                width: 64, height: 72, borderRadius: 'var(--radius-sm)',
+                background: 'var(--bg-elevated)', border: `1px solid ${color}40`,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
+                opacity: dimmed ? 0.2 : 1, transition: 'opacity 0.15s',
+              }}>
+                <Cpu size={16} style={{ color }} />
+                <div style={{ fontSize: 7, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', textAlign: 'center', lineHeight: 1.1, padding: '0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+                  {chip.name}
+                </div>
+                <div style={{ fontSize: 6, color, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: 700 }}>{chip.rarity}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
 
 export function InventoryPanel() {
   const { inventoryOpen, toggleInventory, playerInventory, resources } = useGameStore();
@@ -413,6 +595,12 @@ export function InventoryPanel() {
                   )}
                 </div>
               </div>
+
+              {/* ── Chip Packs ── */}
+              <ChipPackSection />
+
+              {/* ── Owned Chips ── */}
+              <OwnedChipsSection search={search} />
 
               {/* ── Resources bar ── */}
               <div style={{

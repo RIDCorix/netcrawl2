@@ -33,11 +33,20 @@ export interface Drop {
 // === Player Inventory ===
 export interface InventoryItem {
   id: string;
-  itemType: 'pickaxe_basic' | 'pickaxe_iron' | 'pickaxe_diamond' | 'shield' | 'beacon' | 'ore_chunk' | 'energy_crystal' | 'data_shard';
+  itemType: 'pickaxe_basic' | 'pickaxe_iron' | 'pickaxe_diamond' | 'shield' | 'beacon' | 'ore_chunk' | 'energy_crystal' | 'data_shard' | 'chip_pack_basic' | 'chip_pack_premium';
   count: number;
   metadata?: {
     efficiency?: number;
   };
+}
+
+// === Chip System ===
+export interface Chip {
+  id: string;
+  chipType: string;
+  name: string;
+  rarity: 'common' | 'uncommon' | 'rare' | 'legendary';
+  effect: { type: string; value: number };
 }
 
 export interface GameStateRow {
@@ -47,6 +56,7 @@ export interface GameStateRow {
   tick: number;
   gameOver: boolean;
   playerInventory: InventoryItem[];
+  playerChips: Chip[];
 }
 
 export interface WorkerRow {
@@ -123,23 +133,31 @@ export const RECIPES: Recipe[] = [
   },
 ];
 
+// === Achievement System ===
+export interface AchievementState {
+  unlocked: Record<string, string>; // id -> ISO timestamp
+  stats: Record<string, number>;
+  statArrays: Record<string, string[]>;
+}
+
 interface Store {
   game_state: GameStateRow;
   workers: Record<string, WorkerRow>;
   worker_logs: WorkerLogRow[];
   next_log_id: number;
+  achievement_state: AchievementState;
 }
 
 // ── Initial data ──────────────────────────────────────────────────────────────
 
 export const INITIAL_NODES = [
-  { id: 'hub', type: 'hub', position: { x: 400, y: 300 }, data: { label: 'Hub', unlocked: true } },
-  { id: 'r1', type: 'resource', position: { x: 200, y: 120 }, data: { label: 'Energy Node', resource: 'energy', rate: 5, unlocked: false, unlockCost: { energy: 20 }, mineable: true, drops: [], mineCount: 0 } },
-  { id: 'r2', type: 'resource', position: { x: 620, y: 120 }, data: { label: 'Ore Mine', resource: 'ore', rate: 3, unlocked: false, unlockCost: { energy: 30 }, mineable: true, drops: [], mineCount: 0 } },
-  { id: 'r3', type: 'resource', position: { x: 620, y: 480 }, data: { label: 'Data Cache', resource: 'data', rate: 2, unlocked: false, unlockCost: { energy: 40, ore: 20 }, mineable: true, drops: [], mineCount: 0 } },
-  { id: 'relay1', type: 'relay', position: { x: 200, y: 480 }, data: { label: 'Relay Alpha', unlocked: false, unlockCost: { energy: 15 } } },
-  { id: 'relay2', type: 'relay', position: { x: 80, y: 300 }, data: { label: 'Relay Beta', unlocked: false, unlockCost: { energy: 25 } } },
-  { id: 'locked1', type: 'locked', position: { x: 750, y: 300 }, data: { label: 'Unknown Node', unlocked: false, unlockCost: { energy: 100, ore: 50, data: 20 } } },
+  { id: 'hub', type: 'hub', position: { x: 400, y: 300 }, data: { label: 'Hub', unlocked: true, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
+  { id: 'r1', type: 'resource', position: { x: 200, y: 120 }, data: { label: 'Energy Node', resource: 'energy', rate: 5, unlocked: false, unlockCost: { energy: 20 }, mineable: true, drops: [], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
+  { id: 'r2', type: 'resource', position: { x: 620, y: 120 }, data: { label: 'Ore Mine', resource: 'ore', rate: 3, unlocked: false, unlockCost: { energy: 30 }, mineable: true, drops: [], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
+  { id: 'r3', type: 'resource', position: { x: 620, y: 480 }, data: { label: 'Data Cache', resource: 'data', rate: 2, unlocked: false, unlockCost: { energy: 40, ore: 20 }, mineable: true, drops: [], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
+  { id: 'relay1', type: 'relay', position: { x: 200, y: 480 }, data: { label: 'Relay Alpha', unlocked: false, unlockCost: { energy: 15 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+  { id: 'relay2', type: 'relay', position: { x: 80, y: 300 }, data: { label: 'Relay Beta', unlocked: false, unlockCost: { energy: 25 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+  { id: 'locked1', type: 'locked', position: { x: 750, y: 300 }, data: { label: 'Unknown Node', unlocked: false, unlockCost: { energy: 100, ore: 50, data: 20 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
 ];
 
 export const INITIAL_EDGES = [
@@ -166,10 +184,12 @@ const INITIAL_STORE: Store = {
     tick: 0,
     gameOver: false,
     playerInventory: INITIAL_PLAYER_INVENTORY,
+    playerChips: [],
   },
   workers: {},
   worker_logs: [],
   next_log_id: 1,
+  achievement_state: { unlocked: {}, stats: {}, statArrays: {} },
 };
 
 // ── Store management ──────────────────────────────────────────────────────────
@@ -207,6 +227,24 @@ export function initDb() {
       for (const w of Object.values(store.workers)) {
         if (w.holding === undefined) (w as any).holding = null;
         if (w.equippedPickaxe === undefined) (w as any).equippedPickaxe = null;
+      }
+      // Migrate: add chip/upgrade fields to nodes
+      store.game_state.nodes = store.game_state.nodes.map((n: any) => ({
+        ...n,
+        data: {
+          ...n.data,
+          upgradeLevel: n.data.upgradeLevel ?? 0,
+          chipSlots: n.data.chipSlots ?? (n.type === 'hub' || n.type === 'resource' ? 1 : 0),
+          installedChips: n.data.installedChips ?? [],
+        },
+      }));
+      // Migrate: add playerChips
+      if (!store.game_state.playerChips) {
+        (store.game_state as any).playerChips = [];
+      }
+      // Migrate: add achievement_state
+      if (!store.achievement_state) {
+        store.achievement_state = { unlocked: {}, stats: {}, statArrays: {} };
       }
     } catch {
       console.warn('[DB] Could not parse state file, starting fresh');
@@ -326,4 +364,98 @@ export function getWorkerLogs(workerId: string): WorkerLogRow[] {
     .filter(l => l.worker_id === workerId)
     .slice(-100)
     .reverse();
+}
+
+// ── Player Chips ─────────────────────────────────────────────────────────────
+
+export function getPlayerChips(): Chip[] {
+  return store.game_state.playerChips || [];
+}
+
+export function addPlayerChip(chip: Chip) {
+  if (!store.game_state.playerChips) store.game_state.playerChips = [];
+  store.game_state.playerChips.push(chip);
+}
+
+export function removePlayerChip(chipId: string): Chip | null {
+  const chips = store.game_state.playerChips || [];
+  const idx = chips.findIndex(c => c.id === chipId);
+  if (idx === -1) return null;
+  const [removed] = chips.splice(idx, 1);
+  return removed;
+}
+
+/** Get aggregated chip effects for a node */
+export function getNodeChipEffects(nodeId: string): Record<string, number> {
+  const state = store.game_state;
+  const node = state.nodes.find((n: any) => n.id === nodeId);
+  if (!node) return {};
+
+  // installedChips stores full Chip objects on the node
+  const effects: Record<string, number> = {};
+  const allInstalledChips: Chip[] = [];
+
+  for (const n of state.nodes) {
+    if (n.id === nodeId && Array.isArray(n.data.installedChips)) {
+      for (const item of n.data.installedChips) {
+        if (typeof item === 'object' && item.effect) {
+          allInstalledChips.push(item as Chip);
+        }
+      }
+    }
+  }
+
+  for (const chip of allInstalledChips) {
+    const { type, value } = chip.effect;
+    if (type.endsWith('_mult')) {
+      // Multiplicative — chain multiply
+      effects[type] = (effects[type] || 1) * value;
+    } else {
+      // Additive
+      effects[type] = (effects[type] || 0) + value;
+    }
+  }
+
+  return effects;
+}
+
+// ── Achievement Helpers ──────────────────────────────────────────────────────
+
+export function getAchievementState(): AchievementState {
+  return store.achievement_state;
+}
+
+export function incrementStat(key: string, amount: number = 1): number {
+  const s = store.achievement_state.stats;
+  s[key] = (s[key] || 0) + amount;
+  return s[key];
+}
+
+export function setStatMax(key: string, value: number): number {
+  const s = store.achievement_state.stats;
+  s[key] = Math.max(s[key] || 0, value);
+  return s[key];
+}
+
+export function getStat(key: string): number {
+  return store.achievement_state.stats[key] || 0;
+}
+
+export function addToStatArray(key: string, value: string): string[] {
+  const a = store.achievement_state.statArrays;
+  if (!a[key]) a[key] = [];
+  if (!a[key].includes(value)) a[key].push(value);
+  return a[key];
+}
+
+export function getStatArray(key: string): string[] {
+  return store.achievement_state.statArrays[key] || [];
+}
+
+export function markAchievementUnlocked(id: string): void {
+  store.achievement_state.unlocked[id] = new Date().toISOString();
+}
+
+export function isAchievementUnlocked(id: string): boolean {
+  return !!store.achievement_state.unlocked[id];
 }

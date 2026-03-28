@@ -29,6 +29,8 @@ export function useGameState() {
         const msg = JSON.parse(event.data);
         if (msg.type === 'STATE_UPDATE') {
           updateFromServer(msg.payload);
+        } else if (msg.type === 'ACHIEVEMENT_UNLOCKED') {
+          useGameStore.getState().addAchievementToast(msg.payload);
         }
       } catch (err) {
         console.error('[WS] Parse error:', err);

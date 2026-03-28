@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Upload, Pickaxe, Shield, Radio, Package, Zap, Mountain, Database, Check, ChevronRight } from 'lucide-react';
+import { X, Upload, Pickaxe, Shield, Radio, Package, Zap, Mountain, Database, Check, ChevronRight, ArrowLeftRight } from 'lucide-react';
 import { useGameStore, InventoryItem } from '../store/gameStore';
 import { useState, useEffect, useCallback, DragEvent } from 'react';
 import axios from 'axios';
@@ -479,7 +479,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                         {selected && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
                             <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)' }}>
-                              {getNodeLabel(selected.source)} ↔ {getNodeLabel(selected.target)}
+                              {getNodeLabel(selected.source)} <ArrowLeftRight size={12} style={{ display: 'inline', verticalAlign: 'middle' }} /> {getNodeLabel(selected.target)}
                             </span>
                           </div>
                         )}
@@ -546,7 +546,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                   {Object.entries(routes).map(([name, edge]) => (
                     <div key={name} style={{ fontSize: 12, fontFamily: 'var(--font-mono)' }}>
                       <span style={{ color: 'var(--text-muted)' }}>{name}: </span>
-                      <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{getNodeLabel(edge.source)} ↔ {getNodeLabel(edge.target)}</span>
+                      <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{getNodeLabel(edge.source)} <ArrowLeftRight size={12} style={{ display: 'inline', verticalAlign: 'middle' }} /> {getNodeLabel(edge.target)}</span>
                     </div>
                   ))}
                   {Object.entries(equipped).map(([name, itemType]) => (

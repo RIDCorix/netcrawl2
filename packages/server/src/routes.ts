@@ -7,12 +7,18 @@ import {
   getWorkers, getWorker, upsertWorker, deleteWorker,
   addWorkerLog, getWorkerLogs,
   INITIAL_NODES, INITIAL_EDGES, INITIAL_RESOURCES, INITIAL_PLAYER_INVENTORY,
-  RECIPES, Recipe,
+  RECIPES, Recipe, Chip,
   getPlayerInventory, addToPlayerInventory, removeFromPlayerInventory, getItemEfficiency,
+  getPlayerChips, addPlayerChip, removePlayerChip,
 } from './db.js';
 import { handleWorkerAction } from './workerActions.js';
 import { spawnWorker, killWorker, suspendWorker, getActiveProcesses } from './workerSpawner.js';
 import { broadcast } from './websocket.js';
+import {
+  NODE_UPGRADE_DEFS, getUpgradeKey, CHIP_PACK_DEFS, rollChip,
+} from './upgradeDefinitions.js';
+import { checkAchievements, getAchievementList, getAchievementSummary, RARITY_ORDINAL } from './achievements.js';
+import { incrementStat, addToStatArray, setStatMax } from './db.js';
 
 export const router: Router = Router();
 
@@ -42,7 +48,7 @@ function getWorkspacePath(): string {
 
 function broadcastFullState() {
   const state = getGameState();
-  broadcast({ type: 'STATE_UPDATE', payload: { ...state, workers: getWorkers() } });
+  broadcast({ type: 'STATE_UPDATE', payload: { ...state, workers: getWorkers(), achievements: getAchievementSummary() } });
 }
 
 // GET /api/state
@@ -102,7 +108,9 @@ router.post('/unlock', (req: Request, res: Response) => {
   });
 
   saveGameState({ ...state, nodes: newNodes, resources: newResources as any });
-  broadcast({ type: 'STATE_UPDATE', payload: { ...state, nodes: newNodes, resources: newResources, workers: getWorkers() } });
+  broadcast({ type: 'STATE_UPDATE', payload: { ...state, nodes: newNodes, resources: newResources, workers: getWorkers(), achievements: getAchievementSummary() } });
+  incrementStat('total_nodes_unlocked', 1);
+  checkAchievements();
   res.json({ ok: true, resources: newResources });
 });
 
@@ -156,6 +164,10 @@ router.post('/craft', (req: Request, res: Response) => {
 
   saveGameState({ ...state, resources: newResources as any });
   broadcastFullState();
+
+  incrementStat('total_crafts', 1);
+  addToStatArray('crafted_recipes', recipe.id);
+  checkAchievements();
 
   const inventory = getPlayerInventory();
   const newItem = inventory.find(i => i.itemType === recipe.output.itemType);
@@ -250,6 +262,8 @@ router.post('/deploy', async (req: Request, res: Response) => {
   });
 
   broadcastFullState();
+  incrementStat('total_workers_deployed', 1);
+  checkAchievements();
   res.json({ ok: true, workerId, status: 'queued' });
 });
 
@@ -472,6 +486,227 @@ router.post('/worker-classes/register', (req: Request, res: Response) => {
 router.get('/worker-classes', (req: Request, res: Response) => {
   const classes = Array.from(workerClassRegistry.values());
   res.json({ classes });
+});
+
+// ── Node Upgrade & Chip System ────────────────────────────────────────────
+
+// GET /api/node/upgrades?nodeId=X — returns upgrade tree + current state
+router.get('/node/upgrades', (req: Request, res: Response) => {
+  const nodeId = req.query.nodeId as string;
+  if (!nodeId) return res.status(400).json({ error: 'nodeId required' });
+
+  const state = getGameState();
+  const node = state.nodes.find((n: any) => n.id === nodeId);
+  if (!node) return res.status(404).json({ error: 'Node not found' });
+
+  const key = getUpgradeKey(node.type, node.data.resource);
+  const upgrades = NODE_UPGRADE_DEFS[key] || [];
+  const currentLevel = node.data.upgradeLevel || 0;
+  const resources = state.resources as unknown as Record<string, number>;
+
+  const levels = upgrades.map(u => ({
+    ...u,
+    unlocked: u.level <= currentLevel,
+    affordable: Object.entries(u.cost).every(([k, v]) => (resources[k] || 0) >= (v as number)),
+  }));
+
+  res.json({
+    nodeId,
+    nodeType: node.type,
+    resource: node.data.resource,
+    currentLevel,
+    maxLevel: upgrades.length,
+    levels,
+    chipSlots: node.data.chipSlots || 0,
+    installedChips: node.data.installedChips || [],
+  });
+});
+
+// POST /api/node/upgrade — upgrade a node to next level
+router.post('/node/upgrade', (req: Request, res: Response) => {
+  const { nodeId } = req.body;
+  if (!nodeId) return res.status(400).json({ error: 'nodeId required' });
+
+  const state = getGameState();
+  const node = state.nodes.find((n: any) => n.id === nodeId);
+  if (!node) return res.status(404).json({ error: 'Node not found' });
+  if (!node.data.unlocked && node.type !== 'hub') return res.status(400).json({ error: 'Node is locked' });
+
+  const key = getUpgradeKey(node.type, node.data.resource);
+  const upgrades = NODE_UPGRADE_DEFS[key];
+  if (!upgrades) return res.status(400).json({ error: 'No upgrades for this node type' });
+
+  const currentLevel = node.data.upgradeLevel || 0;
+  const nextUpgrade = upgrades.find(u => u.level === currentLevel + 1);
+  if (!nextUpgrade) return res.status(400).json({ error: 'Already at max level' });
+
+  // Check cost
+  const resources = state.resources as unknown as Record<string, number>;
+  for (const [k, v] of Object.entries(nextUpgrade.cost)) {
+    if ((resources[k] || 0) < (v as number)) {
+      return res.status(400).json({ error: `Not enough ${k} (need ${v}, have ${resources[k] || 0})` });
+    }
+  }
+
+  // Deduct cost
+  const newResources = { ...resources };
+  for (const [k, v] of Object.entries(nextUpgrade.cost)) {
+    newResources[k] -= (v as number);
+  }
+
+  // Apply effects
+  const newNodes = state.nodes.map((n: any) => {
+    if (n.id !== nodeId) return n;
+    const data = { ...n.data, upgradeLevel: nextUpgrade.level };
+    if (nextUpgrade.effects.rateBonus) data.rate = (data.rate || 0) + nextUpgrade.effects.rateBonus;
+    if (nextUpgrade.effects.chipSlots !== undefined) data.chipSlots = nextUpgrade.effects.chipSlots;
+    if (nextUpgrade.effects.autoCollect) data.autoCollect = true;
+    if (nextUpgrade.effects.defenseBonus) data.defense = (data.defense || 0) + nextUpgrade.effects.defenseBonus;
+    return { ...n, data };
+  });
+
+  saveGameState({ ...state, nodes: newNodes, resources: newResources as any });
+  broadcastFullState();
+  incrementStat('total_upgrades', 1);
+  setStatMax('max_node_level', nextUpgrade.level);
+  checkAchievements();
+  res.json({ ok: true, level: nextUpgrade.level, name: nextUpgrade.name });
+});
+
+// POST /api/node/chip/insert — install a chip into a node slot
+router.post('/node/chip/insert', (req: Request, res: Response) => {
+  const { nodeId, chipId } = req.body;
+  if (!nodeId || !chipId) return res.status(400).json({ error: 'nodeId and chipId required' });
+
+  const state = getGameState();
+  const node = state.nodes.find((n: any) => n.id === nodeId);
+  if (!node) return res.status(404).json({ error: 'Node not found' });
+
+  const installed = node.data.installedChips || [];
+  const slots = node.data.chipSlots || 0;
+  if (installed.length >= slots) return res.status(400).json({ error: 'No free chip slots' });
+
+  // Remove chip from player inventory
+  const chip = removePlayerChip(chipId);
+  if (!chip) return res.status(400).json({ error: 'Chip not found in inventory' });
+
+  // Install on node (store full chip object)
+  const newNodes = state.nodes.map((n: any) => {
+    if (n.id !== nodeId) return n;
+    return { ...n, data: { ...n.data, installedChips: [...installed, chip] } };
+  });
+
+  saveGameState({ ...state, nodes: newNodes });
+  broadcastFullState();
+  incrementStat('total_chips_installed', 1);
+  checkAchievements();
+  res.json({ ok: true });
+});
+
+// POST /api/node/chip/remove — remove a chip from a node
+router.post('/node/chip/remove', (req: Request, res: Response) => {
+  const { nodeId, chipId } = req.body;
+  if (!nodeId || !chipId) return res.status(400).json({ error: 'nodeId and chipId required' });
+
+  const state = getGameState();
+  const node = state.nodes.find((n: any) => n.id === nodeId);
+  if (!node) return res.status(404).json({ error: 'Node not found' });
+
+  const installed: Chip[] = node.data.installedChips || [];
+  const chipIdx = installed.findIndex((c: Chip) => c.id === chipId);
+  if (chipIdx === -1) return res.status(400).json({ error: 'Chip not installed on this node' });
+
+  const [removed] = installed.splice(chipIdx, 1);
+
+  // Return to player inventory
+  addPlayerChip(removed);
+
+  const newNodes = state.nodes.map((n: any) => {
+    if (n.id !== nodeId) return n;
+    return { ...n, data: { ...n.data, installedChips: [...installed] } };
+  });
+
+  saveGameState({ ...state, nodes: newNodes });
+  broadcastFullState();
+  res.json({ ok: true });
+});
+
+// POST /api/chip-pack/buy — buy a chip pack with resources
+router.post('/chip-pack/buy', (req: Request, res: Response) => {
+  const { packType } = req.body;
+  const packDef = CHIP_PACK_DEFS.find(p => p.packType === packType);
+  if (!packDef) return res.status(400).json({ error: 'Unknown pack type' });
+
+  const state = getGameState();
+  const resources = state.resources as unknown as Record<string, number>;
+
+  for (const [k, v] of Object.entries(packDef.cost)) {
+    if ((resources[k] || 0) < (v as number)) {
+      return res.status(400).json({ error: `Not enough ${k}` });
+    }
+  }
+
+  const newResources = { ...resources };
+  for (const [k, v] of Object.entries(packDef.cost)) {
+    newResources[k] -= (v as number);
+  }
+
+  addToPlayerInventory(packType, 1);
+  saveGameState({ ...state, resources: newResources as any });
+  broadcastFullState();
+  res.json({ ok: true });
+});
+
+// POST /api/chip-pack/open — open a chip pack, get random chips
+router.post('/chip-pack/open', (req: Request, res: Response) => {
+  const { packType } = req.body;
+  const packDef = CHIP_PACK_DEFS.find(p => p.packType === packType);
+  if (!packDef) return res.status(400).json({ error: 'Unknown pack type' });
+
+  if (!removeFromPlayerInventory(packType, 1)) {
+    return res.status(400).json({ error: 'No pack in inventory' });
+  }
+
+  const newChips: Chip[] = [];
+  for (let i = 0; i < packDef.chipCount; i++) {
+    const def = rollChip(packDef.rarityWeights);
+    const chip: Chip = {
+      id: `chip_${Date.now()}_${Math.random().toString(36).slice(2, 6)}_${i}`,
+      chipType: def.chipType,
+      name: def.name,
+      rarity: def.rarity,
+      effect: { ...def.effect },
+    };
+    addPlayerChip(chip);
+    newChips.push(chip);
+  }
+
+  broadcastFullState();
+  incrementStat('total_packs_opened', 1);
+  for (const c of newChips) {
+    setStatMax('highest_rarity', RARITY_ORDINAL[c.rarity] ?? 0);
+  }
+  checkAchievements();
+  res.json({ ok: true, chips: newChips });
+});
+
+// GET /api/chip-packs — list available packs with affordability
+router.get('/chip-packs', (req: Request, res: Response) => {
+  const state = getGameState();
+  const resources = state.resources as unknown as Record<string, number>;
+
+  const packs = CHIP_PACK_DEFS.map(p => ({
+    ...p,
+    affordable: Object.entries(p.cost).every(([k, v]) => (resources[k] || 0) >= (v as number)),
+    owned: (getPlayerInventory().find(i => i.itemType === p.packType)?.count) || 0,
+  }));
+
+  res.json({ packs, playerChips: getPlayerChips() });
+});
+
+// GET /api/achievements
+router.get('/achievements', (req: Request, res: Response) => {
+  res.json({ achievements: getAchievementList() });
 });
 
 // POST /api/worker/action (called by worker subprocesses)

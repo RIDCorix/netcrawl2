@@ -10,16 +10,16 @@ const CLASS_COLORS: Record<string, string> = {
   Scout: '#60a5fa',
 };
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
-  running:    { color: '#4ade80', dot: '●', label: 'Running' },
-  moving:     { color: '#60a5fa', dot: '◌', label: 'Moving' },
-  suspending: { color: '#facc15', dot: '⏸', label: 'Suspending' },
-  suspended:  { color: '#9ca3af', dot: '○', label: 'Suspended' },
-  deploying:  { color: '#60a5fa', dot: '◌', label: 'Deploying' },
-  crashed:    { color: '#f87171', dot: '✕', label: 'Crashed' },
-  idle:       { color: '#9ca3af', dot: '○', label: 'Idle' },
-  harvesting: { color: '#fde68a', dot: '●', label: 'Harvesting' },
-  dead:       { color: '#f87171', dot: '✕', label: 'Dead' },
+const STATUS_CONFIG: Record<string, { label: string; color: string; dot: 'filled' | 'ring' | 'x' }> = {
+  running:    { color: '#4ade80', dot: 'filled', label: 'Running' },
+  moving:     { color: '#60a5fa', dot: 'ring', label: 'Moving' },
+  suspending: { color: '#facc15', dot: 'ring', label: 'Suspending' },
+  suspended:  { color: '#9ca3af', dot: 'ring', label: 'Suspended' },
+  deploying:  { color: '#60a5fa', dot: 'ring', label: 'Deploying' },
+  crashed:    { color: '#f87171', dot: 'x', label: 'Crashed' },
+  idle:       { color: '#9ca3af', dot: 'ring', label: 'Idle' },
+  harvesting: { color: '#fde68a', dot: 'filled', label: 'Harvesting' },
+  dead:       { color: '#f87171', dot: 'x', label: 'Dead' },
 };
 
 export function WorkerDetailPanel() {
@@ -133,7 +133,11 @@ export function WorkerDetailPanel() {
             background: `color-mix(in srgb, ${status.color} 8%, transparent)`,
             border: `1px solid color-mix(in srgb, ${status.color} 20%, transparent)`,
           }}>
-            <span style={{ fontSize: 14, color: status.color }}>{status.dot}</span>
+            <svg width={12} height={12} viewBox="0 0 8 8">
+              {status.dot === 'filled' && <circle cx={4} cy={4} r={3.5} fill={status.color} />}
+              {status.dot === 'ring' && <circle cx={4} cy={4} r={3} fill="none" stroke={status.color} strokeWidth={1.5} />}
+              {status.dot === 'x' && <><line x1={1.5} y1={1.5} x2={6.5} y2={6.5} stroke={status.color} strokeWidth={1.5} /><line x1={6.5} y1={1.5} x2={1.5} y2={6.5} stroke={status.color} strokeWidth={1.5} /></>}
+            </svg>
             <span style={{ fontSize: 13, fontWeight: 700, color: status.color, fontFamily: 'var(--font-mono)' }}>
               {status.label}
             </span>
