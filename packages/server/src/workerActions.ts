@@ -7,6 +7,15 @@ import { broadcast } from './websocket.js';
 import { checkAchievements } from './achievements.js';
 import { checkQuests } from './quests.js';
 import { getActivePassives } from './db.js';
+import { generatePuzzle, PuzzleInstance, DIFFICULTY_CONFIG, PUZZLE_TEMPLATES } from './puzzleDefinitions.js';
+
+// ── Per-node puzzle state (in-memory) ───────────────────────────────────────
+// Key: nodeId, value: current puzzle instance
+const activePuzzles = new Map<string, PuzzleInstance>();
+// Track cooldowns: nodeId -> timestamp when next puzzle is available
+const puzzleCooldowns = new Map<string, number>();
+// Stats
+let totalSolves = 0;
 
 // ── Per-worker action lock ──────────────────────────────────────────────────
 // Each worker can only do one action at a time. The lock resolves when the
@@ -396,6 +405,101 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
 
     case 'getResources': {
       return { ok: true, resources: worker.carrying };
+    }
+
+    case 'compute': {
+      const computeNode = worker.current_node || worker.node_id;
+      const node = nodes.find((n: any) => n.id === computeNode);
+      if (!node || node.type !== 'compute') {
+        return { ok: false, error: 'Not at a compute node' };
+      }
+
+      // Check cooldown
+      const cooldownUntil = puzzleCooldowns.get(computeNode) || 0;
+      if (Date.now() < cooldownUntil) {
+        const remaining = Math.ceil((cooldownUntil - Date.now()) / 1000);
+        return { ok: false, error: `Node on cooldown (${remaining}s)`, reason: 'cooldown', remaining };
+      }
+
+      // Generate puzzle if none active
+      const difficulty = node.data.difficulty || 'easy';
+      let puzzle = activePuzzles.get(computeNode);
+      if (!puzzle) {
+        puzzle = generatePuzzle(difficulty);
+        activePuzzles.set(computeNode, puzzle);
+      }
+
+      setLock(workerId, ACTION_DELAY);
+      await workerLocks.get(workerId);
+
+      return {
+        ok: true,
+        taskId: puzzle.taskId,
+        params: puzzle.params,
+        hint: puzzle.hint,
+        difficulty: puzzle.difficulty,
+      };
+    }
+
+    case 'submit': {
+      const { taskId: submitTaskId, answer: submitAnswer } = payload;
+      if (!submitTaskId || submitAnswer === undefined) {
+        return { ok: false, error: 'taskId and answer required' };
+      }
+
+      const submitNode = worker.current_node || worker.node_id;
+      const sNode = nodes.find((n: any) => n.id === submitNode);
+      if (!sNode || sNode.type !== 'compute') {
+        return { ok: false, error: 'Not at a compute node' };
+      }
+
+      const puzzle = activePuzzles.get(submitNode);
+      if (!puzzle || puzzle.taskId !== submitTaskId) {
+        return { ok: false, error: 'Invalid or expired task', reason: 'invalid_task' };
+      }
+
+      setLock(workerId, ACTION_DELAY);
+      await workerLocks.get(workerId);
+
+      // Check answer
+      const correct = String(puzzle.answer) === String(submitAnswer);
+
+      // Clear puzzle and set cooldown regardless
+      activePuzzles.delete(submitNode);
+      const difficulty = sNode.data.difficulty || 'easy';
+      const config = DIFFICULTY_CONFIG[difficulty as keyof typeof DIFFICULTY_CONFIG];
+      puzzleCooldowns.set(submitNode, Date.now() + (config?.cooldownMs || 10000));
+
+      if (correct) {
+        // Award resources
+        const template = PUZZLE_TEMPLATES.find(t => t.id === puzzle.templateId);
+        const reward = (config?.baseReward || 5) * (template?.rewardMultiplier || 1);
+        const rewardType = sNode.data.rewardResource || 'data';
+
+        const freshState = getGameState();
+        const newRes = { ...freshState.resources } as Record<string, number>;
+        newRes[rewardType] = (newRes[rewardType] || 0) + reward;
+        saveGameState({ ...freshState, resources: newRes as any });
+
+        // Update node solve count
+        const newNodes = freshState.nodes.map((n: any) => {
+          if (n.id === submitNode) {
+            return { ...n, data: { ...n.data, solveCount: (n.data.solveCount || 0) + 1 } };
+          }
+          return n;
+        });
+        saveGameState({ ...getGameState(), nodes: newNodes });
+
+        broadcastFullState();
+        totalSolves++;
+        incrementStat('total_puzzles_solved', 1);
+        checkAchievements();
+        checkQuests();
+
+        return { ok: true, correct: true, reward: { type: rewardType, amount: reward } };
+      } else {
+        return { ok: true, correct: false, expected: puzzle.answer, got: submitAnswer };
+      }
     }
 
     default:

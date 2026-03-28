@@ -98,6 +98,16 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'first_install', name: 'Socketed', description: 'Install a chip into a node', category: 'chips', secret: false,
     check: () => getStat('total_chips_installed') >= 1 },
 
+  // Puzzles
+  { id: 'first_solve', name: 'Hello, Compute!', description: 'Solve your first compute puzzle', category: 'crafting', secret: false,
+    check: () => getStat('total_puzzles_solved') >= 1 },
+  { id: 'solve_10', name: 'Problem Solver', description: 'Solve 10 compute puzzles', category: 'crafting', secret: false,
+    check: () => getStat('total_puzzles_solved') >= 10,
+    progress: () => ({ current: getStat('total_puzzles_solved'), target: 10 }) },
+  { id: 'solve_50', name: 'Leetcode Grinder', description: 'Solve 50 compute puzzles', category: 'crafting', secret: false,
+    check: () => getStat('total_puzzles_solved') >= 50,
+    progress: () => ({ current: getStat('total_puzzles_solved'), target: 50 }) },
+
   // Secret
   { id: 'speedrun', name: 'Speed Run', description: 'Reach 100 total deposits before tick 500', category: 'secret', secret: true,
     check: () => getStat('total_deposits') >= 100 && getGameState().tick < 500 },

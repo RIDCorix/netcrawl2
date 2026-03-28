@@ -439,6 +439,39 @@ export function NodeDetailPanel() {
               </div>
             )}
 
+            {/* Compute node info */}
+            {node.type === 'compute' && node.data.unlocked && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <SectionLabel>Compute Puzzle</SectionLabel>
+                <div style={{ display: 'flex', gap: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Difficulty</div>
+                    <div style={{
+                      fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)', textTransform: 'capitalize',
+                      color: node.data.difficulty === 'easy' ? '#4ade80' : node.data.difficulty === 'medium' ? '#60a5fa' : '#f59e0b',
+                    }}>
+                      {node.data.difficulty || 'easy'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Reward</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--data-color)', fontFamily: 'var(--font-mono)' }}>
+                      {node.data.rewardResource || 'data'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Solved</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                      {node.data.solveCount || 0}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.5, marginTop: 4 }}>
+                  Send a worker here and call <span style={{ color: 'var(--accent)' }}>self.compute()</span> to get a puzzle, then <span style={{ color: 'var(--accent)' }}>self.submit(taskId, answer)</span> to earn resources.
+                </div>
+              </div>
+            )}
+
             {/* Actions */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {node.data.unlocked && node.type === 'resource' && (

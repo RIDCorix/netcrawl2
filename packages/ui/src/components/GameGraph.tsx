@@ -19,7 +19,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { useGameStore, GameNode, GameEdge, Worker } from '../store/gameStore';
 import React, { useEffect, useCallback } from 'react';
-import { Zap, Mountain, Database, Shield, Lock, AlertTriangle, Radio, Pickaxe, Package } from 'lucide-react';
+import { Zap, Mountain, Database, Shield, Lock, AlertTriangle, Radio, Pickaxe, Package, Cpu } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 // ── Custom Node Components ──────────────────────────────────────────────────
@@ -301,12 +301,44 @@ function LockedNode({ data, selected }: any) {
   );
 }
 
+const DIFFICULTY_COLORS: Record<string, string> = {
+  easy: '#4ade80',
+  medium: '#60a5fa',
+  hard: '#f59e0b',
+};
+
+function ComputeNode({ data, selected }: any) {
+  const color = DIFFICULTY_COLORS[data.difficulty] || '#a78bfa';
+  return (
+    <NodeWrapper selected={selected} glowColor={data.unlocked ? color : undefined} workers={data.workers} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
+      <NodeLabel
+        label={data.label}
+        icon={Cpu}
+        iconColor={data.unlocked ? color : 'var(--text-muted)'}
+        subtitle={data.unlocked ? (data.difficulty || 'PUZZLE').toUpperCase() : 'LOCKED'}
+      />
+      {data.unlocked && data.solveCount > 0 && (
+        <div style={{
+          position: 'absolute', top: -6, right: -6,
+          background: color, color: '#000',
+          fontSize: 9, fontWeight: 800, fontFamily: 'var(--font-mono)',
+          borderRadius: '999px', width: 18, height: 18,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {data.solveCount}
+        </div>
+      )}
+    </NodeWrapper>
+  );
+}
+
 const NODE_TYPES: NodeTypes = {
   hub: HubNode,
   resource: ResourceNode,
   relay: RelayNode,
   infected: InfectedNode,
   locked: LockedNode,
+  compute: ComputeNode,
 };
 
 // ── Edge with CSS-animated traffic dots ─────────────────────────────────

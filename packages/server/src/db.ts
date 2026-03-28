@@ -167,6 +167,9 @@ export const INITIAL_NODES = [
   { id: 'relay1', type: 'relay', position: { x: 200, y: 480 }, data: { label: 'Relay Alpha', unlocked: false, unlockCost: { energy: 15 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
   { id: 'relay2', type: 'relay', position: { x: 80, y: 300 }, data: { label: 'Relay Beta', unlocked: false, unlockCost: { energy: 25 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
   { id: 'locked1', type: 'locked', position: { x: 750, y: 300 }, data: { label: 'Unknown Node', unlocked: false, unlockCost: { energy: 100, ore: 50, data: 20 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+  // Compute nodes
+  { id: 'c1', type: 'compute', position: { x: 400, y: 540 }, data: { label: 'Compute Alpha', unlocked: false, unlockCost: { energy: 30, data: 10 }, difficulty: 'easy', rewardResource: 'data', solveCount: 0, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+  { id: 'c2', type: 'compute', position: { x: 750, y: 480 }, data: { label: 'Compute Beta', unlocked: false, unlockCost: { energy: 60, data: 30, ore: 20 }, difficulty: 'medium', rewardResource: 'data', solveCount: 0, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
 ];
 
 export const INITIAL_EDGES = [
@@ -177,6 +180,9 @@ export const INITIAL_EDGES = [
   { id: 'e5', source: 'r2', target: 'locked1' },
   { id: 'e6', source: 'hub', target: 'relay2' },
   { id: 'e7', source: 'relay1', target: 'relay2' },
+  { id: 'e8', source: 'relay1', target: 'c1' },
+  { id: 'e9', source: 'r3', target: 'c2' },
+  { id: 'e10', source: 'locked1', target: 'c2' },
 ];
 
 export const INITIAL_RESOURCES: Resources = { energy: 50, ore: 0, data: 0 };

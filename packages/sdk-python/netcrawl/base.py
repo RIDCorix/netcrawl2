@@ -211,6 +211,37 @@ class WorkerClass(metaclass=WorkerMeta):
         result = self._client.action("repair", {"nodeId": node_id})
         return result.get("ok", False)
 
+    # ── Compute (Puzzle Nodes) ────────────────────────────────────────────────
+
+    def compute(self) -> dict:
+        """
+        Request a puzzle from a compute node. Must be standing on a compute node.
+
+        Returns:
+            { ok: True, taskId: str, params: dict, hint: str, difficulty: str }
+
+        Example:
+            task = self.compute()
+            a, b = task["params"]["a"], task["params"]["b"]
+            answer = a + b
+            result = self.submit(task["taskId"], answer)
+        """
+        result = self._client.action("compute", {})
+        if not result.get("ok"):
+            raise ValueError(f"compute() failed: {result.get('error')}")
+        return result
+
+    def submit(self, task_id: str, answer) -> dict:
+        """
+        Submit an answer to a compute node puzzle.
+
+        Returns:
+            { ok: True, correct: bool, reward?: { type, amount } }
+            If incorrect: { ok: True, correct: False, expected: ..., got: ... }
+        """
+        result = self._client.action("submit", {"taskId": task_id, "answer": answer})
+        return result
+
     # ── Logging ──────────────────────────────────────────────────────────────
 
     def info(self, msg: str) -> None:
