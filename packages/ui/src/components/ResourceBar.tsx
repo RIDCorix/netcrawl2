@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Mountain, Database, Wifi, WifiOff, ShieldAlert, Activity, Package, Trophy, BookOpen, Settings } from 'lucide-react';
+import { Zap, Mountain, Database, Star, Wifi, WifiOff, ShieldAlert, Activity, Package, Trophy, BookOpen, Settings } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useRef, useEffect, useState } from 'react';
 
@@ -147,6 +147,9 @@ export function ResourceBar() {
       <ResourceItem icon={Zap} value={resources.energy} label="Energy" color="var(--energy-color)" prevValue={prev.energy} />
       <ResourceItem icon={Mountain} value={resources.ore} label="Ore" color="var(--ore-color)" prevValue={prev.ore} />
       <ResourceItem icon={Database} value={resources.data} label="Data" color="var(--data-color)" prevValue={prev.data} />
+      {(resources as any).credits > 0 && (
+        <ResourceItem icon={Star} value={(resources as any).credits || 0} label="Credits" color="#f59e0b" prevValue={(prev as any).credits || 0} />
+      )}
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />

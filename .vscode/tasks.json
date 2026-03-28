@@ -9,8 +9,11 @@
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",
-        "panel": "dedicated"
-      }
+        "panel": "dedicated",
+        "echo": true,
+        "focus": false,
+        "showReuseMessage": false
+      },
     },
     {
       "label": "Web UI",
@@ -23,8 +26,11 @@
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",
-        "panel": "dedicated"
-      }
+        "panel": "dedicated",
+        "echo": true,
+        "focus": false,
+        "showReuseMessage": false
+      },
     },
     {
       "label": "Code Server",
@@ -37,8 +43,11 @@
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",
-        "panel": "dedicated"
-      }
+        "panel": "dedicated",
+        "echo": true,
+        "focus": false,
+        "showReuseMessage": false
+      },
     },
     {
       "label": "NetCrawl: Start All",
@@ -54,8 +63,12 @@
         "isDefault": true
       },
       "presentation": {
-        "reveal": "silent"
-      }
+        "reveal": "always",
+        "panel": "dedicated",
+        "echo": true,
+        "focus": false,
+        "showReuseMessage": false
+      },
     },
     {
       "label": "NetCrawl: Kill All",
@@ -64,20 +77,28 @@
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",
-        "panel": "shared"
-      }
+        "panel": "dedicated",
+        "echo": true,
+        "focus": false,
+        "showReuseMessage": false
+      },
     },
     {
       "label": "NetCrawl: Restart All",
       "dependsOn": [
         "NetCrawl: Kill All",
         "Web UI",
+        "Code Server"
       ],
-      "dependsOrder": "parallel",
+      "dependsOrder": "sequence",
       "problemMatcher": [],
       "presentation": {
-        "reveal": "silent"
-      }
+        "reveal": "always",
+        "panel": "dedicated",
+        "echo": true,
+        "focus": false,
+        "showReuseMessage": false
+      },
     }
   ]
 }

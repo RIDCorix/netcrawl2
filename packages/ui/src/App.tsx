@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useGameState } from './hooks/useGameState';
 import { useGameStore } from './store/gameStore';
 import { ResourceBar } from './components/ResourceBar';
@@ -23,33 +23,44 @@ const queryClient = new QueryClient({
 
 function GameView() {
   useGameState();
-  const toggleInventory = useGameStore(s => s.toggleInventory);
-  const toggleAchievements = useGameStore(s => s.toggleAchievements);
-  const toggleQuests = useGameStore(s => s.toggleQuests);
-  const toggleSettings = useGameStore(s => s.toggleSettings);
 
-  const keybindings = useGameStore(s => s.settings.keybindings);
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+
+    // Read current state directly from store (no stale closures)
+    const state = useGameStore.getState();
+    const { keybindings } = state.settings;
+
+    // ESC: close the topmost open dialog instead of always toggling settings
+    if (e.key === 'Escape') {
+      if (state.settingsOpen) { state.toggleSettings(); return; }
+      if (state.inventoryOpen) { state.toggleInventory(); return; }
+      if (state.achievementsOpen) { state.toggleAchievements(); return; }
+      if (state.questsOpen) { state.toggleQuests(); return; }
+      state.toggleSettings();
+      return;
+    }
+
+    const actions: Record<string, () => void> = {
+      inventory: state.toggleInventory,
+      achievements: state.toggleAchievements,
+      quests: state.toggleQuests,
+      settings: state.toggleSettings,
+    };
+
+    for (const [action, key] of Object.entries(keybindings)) {
+      if (action === 'settings') continue; // ESC handled above
+      if (e.key === key || e.key === key.toUpperCase()) {
+        actions[action]?.();
+        return;
+      }
+    }
+  }, []);
 
   useEffect(() => {
-    const actions: Record<string, () => void> = {
-      inventory: toggleInventory,
-      achievements: toggleAchievements,
-      quests: toggleQuests,
-      settings: toggleSettings,
-    };
-
-    const handler = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
-      for (const [action, key] of Object.entries(keybindings)) {
-        if (e.key === key || e.key === key.toUpperCase()) {
-          actions[action]?.();
-          return;
-        }
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [toggleInventory, toggleAchievements, toggleQuests, toggleSettings, keybindings]);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   return (
     <div style={{

@@ -56,21 +56,28 @@ def main():
     # Process injected fields:
     # - ItemField + dict value → convert to RuntimeItem proxy
     # - RouteField + list value → keep as list
+    # - GadgetField → create runtime gadget (no injected data needed)
     # - Other → keep as-is
-    from netcrawl.fields import ItemField, RouteField
+    from netcrawl.fields import ItemField, RouteField, GadgetField
     from netcrawl.runtime import RuntimeItem
+    from netcrawl.items.equipment import SensorGadget
+    from netcrawl.runtime import RuntimeSensorGadget
 
+    # First: auto-create runtime proxies for gadget fields (not injected by server)
     injected_fields = {}
+    for field_name, cls_field in WorkerCls._fields.items():
+        if isinstance(cls_field, SensorGadget):
+            injected_fields[field_name] = RuntimeSensorGadget()
+
+    # Then: process server-injected values
     for field_name, value in injected_fields_raw.items():
         cls_field = WorkerCls._fields.get(field_name)
         if isinstance(cls_field, ItemField) and isinstance(value, dict):
-            # Create a RuntimeItem proxy — _worker will be set after __init__
             item_proxy = RuntimeItem(value)
             injected_fields[field_name] = item_proxy
         elif isinstance(cls_field, RouteField) and isinstance(value, list):
             injected_fields[field_name] = value
         else:
-            # Unknown field or raw value — inject as-is
             injected_fields[field_name] = value
 
     # Instantiate with injected values
@@ -79,12 +86,6 @@ def main():
         api_url=api_url,
         injected_fields=injected_fields,
     )
-    # WorkerClass.__init__ already sets _worker on RuntimeItem instances,
-    # but do it again here for any that may have been missed
-    for field_name in WorkerCls._fields:
-        instance = getattr(worker, field_name, None)
-        if instance is not None and hasattr(instance, '_worker'):
-            instance._worker = worker
 
     print(f"[{worker_id}] Starting {class_name}...")
 
@@ -108,12 +109,13 @@ def main():
             msg = f"on_loop() error #{loop_count}: {e}"
             print(f"[{worker_id}] {msg}", file=sys.stderr)
             traceback.print_exc()
-            # Log to server so it shows in UI
+            # Report fatal error to server — sets worker to 'error' status
             try:
-                worker.error(msg)
+                worker._client.action("report_error", {"message": msg})
             except Exception:
                 pass
-            time.sleep(2)
+            print(f"[{worker_id}] Stopped due to error after {loop_count} loops.")
+            sys.exit(1)
 
     print(f"[{worker_id}] Suspended cleanly after {loop_count} loops.")
     sys.exit(0)

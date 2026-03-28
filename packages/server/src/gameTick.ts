@@ -1,5 +1,8 @@
-import { getGameState, saveGameState, getWorkers } from './db.js';
+import { getGameState, saveGameState, getWorkers, incrementStat } from './db.js';
 import { broadcast } from './websocket.js';
+import { getNeighborIds } from './graphUtils.js';
+import { checkAchievements } from './achievements.js';
+import { tickAPINodes } from './apiNodeEngine.js';
 
 export function startGameTick() {
   setInterval(() => {
@@ -64,22 +67,18 @@ function tick() {
   if (hub && (hub.data.infected || hub.type === 'infected')) {
     saveGameState({ ...state, nodes, edges, resources, tick: tick + 1, gameOver: true });
     broadcast({ type: 'STATE_UPDATE', payload: { nodes, edges, resources, tick: tick + 1, gameOver: true, workers: getWorkers() } });
+    incrementStat('total_game_overs', 1);
+    checkAchievements();
     console.log('[Tick] GAME OVER - Hub infected!');
     return;
   }
 
   saveGameState({ ...state, nodes, edges, resources, tick: tick + 1, gameOver: false });
 
+  // Generate API requests for API nodes
+  tickAPINodes();
+
   if (changed || tick % 5 === 0) {
     broadcast({ type: 'STATE_UPDATE', payload: { nodes, edges, resources, tick: tick + 1, gameOver: false, workers: getWorkers() } });
   }
-}
-
-function getNeighborIds(edges: any[], nodeId: string): string[] {
-  const neighbors: string[] = [];
-  for (const e of edges) {
-    if (e.source === nodeId) neighbors.push(e.target);
-    else if (e.target === nodeId) neighbors.push(e.source);
-  }
-  return neighbors;
 }

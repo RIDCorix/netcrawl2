@@ -8,10 +8,7 @@ import { X, ChevronLeft, ChevronRight, BookOpen, Check, Gift, Zap, Mountain, Dat
 import { useState } from 'react';
 import axios from 'axios';
 import { Markdown } from './ui/markdown';
-
-const CHAPTER_COLORS: Record<number, string> = {
-  1: '#4ade80', 2: '#60a5fa', 3: '#a78bfa', 4: '#ef4444', 5: '#f59e0b', 6: '#00d4aa',
-};
+import { CHAPTER_COLORS } from '../constants/colors';
 
 function RewardBadge({ reward, color }: { reward: any; color: string }) {
   const text = (() => {

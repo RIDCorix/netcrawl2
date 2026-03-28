@@ -127,6 +127,28 @@ class WorkerClass(metaclass=WorkerMeta):
         """Called repeatedly in a loop. Override with your worker logic."""
         pass
 
+    # ── Node access ─────────────────────────────────────────────────────────
+
+    def get_current_node(self):
+        """
+        Get a typed node object for the worker's current position.
+
+        Returns a subclass of BaseNode based on node type:
+        - HubNode, ResourceNode, RelayNode, ComputeNode, LockedNode, InfectedNode
+
+        Example:
+            node = self.get_current_node()
+            if isinstance(node, ComputeNode):
+                task = node.get_task()
+                answer = task.parameters['a'] + task.parameters['b']
+                node.submit(task.task_id, answer)
+        """
+        from netcrawl.nodes import create_node
+        result = self._client.action("get_node_info", {})
+        if not result.get("ok"):
+            raise ValueError(f"get_current_node() failed: {result.get('error')}")
+        return create_node(result, self._client, self._worker_id)
+
     # ── Movement ────────────────────────────────────────────────────────────
 
     def move(self, target: str) -> None:
@@ -237,37 +259,6 @@ class WorkerClass(metaclass=WorkerMeta):
         """
         result = self._client.action("repair", {"nodeId": node_id})
         return result.get("ok", False)
-
-    # ── Compute (Puzzle Nodes) ────────────────────────────────────────────────
-
-    def compute(self) -> dict:
-        """
-        Request a puzzle from a compute node. Must be standing on a compute node.
-
-        Returns:
-            { ok: True, taskId: str, params: dict, hint: str, difficulty: str }
-
-        Example:
-            task = self.compute()
-            a, b = task["params"]["a"], task["params"]["b"]
-            answer = a + b
-            result = self.submit(task["taskId"], answer)
-        """
-        result = self._client.action("compute", {})
-        if not result.get("ok"):
-            raise ValueError(f"compute() failed: {result.get('error')}")
-        return result
-
-    def submit(self, task_id: str, answer) -> dict:
-        """
-        Submit an answer to a compute node puzzle.
-
-        Returns:
-            { ok: True, correct: bool, reward?: { type, amount } }
-            If incorrect: { ok: True, correct: False, expected: ..., got: ... }
-        """
-        result = self._client.action("submit", {"taskId": task_id, "answer": answer})
-        return result
 
     # ── Logging ──────────────────────────────────────────────────────────────
 

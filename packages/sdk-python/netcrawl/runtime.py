@@ -1,9 +1,60 @@
 """
 netcrawl/runtime.py
 
-Runtime proxy objects for equipped items.
+Runtime proxy objects for equipped items and gadgets.
 These are created by the runner when injecting fields into a worker instance.
 """
+
+
+class RuntimeGadget:
+    """
+    Base runtime proxy for gadgets. Has a _worker back-reference
+    that gets set during worker initialization.
+    """
+
+    def __init__(self):
+        self._worker = None
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__}>"
+
+
+class RuntimeSensorGadget(RuntimeGadget):
+    """
+    Runtime proxy for SensorGadget. Provides pathfinding and exploration.
+    """
+
+    def travel_to(self, node_id: str) -> None:
+        """
+        Travel to any node using server-side pathfinding.
+        Automatically moves through intermediate nodes.
+        """
+        result = self._worker._client.action("findPath", {
+            "from": self._worker._current_node,
+            "to": node_id,
+        })
+        path = result.get("path", [])
+        if not path:
+            raise ValueError(f"No path from {self._worker._current_node} to {node_id}")
+        self._worker.move_through(path)
+
+    def find_nearest(self, node_type: str) -> str | None:
+        """
+        Find nearest node of given type using BFS.
+        Returns node_id or None.
+        """
+        result = self._worker._client.action("findNearest", {
+            "from": self._worker._current_node,
+            "nodeType": node_type,
+        })
+        return result.get("nodeId")
+
+    def explore(self) -> list[dict]:
+        """
+        Scan a wider radius. Returns all visible nodes within scan radius.
+        """
+        result = self._worker._client.action("scan", {"radius": 3})
+        return result.get("nodes", [])
 
 
 class RuntimeItem:

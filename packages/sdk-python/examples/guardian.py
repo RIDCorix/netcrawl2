@@ -1,21 +1,22 @@
 """
 Guardian worker: patrols the network and repairs infected nodes.
-Uses AdvancedGraphGadget for automatic pathfinding.
+Uses SensorGadget for automatic pathfinding.
 """
 import time
-from netcrawl import WorkerClass
+from netcrawl import WorkerClass, SensorGadget
 from netcrawl.items.equipment import Shield
-from netcrawl.mixins.graph import AdvancedGraphGadget
 
 
-class Guardian(WorkerClass, AdvancedGraphGadget):
+class Guardian(WorkerClass):
     """
-    Patrol and repair worker. Requires the AdvancedGraphGadget upgrade.
+    Patrol and repair worker.
 
     Deploy requirements:
     - shield: 1x Shield item (reduces infection damage)
+    - sensor: auto-provided pathfinding gadget
     """
     shield = Shield()
+    sensor = SensorGadget()
 
     def on_startup(self):
         self.repairs = 0
@@ -31,7 +32,7 @@ class Guardian(WorkerClass, AdvancedGraphGadget):
             self.warn(f"Infected node detected: {target['id']}")
 
             # Travel there and repair
-            self.travel_to(target["id"])
+            self.sensor.travel_to(target["id"])
             success = self.repair(target["id"])
 
             if success:
@@ -41,7 +42,7 @@ class Guardian(WorkerClass, AdvancedGraphGadget):
                 self.warn(f"Failed to repair {target['id']}")
 
             # Return to hub
-            self.travel_to("hub")
+            self.sensor.travel_to("hub")
         else:
             # No infections — idle patrol, scan again in 3s
             self.info("Network clear. Standing by...")

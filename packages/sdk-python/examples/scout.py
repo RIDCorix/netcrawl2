@@ -2,23 +2,23 @@
 Scout: explores the map, logs discovered nodes.
 """
 import time
-from netcrawl import WorkerClass, Route
-from netcrawl.mixins.graph import AdvancedGraphGadget
+from netcrawl import WorkerClass, Route, SensorGadget
 
 
-class Scout(WorkerClass, AdvancedGraphGadget):
+class Scout(WorkerClass):
     """
     Exploration worker. Finds unknown nodes and logs them.
-    No items required.
+    No items required — sensor gadget is auto-provided.
     """
     patrol_route = Route("Patrol circuit (loop path)")
+    sensor = SensorGadget()
 
     def on_startup(self):
         self.discovered = set()
         self.info("Scout online.")
 
     def on_loop(self):
-        nodes = self.explore()
+        nodes = self.sensor.explore()
         new = [n for n in nodes if n["id"] not in self.discovered]
 
         for node in new:

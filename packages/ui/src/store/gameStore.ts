@@ -69,7 +69,7 @@ export interface Worker {
   node_id: string;
   class_name: string;
   commit_hash: string;
-  status: 'deploying' | 'running' | 'suspending' | 'suspended' | 'crashed' | 'idle' | 'moving' | 'harvesting' | 'dead';
+  status: 'deploying' | 'running' | 'suspending' | 'suspended' | 'crashed' | 'error' | 'idle' | 'moving' | 'harvesting' | 'dead';
   current_node: string;
   previous_node?: string;
   carrying: Partial<Resources>;

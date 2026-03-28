@@ -5,27 +5,7 @@ import {
 import { useGameStore, Worker } from '../store/gameStore';
 import { useState } from 'react';
 import axios from 'axios';
-
-// ── Status config ────────────────────────────────────────────────────────────
-
-interface StatusConfig {
-  label: string;
-  color: string;
-  dot: string;
-  spin?: boolean;
-}
-
-const STATUS_CONFIG: Record<string, StatusConfig> = {
-  running:    { color: '#4ade80', dot: 'filled', label: 'active' },
-  moving:     { color: '#4ade80', dot: 'filled', label: 'moving' },
-  idle:       { color: '#4ade80', dot: 'filled', label: 'active' },
-  harvesting: { color: '#4ade80', dot: 'filled', label: 'mining' },
-  deploying:  { color: '#60a5fa', dot: 'ring', label: 'deploying', spin: true },
-  suspending: { color: '#facc15', dot: 'ring', label: 'suspending', spin: true },
-  suspended:  { color: '#9ca3af', dot: 'ring', label: 'suspended' },
-  crashed:    { color: '#f87171', dot: 'x', label: 'crashed' },
-  dead:       { color: '#f87171', dot: 'x', label: 'dead' },
-};
+import { getStatusConfig } from '../constants/status';
 
 // ── Class Group ──────────────────────────────────────────────────────────────
 
@@ -38,6 +18,7 @@ function ClassGroup({ className, workers, onSuspend, onDismiss }: {
   const [expanded, setExpanded] = useState(true);
   const running = workers.filter(w => w.status === 'running' || w.status === 'moving' || w.status === 'harvesting').length;
   const pending = workers.filter(w => w.status === 'deploying').length;
+  const errored = workers.filter(w => w.status === 'error' || w.status === 'crashed').length;
   const total = workers.length;
 
   return (
@@ -82,6 +63,16 @@ function ClassGroup({ className, workers, onSuspend, onDismiss }: {
             {pending}
           </span>
         )}
+        {errored > 0 && (
+          <span style={{
+            fontSize: 9, fontWeight: 800, fontFamily: 'var(--font-mono)',
+            padding: '1px 5px', borderRadius: 'var(--radius-sm)',
+            background: 'rgba(248,113,113,0.15)', color: '#f87171',
+            border: '1px solid rgba(248,113,113,0.25)',
+          }}>
+            {errored}
+          </span>
+        )}
         <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
           {total}
         </span>
@@ -107,8 +98,8 @@ function WorkerRow({ worker, onSuspend, onDismiss }: {
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
-  const config = STATUS_CONFIG[worker.status] ?? STATUS_CONFIG.idle;
-  const { selectNode } = useGameStore();
+  const config = getStatusConfig(worker.status);
+  const { selectWorker } = useGameStore();
 
   const handleToggleLogs = async () => {
     if (!showLogs) {
@@ -147,7 +138,7 @@ function WorkerRow({ worker, onSuspend, onDismiss }: {
           borderRadius: 'var(--radius-sm)',
           transition: 'background 0.1s',
         }}
-        onClick={() => selectNode(worker.current_node)}
+        onClick={() => selectWorker(worker.id)}
         onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
       >
@@ -240,6 +231,8 @@ export function WorkerListPanel() {
   const { workers } = useGameStore();
   const [collapsed, setCollapsed] = useState(false);
 
+  const errorCount = workers.filter(w => w.status === 'error' || w.status === 'crashed').length;
+
   // Group by class_name
   const groups: Record<string, Worker[]> = {};
   for (const w of workers) {
@@ -303,6 +296,17 @@ export function WorkerListPanel() {
               color: 'var(--accent)', fontFamily: 'var(--font-mono)',
             }}>
               {workers.length}
+            </span>
+          )}
+          {errorCount > 0 && (
+            <span style={{
+              fontSize: 9, fontWeight: 800, padding: '1px 5px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'rgba(248,113,113,0.15)', color: '#f87171',
+              border: '1px solid rgba(248,113,113,0.25)',
+              fontFamily: 'var(--font-mono)',
+            }}>
+              {errorCount} err
             </span>
           )}
         </div>

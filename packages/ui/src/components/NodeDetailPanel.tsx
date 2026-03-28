@@ -74,29 +74,7 @@ function ActionButton({ onClick, children, variant = 'primary', disabled = false
   );
 }
 
-function SectionLabel({ children }: { children: string }) {
-  return (
-    <div style={{
-      fontSize: 11,
-      fontWeight: 700,
-      color: 'var(--text-muted)',
-      fontFamily: 'var(--font-mono)',
-      letterSpacing: '0.12em',
-      marginBottom: 8,
-      textTransform: 'uppercase',
-    }}>
-      {children}
-    </div>
-  );
-}
-
-function Divider() {
-  return <div style={{
-    height: 1,
-    background: 'linear-gradient(90deg, transparent, var(--border-bright), transparent)',
-    margin: '4px 0',
-  }} />;
-}
+import { SectionLabel, Divider } from './ui/primitives';
 
 function StatusMessage({ msg }: { msg: string }) {
   if (!msg) return null;
@@ -215,6 +193,7 @@ export function NodeDetailPanel() {
   const { selectedNodeId, nodes, resources, selectNode } = useGameStore();
   const [gathering, setGathering] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
+  const [building, setBuilding] = useState(false);
   const [msg, setMsg] = useState('');
   const [deployOpen, setDeployOpen] = useState(false);
   const [activeDialog, setActiveDialog] = useState<NodeDialogConfig | null>(null);
@@ -254,6 +233,26 @@ export function NodeDetailPanel() {
   const canAffordUnlock = (cost: Partial<Resources>) =>
     Object.entries(cost).every(([k, v]) => (resources as any)[k] >= v);
 
+  const BUILD_COSTS: Record<string, Record<string, number>> = {
+    cache: { ore: 40, data: 30, energy: 20 },
+    api: { ore: 30, data: 40, energy: 30 },
+  };
+
+  const handleBuild = async (structureType: string) => {
+    if (!node) return;
+    setBuilding(true);
+    setMsg('');
+    try {
+      await axios.post('/api/node/build', { nodeId: node.id, structureType });
+      setMsg(`Built ${structureType} node!`);
+      setTimeout(() => setMsg(''), 2000);
+    } catch (err: any) {
+      setMsg(err.response?.data?.error || 'Build failed');
+    } finally {
+      setBuilding(false);
+    }
+  };
+
   const getNodeColor = (n: GameNode) => {
     if (n.type === 'infected') return 'var(--danger)';
     if (n.type === 'hub') return 'var(--accent)';
@@ -262,6 +261,9 @@ export function NodeDetailPanel() {
       return colors[n.data.resource || ''] || 'var(--accent)';
     }
     if (n.type === 'relay') return 'var(--accent-secondary)';
+    if (n.type === 'cache') return '#a78bfa';
+    if (n.type === 'api') return '#f59e0b';
+    if (n.type === 'empty') return 'var(--text-muted)';
     return 'var(--text-muted)';
   };
 
@@ -493,6 +495,115 @@ export function NodeDetailPanel() {
               </div>
             )}
 
+            {/* Cache node info */}
+            {node.type === 'cache' && node.data.unlocked && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <SectionLabel>Cache Service</SectionLabel>
+                <div style={{ display: 'flex', gap: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Range</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#a78bfa', fontFamily: 'var(--font-mono)' }}>
+                      {node.data.cacheRange || 1} hop{(node.data.cacheRange || 1) > 1 ? 's' : ''}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Capacity</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#a78bfa', fontFamily: 'var(--font-mono)' }}>
+                      {node.data.cacheCapacity || 10} keys
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Level</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                      {node.data.upgradeLevel || 1}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.5, marginTop: 4 }}>
+                  <span style={{ color: 'var(--accent)' }}>cache = self.get_service("{node.id}")</span><br />
+                  <span style={{ color: 'var(--accent)' }}>cache.set(key, val)</span> / <span style={{ color: 'var(--accent)' }}>cache.get(key)</span>
+                </div>
+              </div>
+            )}
+
+            {/* API Node spec */}
+            {node.type === 'api' && node.data.unlocked && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <SectionLabel>API Specification</SectionLabel>
+
+                <div style={{ display: 'flex', gap: 16, marginBottom: 4 }}>
+                  <div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Pending</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b', fontFamily: 'var(--font-mono)' }}>
+                      {node.data.pendingRequests || 0}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Level</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                      {node.data.upgradeLevel || 1}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Endpoints */}
+                <div style={{
+                  background: 'var(--bg-primary)', border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)', padding: 8,
+                }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: '#f59e0b', fontFamily: 'var(--font-mono)', marginBottom: 6 }}>
+                    POST /compute
+                  </div>
+                  <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.6 }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Body:</span>{' '}
+                    {'{ op: "add"|"sub"|"mul"|"max"|"mod", a, b }'}<br />
+                    <span style={{ color: 'var(--text-secondary)' }}>Response:</span>{' '}
+                    {'{ result: number }'}<br />
+                    <span style={{ color: 'var(--text-secondary)' }}>Example:</span>{' '}
+                    {'{ op:"add", a:12, b:8 } → { result: 20 }'}
+                  </div>
+                </div>
+
+                <div style={{
+                  background: 'var(--bg-primary)', border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)', padding: 8,
+                }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: '#f59e0b', fontFamily: 'var(--font-mono)', marginBottom: 6 }}>
+                    POST /echo
+                  </div>
+                  <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.6 }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Body:</span>{' '}
+                    {'{ value: any }'}<br />
+                    <span style={{ color: 'var(--text-secondary)' }}>Response:</span>{' '}
+                    {'{ value: any }'}
+                  </div>
+                </div>
+
+                {/* Security warning */}
+                <div style={{
+                  background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+                  borderRadius: 'var(--radius-sm)', padding: 8,
+                }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: '#ef4444', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>
+                    ⚠ SECURITY
+                  </div>
+                  <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.6 }}>
+                    Some requests arrive <span style={{ color: '#ef4444', fontWeight: 700 }}>without authentication</span> (has_token=False).
+                    You MUST check <span style={{ color: 'var(--accent)' }}>request.has_token</span> and drop unauthenticated requests.
+                    Responding to them causes a <span style={{ color: '#ef4444' }}>SECURITY BREACH</span> and infects this node.
+                  </div>
+                </div>
+
+                {/* Code example */}
+                <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.6, marginTop: 2 }}>
+                  <span style={{ color: 'var(--accent)' }}>node = self.get_current_node()</span><br />
+                  <span style={{ color: 'var(--accent)' }}>req = node.poll_for_request()</span><br />
+                  <span style={{ color: '#ef4444' }}>if not req.has_token: return</span><br />
+                  <span style={{ color: 'var(--accent)' }}>node.respond(req.id, {'{'} result {'}'} )</span>
+                </div>
+              </div>
+            )}
+
             {/* Actions */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {node.data.unlocked && node.type === 'resource' && (
@@ -520,6 +631,29 @@ export function NodeDetailPanel() {
                       {unlocking ? 'UNLOCKING...' : canAffordUnlock(node.data.unlockCost) ? 'UNLOCK NODE' : 'INSUFFICIENT RESOURCES'}
                     </span>
                   </ActionButton>
+                </>
+              )}
+
+              {node.type === 'empty' && node.data.unlocked && (
+                <>
+                  <Divider />
+                  <SectionLabel>Build Structure</SectionLabel>
+                  {Object.entries(BUILD_COSTS).map(([type, cost]) => (
+                    <div key={type} style={{ marginBottom: 8 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginBottom: 4, textTransform: 'uppercase' }}>
+                        {type} Node
+                      </div>
+                      <CostBadge cost={cost} />
+                      <ActionButton
+                        onClick={() => handleBuild(type)}
+                        disabled={building || !canAffordUnlock(cost)}
+                      >
+                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                          {building ? 'BUILDING...' : canAffordUnlock(cost) ? `BUILD ${type.toUpperCase()}` : 'INSUFFICIENT RESOURCES'}
+                        </span>
+                      </ActionButton>
+                    </div>
+                  ))}
                 </>
               )}
 

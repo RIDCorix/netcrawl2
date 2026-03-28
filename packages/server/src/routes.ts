@@ -1,4 +1,4 @@
-import express, { Router, Request, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
 import { simpleGit } from 'simple-git';
@@ -13,28 +13,21 @@ import {
 } from './db.js';
 import { handleWorkerAction } from './workerActions.js';
 import { spawnWorker, killWorker, suspendWorker, getActiveProcesses } from './workerSpawner.js';
-import { broadcast } from './websocket.js';
+import { checkCost, deductCost } from './stateHelpers.js';
+import {
+  WorkerClassEntry, registerWorkerClass, getWorkerClass, getAllWorkerClasses,
+  DeployRequest, enqueueDeploy, drainDeployQueue, removeFromDeployQueue,
+} from './workerRegistry.js';
+import { broadcastFullState } from './broadcastHelper.js';
 import {
   NODE_UPGRADE_DEFS, getUpgradeKey, CHIP_PACK_DEFS, rollChip,
 } from './upgradeDefinitions.js';
-import { checkAchievements, getAchievementList, getAchievementSummary, RARITY_ORDINAL } from './achievements.js';
-import { checkQuests, claimQuestReward, getQuestList, getQuestEdges, getQuestSummary } from './quests.js';
+import { checkAchievements, getAchievementList, RARITY_ORDINAL } from './achievements.js';
+import { checkQuests, claimQuestReward, getQuestList, getQuestEdges } from './quests.js';
 import { getActivePassives, getUnlockedRecipes } from './db.js';
 import { incrementStat, addToStatArray, setStatMax } from './db.js';
 
 export const router: Router = Router();
-
-// ── In-memory store for registered Python worker classes ──────────────────
-interface WorkerClassEntry {
-  class_id: string;
-  class_name: string;
-  fields: Record<string, { type: string; field: string; description: string }>;
-  docstring: string;
-  file: string;
-  language: 'python' | 'javascript';
-}
-
-const workerClassRegistry = new Map<string, WorkerClassEntry>();
 
 // Resolve workspace path
 function getWorkspacePath(): string {
@@ -46,11 +39,6 @@ function getWorkspacePath(): string {
     }
   }
   return path.join(process.cwd(), 'workspace');
-}
-
-function broadcastFullState() {
-  const state = getGameState();
-  broadcast({ type: 'STATE_UPDATE', payload: { ...state, workers: getWorkers(), achievements: getAchievementSummary(), questSummary: getQuestSummary() } });
 }
 
 // GET /api/state
@@ -74,7 +62,7 @@ router.post('/gather', (req: Request, res: Response) => {
   const newResources = { ...state.resources };
   (newResources as any)[resourceType] = ((newResources as any)[resourceType] || 0) + 10;
   saveGameState({ ...state, resources: newResources });
-  broadcast({ type: 'STATE_UPDATE', payload: { ...state, resources: newResources, workers: getWorkers() } });
+  broadcastFullState();
   res.json({ ok: true, resources: newResources });
 });
 
@@ -89,17 +77,9 @@ router.post('/unlock', (req: Request, res: Response) => {
   const cost = (node.data.unlockCost as Record<string, number>) || {};
   const resources = state.resources as unknown as Record<string, number>;
 
-  for (const [resource, amount] of Object.entries(cost)) {
-    if ((resources[resource] || 0) < amount) {
-      return res.status(400).json({ error: `Not enough ${resource} (need ${amount}, have ${resources[resource] || 0})` });
-    }
-  }
-
-  // Deduct cost
-  const newResources = { ...resources };
-  for (const [resource, amount] of Object.entries(cost)) {
-    newResources[resource] -= amount;
-  }
+  const costError = checkCost(resources, cost);
+  if (costError) return res.status(400).json({ error: costError });
+  const newResources = deductCost(resources, cost);
 
   // Unlock node
   const newNodes = state.nodes.map((n: any) => {
@@ -110,7 +90,7 @@ router.post('/unlock', (req: Request, res: Response) => {
   });
 
   saveGameState({ ...state, nodes: newNodes, resources: newResources as any });
-  broadcast({ type: 'STATE_UPDATE', payload: { ...state, nodes: newNodes, resources: newResources, workers: getWorkers(), achievements: getAchievementSummary() } });
+  broadcastFullState();
   incrementStat('total_nodes_unlocked', 1);
   checkAchievements();
   checkQuests();
@@ -147,20 +127,9 @@ router.post('/craft', (req: Request, res: Response) => {
   const state = getGameState();
   const resources = state.resources as unknown as Record<string, number>;
 
-  // Check resources
-  for (const [resource, amount] of Object.entries(recipe.cost)) {
-    if ((resources[resource] || 0) < (amount as number)) {
-      return res.status(400).json({
-        error: `Not enough ${resource} (need ${amount}, have ${resources[resource] || 0})`,
-      });
-    }
-  }
-
-  // Deduct resources
-  const newResources = { ...resources };
-  for (const [resource, amount] of Object.entries(recipe.cost)) {
-    newResources[resource] -= (amount as number);
-  }
+  const costError = checkCost(resources, recipe.cost as Record<string, number>);
+  if (costError) return res.status(400).json({ error: costError });
+  const newResources = deductCost(resources, recipe.cost as Record<string, number>);
 
   // Add item to player inventory
   addToPlayerInventory(recipe.output.itemType, recipe.output.count, recipe.output.metadata);
@@ -178,20 +147,6 @@ router.post('/craft', (req: Request, res: Response) => {
   res.json({ ok: true, item: newItem, resources: newResources });
 });
 
-// ── Deploy Queue (code server polls this) ────────────────────────────────────
-
-interface DeployRequest {
-  id: string;
-  workerId: string;
-  nodeId: string;
-  classId: string;
-  equippedItems: Record<string, string>;
-  injectedFields: Record<string, any>;
-  createdAt: string;
-}
-
-const deployQueue: DeployRequest[] = [];
-
 // POST /api/deploy — queues a deploy request for the code server to pick up
 router.post('/deploy', async (req: Request, res: Response) => {
   const { nodeId, classId, equippedItems, routes } = req.body;
@@ -200,7 +155,7 @@ router.post('/deploy', async (req: Request, res: Response) => {
   }
 
   // Verify class is registered
-  const workerClass = workerClassRegistry.get(classId);
+  const workerClass = getWorkerClass(classId);
   if (!workerClass) {
     return res.status(400).json({ error: `Unknown worker class: ${classId}` });
   }
@@ -259,7 +214,7 @@ router.post('/deploy', async (req: Request, res: Response) => {
   });
 
   // Queue for code server
-  deployQueue.push({
+  enqueueDeploy({
     id: workerId,
     workerId,
     nodeId,
@@ -278,7 +233,7 @@ router.post('/deploy', async (req: Request, res: Response) => {
 
 // GET /api/deploy-queue — code server polls this to pick up deploy requests
 router.get('/deploy-queue', (req: Request, res: Response) => {
-  const pending = deployQueue.splice(0, deployQueue.length);
+  const pending = drainDeployQueue();
   res.json({ requests: pending });
 });
 
@@ -322,11 +277,10 @@ router.post('/recall', (req: Request, res: Response) => {
     addToPlayerInventory(worker.holding.type, worker.holding.amount);
   }
 
-  // For deploying/suspended/crashed workers — just delete, no process to kill
-  if (['deploying', 'suspended', 'crashed'].includes(worker.status)) {
+  // For deploying/suspended/crashed/error workers — just delete, no process to kill
+  if (['deploying', 'suspended', 'crashed', 'error'].includes(worker.status)) {
     // Remove from deploy queue if still pending
-    const queueIdx = deployQueue.findIndex(r => r.workerId === workerId);
-    if (queueIdx !== -1) deployQueue.splice(queueIdx, 1);
+    removeFromDeployQueue(workerId);
 
     deleteWorker(workerId);
     broadcastFullState();
@@ -373,8 +327,7 @@ router.post('/worker/suspend', (req: Request, res: Response) => {
     upsertWorker({ ...worker, status: 'suspended', pid: null, equippedPickaxe: null, holding: null });
   }
 
-  const state = getGameState();
-  broadcast({ type: 'STATE_UPDATE', payload: { ...state, workers: getWorkers() } });
+  broadcastFullState();
   res.json({ ok: true });
 });
 
@@ -397,8 +350,7 @@ router.post('/worker/suspend-all', (req: Request, res: Response) => {
     }
   }
 
-  const state = getGameState();
-  broadcast({ type: 'STATE_UPDATE', payload: { ...state, workers: getWorkers() } });
+  broadcastFullState();
   res.json({ ok: true, count: running.length });
 });
 
@@ -468,8 +420,7 @@ router.post('/reset', (req: Request, res: Response) => {
   activeProcesses.clear();
 
   resetGameState();
-  const state = getGameState();
-  broadcast({ type: 'STATE_UPDATE', payload: { ...state, workers: [] } });
+  broadcastFullState();
   res.json({ ok: true });
 });
 
@@ -484,7 +435,7 @@ router.post('/worker-classes/register', (req: Request, res: Response) => {
 
   for (const entry of classes) {
     if (!entry.class_id) continue;
-    workerClassRegistry.set(entry.class_id, { ...entry, language: 'python' });
+    registerWorkerClass({ ...entry, language: 'python' });
   }
 
   res.json({ ok: true, registered: classes.length });
@@ -493,8 +444,69 @@ router.post('/worker-classes/register', (req: Request, res: Response) => {
 // GET /api/worker-classes
 // Returns all registered worker classes (for UI deploy dropdown)
 router.get('/worker-classes', (req: Request, res: Response) => {
-  const classes = Array.from(workerClassRegistry.values());
+  const classes = getAllWorkerClasses();
   res.json({ classes });
+});
+
+// ── Build System (empty → structure) ──────────────────────────────────────
+
+const BUILD_COSTS: Record<string, Record<string, number>> = {
+  cache: { ore: 40, data: 30, energy: 20 },
+  api: { ore: 30, data: 40, energy: 30 },
+};
+
+router.post('/node/build', (req: Request, res: Response) => {
+  const { nodeId, structureType } = req.body;
+  if (!nodeId || !structureType) return res.status(400).json({ error: 'nodeId and structureType required' });
+
+  const cost = BUILD_COSTS[structureType];
+  if (!cost) return res.status(400).json({ error: `Unknown structure type: ${structureType}` });
+
+  const state = getGameState();
+  const node = state.nodes.find((n: any) => n.id === nodeId);
+  if (!node) return res.status(404).json({ error: 'Node not found' });
+  if (node.type !== 'empty') return res.status(400).json({ error: 'Can only build on empty nodes' });
+  if (!node.data.unlocked) return res.status(400).json({ error: 'Node is locked' });
+
+  const resources = state.resources as unknown as Record<string, number>;
+  const costError = checkCost(resources, cost);
+  if (costError) return res.status(400).json({ error: costError });
+  const newResources = deductCost(resources, cost);
+
+  const newNodes = state.nodes.map((n: any) => {
+    if (n.id !== nodeId) return n;
+    if (structureType === 'cache') {
+      return {
+        ...n,
+        type: 'cache',
+        data: { ...n.data, label: 'Cache Node', upgradeLevel: 1, cacheRange: 1, cacheCapacity: 10 },
+      };
+    }
+    if (structureType === 'api') {
+      return {
+        ...n,
+        type: 'api',
+        data: { ...n.data, label: 'API Node', upgradeLevel: 1, pendingRequests: 0 },
+      };
+    }
+    return n;
+  });
+
+  saveGameState({ ...state, nodes: newNodes, resources: newResources as any });
+  broadcastFullState();
+  res.json({ ok: true, nodeId, structureType });
+});
+
+// GET /api/node/build-options — what can be built on an empty node
+router.get('/node/build-options', (req: Request, res: Response) => {
+  const state = getGameState();
+  const resources = state.resources as unknown as Record<string, number>;
+  const options = Object.entries(BUILD_COSTS).map(([type, cost]) => ({
+    type,
+    cost,
+    affordable: !checkCost(resources, cost),
+  }));
+  res.json({ options });
 });
 
 // ── Node Upgrade & Chip System ────────────────────────────────────────────
@@ -549,19 +561,10 @@ router.post('/node/upgrade', (req: Request, res: Response) => {
   const nextUpgrade = upgrades.find(u => u.level === currentLevel + 1);
   if (!nextUpgrade) return res.status(400).json({ error: 'Already at max level' });
 
-  // Check cost
   const resources = state.resources as unknown as Record<string, number>;
-  for (const [k, v] of Object.entries(nextUpgrade.cost)) {
-    if ((resources[k] || 0) < (v as number)) {
-      return res.status(400).json({ error: `Not enough ${k} (need ${v}, have ${resources[k] || 0})` });
-    }
-  }
-
-  // Deduct cost
-  const newResources = { ...resources };
-  for (const [k, v] of Object.entries(nextUpgrade.cost)) {
-    newResources[k] -= (v as number);
-  }
+  const costError = checkCost(resources, nextUpgrade.cost as Record<string, number>);
+  if (costError) return res.status(400).json({ error: costError });
+  const newResources = deductCost(resources, nextUpgrade.cost as Record<string, number>);
 
   // Apply effects
   const newNodes = state.nodes.map((n: any) => {
@@ -651,16 +654,9 @@ router.post('/chip-pack/buy', (req: Request, res: Response) => {
   const state = getGameState();
   const resources = state.resources as unknown as Record<string, number>;
 
-  for (const [k, v] of Object.entries(packDef.cost)) {
-    if ((resources[k] || 0) < (v as number)) {
-      return res.status(400).json({ error: `Not enough ${k}` });
-    }
-  }
-
-  const newResources = { ...resources };
-  for (const [k, v] of Object.entries(packDef.cost)) {
-    newResources[k] -= (v as number);
-  }
+  const costError = checkCost(resources, packDef.cost as Record<string, number>);
+  if (costError) return res.status(400).json({ error: costError });
+  const newResources = deductCost(resources, packDef.cost as Record<string, number>);
 
   addToPlayerInventory(packType, 1);
   saveGameState({ ...state, resources: newResources as any });

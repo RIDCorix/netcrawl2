@@ -3,24 +3,8 @@ import { X, PauseCircle, Square, MapPin, Clock, Pickaxe, Package } from 'lucide-
 import { useGameStore } from '../store/gameStore';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-
-const CLASS_COLORS: Record<string, string> = {
-  Miner: '#fbbf24',
-  Guardian: '#4ade80',
-  Scout: '#60a5fa',
-};
-
-const STATUS_CONFIG: Record<string, { label: string; color: string; dot: 'filled' | 'ring' | 'x' }> = {
-  running:    { color: '#4ade80', dot: 'filled', label: 'Running' },
-  moving:     { color: '#60a5fa', dot: 'ring', label: 'Moving' },
-  suspending: { color: '#facc15', dot: 'ring', label: 'Suspending' },
-  suspended:  { color: '#9ca3af', dot: 'ring', label: 'Suspended' },
-  deploying:  { color: '#60a5fa', dot: 'ring', label: 'Deploying' },
-  crashed:    { color: '#f87171', dot: 'x', label: 'Crashed' },
-  idle:       { color: '#9ca3af', dot: 'ring', label: 'Idle' },
-  harvesting: { color: '#fde68a', dot: 'filled', label: 'Harvesting' },
-  dead:       { color: '#f87171', dot: 'x', label: 'Dead' },
-};
+import { CLASS_COLORS } from '../constants/colors';
+import { getStatusConfig } from '../constants/status';
 
 export function WorkerDetailPanel() {
   const { selectedWorkerId, selectWorker, workers, nodes } = useGameStore();
@@ -29,7 +13,7 @@ export function WorkerDetailPanel() {
 
   const worker = workers.find(w => w.id === selectedWorkerId);
   const workerNode = worker ? nodes.find(n => n.id === worker.current_node) : null;
-  const status = worker ? (STATUS_CONFIG[worker.status] || STATUS_CONFIG.idle) : STATUS_CONFIG.idle;
+  const status = worker ? getStatusConfig(worker.status) : getStatusConfig('idle');
   const classColor = worker ? (CLASS_COLORS[worker.class_name] || '#a78bfa') : '#a78bfa';
 
   // Fetch logs when worker changes

@@ -9,7 +9,7 @@ At runtime, these descriptors are replaced by RuntimeItem instances (see runtime
 The mine()/mine_and_collect() methods are available on RuntimeItem directly.
 """
 
-from netcrawl.fields import ItemField
+from netcrawl.fields import ItemField, GadgetField
 
 
 class Pickaxe(ItemField):
@@ -107,3 +107,31 @@ class Beacon(ItemField):
             "item_type": "Beacon",
             "description": "Requires 1x Beacon from inventory",
         }
+
+
+class SensorGadget(GadgetField):
+    """
+    Advanced graph navigation gadget. Provides pathfinding and exploration
+    methods at runtime. No deploy-time cost — just declare on your worker.
+
+    Usage:
+        class Scout(WorkerClass):
+            sensor = SensorGadget()
+
+            def on_loop(self):
+                self.sensor.travel_to('r3')        # auto-pathfind
+                nearest = self.sensor.find_nearest('resource')
+                nodes = self.sensor.explore()
+    """
+
+    def __init__(self):
+        super().__init__(description="Sensor Gadget — pathfinding & exploration")
+
+    def travel_to(self, node_id: str) -> None:
+        raise RuntimeError("sensor.travel_to() called on descriptor — worker not initialized")
+
+    def find_nearest(self, node_type: str) -> str | None:
+        raise RuntimeError("sensor.find_nearest() called on descriptor — worker not initialized")
+
+    def explore(self) -> list[dict]:
+        raise RuntimeError("sensor.explore() called on descriptor — worker not initialized")

@@ -1,8 +1,9 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Pickaxe, Shield, Radio, Package, Zap, Mountain, Database, Search, Hammer, Check, Cpu, Gift } from 'lucide-react';
-import { useGameStore, InventoryItem, Chip, ChipRarity } from '../store/gameStore';
+import { useGameStore, InventoryItem, Chip } from '../store/gameStore';
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
+import { ITEM_LABELS, ITEM_COLORS, RARITY_COLORS } from '../constants/colors';
 
 // ── Item config ─────────────────────────────────────────────────────────────
 
@@ -13,20 +14,6 @@ const ITEM_ICONS: Record<string, any> = {
   chip_pack_basic: Gift, chip_pack_premium: Gift,
 };
 
-const ITEM_LABELS: Record<string, string> = {
-  pickaxe_basic: 'Basic Pickaxe', pickaxe_iron: 'Iron Pickaxe', pickaxe_diamond: 'Diamond Pickaxe',
-  shield: 'Shield', beacon: 'Beacon',
-  ore_chunk: 'Ore Chunk', energy_crystal: 'Energy Crystal', data_shard: 'Data Shard',
-  chip_pack_basic: 'Basic Pack', chip_pack_premium: 'Premium Pack',
-};
-
-const ITEM_COLORS: Record<string, string> = {
-  pickaxe_basic: '#9ca3af', pickaxe_iron: '#c0c0c0', pickaxe_diamond: '#60a5fa',
-  shield: '#4ade80', beacon: '#00d4aa',
-  ore_chunk: '#a78bfa', energy_crystal: '#ffd32a', data_shard: '#45aaf2',
-  chip_pack_basic: '#9ca3af', chip_pack_premium: '#f59e0b',
-};
-
 // ── Categories ──────────────────────────────────────────────────────────────
 
 const INV_TABS = [
@@ -35,13 +22,6 @@ const INV_TABS = [
   { key: 'materials', label: 'Materials', types: ['ore_chunk', 'energy_crystal', 'data_shard'] },
   { key: 'packs', label: 'Packs', types: ['chip_pack_basic', 'chip_pack_premium'] },
 ];
-
-const RARITY_COLORS: Record<ChipRarity, string> = {
-  common: '#9ca3af',
-  uncommon: '#4ade80',
-  rare: '#60a5fa',
-  legendary: '#f59e0b',
-};
 
 const CRAFT_TABS = [
   { key: 'all', label: 'All' },

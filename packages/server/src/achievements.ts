@@ -109,6 +109,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     progress: () => ({ current: getStat('total_puzzles_solved'), target: 50 }) },
 
   // Secret
+  { id: 'spof', name: 'Single Point of Failure', description: 'Lose the game — the Hub was your only lifeline', category: 'secret', secret: true,
+    check: () => getStat('total_game_overs') >= 1 },
   { id: 'speedrun', name: 'Speed Run', description: 'Reach 100 total deposits before tick 500', category: 'secret', secret: true,
     check: () => getStat('total_deposits') >= 100 && getGameState().tick < 500 },
   { id: 'full_clear', name: 'Completionist', description: 'Unlock all non-secret achievements', category: 'secret', secret: true,

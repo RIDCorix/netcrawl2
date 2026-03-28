@@ -5,13 +5,11 @@ NetCrawl code server — registers worker classes with the game server,
 polls for deploy requests, and spawns worker subprocesses.
 """
 
-import json
 import time
-import urllib.request
-import urllib.error
 from typing import Type
 
 from netcrawl.base import WorkerClass
+from netcrawl.client import http_post, http_get
 from netcrawl.daemon.spawner import spawn_worker, kill_worker, list_active
 
 
@@ -51,32 +49,10 @@ class NetCrawl:
         print(f"[NetCrawl] Registered: {class_name} (id={class_id})")
 
     def _post(self, path: str, data: dict) -> dict:
-        body = json.dumps(data).encode("utf-8")
-        req = urllib.request.Request(
-            f"{self.server}{path}",
-            data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                return json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            error_body = e.read().decode("utf-8")
-            try:
-                return json.loads(error_body)
-            except Exception:
-                return {"ok": False, "error": f"HTTP {e.code}: {error_body}"}
-        except Exception as e:
-            return {"ok": False, "error": str(e)}
+        return http_post(f"{self.server}{path}", data)
 
     def _get(self, path: str) -> dict:
-        req = urllib.request.Request(f"{self.server}{path}", method="GET")
-        try:
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                return json.loads(resp.read().decode("utf-8"))
-        except Exception as e:
-            return {"ok": False, "error": str(e)}
+        return http_get(f"{self.server}{path}")
 
     def _register_all(self) -> None:
         """Register all worker classes with the game server."""

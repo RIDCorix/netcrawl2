@@ -150,6 +150,90 @@ class ComputeTask:
         return f"ComputeTask(id={self.task_id!r}, hint={self.hint!r})"
 
 
+class APINode(BaseNode):
+    """
+    An API endpoint node. Receives external requests that workers must handle.
+
+    Usage:
+        node = self.get_current_node()
+        request = node.poll_for_request()
+        if request is None:
+            return  # no pending requests
+
+        # SECURITY: always check has_token!
+        if not request.has_token:
+            self.warn("Dropping unauthenticated request")
+            return
+
+        # Process the request
+        a = request.body['a']
+        b = request.body['b']
+        node.respond(request.id, {'result': a + b})
+    """
+
+    def poll_for_request(self) -> 'APIRequestObj | None':
+        """Pick up the next pending request, or None if queue is empty."""
+        result = self._client.action("api_poll", {})
+        if not result.get("ok"):
+            return None
+        req = result.get("request")
+        if req is None:
+            return None
+        return APIRequestObj(
+            id=req['id'],
+            type=req['type'],
+            body=req['body'],
+            has_token=req['has_token'],
+            deadline_tick=req['deadline_tick'],
+            reward=req['reward'],
+        )
+
+    def respond(self, request_id: str, response_data: dict) -> dict:
+        """
+        Submit a response to a request.
+
+        Returns: { ok, correct, credits_earned, speed_bonus }
+        On error: { ok: False, error, reason }
+
+        WARNING: responding to a request with has_token=False
+        will cause a SECURITY BREACH and infect this node!
+        """
+        return self._client.action("api_respond", {
+            "requestId": request_id,
+            "responseData": response_data,
+        })
+
+    def get_stats(self) -> dict:
+        """Get queue statistics: { pending, completed, failed, expired }"""
+        return self._client.action("api_stats", {})
+
+
+class APIRequestObj:
+    """A request received at an API Node."""
+
+    def __init__(self, id: str, type: str, body: dict, has_token: bool, deadline_tick: int, reward: dict):
+        self.id = id
+        self.type = type
+        self.body = body
+        self.has_token = has_token
+        self.deadline_tick = deadline_tick
+        self.reward = reward
+
+    def __repr__(self):
+        token_str = "AUTH" if self.has_token else "NO-AUTH"
+        return f"APIRequest(id={self.id!r}, type={self.type!r}, [{token_str}])"
+
+
+class CacheNodeType(BaseNode):
+    """A cache structure node. Workers access it via get_service()."""
+    pass
+
+
+class EmptyNode(BaseNode):
+    """An empty buildable slot."""
+    pass
+
+
 class LockedNode(BaseNode):
     """An unknown locked node."""
     pass
@@ -167,6 +251,9 @@ NODE_TYPE_MAP = {
     'resource': ResourceNode,
     'relay': RelayNode,
     'compute': ComputeNode,
+    'api': APINode,
+    'cache': CacheNodeType,
+    'empty': EmptyNode,
     'locked': LockedNode,
     'infected': InfectedNode,
 }

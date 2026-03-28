@@ -3,13 +3,7 @@ import { Plus, X, Cpu } from 'lucide-react';
 import { useGameStore, Chip, ChipRarity } from '../store/gameStore';
 import { useState } from 'react';
 import axios from 'axios';
-
-const RARITY_COLORS: Record<ChipRarity, string> = {
-  common: '#9ca3af',
-  uncommon: '#4ade80',
-  rare: '#60a5fa',
-  legendary: '#f59e0b',
-};
+import { RARITY_COLORS } from '../constants/colors';
 
 function ChipCard({ chip, small, onAction, actionIcon }: {
   chip: Chip; small?: boolean; onAction?: () => void; actionIcon?: React.ReactNode;

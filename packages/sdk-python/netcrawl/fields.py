@@ -43,6 +43,29 @@ class ItemField(WorkerField):
         }
 
 
+class GadgetField(WorkerField):
+    """
+    Declares a gadget that provides runtime methods but requires no deploy-time input.
+    Unlike ItemField, no item is consumed from inventory.
+    At runtime, the field is replaced with a runtime proxy that has a _worker reference.
+
+    Usage:
+        class Scout(WorkerClass):
+            sensor = SensorGadget()   # No deploy-time cost
+            # At runtime: self.sensor.travel_to('r3')
+    """
+
+    def __init__(self, description: str = ""):
+        self._description = description
+
+    def schema(self) -> dict:
+        return {
+            "type": "gadget",
+            "field": self._field_name,
+            "description": self._description or f"Gadget: {self._field_name}",
+        }
+
+
 class RouteField(WorkerField):
     """
     Declares that deploying this worker requires specifying a route (list of node IDs).

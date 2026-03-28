@@ -21,6 +21,7 @@ export interface Resources {
   energy: number;
   ore: number;
   data: number;
+  credits?: number;
 }
 
 // === Drop System ===
@@ -64,7 +65,7 @@ export interface WorkerRow {
   node_id: string;
   class_name: string;
   commit_hash: string;
-  status: 'deploying' | 'running' | 'suspending' | 'suspended' | 'crashed' | 'idle' | 'moving' | 'harvesting' | 'dead';
+  status: 'deploying' | 'running' | 'suspending' | 'suspended' | 'crashed' | 'error' | 'idle' | 'moving' | 'harvesting' | 'dead';
   current_node: string;
   carrying: Partial<Resources>;
   pid: number | null;
@@ -180,6 +181,10 @@ export const INITIAL_NODES = [
   // ── South branch (Relay + Compute) ──
   { id: 'relay1', type: 'relay', position: { x: -200, y: 300 }, data: { label: 'Relay Alpha', unlocked: false, unlockCost: { energy: 15 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
   { id: 'c1', type: 'compute', position: { x: -50, y: 500 }, data: { label: 'Compute Alpha', unlocked: false, unlockCost: { energy: 30, data: 10 }, difficulty: 'easy', rewardResource: 'data', solveCount: 0, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+
+  // ── Empty nodes (buildable) ──
+  { id: 'empty1', type: 'empty', position: { x: -500, y: 150 }, data: { label: 'Open Slot', unlocked: false, unlockCost: { energy: 40, ore: 30 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+  { id: 'empty2', type: 'empty', position: { x: 500, y: -50 }, data: { label: 'Open Slot', unlocked: false, unlockCost: { energy: 50, ore: 20, data: 20 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
 ];
 
 export const INITIAL_EDGES = [
@@ -195,6 +200,9 @@ export const INITIAL_EDGES = [
   { id: 'e8', source: 'relay1', target: 'c1' },
   { id: 'e9', source: 'r3', target: 'c2' },
   { id: 'e10', source: 'locked1', target: 'c2' },
+  // Empty node connections
+  { id: 'e11', source: 'relay2', target: 'empty1' },
+  { id: 'e12', source: 'r3', target: 'empty2' },
 ];
 
 export const INITIAL_RESOURCES: Resources = { energy: 50, ore: 0, data: 0 };
@@ -525,4 +533,78 @@ export function addUnlockedRecipe(recipeId: string) {
 
 export function getUnlockedRecipes(): string[] {
   return store.quest_state.unlockedRecipes || [];
+}
+
+// ── Cache Node Storage ──────────────────────────────────────────────────────
+// Per cache-node in-memory KV store. Key: nodeId, Value: Map<string, { value, ttl }>
+
+interface CacheEntry {
+  value: any;
+  storedAt: number;
+  ttl: number; // ms, 0 = no expiry
+}
+
+const cacheStores = new Map<string, Map<string, CacheEntry>>();
+
+const CACHE_CAPACITY: Record<number, number> = { 0: 0, 1: 10, 2: 30, 3: 100 };
+const CACHE_RANGE: Record<number, number> = { 0: 0, 1: 1, 2: 2, 3: 3 };
+
+export function getCacheStore(nodeId: string): Map<string, CacheEntry> {
+  if (!cacheStores.has(nodeId)) cacheStores.set(nodeId, new Map());
+  return cacheStores.get(nodeId)!;
+}
+
+export function cacheGet(nodeId: string, key: string): any | undefined {
+  const store = getCacheStore(nodeId);
+  const entry = store.get(key);
+  if (!entry) return undefined;
+  if (entry.ttl > 0 && Date.now() - entry.storedAt > entry.ttl) {
+    store.delete(key);
+    return undefined;
+  }
+  return entry.value;
+}
+
+export function cacheSet(nodeId: string, key: string, value: any, ttl: number = 0): boolean {
+  const state = getGameState();
+  const node = state.nodes.find((n: any) => n.id === nodeId);
+  if (!node || node.type !== 'cache') return false;
+  const level = node.data.upgradeLevel || 1;
+  const capacity = CACHE_CAPACITY[level] || 10;
+  const cacheStore = getCacheStore(nodeId);
+  // Evict expired entries first
+  const now = Date.now();
+  for (const [k, e] of cacheStore) {
+    if (e.ttl > 0 && now - e.storedAt > e.ttl) cacheStore.delete(k);
+  }
+  // Check capacity (allow overwrite of existing key)
+  if (!cacheStore.has(key) && cacheStore.size >= capacity) return false;
+  cacheStore.set(key, { value, storedAt: now, ttl });
+  return true;
+}
+
+export function cacheKeys(nodeId: string): string[] {
+  const cacheStore = getCacheStore(nodeId);
+  // Filter out expired
+  const now = Date.now();
+  const keys: string[] = [];
+  for (const [k, e] of cacheStore) {
+    if (e.ttl > 0 && now - e.storedAt > e.ttl) { cacheStore.delete(k); continue; }
+    keys.push(k);
+  }
+  return keys;
+}
+
+export function getCacheRange(nodeId: string): number {
+  const state = getGameState();
+  const node = state.nodes.find((n: any) => n.id === nodeId);
+  if (!node || node.type !== 'cache') return 0;
+  return CACHE_RANGE[node.data.upgradeLevel || 1] || 1;
+}
+
+export function getCacheCapacity(nodeId: string): number {
+  const state = getGameState();
+  const node = state.nodes.find((n: any) => n.id === nodeId);
+  if (!node || node.type !== 'cache') return 0;
+  return CACHE_CAPACITY[node.data.upgradeLevel || 1] || 10;
 }

@@ -149,6 +149,34 @@ class WorkerClass(metaclass=WorkerMeta):
             raise ValueError(f"get_current_node() failed: {result.get('error')}")
         return create_node(result, self._client, self._worker_id)
 
+    # ── Services ────────────────────────────────────────────────────────────
+
+    def get_service(self, node_id: str):
+        """
+        Get a service proxy for a structure node (e.g., Cache Node).
+        Raises ServiceNotReachable if the node is out of range or unavailable.
+
+        Usage:
+            cache = self.get_service("cache-node-id")
+            val = cache.get("key")
+            cache.set("key", val)
+
+        Returns: CacheService (or other service types in the future)
+        """
+        from netcrawl.services import CacheService, ServiceNotReachable
+        result = self._client.action("get_service", {"serviceNodeId": node_id})
+        if not result.get("ok"):
+            reason = result.get("reason", "")
+            if reason in ("not_reachable", "not_found", "not_a_service"):
+                raise ServiceNotReachable(result.get("error", f"Service '{node_id}' not reachable"))
+            raise ServiceNotReachable(result.get("error", "Unknown error"))
+
+        service_type = result.get("serviceType")
+        if service_type == "cache":
+            return CacheService(self._client, self._worker_id, node_id, result)
+
+        raise ServiceNotReachable(f"Unknown service type: {service_type}")
+
     # ── Movement ────────────────────────────────────────────────────────────
 
     def move(self, target: str) -> None:
@@ -262,18 +290,20 @@ class WorkerClass(metaclass=WorkerMeta):
 
     # ── Logging ──────────────────────────────────────────────────────────────
 
+    def _log(self, level: str, msg: str) -> None:
+        tag = level.upper()
+        self._client.action("log", {"message": f"[{tag}] {msg}", "level": level})
+        print(f"[{self._worker_id}] {tag}: {msg}")
+
     def info(self, msg: str) -> None:
         """Log an info message. Visible in the UI's worker log panel."""
-        self._client.action("log", {"message": f"[INFO] {msg}", "level": "info"})
-        print(f"[{self._worker_id}] INFO: {msg}")
+        self._log("info", msg)
 
     def warn(self, msg: str) -> None:
-        self._client.action("log", {"message": f"[WARN] {msg}", "level": "warn"})
-        print(f"[{self._worker_id}] WARN: {msg}")
+        self._log("warn", msg)
 
     def error(self, msg: str) -> None:
-        self._client.action("log", {"message": f"[ERROR] {msg}", "level": "error"})
-        print(f"[{self._worker_id}] ERROR: {msg}")
+        self._log("error", msg)
 
     # ── Inventory ─────────────────────────────────────────────────────────────
 

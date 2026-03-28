@@ -9,10 +9,7 @@ import { useGameStore } from '../store/gameStore';
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { QuestGuideDialog } from './QuestGuideDialog';
-
-const CHAPTER_COLORS: Record<number, string> = {
-  1: '#4ade80', 2: '#60a5fa', 3: '#a78bfa', 4: '#ef4444', 5: '#f59e0b', 6: '#00d4aa',
-};
+import { CHAPTER_COLORS } from '../constants/colors';
 
 export function ActiveQuestsPanel() {
   const [quests, setQuests] = useState<any[]>([]);

@@ -20,8 +20,95 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { useGameStore, GameNode, GameEdge, Worker } from '../store/gameStore';
 import React, { useEffect, useCallback } from 'react';
-import { Zap, Mountain, Database, Shield, Lock, AlertTriangle, Radio, Pickaxe, Package, Cpu } from 'lucide-react';
+import { Zap, Mountain, Database, Shield, Lock, AlertTriangle, Radio, Pickaxe, Package, Cpu, Box, HardDrive, Globe } from 'lucide-react';
 import { motion } from 'framer-motion';
+
+// ── Worker Dots Row (with enter/leave animations) ───────────────────────────
+
+function WorkerDotsRow({ workers, show }: { workers: any[]; show: boolean }) {
+  const { selectWorker, selectedWorkerId } = useGameStore();
+  const prevIdsRef = React.useRef<Set<string>>(new Set());
+  const [enteringIds, setEnteringIds] = React.useState<Set<string>>(new Set());
+
+  // Detect newly arrived workers — set entering, then clear after 1 frame so CSS transition fires
+  React.useEffect(() => {
+    if (!workers) return;
+    const currentIds = new Set(workers.filter(w => !w.leaving).map(w => w.id));
+    const newArrivals = new Set<string>();
+    for (const id of currentIds) {
+      if (!prevIdsRef.current.has(id)) newArrivals.add(id);
+    }
+    prevIdsRef.current = currentIds;
+
+    if (newArrivals.size > 0) {
+      // Set entering immediately (renders opacity:0, scale:0.3)
+      setEnteringIds(newArrivals);
+      // Clear after 1 rAF so transition from 0→1 fires
+      const raf = requestAnimationFrame(() => {
+        setEnteringIds(new Set());
+      });
+      return () => cancelAnimationFrame(raf);
+    }
+  }, [workers?.map(w => `${w.id}-${w.leaving}`).join(',')]);
+
+  if (!show || !workers || workers.length === 0) return null;
+
+  return (
+    <div style={{
+      position: 'absolute', top: -14, left: '50%',
+      transform: 'translateX(-50%)', display: 'flex', gap: 4,
+    }}>
+      {workers.map((w: any) => {
+        const c = CLASS_COLORS[w.class_name] || '#a78bfa';
+        const isActive = ['running', 'harvesting', 'idle'].includes(w.status);
+        const isSelected = w.id === selectedWorkerId;
+        const isLeaving = w.leaving;
+        const isEntering = enteringIds.has(w.id);
+        const showAction = !isLeaving && !isEntering && (w.status === 'harvesting' || w.holding);
+
+        return (
+          <div
+            key={w.id}
+            title={`${w.class_name} (${w.status})\nid: ${w.id}\n@ ${w.current_node}`}
+            onClick={(e) => { if (!isLeaving) { e.stopPropagation(); selectWorker(w.id); } }}
+            style={{
+              position: 'relative',
+              width: isSelected ? 12 : 8,
+              height: isSelected ? 12 : 8,
+              borderRadius: '50%',
+              background: c,
+              border: isSelected ? '2px solid #fff' : '1.5px solid rgba(0,0,0,0.5)',
+              boxShadow: isSelected
+                ? `0 0 8px ${c}, 0 0 16px ${c}`
+                : isActive ? `0 0 6px ${c}, 0 0 12px ${c}40` : `0 0 4px ${c}60`,
+              cursor: isLeaving ? 'default' : 'pointer',
+              // Entering: start small + transparent, grow in
+              // Leaving: shrink + fade out toward center
+              opacity: isLeaving ? 0 : isEntering ? 0 : 1,
+              transform: isLeaving
+                ? 'scale(0.3) translateY(12px)'
+                : isEntering
+                  ? 'scale(0.3) translateY(-8px)'
+                  : 'scale(1) translateY(0)',
+              transition: 'opacity 0.4s ease-out, transform 0.4s ease-out',
+              pointerEvents: isLeaving ? 'none' : 'auto',
+            }}
+          >
+            {showAction && (
+              <div style={{
+                position: 'absolute', top: -16, left: '50%',
+                transform: 'translateX(-50%)', pointerEvents: 'none',
+                animation: 'worker-action-bounce 0.6s ease-in-out infinite', color: c,
+              }}>
+                {w.status === 'harvesting' ? <Pickaxe size={10} /> : <Package size={10} />}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 // ── Custom Node Components ──────────────────────────────────────────────────
 
@@ -33,7 +120,7 @@ function NodeWrapper({ children, selected, glowColor, style = {}, workers: nodeW
   workers?: any[];
 }) {
   const borderColor = selected ? 'var(--accent)' : glowColor || 'var(--border-bright)';
-  const { selectWorker, selectedWorkerId, settings: wrapperSettings } = useGameStore();
+  const { settings: wrapperSettings } = useGameStore();
   const { zoom } = useViewport();
   const showDetails = zoom > 0.6 && wrapperSettings.showWorkerDots;
 
@@ -70,66 +157,7 @@ function NodeWrapper({ children, selected, glowColor, style = {}, workers: nodeW
       <Handle id="center" type="target" position={Position.Top} style={{ opacity: 0, top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
       {children}
       {/* Worker dots above the node (hidden when zoomed out) */}
-      {showDetails && nodeWorkers && nodeWorkers.length > 0 && (
-        <div style={{
-          position: 'absolute',
-          top: -14,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          display: 'flex',
-          gap: 4,
-        }}>
-          {nodeWorkers.map((w: any) => {
-            const c = CLASS_COLORS[w.class_name] || '#a78bfa';
-            const isActive = ['running', 'harvesting', 'idle'].includes(w.status);
-            const isSelected = w.id === selectedWorkerId;
-            const showAction = !w.leaving && (w.status === 'harvesting' || w.holding);
-            const isLeaving = w.leaving;
-
-            return (
-              <div
-                key={w.id}
-                title={`${w.class_name} (${w.status})\nid: ${w.id}\n@ ${w.current_node}`}
-                onClick={(e) => { if (!isLeaving) { e.stopPropagation(); selectWorker(w.id); } }}
-                style={{
-                  position: 'relative',
-                  width: isSelected ? 12 : 8,
-                  height: isSelected ? 12 : 8,
-                  borderRadius: '50%',
-                  background: c,
-                  border: isSelected ? '2px solid #fff' : '1.5px solid rgba(0,0,0,0.5)',
-                  boxShadow: isSelected
-                    ? `0 0 8px ${c}, 0 0 16px ${c}`
-                    : isActive ? `0 0 6px ${c}, 0 0 12px ${c}40` : `0 0 4px ${c}60`,
-                  cursor: isLeaving ? 'default' : 'pointer',
-                  // Leaving animation: fade out + shrink toward center
-                  opacity: isLeaving ? 0 : 1,
-                  transform: isLeaving ? 'scale(0.3) translateY(12px)' : 'scale(1) translateY(0)',
-                  transition: 'opacity 0.5s ease-out, transform 0.5s ease-out',
-                  pointerEvents: isLeaving ? 'none' : 'auto',
-                }}
-              >
-                {/* Action indicator */}
-                {showAction && (
-                  <div style={{
-                    position: 'absolute',
-                    top: -16,
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    pointerEvents: 'none',
-                    animation: 'worker-action-bounce 0.6s ease-in-out infinite',
-                    color: c,
-                  }}>
-                    {w.status === 'harvesting'
-                      ? <Pickaxe size={10} />
-                      : <Package size={10} />}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <WorkerDotsRow workers={nodeWorkers || []} show={showDetails} />
     </div>
   );
 }
@@ -340,6 +368,63 @@ function ComputeNode({ data, selected }: any) {
   );
 }
 
+function APINodeComponent({ data, selected }: any) {
+  const pendingCount = data.pendingRequests || 0;
+  return (
+    <NodeWrapper selected={selected} glowColor={data.unlocked ? '#f59e0b' : undefined} workers={data.workers} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
+      {pendingCount > 0 && (
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          style={{
+            position: 'absolute', top: -8, right: -8,
+            background: '#f59e0b', color: '#000',
+            fontSize: 9, fontWeight: 800, fontFamily: 'var(--font-mono)',
+            borderRadius: '999px', width: 18, height: 18,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+          {pendingCount}
+        </motion.div>
+      )}
+      <NodeLabel
+        label={data.label}
+        icon={Globe}
+        iconColor={data.unlocked ? '#f59e0b' : 'var(--text-muted)'}
+        subtitle={data.unlocked ? 'API ENDPOINT' : 'LOCKED'}
+      />
+    </NodeWrapper>
+  );
+}
+
+function EmptyNode({ data, selected }: any) {
+  return (
+    <NodeWrapper selected={selected} workers={data.workers} style={{
+      opacity: data.unlocked ? 0.8 : 0.4,
+      border: '1px dashed var(--border-bright)',
+    }}>
+      <NodeLabel
+        label={data.label}
+        icon={Box}
+        iconColor={data.unlocked ? 'var(--accent-secondary)' : 'var(--text-muted)'}
+        subtitle={data.unlocked ? 'BUILDABLE' : 'LOCKED'}
+      />
+    </NodeWrapper>
+  );
+}
+
+function CacheNode({ data, selected }: any) {
+  return (
+    <NodeWrapper selected={selected} glowColor={data.unlocked ? '#a78bfa' : undefined} workers={data.workers} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
+      <NodeLabel
+        label={data.label}
+        icon={HardDrive}
+        iconColor={data.unlocked ? '#a78bfa' : 'var(--text-muted)'}
+        subtitle={data.unlocked ? `LV.${data.upgradeLevel || 1} \u00b7 RANGE ${data.cacheRange || 1}` : 'LOCKED'}
+      />
+    </NodeWrapper>
+  );
+}
+
 const NODE_TYPES: NodeTypes = {
   hub: HubNode,
   resource: ResourceNode,
@@ -347,6 +432,9 @@ const NODE_TYPES: NodeTypes = {
   infected: InfectedNode,
   locked: LockedNode,
   compute: ComputeNode,
+  empty: EmptyNode,
+  cache: CacheNode,
+  api: APINodeComponent,
 };
 
 // ── Traffic dot driven by rAF (no SVG animateMotion) ────────────────────
@@ -482,13 +570,9 @@ const EDGE_TYPES: EdgeTypes = {
   worker: WorkerEdge,
 };
 
-// ── Conversion helpers ──────────────────────────────────────────────────
+import { CLASS_COLORS } from '../constants/colors';
 
-const CLASS_COLORS: Record<string, string> = {
-  Miner: '#fbbf24',
-  Guardian: '#4ade80',
-  Scout: '#60a5fa',
-};
+// ── Conversion helpers ──────────────────────────────────────────────────
 
 function toRFNodes(gameNodes: GameNode[], selectedId: string | null, workers: Worker[]): Node[] {
   return gameNodes.map(n => {
@@ -644,6 +728,9 @@ export function GameGraph() {
             if (node.type === 'infected') return '#ff4757';
             if (node.type === 'resource') return '#45aaf2';
             if (node.type === 'relay') return '#7c6af0';
+            if (node.type === 'cache') return '#a78bfa';
+            if (node.type === 'api') return '#f59e0b';
+            if (node.type === 'empty') return '#555';
             return '#333';
           }}
           maskColor="rgba(0, 0, 0, 0.6)"

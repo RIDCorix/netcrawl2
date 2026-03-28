@@ -1,12 +1,16 @@
 import {
   getGameState, saveGameState, getWorker, upsertWorker,
-  addWorkerLog, getWorkers, Resources, Drop,
+  addWorkerLog, Resources, Drop,
   getNodeChipEffects, incrementStat, setStatMax,
+  addToPlayerInventory,
+  cacheGet, cacheSet, cacheKeys, getCacheRange, getCacheCapacity,
 } from './db.js';
-import { broadcast } from './websocket.js';
 import { checkAchievements } from './achievements.js';
 import { checkQuests } from './quests.js';
 import { getActivePassives } from './db.js';
+import { broadcastFullState } from './broadcastHelper.js';
+import { getNeighborIds, edgeExists, bfsPath } from './graphUtils.js';
+import { apiPoll, apiRespond, getAPIPendingCount, getAPIStats } from './apiNodeEngine.js';
 import { generatePuzzle, PuzzleInstance, DIFFICULTY_CONFIG, PUZZLE_TEMPLATES } from './puzzleDefinitions.js';
 
 // ── Per-node puzzle state (in-memory) ───────────────────────────────────────
@@ -57,47 +61,6 @@ function getPassiveEffects(): Record<string, number> {
   return agg;
 }
 
-function edgeExists(edges: any[], from: string, to: string): boolean {
-  return edges.some(e =>
-    (e.source === from && e.target === to) ||
-    (e.source === to && e.target === from)
-  );
-}
-
-function getNeighborIds(edges: any[], nodeId: string): string[] {
-  const neighbors: string[] = [];
-  for (const e of edges) {
-    if (e.source === nodeId) neighbors.push(e.target);
-    else if (e.target === nodeId) neighbors.push(e.source);
-  }
-  return neighbors;
-}
-
-function bfsPath(edges: any[], start: string, end: string): string[] | null {
-  if (start === end) return [start];
-  const queue: string[][] = [[start]];
-  const visited = new Set<string>([start]);
-  while (queue.length > 0) {
-    const path = queue.shift()!;
-    const current = path[path.length - 1];
-    const neighbors = getNeighborIds(edges, current);
-    for (const n of neighbors) {
-      if (!visited.has(n)) {
-        const newPath = [...path, n];
-        if (n === end) return newPath;
-        visited.add(n);
-        queue.push(newPath);
-      }
-    }
-  }
-  return null;
-}
-
-function broadcastFullState() {
-  const state = getGameState();
-  broadcast({ type: 'STATE_UPDATE', payload: { ...state, workers: getWorkers() } });
-}
-
 function generateUuid(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -121,6 +84,23 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
   // Log action doesn't need a lock
   if (action === 'log') {
     addWorkerLog(workerId, payload.message);
+    return { ok: true };
+  }
+
+  // Report error — sets worker to 'error' status and returns equipped items
+  if (action === 'report_error') {
+    const w = getWorker(workerId);
+    if (!w) return { ok: false, error: 'Worker not found' };
+    addWorkerLog(workerId, `[ERROR] ${payload.message || 'Unknown error'}`);
+    // Return equipped items to player inventory
+    if (w.equippedPickaxe) {
+      addToPlayerInventory(w.equippedPickaxe.itemType, 1);
+    }
+    if (w.holding) {
+      addToPlayerInventory(w.holding.type, w.holding.amount);
+    }
+    upsertWorker({ ...w, status: 'error', pid: null, equippedPickaxe: null, holding: null });
+    broadcastFullState();
     return { ok: true };
   }
 
@@ -572,6 +552,100 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       } else {
         return { ok: true, correct: false, expected: puzzle.answer, got: submitAnswer };
       }
+    }
+
+    // ── API Node actions ───────────────────────────────────────────────────
+
+    case 'api_poll': {
+      const currentNodeAP = worker.current_node || worker.node_id;
+      return apiPoll(currentNodeAP, workerId);
+    }
+
+    case 'api_respond': {
+      const currentNodeAR = worker.current_node || worker.node_id;
+      const { requestId: apiReqId, responseData } = payload;
+      if (!apiReqId) return { ok: false, error: 'requestId required' };
+      return apiRespond(currentNodeAR, workerId, apiReqId, responseData);
+    }
+
+    case 'api_stats': {
+      const currentNodeAS = worker.current_node || worker.node_id;
+      const node = nodes.find((n: any) => n.id === currentNodeAS);
+      if (!node || node.type !== 'api') return { ok: false, error: 'Not at an API node' };
+      return { ok: true, ...getAPIStats(currentNodeAS) };
+    }
+
+    // ── Service / Cache actions ──────────────────────────────────────────────
+
+    case 'get_service': {
+      const { serviceNodeId } = payload;
+      if (!serviceNodeId) return { ok: false, error: 'serviceNodeId required' };
+      const serviceNode = nodes.find((n: any) => n.id === serviceNodeId);
+      if (!serviceNode) return { ok: false, error: 'Service node not found', reason: 'not_found' };
+      if (!serviceNode.data.unlocked) return { ok: false, error: 'Service node is locked', reason: 'not_reachable' };
+
+      // Check range: BFS distance from worker's current node to service node
+      const workerNode = worker.current_node || worker.node_id;
+      if (serviceNode.type === 'cache') {
+        const range = getCacheRange(serviceNodeId);
+        const path = bfsPath(edges, workerNode, serviceNodeId);
+        const distance = path ? path.length - 1 : Infinity;
+        if (distance > range) {
+          return { ok: false, error: `Cache node '${serviceNodeId}' is out of range (distance ${distance}, range ${range})`, reason: 'not_reachable' };
+        }
+        return {
+          ok: true,
+          serviceType: 'cache',
+          nodeId: serviceNodeId,
+          range,
+          capacity: getCacheCapacity(serviceNodeId),
+          usedSlots: cacheKeys(serviceNodeId).length,
+        };
+      }
+
+      return { ok: false, error: `Node '${serviceNodeId}' is not a service node`, reason: 'not_a_service' };
+    }
+
+    case 'cache_get': {
+      const { cacheNodeId, key: cacheKey } = payload;
+      if (!cacheNodeId || !cacheKey) return { ok: false, error: 'cacheNodeId and key required' };
+      // Verify range
+      const workerNodeCG = worker.current_node || worker.node_id;
+      const rangeCG = getCacheRange(cacheNodeId);
+      const pathCG = bfsPath(edges, workerNodeCG, cacheNodeId);
+      const distCG = pathCG ? pathCG.length - 1 : Infinity;
+      if (distCG > rangeCG) return { ok: false, error: 'Cache out of range', reason: 'not_reachable' };
+
+      const val = cacheGet(cacheNodeId, cacheKey);
+      if (val === undefined) return { ok: true, hit: false, value: null };
+      return { ok: true, hit: true, value: val };
+    }
+
+    case 'cache_set': {
+      const { cacheNodeId: cacheNodeIdS, key: cacheKeyS, value: cacheValue, ttl: cacheTtl } = payload;
+      if (!cacheNodeIdS || !cacheKeyS) return { ok: false, error: 'cacheNodeId and key required' };
+      // Verify range
+      const workerNodeCS = worker.current_node || worker.node_id;
+      const rangeCS = getCacheRange(cacheNodeIdS);
+      const pathCS = bfsPath(edges, workerNodeCS, cacheNodeIdS);
+      const distCS = pathCS ? pathCS.length - 1 : Infinity;
+      if (distCS > rangeCS) return { ok: false, error: 'Cache out of range', reason: 'not_reachable' };
+
+      const stored = cacheSet(cacheNodeIdS, cacheKeyS, cacheValue, cacheTtl || 0);
+      if (!stored) return { ok: false, error: 'Cache is full' };
+      return { ok: true };
+    }
+
+    case 'cache_keys': {
+      const { cacheNodeId: cacheNodeIdK } = payload;
+      if (!cacheNodeIdK) return { ok: false, error: 'cacheNodeId required' };
+      const workerNodeCK = worker.current_node || worker.node_id;
+      const rangeCK = getCacheRange(cacheNodeIdK);
+      const pathCK = bfsPath(edges, workerNodeCK, cacheNodeIdK);
+      const distCK = pathCK ? pathCK.length - 1 : Infinity;
+      if (distCK > rangeCK) return { ok: false, error: 'Cache out of range', reason: 'not_reachable' };
+
+      return { ok: true, keys: cacheKeys(cacheNodeIdK) };
     }
 
     default:

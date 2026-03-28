@@ -3,16 +3,7 @@ import { X, Trophy, Lock, Check } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-
-const CATEGORY_COLORS: Record<string, string> = {
-  all: 'var(--accent)',
-  resources: '#4ade80',
-  workers: '#60a5fa',
-  crafting: '#f59e0b',
-  nodes: '#a78bfa',
-  chips: '#fbbf24',
-  secret: '#ef4444',
-};
+import { CATEGORY_COLORS } from '../constants/colors';
 
 const CATEGORY_LABELS: Record<string, string> = {
   all: 'All',

@@ -5,14 +5,15 @@ Scout — 探索 worker
 
 部署需求：
   - patrol_route: 巡邏路徑（建議是一個閉環）
+  - sensor: 感應器小工具（自動提供）
 """
 import time
-from netcrawl import WorkerClass, Route
-from netcrawl.mixins.graph import AdvancedGraphGadget
+from netcrawl import WorkerClass, Route, SensorGadget
 
 
-class Scout(WorkerClass, AdvancedGraphGadget):
+class Scout(WorkerClass):
     patrol_route = Route("巡邏路徑（閉環）")
+    sensor = SensorGadget()
 
     def on_startup(self):
         self.discovered = set()
@@ -20,7 +21,7 @@ class Scout(WorkerClass, AdvancedGraphGadget):
 
     def on_loop(self):
         # explore() 比 scan() 範圍更大（需要 Beacon 道具最大化）
-        nodes = self.explore()
+        nodes = self.sensor.explore()
         new_nodes = [n for n in nodes if n["id"] not in self.discovered]
 
         for node in new_nodes:

@@ -1,16 +1,10 @@
 import { fork, ChildProcess } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import { upsertWorker, deleteWorker, getWorker, getWorkers, addToPlayerInventory } from './db.js';
-import { broadcast } from './websocket.js';
-import { getGameState } from './db.js';
+import { upsertWorker, deleteWorker, getWorker, addToPlayerInventory } from './db.js';
+import { broadcastFullState } from './broadcastHelper.js';
 
 const activeProcesses = new Map<string, ChildProcess>();
-
-function broadcastFullState() {
-  const state = getGameState();
-  broadcast({ type: 'STATE_UPDATE', payload: { ...state, workers: getWorkers() } });
-}
 
 export function getActiveProcesses() {
   return activeProcesses;
@@ -149,6 +143,11 @@ export async function spawnWorker(options: {
     activeProcesses.delete(workerId);
     const w = getWorker(workerId);
     if (w) {
+      // If already in 'error' status (reported by worker before exit), don't overwrite
+      if (w.status === 'error') {
+        broadcastFullState();
+        return;
+      }
       // Return equipped items to player inventory on exit
       if (w.equippedPickaxe) {
         addToPlayerInventory(w.equippedPickaxe.itemType, 1);

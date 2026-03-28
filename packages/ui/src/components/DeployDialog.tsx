@@ -5,19 +5,13 @@ import { useState, useEffect, useCallback, DragEvent } from 'react';
 import axios from 'axios';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 
+import { ITEM_LABELS, ITEM_COLORS } from '../constants/colors';
+
 // ── Config ──────────────────────────────────────────────────────────────────
 
 const ITEM_ICONS: Record<string, any> = {
   pickaxe_basic: Pickaxe, pickaxe_iron: Pickaxe, pickaxe_diamond: Pickaxe,
   shield: Shield, beacon: Radio,
-};
-const ITEM_LABELS: Record<string, string> = {
-  pickaxe_basic: 'Basic Pickaxe', pickaxe_iron: 'Iron Pickaxe', pickaxe_diamond: 'Diamond Pickaxe',
-  shield: 'Shield', beacon: 'Beacon',
-};
-const ITEM_COLORS: Record<string, string> = {
-  pickaxe_basic: '#9ca3af', pickaxe_iron: '#c0c0c0', pickaxe_diamond: '#60a5fa',
-  shield: '#4ade80', beacon: '#00d4aa',
 };
 const SLOT_ACCEPTS: Record<string, string[]> = {
   Pickaxe: ['pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond'],

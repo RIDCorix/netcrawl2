@@ -1,0 +1,55 @@
+import { ChipRarity } from '../store/gameStore';
+
+// ── Quest chapters ──────────────────────────────────────────────────────────
+
+export const CHAPTER_COLORS: Record<number, string> = {
+  1: '#4ade80', 2: '#60a5fa', 3: '#a78bfa', 4: '#ef4444', 5: '#f59e0b', 6: '#00d4aa',
+};
+
+// ── Achievement categories ──────────────────────────────────────────────────
+
+export const CATEGORY_COLORS: Record<string, string> = {
+  all: 'var(--accent)',
+  resources: '#4ade80',
+  workers: '#60a5fa',
+  crafting: '#f59e0b',
+  nodes: '#a78bfa',
+  chips: '#fbbf24',
+  secret: '#ef4444',
+};
+
+// ── Worker class colors ─────────────────────────────────────────────────────
+
+export const CLASS_COLORS: Record<string, string> = {
+  Miner: '#fbbf24',
+  Guardian: '#4ade80',
+  Scout: '#60a5fa',
+};
+
+// ── Chip rarity ─────────────────────────────────────────────────────────────
+
+export const RARITY_COLORS: Record<ChipRarity, string> = {
+  common: '#9ca3af',
+  uncommon: '#4ade80',
+  rare: '#60a5fa',
+  legendary: '#f59e0b',
+};
+
+// ── Item config ─────────────────────────────────────────────────────────────
+
+export const ITEM_LABELS: Record<string, string> = {
+  pickaxe_basic: 'Basic Pickaxe', pickaxe_iron: 'Iron Pickaxe', pickaxe_diamond: 'Diamond Pickaxe',
+  shield: 'Shield', beacon: 'Beacon',
+  ore_chunk: 'Ore Chunk', energy_crystal: 'Energy Crystal', data_shard: 'Data Shard',
+  chip_pack_basic: 'Basic Pack', chip_pack_premium: 'Premium Pack',
+  scanner: 'Scanner', signal_booster: 'Signal Booster', overclock_kit: 'Overclock Kit',
+  antivirus_module: 'Antivirus Module', memory_allocator: 'Memory Allocator',
+  fullstack_pickaxe: 'Fullstack Pickaxe',
+};
+
+export const ITEM_COLORS: Record<string, string> = {
+  pickaxe_basic: '#9ca3af', pickaxe_iron: '#c0c0c0', pickaxe_diamond: '#60a5fa',
+  shield: '#4ade80', beacon: '#00d4aa',
+  ore_chunk: '#a78bfa', energy_crystal: '#ffd32a', data_shard: '#45aaf2',
+  chip_pack_basic: '#9ca3af', chip_pack_premium: '#f59e0b',
+};

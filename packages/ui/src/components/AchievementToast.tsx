@@ -2,15 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useEffect } from 'react';
-
-const CATEGORY_COLORS: Record<string, string> = {
-  resources: '#4ade80',
-  workers: '#60a5fa',
-  crafting: '#f59e0b',
-  nodes: '#a78bfa',
-  chips: '#fbbf24',
-  secret: '#ef4444',
-};
+import { CATEGORY_COLORS } from '../constants/colors';
 
 export function AchievementToast() {
   const { achievementToasts, removeAchievementToast } = useGameStore();

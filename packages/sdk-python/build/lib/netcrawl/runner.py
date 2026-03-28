@@ -108,12 +108,13 @@ def main():
             msg = f"on_loop() error #{loop_count}: {e}"
             print(f"[{worker_id}] {msg}", file=sys.stderr)
             traceback.print_exc()
-            # Log to server so it shows in UI
+            # Report fatal error to server — sets worker to 'error' status
             try:
-                worker.error(msg)
+                worker._client.action("report_error", {"message": msg})
             except Exception:
                 pass
-            time.sleep(2)
+            print(f"[{worker_id}] Stopped due to error after {loop_count} loops.")
+            sys.exit(1)
 
     print(f"[{worker_id}] Suspended cleanly after {loop_count} loops.")
     sys.exit(0)
