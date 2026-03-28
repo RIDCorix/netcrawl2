@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "netcrawl"
+version = "0.1.0"
+description = "Python SDK for writing NetCrawl workers"
+requires-python = ">=3.11"
+dependencies = []   # stdlib only for the core SDK
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["netcrawl*"]

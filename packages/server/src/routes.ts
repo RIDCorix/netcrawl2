@@ -14,6 +14,17 @@ import { broadcast } from './websocket.js';
 
 export const router: Router = Router();
 
+// ── In-memory store for registered Python worker classes ──────────────────
+interface WorkerClassEntry {
+  class_name: string;
+  fields: Record<string, { type: string; field: string; description: string }>;
+  docstring: string;
+  file: string;
+  language: 'python' | 'javascript';
+}
+
+const workerClassRegistry = new Map<string, WorkerClassEntry>();
+
 // Resolve workspace path
 function getWorkspacePath(): string {
   const configPath = path.join(process.cwd(), 'netcrawl.config.json');
@@ -206,6 +217,30 @@ router.post('/reset', (req: Request, res: Response) => {
   const state = getGameState();
   broadcast({ type: 'STATE_UPDATE', payload: { ...state, workers: [] } });
   res.json({ ok: true });
+});
+
+// POST /api/worker-classes/register
+// Body: { classes: [{ class_name, fields, docstring, file }] }
+// Called by the Python daemon on startup to register available worker classes
+router.post('/worker-classes/register', (req: Request, res: Response) => {
+  const { classes } = req.body as { classes: Omit<WorkerClassEntry, 'language'>[] };
+  if (!Array.isArray(classes)) {
+    return res.status(400).json({ error: 'classes must be an array' });
+  }
+
+  for (const entry of classes) {
+    if (!entry.class_name) continue;
+    workerClassRegistry.set(entry.class_name, { ...entry, language: 'python' });
+  }
+
+  res.json({ ok: true, registered: classes.length });
+});
+
+// GET /api/worker-classes
+// Returns all registered worker classes (for UI deploy dropdown)
+router.get('/worker-classes', (req: Request, res: Response) => {
+  const classes = Array.from(workerClassRegistry.values());
+  res.json({ classes });
 });
 
 // POST /api/worker/action (called by worker subprocesses)

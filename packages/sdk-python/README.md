@@ -1,0 +1,80 @@
+# netcrawl Python SDK
+
+Write NetCrawl workers in Python. Workers communicate with the local game server over HTTP.
+
+## Install
+
+```bash
+pip install .
+```
+
+## Quick start
+
+```python
+from netcrawl import WorkerClass, Route
+from netcrawl.items.equipment import Pickaxe
+
+class Collector(WorkerClass):
+    """Harvests ore and returns to hub."""
+    pickaxe = Pickaxe()
+    to_mine = Route("Path from Hub to ore node")
+    to_hub  = Route("Return path back to Hub")
+
+    def on_startup(self):
+        self.trips = 0
+
+    def on_loop(self):
+        self.move_through(self.to_mine)
+        self.collect()
+        self.move_through(self.to_hub)
+        self.deposit()
+        self.trips += 1
+```
+
+## Field types
+
+| Field | Description |
+|---|---|
+| `Pickaxe()` | Consumes 1 Pickaxe from inventory at deploy time |
+| `Shield()` | Consumes 1 Shield from inventory at deploy time |
+| `Beacon()` | Consumes 1 Beacon from inventory at deploy time |
+| `Route("description")` | User specifies a list of node IDs in the UI |
+
+## Worker API
+
+| Method | Description |
+|---|---|
+| `self.move(node_id)` | Move to adjacent node (blocking) |
+| `self.move_through(route)` | Walk a list of node IDs in order |
+| `self.collect()` / `self.harvest()` | Harvest resources at current node |
+| `self.deposit()` | Deposit carried resources at Hub |
+| `self.scan()` | Scan adjacent nodes |
+| `self.repair(node_id)` | Repair an infected adjacent node |
+| `self.info/warn/error(msg)` | Log a message (visible in UI) |
+| `self.current_node` | Current node ID (property) |
+| `self.carrying` | Currently held resources (property) |
+
+## AdvancedGraphGadget mixin
+
+```python
+from netcrawl.mixins.graph import AdvancedGraphGadget
+
+class Explorer(WorkerClass, AdvancedGraphGadget):
+    def on_loop(self):
+        self.travel_to("r3")           # A* pathfinding
+        nearest = self.find_nearest("ore")
+        nodes = self.explore()         # wide-radius scan
+```
+
+## Schema introspection
+
+```python
+print(Collector.get_schema())
+```
+
+## Running examples
+
+```bash
+cd packages/sdk-python
+python examples/test_sdk.py
+```
