@@ -230,11 +230,15 @@ router.post('/deploy', async (req: Request, res: Response) => {
   if (equippedPickaxe) {
     injectedFields['pickaxe'] = { itemType: equippedPickaxe.itemType, efficiency: equippedPickaxe.efficiency };
   }
-  // Inject route fields (routes: { fieldName: ['hub', 'r1', 'r2'] })
+  // Inject route fields (routes: { fieldName: 'e1' } — edge ID)
   if (routes && typeof routes === 'object') {
-    for (const [fieldName, path] of Object.entries(routes)) {
-      if (Array.isArray(path)) {
-        injectedFields[fieldName] = path;
+    for (const [fieldName, edgeId] of Object.entries(routes)) {
+      if (typeof edgeId === 'string') {
+        // Pass edge ID directly — workers use move_edge(edgeId)
+        injectedFields[fieldName] = edgeId;
+      } else if (Array.isArray(edgeId)) {
+        // Backward compat: old format [source, target]
+        injectedFields[fieldName] = edgeId;
       }
     }
   }

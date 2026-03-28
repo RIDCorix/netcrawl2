@@ -107,7 +107,7 @@ export interface GameState {
   // Deploy wizard — edge selection mode
   edgeSelectMode: {
     fieldName: string;
-    onSelect: (edge: { source: string; target: string }) => void;
+    onSelect: (edge: { id: string; source: string; target: string }) => void;
   } | null;
 }
 

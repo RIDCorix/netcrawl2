@@ -134,6 +134,39 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
   const { nodes, edges, resources } = state;
 
   switch (action) {
+    case 'move_edge': {
+      // Edge-based movement: resolve edge to target node
+      const { edgeId } = payload;
+      if (!edgeId) return { ok: false, error: 'edgeId required' };
+      const currentNodeE = worker.current_node || worker.node_id;
+      const edge = edges.find((e: any) => e.id === edgeId);
+      if (!edge) return { ok: false, error: `Edge '${edgeId}' not found` };
+
+      // Determine which end is the other side
+      let targetNodeE: string;
+      if (edge.source === currentNodeE) targetNodeE = edge.target;
+      else if (edge.target === currentNodeE) targetNodeE = edge.source;
+      else return { ok: false, error: `Edge '${edgeId}' is not connected to current node '${currentNodeE}'` };
+
+      const moveEffectsE = getNodeChipEffects(targetNodeE);
+      const moveDelayE = Math.round(MOVE_DELAY * (moveEffectsE['move_speed_mult'] || 1));
+
+      upsertWorker({ ...worker, status: 'moving', current_node: targetNodeE, previous_node: currentNodeE, move_id: Date.now() } as any);
+      broadcastFullState();
+      setLock(workerId, moveDelayE);
+      await workerLocks.get(workerId);
+
+      const wE = getWorker(workerId);
+      if (wE && wE.status === 'moving') {
+        const updatedE = { ...wE, status: 'running' } as any;
+        delete updatedE.previous_node;
+        upsertWorker(updatedE);
+        broadcastFullState();
+      }
+
+      return { ok: true, travelTime: moveDelayE, edgeId, from: currentNodeE, to: targetNodeE };
+    }
+
     case 'move': {
       const { targetNodeId } = payload;
       const currentNode = worker.current_node || worker.node_id;
@@ -405,6 +438,18 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
 
     case 'getResources': {
       return { ok: true, resources: worker.carrying };
+    }
+
+    case 'get_edges': {
+      // Return all edges connected to the worker's current node
+      const curNode = worker.current_node || worker.node_id;
+      const connectedEdges = edges
+        .filter((e: any) => e.source === curNode || e.target === curNode)
+        .map((e: any) => ({
+          id: e.id,
+          otherNode: e.source === curNode ? e.target : e.source,
+        }));
+      return { ok: true, edges: connectedEdges, currentNode: curNode };
     }
 
     case 'compute': {

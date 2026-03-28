@@ -166,7 +166,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
   // Per-unit equipment: equippedPerUnit[unitIndex][slotName] = itemType
   const [equippedPerUnit, setEquippedPerUnit] = useState<Record<string, string>[]>([{}]);
   const [currentUnitIdx, setCurrentUnitIdx] = useState(0);
-  const [routes, setRoutes] = useState<Record<string, { source: string; target: string }>>({});
+  const [routes, setRoutes] = useState<Record<string, { id: string; source: string; target: string }>>({});
   const [step, setStep] = useState(0);
   const [selectingRoute, setSelectingRoute] = useState<string | null>(null);
 
@@ -249,9 +249,9 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
     setDeploying(true);
     setMessage('');
 
-    const routePayload: Record<string, string[]> = {};
+    const routePayload: Record<string, string> = {};
     for (const [field, edge] of Object.entries(routes)) {
-      routePayload[field] = [edge.source, edge.target];
+      routePayload[field] = edge.id; // Send edge ID
     }
 
     try {

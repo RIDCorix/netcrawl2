@@ -6,7 +6,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, ChevronDown, ChevronRight, Gift, Check } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { QuestGuideDialog } from './QuestGuideDialog';
 
@@ -29,6 +29,11 @@ export function ActiveQuestsPanel() {
       setQuests(active);
     }).catch(() => {});
   }, [questSummary]);
+
+  const handleClaim = useCallback(async (questId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try { await axios.post(`/api/quests/${questId}/claim`); } catch {}
+  }, []);
 
   if (quests.length === 0) return null;
 
@@ -126,9 +131,25 @@ export function ActiveQuestsPanel() {
                         </div>
                       </div>
 
-                      <span style={{ fontSize: 8, color, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
-                        Ch.{q.chapter}
-                      </span>
+                      {/* Claim button or chapter badge */}
+                      {allMet && q.status === 'completed' ? (
+                        <button
+                          onClick={(e) => handleClaim(q.id, e)}
+                          style={{
+                            padding: '3px 8px', borderRadius: 'var(--radius-sm)',
+                            background: 'var(--accent)', color: '#000', border: 'none',
+                            fontSize: 9, fontWeight: 800, fontFamily: 'var(--font-mono)',
+                            cursor: 'pointer', flexShrink: 0,
+                            display: 'flex', alignItems: 'center', gap: 3,
+                          }}
+                        >
+                          <Gift size={8} /> Claim
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: 8, color, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
+                          Ch.{q.chapter}
+                        </span>
+                      )}
                     </button>
                   );
                 })}

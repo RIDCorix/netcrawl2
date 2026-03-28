@@ -496,7 +496,7 @@ export function GameGraph() {
         return n?.id === 'hub' || !!n?.data?.unlocked;
       };
       if (isUnlocked(edge.source) && isUnlocked(edge.target)) {
-        edgeSelectMode.onSelect({ source: edge.source, target: edge.target });
+        edgeSelectMode.onSelect({ id: edge.id, source: edge.source, target: edge.target });
       }
     }
   }, [edgeSelectMode, gameNodes]);

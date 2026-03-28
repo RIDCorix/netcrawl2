@@ -1,56 +1,52 @@
 """
-Miner — 基本採礦 worker
+Miner -- basic mining worker
 
-挖礦流程：
-  move to ore node → mine() → collect() → move to hub → deposit()
+Mining loop: move along edge to resource node, mine, collect, move back, deposit.
 
-部署需求：
-  - pickaxe: 1x Pickaxe（從 inventory 選）
-  - to_mine:  Hub → 礦場節點 的路徑
-  - to_hub:   礦場節點 → Hub 的路徑
+Deploy requirements:
+  - pickaxe: 1x Pickaxe (from inventory)
+  - route:   mining route (select an edge)
 """
 from netcrawl import WorkerClass, Route
 from netcrawl.items.equipment import Pickaxe
 
 
 class Miner(WorkerClass):
+    class_name = "Miner"
+    class_id = "miner"
+
     pickaxe = Pickaxe()
-    to_mine = Route("Hub → 礦場")
-    to_hub  = Route("礦場 → Hub")
+    route = Route("mining route")
 
     def on_startup(self):
         self.trips = 0
-        self.info("Miner 上線！")
+        self.edge_id = self.route if isinstance(self.route, str) else None
+        self.info(f"Miner online! Edge: {self.edge_id}")
 
     def on_loop(self):
-        # 前往礦場
-        self.move_through(self.to_mine)
-
-        # 挖掘並撿起掉落物
-        mine_result = self.pickaxe.mine()
-        if not mine_result.get("ok"):
-            reason = mine_result.get("reason", "unknown")
-            if reason == "node_depleted":
-                self.warn("礦場耗盡，等待恢復...")
-                import time; time.sleep(10)
-                return
-            self.warn(f"mine() 失敗: {reason}")
+        if not self.edge_id:
+            self.error("No edge configured")
+            import time; time.sleep(3)
             return
 
-        collect_result = self.collect()
-        if not collect_result.get("ok"):
-            self.warn(f"collect() 失敗: {collect_result.get('reason')}")
-            return
+        # Move to the other end of the edge (mine side)
+        if self._current_node == "hub":
+            self.move_edge(self.edge_id)
 
-        drop = collect_result.get("item", {})
-        self.info(f"撿到 {drop.get('amount')}x {drop.get('type')}")
+        # Mine
+        self.pickaxe.mine()
 
-        # 回 Hub
-        self.move_through(self.to_hub)
+        # Collect
+        result = self.collect()
+        if result.get("ok"):
+            drop = result.get("item", {})
+            self.info(f"Collected {drop.get('amount')}x {drop.get('type')}")
 
-        # 交出去
-        self.deposit()
+        # Move back along the same edge
+        self.move_edge(self.edge_id)
 
-        self.trips += 1
-        if self.trips % 5 == 0:
-            self.info(f"已完成 {self.trips} 趟")
+        # Deposit
+        dep = self.deposit()
+        if dep.get("ok"):
+            self.trips += 1
+            self.info(f"Deposited (trip #{self.trips})")

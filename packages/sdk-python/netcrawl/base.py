@@ -129,32 +129,59 @@ class WorkerClass(metaclass=WorkerMeta):
 
     # ── Movement ────────────────────────────────────────────────────────────
 
-    def move(self, node_id: str) -> None:
+    def move(self, target: str) -> None:
         """
-        Move to an adjacent node. Blocks until arrival.
-        Raises ValueError if node is not adjacent.
+        Move along an edge or to a node.
+        - If target looks like an edge ID (starts with 'e'): uses move_edge
+        - Otherwise: legacy move by node ID
+
+        Raises ValueError if the edge/node is not connected.
         """
-        result = self._client.action("move", {"targetNodeId": node_id})
+        # Try edge-based first (edge IDs like 'e1', 'e2', etc.)
+        if target.startswith('e') and target[1:].isdigit():
+            return self.move_edge(target)
+        # Legacy: move by node ID
+        result = self._client.action("move", {"targetNodeId": target})
         if result.get("ok"):
-            self._current_node = node_id
+            self._current_node = target
         else:
-            raise ValueError(f"Cannot move to {node_id}: {result.get('error')}")
+            raise ValueError(f"Cannot move to {target}: {result.get('error')}")
+
+    def move_edge(self, edge_id: str) -> dict:
+        """
+        Move along a specific edge. The worker travels to the other end
+        of the edge from their current position.
+
+        Raises ValueError if the edge doesn't connect to the current node.
+
+        Returns: { ok, travelTime, edgeId, from, to }
+        """
+        result = self._client.action("move_edge", {"edgeId": edge_id})
+        if result.get("ok"):
+            self._current_node = result.get("to", self._current_node)
+            return result
+        else:
+            raise ValueError(f"Cannot move along edge {edge_id}: {result.get('error')}")
+
+    def get_edges(self) -> list:
+        """
+        Get all edges connected to the current node.
+
+        Returns: list of { id: str, otherNode: str }
+        """
+        result = self._client.action("get_edges", {})
+        return result.get("edges", [])
 
     def move_through(self, route) -> None:
         """
-        Move through a list of node IDs in order.
-        Accepts: list of node IDs, or a reversed() iterator.
-        Skips the first node if it matches current position.
-
-        Example:
-            self.move_through(self.route1)
-            self.move_through(list(reversed(self.route1)))
+        Move through a list of edge IDs or node IDs in order.
+        Supports both ['e1', 'e2'] (edge-based) and ['hub', 'r1'] (node-based).
         """
-        nodes = list(route)
-        for node_id in nodes:
-            if node_id == self._current_node:
+        items = list(route)
+        for item in items:
+            if item == self._current_node:
                 continue
-            self.move(node_id)
+            self.move(item)
 
     # ── Resource actions ─────────────────────────────────────────────────────
 
