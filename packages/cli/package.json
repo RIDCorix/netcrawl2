@@ -1,0 +1,23 @@
+{
+  "name": "@netcrawl/cli",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "bin": {
+    "netcrawl": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js start",
+    "dev": "ts-node src/index.ts"
+  },
+  "dependencies": {
+    "concurrently": "^8.0.0",
+    "open": "^9.0.0",
+    "chalk": "^4.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

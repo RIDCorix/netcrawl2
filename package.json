@@ -1,0 +1,12 @@
+{
+  "name": "netcrawl",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter server dev\" \"pnpm --filter ui dev\"",
+    "start": "pnpm --filter cli start",
+    "build": "pnpm -r build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.0"
+  }
+}

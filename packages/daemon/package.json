@@ -1,0 +1,17 @@
+{
+  "name": "@netcrawl/daemon",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "main": "dist/daemon.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/daemon.js"
+  },
+  "dependencies": {
+    "axios": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
