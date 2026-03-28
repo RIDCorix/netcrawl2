@@ -15,12 +15,17 @@ With env vars:
   NETCRAWL_INJECTED={"route1": ["hub","r1","hub"], "route2": ["hub","r2"]}
 """
 
-import os
-import sys
-import json
-import importlib.util
-import time
-import traceback
+import os, sys, json, importlib.util, time, signal, traceback
+
+_shutdown = False
+
+def _on_sigterm(sig, frame):
+    global _shutdown
+    _shutdown = True
+    # Don't print here — just set the flag. on_loop will finish then we exit.
+
+signal.signal(signal.SIGTERM, _on_sigterm)
+signal.signal(signal.SIGINT, _on_sigterm)  # also handle Ctrl+C
 
 
 def main():
@@ -29,9 +34,6 @@ def main():
     script_path = os.environ["NETCRAWL_SCRIPT_PATH"]
     class_name = os.environ["NETCRAWL_CLASS_NAME"]
     injected_raw = os.environ.get("NETCRAWL_INJECTED", "{}")
-
-    # Parse injected field values.
-    # Routes come as lists of node IDs; items come as dicts with stats.
     injected_fields = json.loads(injected_raw)
 
     # Dynamically import the user's script
@@ -64,24 +66,26 @@ def main():
     try:
         worker.on_startup()
     except Exception as e:
-        worker.error(f"on_startup() failed: {e}")
+        print(f"[{worker_id}] on_startup() failed: {e}", file=sys.stderr)
         traceback.print_exc()
         sys.exit(1)
 
     # Main loop
     loop_count = 0
-    while True:
+    while not _shutdown:
         try:
             worker.on_loop()
             loop_count += 1
         except KeyboardInterrupt:
-            print(f"[{worker_id}] Received shutdown signal.")
             break
         except Exception as e:
-            worker.error(f"on_loop() error (loop #{loop_count}): {e}")
+            print(f"[{worker_id}] on_loop() error #{loop_count}: {e}", file=sys.stderr)
             traceback.print_exc()
             # Don't crash on loop errors — wait and retry
             time.sleep(2)
+
+    print(f"[{worker_id}] Suspended cleanly after {loop_count} loops.")
+    sys.exit(0)
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ import {
   INITIAL_NODES, INITIAL_EDGES, INITIAL_RESOURCES,
 } from './db.js';
 import { handleWorkerAction } from './workerActions.js';
-import { spawnWorker, killWorker, getActiveProcesses } from './workerSpawner.js';
+import { spawnWorker, killWorker, suspendWorker, getActiveProcesses } from './workerSpawner.js';
 import { broadcast } from './websocket.js';
 
 export const router: Router = Router();
@@ -146,6 +146,50 @@ router.post('/recall', (req: Request, res: Response) => {
   const state = getGameState();
   broadcast({ type: 'STATE_UPDATE', payload: { ...state, workers: getWorkers() } });
   res.json({ ok: true });
+});
+
+// POST /api/worker/suspend
+router.post('/worker/suspend', (req: Request, res: Response) => {
+  const { workerId } = req.body;
+  if (!workerId) return res.status(400).json({ error: 'workerId required' });
+
+  const worker = getWorker(workerId);
+  if (!worker) return res.status(404).json({ error: 'Worker not found' });
+  if (worker.status !== 'running') {
+    return res.status(400).json({ error: `Worker is not running (status: ${worker.status})` });
+  }
+
+  // Mark as suspending
+  upsertWorker({ ...worker, status: 'suspending' });
+
+  // Send SIGTERM to the child process
+  const result = suspendWorker(workerId);
+  if (!result.ok) {
+    // If no process found, mark as suspended anyway
+    upsertWorker({ ...worker, status: 'suspended', pid: null });
+  }
+
+  const state = getGameState();
+  broadcast({ type: 'STATE_UPDATE', payload: { ...state, workers: getWorkers() } });
+  res.json({ ok: true });
+});
+
+// POST /api/worker/suspend-all
+router.post('/worker/suspend-all', (req: Request, res: Response) => {
+  const workers = getWorkers();
+  const running = workers.filter(w => w.status === 'running');
+
+  for (const worker of running) {
+    upsertWorker({ ...worker, status: 'suspending' });
+    const result = suspendWorker(worker.id);
+    if (!result.ok) {
+      upsertWorker({ ...worker, status: 'suspended', pid: null });
+    }
+  }
+
+  const state = getGameState();
+  broadcast({ type: 'STATE_UPDATE', payload: { ...state, workers: getWorkers() } });
+  res.json({ ok: true, count: running.length });
 });
 
 // GET /api/revisions

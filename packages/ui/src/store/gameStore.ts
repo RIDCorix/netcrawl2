@@ -34,10 +34,11 @@ export interface Worker {
   node_id: string;
   class_name: string;
   commit_hash: string;
-  status: 'idle' | 'moving' | 'harvesting' | 'dead' | 'crashed';
+  status: 'deploying' | 'running' | 'suspending' | 'suspended' | 'crashed' | 'idle' | 'moving' | 'harvesting' | 'dead';
   current_node: string;
   carrying: Partial<Resources>;
   pid: number | null;
+  deployed_at?: string;
 }
 
 export interface GameState {

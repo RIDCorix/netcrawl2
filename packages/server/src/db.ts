@@ -36,7 +36,7 @@ export interface WorkerRow {
   node_id: string;
   class_name: string;
   commit_hash: string;
-  status: string;
+  status: 'deploying' | 'running' | 'suspending' | 'suspended' | 'crashed' | 'idle' | 'moving' | 'harvesting' | 'dead';
   current_node: string;
   carrying: Partial<Resources>;
   pid: number | null;

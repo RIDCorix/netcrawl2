@@ -1,10 +1,16 @@
 import { fork, ChildProcess } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import { upsertWorker, deleteWorker, getWorker } from './db.js';
+import { upsertWorker, deleteWorker, getWorker, getWorkers } from './db.js';
 import { broadcast } from './websocket.js';
+import { getGameState } from './db.js';
 
 const activeProcesses = new Map<string, ChildProcess>();
+
+function broadcastFullState() {
+  const state = getGameState();
+  broadcast({ type: 'STATE_UPDATE', payload: { ...state, workers: getWorkers() } });
+}
 
 export function getActiveProcesses() {
   return activeProcesses;
@@ -47,13 +53,13 @@ export async function spawnWorker(options: {
     return { ok: false, error: `Worker runner not found at ${runnerPath}` };
   }
 
-  // Store initial worker record
+  // Store initial worker record with 'deploying' status
   upsertWorker({
     id: workerId,
     node_id: nodeId,
     class_name: className,
     commit_hash: commitHash,
-    status: 'idle',
+    status: 'deploying',
     current_node: nodeId,
     carrying: {},
     pid: null,
@@ -75,14 +81,14 @@ export async function spawnWorker(options: {
 
   activeProcesses.set(workerId, child);
 
-  // Update PID in DB
+  // Update PID in DB and set to 'running'
   if (child.pid) {
     upsertWorker({
       id: workerId,
       node_id: nodeId,
       class_name: className,
       commit_hash: commitHash,
-      status: 'idle',
+      status: 'running',
       current_node: nodeId,
       carrying: {},
       pid: child.pid,
@@ -95,8 +101,9 @@ export async function spawnWorker(options: {
     activeProcesses.delete(workerId);
     const w = getWorker(workerId);
     if (w) {
-      upsertWorker({ ...w, status: code === 0 ? 'idle' : 'crashed', pid: null });
-      broadcast({ type: 'STATE_UPDATE', payload: { workerUpdate: { id: workerId, status: code === 0 ? 'idle' : 'crashed' } } });
+      const status = code === 0 ? 'suspended' : 'crashed';
+      upsertWorker({ ...w, status, pid: null });
+      broadcastFullState();
     }
   });
 
@@ -115,5 +122,16 @@ export function killWorker(workerId: string): { ok: boolean; error?: string } {
   child.kill('SIGTERM');
   activeProcesses.delete(workerId);
   deleteWorker(workerId);
+  return { ok: true };
+}
+
+export function suspendWorker(workerId: string): { ok: boolean; error?: string } {
+  const child = activeProcesses.get(workerId);
+  if (!child) {
+    return { ok: false, error: 'Worker process not found' };
+  }
+  // On Windows child.kill() terminates the process; on Unix it sends SIGTERM
+  // The Python runner handles SIGTERM/SIGINT and exits cleanly with code 0
+  child.kill();
   return { ok: true };
 }

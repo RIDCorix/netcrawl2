@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Zap, Mountain, Database, Play, Lock, AlertTriangle, MousePointer } from 'lucide-react';
+import { X, Zap, Mountain, Database, Play, Lock, AlertTriangle, MousePointer, PauseCircle } from 'lucide-react';
 import { useGameStore, GameNode, Resources } from '../store/gameStore';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -60,12 +60,18 @@ function Button({ onClick, children, variant = 'primary', disabled = false }: {
 }
 
 function DeployPanel({ nodeId }: { nodeId: string }) {
+  const { workers } = useGameStore();
   const [revisions, setRevisions] = useState<any[]>([]);
   const [classes, setClasses] = useState<string[]>([]);
   const [selectedRevision, setSelectedRevision] = useState('HEAD');
   const [selectedClass, setSelectedClass] = useState('');
   const [deploying, setDeploying] = useState(false);
   const [message, setMessage] = useState('');
+
+  // Block deploy if there's already a running or suspending worker at this node
+  const blockingWorker = workers.find(
+    w => w.node_id === nodeId && (w.status === 'running' || w.status === 'suspending')
+  );
 
   useEffect(() => {
     axios.get('/api/revisions').then(r => {
@@ -134,7 +140,21 @@ function DeployPanel({ nodeId }: { nodeId: string }) {
           </select>
         </div>
 
-        <Button onClick={handleDeploy} disabled={deploying || !selectedClass}>
+        {blockingWorker && (
+          <div
+            className="flex items-center gap-1.5 px-2 py-1.5 rounded text-xs"
+            style={{
+              background: 'rgba(250,204,21,0.08)',
+              border: '1px solid rgba(250,204,21,0.25)',
+              color: '#facc15',
+              fontFamily: 'var(--font-mono)',
+            }}
+          >
+            <PauseCircle size={11} />
+            Suspend active worker first
+          </div>
+        )}
+        <Button onClick={handleDeploy} disabled={deploying || !selectedClass || !!blockingWorker}>
           {deploying ? 'Deploying...' : 'Deploy'}
         </Button>
 
