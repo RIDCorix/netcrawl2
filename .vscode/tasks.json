@@ -4,7 +4,7 @@
     {
       "label": "API Server",
       "type": "shell",
-      "command": "bash scripts/kill-port.sh 4800 && pnpm --filter server build && pnpm --filter server dev",
+      "command": "bash scripts/kill-port.sh 4800; sleep 1 && pnpm --filter server build && pnpm --filter server dev",
       "isBackground": true,
       "problemMatcher": [],
       "presentation": {
@@ -13,15 +13,12 @@
         "echo": true,
         "focus": false,
         "showReuseMessage": false
-      },
+      }
     },
     {
       "label": "Web UI",
-      "dependsOn": [
-        "API Server",
-      ],
       "type": "shell",
-      "command": "bash scripts/kill-port.sh 5173 && pnpm --filter ui dev",
+      "command": "bash scripts/kill-port.sh 5173; sleep 1 && pnpm --filter ui dev",
       "isBackground": true,
       "problemMatcher": [],
       "presentation": {
@@ -30,13 +27,10 @@
         "echo": true,
         "focus": false,
         "showReuseMessage": false
-      },
+      }
     },
     {
       "label": "Code Server",
-      "dependsOn": [
-        "API Server",
-      ],
       "type": "shell",
       "command": "pkill -9 -f 'uv run main.py' 2>/dev/null; sleep 1; cd workspace && uv run main.py",
       "isBackground": true,
@@ -47,7 +41,7 @@
         "echo": true,
         "focus": false,
         "showReuseMessage": false
-      },
+      }
     },
     {
       "label": "NetCrawl: Start All",
@@ -68,12 +62,12 @@
         "echo": true,
         "focus": false,
         "showReuseMessage": false
-      },
+      }
     },
     {
       "label": "NetCrawl: Kill All",
       "type": "shell",
-      "command": "bash scripts/kill-port.sh 4800 && bash scripts/kill-port.sh 5173 && pkill -9 -f 'uv run main.py' 2>/dev/null; echo 'All killed'",
+      "command": "bash scripts/kill-port.sh 4800; bash scripts/kill-port.sh 5173; pkill -9 -f 'uv run main.py' 2>/dev/null; echo 'All killed'",
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",
@@ -81,24 +75,7 @@
         "echo": true,
         "focus": false,
         "showReuseMessage": false
-      },
-    },
-    {
-      "label": "NetCrawl: Restart All",
-      "dependsOn": [
-        "NetCrawl: Kill All",
-        "Web UI",
-        "Code Server"
-      ],
-      "dependsOrder": "sequence",
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "panel": "dedicated",
-        "echo": true,
-        "focus": false,
-        "showReuseMessage": false
-      },
+      }
     }
   ]
 }

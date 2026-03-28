@@ -494,6 +494,9 @@ router.post('/node/build', (req: Request, res: Response) => {
 
   saveGameState({ ...state, nodes: newNodes, resources: newResources as any });
   broadcastFullState();
+  incrementStat('total_structures_built', 1);
+  checkAchievements();
+  checkQuests();
   res.json({ ok: true, nodeId, structureType });
 });
 

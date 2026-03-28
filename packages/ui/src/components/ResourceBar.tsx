@@ -19,7 +19,7 @@ function ResourceItem({ icon: Icon, value, label, color, prevValue, formatFn }: 
   formatFn?: (n: number) => string;
 }) {
   const [pulse, setPulse] = useState(false);
-  const diff = value - prevValue;
+  const diff = (value ?? 0) - (prevValue ?? 0);
 
   useEffect(() => {
     if (diff !== 0) {
@@ -53,7 +53,7 @@ function ResourceItem({ icon: Icon, value, label, color, prevValue, formatFn }: 
         color: 'var(--text-primary)',
         fontVariantNumeric: 'tabular-nums',
       }}>
-        {formatFn ? formatFn(value) : value.toLocaleString()}
+        {formatFn ? formatFn(value ?? 0) : (value ?? 0).toLocaleString()}
       </span>
 
       {/* Delta indicator */}

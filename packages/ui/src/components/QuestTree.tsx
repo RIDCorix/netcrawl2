@@ -34,14 +34,14 @@ function QuestNode({ data }: any) {
     <div
       onClick={() => selectQuest(q.id)}
       style={{
-        padding: q.sideQuest ? '10px 14px' : '14px 18px',
-        borderRadius: q.sideQuest ? 'var(--radius-lg)' : 'var(--radius-md)',
+        padding: !q.mainline ? '10px 14px' : '14px 18px',
+        borderRadius: !q.mainline ? 'var(--radius-lg)' : 'var(--radius-md)',
         background: bg,
         border: `${isSelected ? '2px' : '1.5px'} ${status === 'locked' ? 'dashed' : 'solid'} ${isSelected ? 'var(--accent)' : borderColor}`,
         boxShadow: isSelected ? `0 0 16px var(--accent-dim)` : status === 'completed' ? `0 0 12px ${color}20` : 'none',
         opacity: status === 'locked' ? 0.35 : 1,
         cursor: status === 'locked' ? 'default' : 'pointer',
-        minWidth: q.sideQuest ? 120 : 160,
+        minWidth: !q.mainline ? 120 : 160,
         textAlign: 'center' as const,
         transition: 'all 0.2s',
         position: 'relative',
@@ -60,7 +60,7 @@ function QuestNode({ data }: any) {
 
       {/* Name */}
       <div style={{
-        fontSize: q.sideQuest ? 10 : 12,
+        fontSize: !q.mainline ? 10 : 12,
         fontWeight: 700,
         color: status === 'locked' ? 'var(--text-muted)' : 'var(--text-primary)',
         fontFamily: 'var(--font-mono)',
@@ -80,7 +80,7 @@ function QuestNode({ data }: any) {
       </div>
 
       {/* Side quest indicator */}
-      {q.sideQuest && (
+      {!q.mainline && (
         <div style={{
           position: 'absolute', top: -4, right: -4,
           width: 14, height: 14, borderRadius: '50%',
@@ -230,9 +230,17 @@ function QuestDetail({ quest, onClose }: { quest: any; onClose: () => void }) {
 
 // ── Main Quest Tree Panel ───────────────────────────────────────────────────
 
+// ── Chapter tab names (must match server) ──────────────────────────────────
+
+const CHAPTER_NAMES: Record<number, string> = {
+  1: 'Getting Started', 2: 'Automation', 3: 'Networking', 4: 'Security',
+  5: 'Infrastructure', 6: 'Optimization', 7: 'System Design', 8: 'Mastery',
+};
+
 export function QuestTree() {
   const { questsOpen, toggleQuests, selectedQuestId, selectQuest } = useGameStore();
   const [questData, setQuestData] = useState<any>(null);
+  const [activeChapter, setActiveChapter] = useState(1);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
@@ -242,39 +250,51 @@ export function QuestTree() {
     axios.get('/api/quests').then(r => setQuestData(r.data)).catch(() => {});
   }, [questsOpen, useGameStore.getState().questSummary]);
 
-  // Convert to ReactFlow
+  // Get chapters that have quests
+  const chapters = questData
+    ? [...new Set(questData.quests.map((q: any) => q.chapter))].sort((a: any, b: any) => a - b) as number[]
+    : [];
+
+  // Filter to active chapter and convert to ReactFlow
   useEffect(() => {
     if (!questData) return;
-    const rfNodes: Node[] = questData.quests.map((q: any) => ({
+    const chapterQuests = questData.quests.filter((q: any) => q.chapter === activeChapter);
+    const chapterQuestIds = new Set(chapterQuests.map((q: any) => q.id));
+
+    const rfNodes: Node[] = chapterQuests.map((q: any) => ({
       id: q.id,
       type: 'quest',
       position: q.position,
       data: { quest: q },
     }));
-    const rfEdges: Edge[] = questData.edges.map((e: any, i: number) => {
-      const sourceQuest = questData.quests.find((q: any) => q.id === e.source);
-      const targetQuest = questData.quests.find((q: any) => q.id === e.target);
-      const sourceStatus = sourceQuest?.status;
-      const targetStatus = targetQuest?.status;
-      const bothUnlocked = sourceStatus === 'claimed' || sourceStatus === 'completed';
-      const color = CHAPTER_COLORS[targetQuest?.chapter] || '#666';
-      return {
-        id: `qe-${i}`,
-        source: e.source,
-        target: e.target,
-        type: 'smoothstep',
-        style: {
-          stroke: bothUnlocked ? color : 'var(--border)',
-          strokeWidth: bothUnlocked ? 2 : 1,
-          strokeDasharray: targetStatus === 'locked' ? '4 4' : undefined,
-          opacity: targetStatus === 'locked' ? 0.3 : 0.7,
-        },
-        animated: targetStatus === 'available',
-      };
-    });
+
+    // Only show edges within this chapter
+    const rfEdges: Edge[] = questData.edges
+      .filter((e: any) => chapterQuestIds.has(e.source) && chapterQuestIds.has(e.target))
+      .map((e: any, i: number) => {
+        const sourceQuest = questData.quests.find((q: any) => q.id === e.source);
+        const targetQuest = questData.quests.find((q: any) => q.id === e.target);
+        const sourceStatus = sourceQuest?.status;
+        const targetStatus = targetQuest?.status;
+        const bothUnlocked = sourceStatus === 'claimed' || sourceStatus === 'completed';
+        const color = CHAPTER_COLORS[activeChapter] || '#666';
+        return {
+          id: `qe-${i}`,
+          source: e.source,
+          target: e.target,
+          type: 'smoothstep',
+          style: {
+            stroke: bothUnlocked ? color : 'var(--border)',
+            strokeWidth: bothUnlocked ? 2 : 1,
+            strokeDasharray: targetStatus === 'locked' ? '4 4' : undefined,
+            opacity: targetStatus === 'locked' ? 0.3 : 0.7,
+          },
+          animated: targetStatus === 'available',
+        };
+      });
     setNodes(rfNodes);
     setEdges(rfEdges);
-  }, [questData]);
+  }, [questData, activeChapter]);
 
   const selectedQuest = questData?.quests?.find((q: any) => q.id === selectedQuestId);
 
@@ -282,9 +302,11 @@ export function QuestTree() {
     selectQuest(node.id);
   }, [selectQuest]);
 
-  // Find the first available or completed quest to center on
-  const activeQuest = questData?.quests?.find((q: any) => q.status === 'completed') ||
-    questData?.quests?.find((q: any) => q.status === 'available');
+  const getChapterProgress = (ch: number) => {
+    if (!questData) return { claimed: 0, total: 0 };
+    const cq = questData.quests.filter((q: any) => q.chapter === ch);
+    return { claimed: cq.filter((q: any) => q.status === 'claimed').length, total: cq.length };
+  };
 
   return (
     <AnimatePresence>
@@ -298,39 +320,97 @@ export function QuestTree() {
             display: 'flex',
           }}
         >
-          {/* Tree */}
-          <div style={{ flex: 1, position: 'relative' }}>
-            {/* Close button */}
-            <button
-              onClick={toggleQuests}
-              style={{
-                position: 'absolute', top: 16, right: 16, zIndex: 10,
-                color: 'var(--text-muted)', background: 'var(--bg-glass-heavy)',
-                border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                cursor: 'pointer', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6,
-                fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700,
-              }}
-            >
-              <X size={12} /> Close [Q]
-            </button>
+          {/* Chapter tabs (left sidebar) */}
+          <div style={{
+            width: 200, borderRight: '1px solid var(--border-bright)',
+            display: 'flex', flexDirection: 'column',
+            background: 'var(--bg-secondary)',
+            flexShrink: 0,
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: '16px', borderBottom: '1px solid var(--border)',
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              <BookOpen size={16} style={{ color: 'var(--accent)' }} />
+              <span style={{ fontSize: 12, fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', letterSpacing: '0.08em' }}>
+                QUEST BOOK
+              </span>
+            </div>
 
-            {/* Title */}
+            {/* Chapter list */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '8px' }}>
+              {chapters.map(ch => {
+                const color = CHAPTER_COLORS[ch] || '#666';
+                const name = CHAPTER_NAMES[ch] || `Ch.${ch}`;
+                const { claimed, total } = getChapterProgress(ch);
+                const isActive = ch === activeChapter;
+                const allClaimed = claimed === total && total > 0;
+                return (
+                  <button
+                    key={ch}
+                    onClick={() => setActiveChapter(ch)}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '10px 12px', marginBottom: 4,
+                      background: isActive ? `color-mix(in srgb, ${color} 12%, transparent)` : 'transparent',
+                      border: isActive ? `1px solid color-mix(in srgb, ${color} 30%, transparent)` : '1px solid transparent',
+                      borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <div style={{
+                      width: 6, height: 6, borderRadius: '50%',
+                      background: allClaimed ? color : isActive ? color : 'var(--border)',
+                      opacity: allClaimed ? 1 : 0.6,
+                    }} />
+                    <div style={{ flex: 1, textAlign: 'left' }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)', color: isActive ? color : 'var(--text-secondary)' }}>
+                        {name}
+                      </div>
+                    </div>
+                    <span style={{
+                      fontSize: 9, fontFamily: 'var(--font-mono)',
+                      color: allClaimed ? color : 'var(--text-muted)',
+                    }}>
+                      {claimed}/{total}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Close */}
+            <div style={{ padding: 8, borderTop: '1px solid var(--border)' }}>
+              <button
+                onClick={toggleQuests}
+                style={{
+                  width: '100%', padding: '8px',
+                  color: 'var(--text-muted)', background: 'none',
+                  border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}
+              >
+                <X size={10} /> Close [Q]
+              </button>
+            </div>
+          </div>
+
+          {/* Quest graph for active chapter */}
+          <div style={{ flex: 1, position: 'relative' }}>
+            {/* Chapter title */}
             <div style={{
               position: 'absolute', top: 16, left: 16, zIndex: 10,
               display: 'flex', alignItems: 'center', gap: 8,
               padding: '8px 16px',
               background: 'var(--bg-glass-heavy)', borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border-bright)',
+              border: `1px solid color-mix(in srgb, ${CHAPTER_COLORS[activeChapter] || '#666'} 30%, transparent)`,
             }}>
-              <BookOpen size={16} style={{ color: 'var(--accent)' }} />
-              <span style={{ fontSize: 14, fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', letterSpacing: '0.1em' }}>
-                QUEST TREE
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: CHAPTER_COLORS[activeChapter] || '#666' }} />
+              <span style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--font-mono)', color: CHAPTER_COLORS[activeChapter] || '#666', letterSpacing: '0.08em' }}>
+                {CHAPTER_NAMES[activeChapter] || `Chapter ${activeChapter}`}
               </span>
-              {questData && (
-                <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                  {questData.quests.filter((q: any) => q.status === 'claimed').length}/{questData.quests.length}
-                </span>
-              )}
             </div>
 
             <ReactFlow
@@ -341,23 +421,20 @@ export function QuestTree() {
               onNodeClick={onNodeClick}
               nodeTypes={QUEST_NODE_TYPES}
               fitView
-              fitViewOptions={{
-                padding: 0.5,
-                nodes: activeQuest ? [{ id: activeQuest.id }] : undefined,
-                maxZoom: 1.2,
-              }}
+              fitViewOptions={{ padding: 0.8, maxZoom: 1.2 }}
               style={{ background: 'transparent' }}
               proOptions={{ hideAttribution: true }}
               minZoom={0.3}
               maxZoom={1.5}
               nodesDraggable={false}
+              key={activeChapter}
             >
-              <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="rgba(0,212,170,0.04)" />
+              <Background variant={BackgroundVariant.Dots} gap={24} size={1} color={`color-mix(in srgb, ${CHAPTER_COLORS[activeChapter] || '#666'} 5%, transparent)`} />
               <Controls showInteractive={false} style={{ background: 'var(--bg-glass-heavy)', border: '1px solid var(--border-bright)', borderRadius: 'var(--radius-md)' }} />
             </ReactFlow>
           </div>
 
-          {/* Guide dialog */}
+          {/* Quest detail / guide dialog */}
           <AnimatePresence>
             {selectedQuest && selectedQuest.status !== 'locked' && (
               <QuestGuideDialog quest={selectedQuest} onClose={() => selectQuest(null)} />

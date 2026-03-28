@@ -181,7 +181,7 @@ export function getQuestList() {
       name: q.name,
       description: q.description,
       codeConcept: q.codeConcept,
-      sideQuest: q.sideQuest,
+      mainline: q.mainline,
       prerequisites: q.prerequisites,
       status,
       objectives,
