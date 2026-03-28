@@ -105,7 +105,7 @@ export const QUESTS: QuestDef[] = [
     mainline: true, prerequisites: ['q_hello_world'],
     objectives: [{ id: 'o1', description: 'Mine a resource node', statKey: 'total_mines', target: 1, type: 'stat_gte' }],
     rewards: [{ kind: 'items', items: [{ itemType: 'pickaxe_basic', count: 1, metadata: { efficiency: 1.0 } }] }],
-    position: { x: 400, y: 120 },
+    position: { x: 400, y: 300 },
   },
   {
     id: 'q_first_deposit', chapter: 1, name: 'Return Statement', codeConcept: 'Functions',
@@ -113,7 +113,7 @@ export const QUESTS: QuestDef[] = [
     mainline: true, prerequisites: ['q_first_mine'],
     objectives: [{ id: 'o1', description: 'Deposit at hub', statKey: 'total_deposits', target: 1, type: 'stat_gte' }],
     rewards: [{ kind: 'resources', resources: { data: 300 } }],
-    position: { x: 400, y: 240 },
+    position: { x: 400, y: 600 },
   },
   {
     id: 'q_unlock_node', chapter: 1, name: 'Import Module', codeConcept: 'Imports',
@@ -121,7 +121,7 @@ export const QUESTS: QuestDef[] = [
     mainline: true, prerequisites: ['q_first_deposit'],
     objectives: [{ id: 'o1', description: 'Unlock 1 node', statKey: 'total_nodes_unlocked', target: 1, type: 'stat_gte' }],
     rewards: [{ kind: 'passive', effectId: 'harvest_speed_5', description: '+5% harvest speed', effect: { global_harvest_speed_mult: 1.05 } }],
-    position: { x: 400, y: 360 },
+    position: { x: 400, y: 900 },
   },
 
   // ── Side quests ──
@@ -131,7 +131,7 @@ export const QUESTS: QuestDef[] = [
     mainline: false, prerequisites: ['q_first_deposit'],
     objectives: [{ id: 'o1', description: 'Craft 1 item', statKey: 'total_crafts', target: 1, type: 'stat_gte' }],
     rewards: [{ kind: 'resources', resources: { data: 200 } }],
-    position: { x: 200, y: 300 },
+    position: { x: 0, y: 500 },
   },
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -153,7 +153,7 @@ export const QUESTS: QuestDef[] = [
     mainline: true, prerequisites: ['q_for_loop'],
     objectives: [{ id: 'o1', description: 'Deposit 1,000 data', statKey: 'total_data_deposited', target: 1000, type: 'stat_gte' }],
     rewards: [{ kind: 'items', items: [{ itemType: 'pickaxe_iron', count: 1, metadata: { efficiency: 1.5 } }] }],
-    position: { x: 400, y: 120 },
+    position: { x: 400, y: 300 },
   },
   {
     id: 'q_multiprocessing', chapter: 2, name: 'Multiprocessing', codeConcept: 'Concurrency',
@@ -161,7 +161,7 @@ export const QUESTS: QuestDef[] = [
     mainline: true, prerequisites: ['q_accumulator'],
     objectives: [{ id: 'o1', description: 'Have 3+ workers at once', statKey: 'total_workers_deployed', target: 3, type: 'stat_gte' }],
     rewards: [{ kind: 'recipe_unlock', recipeId: 'scanner', name: 'Scanner' }],
-    position: { x: 400, y: 240 },
+    position: { x: 400, y: 600 },
   },
 
   // ── Side quests ──
@@ -171,7 +171,7 @@ export const QUESTS: QuestDef[] = [
     mainline: false, prerequisites: ['q_for_loop'],
     objectives: [{ id: 'o1', description: 'Craft 3 items', statKey: 'total_crafts', target: 3, type: 'stat_gte' }],
     rewards: [{ kind: 'items', items: [{ itemType: 'chip_pack_basic', count: 1 }] }],
-    position: { x: 200, y: 60 },
+    position: { x: 0, y: 150 },
   },
   {
     id: 'q_error_handling', chapter: 2, name: 'Try / Except', codeConcept: 'Error Handling',
@@ -179,7 +179,7 @@ export const QUESTS: QuestDef[] = [
     mainline: false, prerequisites: ['q_for_loop'],
     objectives: [{ id: 'o1', description: 'Deploy 5 workers total', statKey: 'total_workers_deployed', target: 5, type: 'stat_gte' }],
     rewards: [{ kind: 'items', items: [{ itemType: 'shield', count: 1 }] }],
-    position: { x: 600, y: 60 },
+    position: { x: 700, y: 150 },
   },
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -201,7 +201,7 @@ export const QUESTS: QuestDef[] = [
     mainline: true, prerequisites: ['q_graph_theory'],
     objectives: [{ id: 'o1', description: 'Deposit 2,000 data', statKey: 'total_data_deposited', target: 2000, type: 'stat_gte' }],
     rewards: [{ kind: 'items', items: [{ itemType: 'beacon', count: 2 }] }],
-    position: { x: 400, y: 120 },
+    position: { x: 400, y: 300 },
   },
 
   // ── Side quests ──
@@ -211,7 +211,7 @@ export const QUESTS: QuestDef[] = [
     mainline: false, prerequisites: ['q_graph_theory'],
     objectives: [{ id: 'o1', description: 'Deploy 6 workers total', statKey: 'total_workers_deployed', target: 6, type: 'stat_gte' }],
     rewards: [{ kind: 'chips', chips: [{ chipType: 'move_speed_1', rarity: 'common' }] }],
-    position: { x: 600, y: 60 },
+    position: { x: 700, y: 150 },
   },
   {
     id: 'q_relay_topology', chapter: 3, name: 'Network Topology', codeConcept: 'Topology',
@@ -219,7 +219,7 @@ export const QUESTS: QuestDef[] = [
     mainline: false, prerequisites: ['q_graph_theory'],
     objectives: [{ id: 'o1', description: 'Unlock 4 nodes', statKey: 'total_nodes_unlocked', target: 4, type: 'stat_gte' }],
     rewards: [{ kind: 'recipe_unlock', recipeId: 'signal_booster', name: 'Signal Booster' }],
-    position: { x: 200, y: 60 },
+    position: { x: 0, y: 150 },
   },
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -241,7 +241,7 @@ export const QUESTS: QuestDef[] = [
     mainline: true, prerequisites: ['q_if_statement'],
     objectives: [{ id: 'o1', description: 'Install 2 chips', statKey: 'total_chips_installed', target: 2, type: 'stat_gte' }],
     rewards: [{ kind: 'chips', chips: [{ chipType: 'defense_2', rarity: 'rare' }] }],
-    position: { x: 400, y: 120 },
+    position: { x: 400, y: 300 },
   },
 
   // ── Side quests ──
@@ -251,7 +251,7 @@ export const QUESTS: QuestDef[] = [
     mainline: false, prerequisites: ['q_if_statement'],
     objectives: [{ id: 'o1', description: 'Repair 3 infections', statKey: 'total_repairs', target: 3, type: 'stat_gte' }],
     rewards: [{ kind: 'unique_equipment', itemType: 'antivirus_module', name: 'Antivirus Module', description: 'Shield with auto-repair', metadata: { efficiency: 2.0, autoRepair: true } }],
-    position: { x: 200, y: 60 },
+    position: { x: 0, y: 150 },
   },
   {
     id: 'q_token_auth', chapter: 4, name: 'Token Auth', codeConcept: 'Authentication',
@@ -259,7 +259,7 @@ export const QUESTS: QuestDef[] = [
     mainline: false, prerequisites: ['q_firewall'],
     objectives: [{ id: 'o1', description: 'Complete 5 API requests', statKey: 'total_api_requests_completed', target: 5, type: 'stat_gte' }],
     rewards: [{ kind: 'resources', resources: { credits: 10 } }],
-    position: { x: 600, y: 120 },
+    position: { x: 700, y: 200 },
   },
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -281,7 +281,7 @@ export const QUESTS: QuestDef[] = [
     mainline: true, prerequisites: ['q_build_first'],
     objectives: [{ id: 'o1', description: 'Solve 5 puzzles', statKey: 'total_puzzles_solved', target: 5, type: 'stat_gte' }],
     rewards: [{ kind: 'recipe_unlock', recipeId: 'overclock_kit', name: 'Overclock Kit' }],
-    position: { x: 400, y: 120 },
+    position: { x: 400, y: 300 },
   },
 
   // ── Side quests ──
@@ -291,7 +291,7 @@ export const QUESTS: QuestDef[] = [
     mainline: false, prerequisites: ['q_build_first'],
     objectives: [{ id: 'o1', description: 'Deploy 8 workers total', statKey: 'total_workers_deployed', target: 8, type: 'stat_gte' }],
     rewards: [{ kind: 'resources', resources: { data: 2000 } }],
-    position: { x: 200, y: 60 },
+    position: { x: 0, y: 150 },
   },
   {
     id: 'q_api_service', chapter: 5, name: 'API Gateway', codeConcept: 'API Design',
@@ -299,7 +299,7 @@ export const QUESTS: QuestDef[] = [
     mainline: false, prerequisites: ['q_build_first'],
     objectives: [{ id: 'o1', description: 'Complete 1 API request', statKey: 'total_api_requests_completed', target: 1, type: 'stat_gte' }],
     rewards: [{ kind: 'resources', resources: { credits: 5 } }],
-    position: { x: 600, y: 60 },
+    position: { x: 700, y: 150 },
   },
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -321,7 +321,7 @@ export const QUESTS: QuestDef[] = [
     mainline: true, prerequisites: ['q_upgrade_node'],
     objectives: [{ id: 'o1', description: 'Max a node (LV3)', statKey: 'max_node_level', target: 3, type: 'stat_gte' }],
     rewards: [{ kind: 'chips', chips: [{ chipType: 'overclock', rarity: 'legendary' }] }],
-    position: { x: 400, y: 120 },
+    position: { x: 400, y: 300 },
   },
 
   // ── Side quests ──
@@ -331,7 +331,7 @@ export const QUESTS: QuestDef[] = [
     mainline: false, prerequisites: ['q_upgrade_node'],
     objectives: [{ id: 'o1', description: 'Build a cache node', statKey: 'total_structures_built', target: 1, type: 'stat_gte' }],
     rewards: [{ kind: 'passive', effectId: 'cache_bonus', description: '+20% cache capacity', effect: { cache_capacity_mult: 1.2 } }],
-    position: { x: 200, y: 60 },
+    position: { x: 0, y: 150 },
   },
   {
     id: 'q_chip_gacha', chapter: 6, name: 'Big O Notation', codeConcept: 'Complexity',
@@ -339,7 +339,7 @@ export const QUESTS: QuestDef[] = [
     mainline: false, prerequisites: ['q_upgrade_node'],
     objectives: [{ id: 'o1', description: 'Open 5 chip packs', statKey: 'total_packs_opened', target: 5, type: 'stat_gte' }],
     rewards: [{ kind: 'chips', chips: [{ chipType: 'production_rate_2', rarity: 'rare' }] }],
-    position: { x: 600, y: 60 },
+    position: { x: 700, y: 150 },
   },
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -361,7 +361,7 @@ export const QUESTS: QuestDef[] = [
     mainline: true, prerequisites: ['q_ha'],
     objectives: [{ id: 'o1', description: 'Deposit 5,000 data', statKey: 'total_data_deposited', target: 5000, type: 'stat_gte' }],
     rewards: [{ kind: 'resources', resources: { credits: 20 } }],
-    position: { x: 400, y: 120 },
+    position: { x: 400, y: 300 },
   },
 
   // ── Side quests ──
@@ -371,7 +371,7 @@ export const QUESTS: QuestDef[] = [
     mainline: false, prerequisites: ['q_ha'],
     objectives: [{ id: 'o1', description: 'Solve 20 puzzles', statKey: 'total_puzzles_solved', target: 20, type: 'stat_gte' }],
     rewards: [{ kind: 'chips', chips: [{ chipType: 'harvest_speed_3', rarity: 'rare' }] }],
-    position: { x: 200, y: 60 },
+    position: { x: 0, y: 150 },
   },
   {
     id: 'q_earn_credits', chapter: 7, name: 'Revenue Model', codeConcept: 'Monetization',
@@ -379,7 +379,7 @@ export const QUESTS: QuestDef[] = [
     mainline: false, prerequisites: ['q_ha'],
     objectives: [{ id: 'o1', description: 'Earn 50 credits', statKey: 'total_credits_earned', target: 50, type: 'stat_gte' }],
     rewards: [{ kind: 'unique_equipment', itemType: 'memory_allocator', name: 'Memory Allocator', description: '3.0x efficiency pickaxe', metadata: { efficiency: 3.0 } }],
-    position: { x: 600, y: 60 },
+    position: { x: 700, y: 150 },
   },
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -402,7 +402,7 @@ export const QUESTS: QuestDef[] = [
     position: { x: 400, y: 0 },
   },
   {
-    id: 'q_full_stack', chapter: 8, name: 'Full Stack Developer', codeConcept: 'Mastery',
+    id: 'q_full_stack', chapter: 8, name: 'Full Stack Dev', codeConcept: 'Mastery',
     description: 'You\'ve mastered it all. The network bends to your will.',
     mainline: true, prerequisites: ['q_architect'],
     objectives: [
@@ -413,7 +413,7 @@ export const QUESTS: QuestDef[] = [
       { kind: 'unique_equipment', itemType: 'fullstack_pickaxe', name: 'Full Stack Pickaxe', description: '5.0x efficiency legendary', metadata: { efficiency: 5.0 } },
       { kind: 'passive', effectId: 'carry_capacity', description: '+20 carry capacity', effect: { global_capacity_bonus: 20 } },
     ],
-    position: { x: 400, y: 120 },
+    position: { x: 400, y: 300 },
   },
 ];
 

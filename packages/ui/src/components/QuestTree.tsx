@@ -5,7 +5,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Lock, Check, BookOpen, Star, Gift } from 'lucide-react';
+import { X, Lock, Check, BookOpen, Star, Gift, Play, RefreshCw, Network, ShieldCheck, Server, Gauge, Blocks, Trophy } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
@@ -47,8 +47,16 @@ function QuestNode({ data }: any) {
         position: 'relative',
       }}
     >
-      <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
-      <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
+      <Handle id="top" type="source" position={Position.Top} style={{ opacity: 0 }} />
+      <Handle id="bottom" type="source" position={Position.Bottom} style={{ opacity: 0 }} />
+      <Handle id="left" type="source" position={Position.Left} style={{ opacity: 0 }} />
+      <Handle id="right" type="source" position={Position.Right} style={{ opacity: 0 }} />
+      <Handle id="center" type="source" position={Position.Top} style={{ opacity: 0, top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
+      <Handle id="top" type="target" position={Position.Top} style={{ opacity: 0 }} />
+      <Handle id="bottom" type="target" position={Position.Bottom} style={{ opacity: 0 }} />
+      <Handle id="left" type="target" position={Position.Left} style={{ opacity: 0 }} />
+      <Handle id="right" type="target" position={Position.Right} style={{ opacity: 0 }} />
+      <Handle id="center" type="target" position={Position.Top} style={{ opacity: 0, top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
 
       {/* Status icon */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 6 }}>
@@ -237,8 +245,14 @@ const CHAPTER_NAMES: Record<number, string> = {
   5: 'Infrastructure', 6: 'Optimization', 7: 'System Design', 8: 'Mastery',
 };
 
+const CHAPTER_ICONS: Record<number, any> = {
+  1: Play, 2: RefreshCw, 3: Network, 4: ShieldCheck,
+  5: Server, 6: Gauge, 7: Blocks, 8: Trophy,
+};
+
 export function QuestTree() {
-  const { questsOpen, toggleQuests, selectedQuestId, selectQuest } = useGameStore();
+  const { questsOpen, toggleQuests, selectedQuestId, selectQuest, settings } = useGameStore();
+  const edgeStyle = settings.edgeStyle;
   const [questData, setQuestData] = useState<any>(null);
   const [activeChapter, setActiveChapter] = useState(1);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -268,6 +282,29 @@ export function QuestTree() {
       data: { quest: q },
     }));
 
+    // Compute edge handles from relative positions
+    const getQuestEdgeHandles = (sourceId: string, targetId: string) => {
+      const s = chapterQuests.find((q: any) => q.id === sourceId);
+      const t = chapterQuests.find((q: any) => q.id === targetId);
+      if (!s || !t) return { sourceHandle: 'center', targetHandle: 'center' };
+
+      // Straight mode or same-x (vertical chain): always center-to-center for clean lines
+      if (edgeStyle === 'straight' || s.position.x === t.position.x) {
+        return { sourceHandle: 'center', targetHandle: 'center' };
+      }
+
+      const dx = t.position.x - s.position.x;
+      const dy = t.position.y - s.position.y;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        return dx > 0
+          ? { sourceHandle: 'right', targetHandle: 'left' }
+          : { sourceHandle: 'left', targetHandle: 'right' };
+      }
+      return dy > 0
+        ? { sourceHandle: 'bottom', targetHandle: 'top' }
+        : { sourceHandle: 'top', targetHandle: 'bottom' };
+    };
+
     // Only show edges within this chapter
     const rfEdges: Edge[] = questData.edges
       .filter((e: any) => chapterQuestIds.has(e.source) && chapterQuestIds.has(e.target))
@@ -282,7 +319,8 @@ export function QuestTree() {
           id: `qe-${i}`,
           source: e.source,
           target: e.target,
-          type: 'smoothstep',
+          type: edgeStyle === 'bezier' ? 'default' : edgeStyle,
+          ...getQuestEdgeHandles(e.source, e.target),
           style: {
             stroke: bothUnlocked ? color : 'var(--border)',
             strokeWidth: bothUnlocked ? 2 : 1,
@@ -294,7 +332,7 @@ export function QuestTree() {
       });
     setNodes(rfNodes);
     setEdges(rfEdges);
-  }, [questData, activeChapter]);
+  }, [questData, activeChapter, edgeStyle]);
 
   const selectedQuest = questData?.quests?.find((q: any) => q.id === selectedQuestId);
 
@@ -343,6 +381,7 @@ export function QuestTree() {
               {chapters.map(ch => {
                 const color = CHAPTER_COLORS[ch] || '#666';
                 const name = CHAPTER_NAMES[ch] || `Ch.${ch}`;
+                const ChIcon = CHAPTER_ICONS[ch] || BookOpen;
                 const { claimed, total } = getChapterProgress(ch);
                 const isActive = ch === activeChapter;
                 const allClaimed = claimed === total && total > 0;
@@ -359,14 +398,28 @@ export function QuestTree() {
                       transition: 'all 0.15s',
                     }}
                   >
-                    <div style={{
-                      width: 6, height: 6, borderRadius: '50%',
-                      background: allClaimed ? color : isActive ? color : 'var(--border)',
-                      opacity: allClaimed ? 1 : 0.6,
+                    <ChIcon size={14} style={{
+                      color: allClaimed ? color : isActive ? color : 'var(--text-muted)',
+                      opacity: allClaimed ? 1 : 0.7,
+                      flexShrink: 0,
                     }} />
                     <div style={{ flex: 1, textAlign: 'left' }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)', color: isActive ? color : 'var(--text-secondary)' }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)', color: isActive ? color : 'var(--text-secondary)', marginBottom: 4 }}>
                         {name}
+                      </div>
+                      {/* Progress bar */}
+                      <div style={{
+                        height: 3, borderRadius: 2,
+                        background: 'rgba(255,255,255,0.06)',
+                        overflow: 'hidden',
+                      }}>
+                        <div style={{
+                          height: '100%', borderRadius: 2,
+                          width: total > 0 ? `${(claimed / total) * 100}%` : '0%',
+                          background: color,
+                          opacity: allClaimed ? 1 : 0.6,
+                          transition: 'width 0.3s ease',
+                        }} />
                       </div>
                     </div>
                     <span style={{
@@ -407,7 +460,7 @@ export function QuestTree() {
               background: 'var(--bg-glass-heavy)', borderRadius: 'var(--radius-md)',
               border: `1px solid color-mix(in srgb, ${CHAPTER_COLORS[activeChapter] || '#666'} 30%, transparent)`,
             }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: CHAPTER_COLORS[activeChapter] || '#666' }} />
+              {(() => { const Icon = CHAPTER_ICONS[activeChapter] || BookOpen; return <Icon size={16} style={{ color: CHAPTER_COLORS[activeChapter] || '#666' }} />; })()}
               <span style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--font-mono)', color: CHAPTER_COLORS[activeChapter] || '#666', letterSpacing: '0.08em' }}>
                 {CHAPTER_NAMES[activeChapter] || `Chapter ${activeChapter}`}
               </span>
