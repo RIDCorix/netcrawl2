@@ -83,13 +83,14 @@ function NodeWrapper({ children, selected, glowColor, style = {}, workers: nodeW
             const c = CLASS_COLORS[w.class_name] || '#a78bfa';
             const isActive = ['running', 'harvesting', 'idle'].includes(w.status);
             const isSelected = w.id === selectedWorkerId;
-            const showAction = w.status === 'harvesting' || w.holding;
+            const showAction = !w.leaving && (w.status === 'harvesting' || w.holding);
+            const isLeaving = w.leaving;
 
             return (
               <div
                 key={w.id}
                 title={`${w.class_name} (${w.status})\nid: ${w.id}\n@ ${w.current_node}`}
-                onClick={(e) => { e.stopPropagation(); selectWorker(w.id); }}
+                onClick={(e) => { if (!isLeaving) { e.stopPropagation(); selectWorker(w.id); } }}
                 style={{
                   position: 'relative',
                   width: isSelected ? 12 : 8,
@@ -100,9 +101,12 @@ function NodeWrapper({ children, selected, glowColor, style = {}, workers: nodeW
                   boxShadow: isSelected
                     ? `0 0 8px ${c}, 0 0 16px ${c}`
                     : isActive ? `0 0 6px ${c}, 0 0 12px ${c}40` : `0 0 4px ${c}60`,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                  pointerEvents: 'auto',
+                  cursor: isLeaving ? 'default' : 'pointer',
+                  // Leaving animation: fade out + shrink toward center
+                  opacity: isLeaving ? 0 : 1,
+                  transform: isLeaving ? 'scale(0.3) translateY(12px)' : 'scale(1) translateY(0)',
+                  transition: 'opacity 0.5s ease-out, transform 0.5s ease-out',
+                  pointerEvents: isLeaving ? 'none' : 'auto',
                 }}
               >
                 {/* Action indicator */}
@@ -488,10 +492,18 @@ const CLASS_COLORS: Record<string, string> = {
 
 function toRFNodes(gameNodes: GameNode[], selectedId: string | null, workers: Worker[]): Node[] {
   return gameNodes.map(n => {
-    const nodeWorkers = workers.filter(w => {
+    // Workers at this node (not moving)
+    const stationaryWorkers = workers.filter(w => {
       if (w.status === 'moving' && w.previous_node) return false;
       return (w.current_node || w.node_id) === n.id;
-    });
+    }).map(w => ({ ...w, leaving: false }));
+
+    // Workers leaving this node (moving, previous_node matches)
+    const leavingWorkers = workers.filter(w =>
+      w.status === 'moving' && w.previous_node === n.id
+    ).map(w => ({ ...w, leaving: true }));
+
+    const nodeWorkers = [...stationaryWorkers, ...leavingWorkers];
     return {
       id: n.id,
       type: n.type,
