@@ -91,7 +91,7 @@ export async function spawnWorker(options: {
       env: {
         ...process.env,
         NETCRAWL_WORKER_ID: workerId,
-        NETCRAWL_API_URL: 'http://localhost:3001',
+        NETCRAWL_API_URL: `http://localhost:${process.env.PORT || 4800}`,
         NETCRAWL_CLASS_NAME: className,
         NETCRAWL_SCRIPT_PATH: scriptPath,
         NETCRAWL_INJECTED: JSON.stringify(injected),
@@ -115,7 +115,7 @@ export async function spawnWorker(options: {
       env: {
         ...process.env,
         NETCRAWL_WORKER_ID: workerId,
-        NETCRAWL_API_URL: 'http://localhost:3001',
+        NETCRAWL_API_URL: `http://localhost:${process.env.PORT || 4800}`,
         NETCRAWL_CLASS: className,
         NETCRAWL_SCRIPT: scriptPath,
         NETCRAWL_INJECTED: JSON.stringify(injected),

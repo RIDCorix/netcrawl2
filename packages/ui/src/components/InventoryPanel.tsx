@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Pickaxe, Shield, Radio, Gem, Package, Zap, Mountain, Database } from 'lucide-react';
+import { X, Pickaxe, Shield, Radio, Package, Zap, Mountain, Database } from 'lucide-react';
 import { useGameStore, InventoryItem } from '../store/gameStore';
+import { CraftPanel } from './CraftPanel';
 
 const ITEM_ICONS: Record<string, any> = {
   pickaxe_basic: Pickaxe,
@@ -53,46 +54,67 @@ function ItemCard({ item }: { item: InventoryItem }) {
       style={{
         background: 'var(--bg-elevated)',
         border: '1px solid var(--border)',
-        borderRadius: '8px',
-        padding: '10px',
+        borderRadius: 'var(--radius-md)',
+        padding: 12,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '6px',
-        minWidth: '80px',
+        gap: 6,
+        minWidth: 90,
         position: 'relative',
       }}
     >
-      <Icon size={22} style={{ color }} />
-      <div className="text-xs text-center font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', lineHeight: 1.3 }}>
+      <Icon size={24} style={{ color }} />
+      <div style={{
+        fontSize: 11,
+        fontWeight: 700,
+        textAlign: 'center',
+        color: 'var(--text-primary)',
+        fontFamily: 'var(--font-mono)',
+        lineHeight: 1.3,
+      }}>
         {label}
       </div>
       {item.metadata?.efficiency && (
-        <div className="text-xs" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+        <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
           {item.metadata.efficiency}×
         </div>
       )}
-      <div
-        style={{
-          position: 'absolute',
-          top: -6,
-          right: -6,
-          background: color,
-          color: '#000',
-          borderRadius: '999px',
-          fontSize: '10px',
-          fontWeight: 700,
-          fontFamily: 'var(--font-mono)',
-          width: '18px',
-          height: '18px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
+      <div style={{
+        position: 'absolute',
+        top: -6,
+        right: -6,
+        background: color,
+        color: '#000',
+        borderRadius: '999px',
+        fontSize: 10,
+        fontWeight: 800,
+        fontFamily: 'var(--font-mono)',
+        width: 20,
+        height: 20,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
         {item.count}
       </div>
     </motion.div>
+  );
+}
+
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <div style={{
+      fontSize: 10,
+      fontWeight: 700,
+      color: 'var(--text-muted)',
+      fontFamily: 'var(--font-mono)',
+      letterSpacing: '0.12em',
+      marginBottom: 10,
+      textTransform: 'uppercase',
+    }}>
+      {children}
+    </div>
   );
 }
 
@@ -106,111 +128,141 @@ export function InventoryPanel() {
     <AnimatePresence>
       {inventoryOpen && (
         <motion.div
-          key="inventory-panel"
-          initial={{ x: 340, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: 340, opacity: 0 }}
-          transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+          key="inventory-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
           style={{
             position: 'fixed',
-            right: 16,
-            top: 72,
-            bottom: 16,
-            width: 320,
-            background: 'var(--bg-glass-heavy)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid var(--border)',
-            borderRadius: '12px',
-            padding: '16px',
-            zIndex: 45,
-            overflowY: 'auto',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.6)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 100,
             display: 'flex',
-            flexDirection: 'column',
-            gap: '16px',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
+          onClick={toggleInventory}
         >
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Package size={16} style={{ color: 'var(--accent)' }} />
-              <span className="text-sm font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em' }}>
-                INVENTORY
-              </span>
-            </div>
-            <button
-              onClick={toggleInventory}
-              style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}
-            >
-              <X size={16} />
-            </button>
-          </div>
-
-          {/* Resources summary */}
-          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
-            <div className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>
-              RESOURCES
-            </div>
-            <div className="flex gap-3 flex-wrap">
-              <div className="flex items-center gap-1.5">
-                <Zap size={13} style={{ color: 'var(--energy-color)' }} />
-                <span className="text-sm font-semibold tabular-nums" style={{ color: 'var(--energy-color)', fontFamily: 'var(--font-mono)' }}>
-                  {resources.energy}
+          <motion.div
+            initial={{ scale: 0.92, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.92, opacity: 0, y: 20 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-glass-heavy)',
+              backdropFilter: 'blur(24px)',
+              border: '1px solid var(--border-bright)',
+              borderRadius: 'var(--radius-lg)',
+              padding: 24,
+              width: 640,
+              maxWidth: 'calc(100vw - 64px)',
+              maxHeight: 'calc(100vh - 120px)',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 20,
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Package size={18} style={{ color: 'var(--accent)' }} />
+                <span style={{
+                  fontSize: 14,
+                  fontWeight: 800,
+                  color: 'var(--text-primary)',
+                  fontFamily: 'var(--font-mono)',
+                  letterSpacing: '0.1em',
+                }}>
+                  INVENTORY
                 </span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <Mountain size={13} style={{ color: 'var(--ore-color)' }} />
-                <span className="text-sm font-semibold tabular-nums" style={{ color: 'var(--ore-color)', fontFamily: 'var(--font-mono)' }}>
-                  {resources.ore}
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Database size={13} style={{ color: 'var(--data-color)' }} />
-                <span className="text-sm font-semibold tabular-nums" style={{ color: 'var(--data-color)', fontFamily: 'var(--font-mono)' }}>
-                  {resources.data}
-                </span>
-              </div>
+              <button
+                onClick={toggleInventory}
+                style={{
+                  color: 'var(--text-muted)',
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer',
+                  padding: 4,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <X size={14} />
+              </button>
             </div>
-          </div>
 
-          {/* Equipment */}
-          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
-            <div className="text-xs font-semibold mb-3" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>
-              EQUIPMENT
+            {/* Resources summary */}
+            <div style={{
+              display: 'flex',
+              gap: 16,
+              padding: '12px 16px',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border)',
+            }}>
+              {[
+                { icon: Zap, label: 'Energy', value: resources.energy, color: 'var(--energy-color)' },
+                { icon: Mountain, label: 'Ore', value: resources.ore, color: 'var(--ore-color)' },
+                { icon: Database, label: 'Data', value: resources.data, color: 'var(--data-color)' },
+              ].map(r => (
+                <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <r.icon size={14} style={{ color: r.color }} />
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{r.label}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: r.color, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
+                    {r.value.toLocaleString()}
+                  </span>
+                </div>
+              ))}
             </div>
-            {equipment.length === 0 ? (
-              <div className="text-xs" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                No equipment. Craft some in the Craft panel.
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                <AnimatePresence>
-                  {equipment.map(item => (
-                    <ItemCard key={item.id} item={item} />
-                  ))}
-                </AnimatePresence>
-              </div>
-            )}
-          </div>
 
-          {/* Materials */}
-          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
-            <div className="text-xs font-semibold mb-3" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>
-              ORES / MATERIALS
+            {/* Two-column layout: Items + Crafting */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+              {/* Left column: Items */}
+              <div>
+                <SectionLabel>Equipment</SectionLabel>
+                {equipment.length === 0 ? (
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                    No equipment. Craft some below.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    <AnimatePresence>
+                      {equipment.map(item => <ItemCard key={item.id} item={item} />)}
+                    </AnimatePresence>
+                  </div>
+                )}
+
+                <div style={{ marginTop: 20 }}>
+                  <SectionLabel>Materials</SectionLabel>
+                  {materials.length === 0 ? (
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                      No materials yet.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      <AnimatePresence>
+                        {materials.map(item => <ItemCard key={item.id} item={item} />)}
+                      </AnimatePresence>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right column: Crafting */}
+              <div style={{
+                borderLeft: '1px solid var(--border)',
+                paddingLeft: 20,
+              }}>
+                <CraftPanel />
+              </div>
             </div>
-            {materials.length === 0 ? (
-              <div className="text-xs" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                No materials. Deploy a miner to collect drops.
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                <AnimatePresence>
-                  {materials.map(item => (
-                    <ItemCard key={item.id} item={item} />
-                  ))}
-                </AnimatePresence>
-              </div>
-            )}
-          </div>
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>

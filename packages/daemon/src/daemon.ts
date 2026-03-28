@@ -11,7 +11,7 @@
 
 import axios from 'axios';
 
-const API_URL = process.env.NETCRAWL_API_URL || 'http://localhost:3001';
+const API_URL = process.env.NETCRAWL_API_URL || 'http://localhost:4800';
 
 async function checkServerHealth(): Promise<boolean> {
   try {

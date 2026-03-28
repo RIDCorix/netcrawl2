@@ -30,7 +30,7 @@ function NodeWrapper({ children, selected, glowColor, style = {} }: {
   return (
     <div style={{
       position: 'relative',
-      padding: '14px 20px',
+      padding: '16px 24px',
       borderRadius: 'var(--radius-lg)',
       background: 'var(--bg-glass-heavy)',
       backdropFilter: 'blur(16px)',
@@ -40,7 +40,7 @@ function NodeWrapper({ children, selected, glowColor, style = {} }: {
         : glowColor
           ? `0 0 16px ${glowColor}33, 0 8px 32px rgba(0, 0, 0, 0.4)`
           : '0 4px 24px rgba(0, 0, 0, 0.4)',
-      minWidth: 120,
+      minWidth: 140,
       textAlign: 'center' as const,
       cursor: 'pointer',
       transition: 'all 0.2s ease',
@@ -63,10 +63,10 @@ function NodeLabel({ label, subtitle, icon: Icon, iconColor, iconBg }: {
   iconBg?: string;
 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
       <div style={{
-        width: 36,
-        height: 36,
+        width: 40,
+        height: 40,
         borderRadius: 10,
         display: 'flex',
         alignItems: 'center',
@@ -74,10 +74,10 @@ function NodeLabel({ label, subtitle, icon: Icon, iconColor, iconBg }: {
         background: iconBg || `color-mix(in srgb, ${iconColor} 15%, transparent)`,
         border: `1px solid color-mix(in srgb, ${iconColor} 25%, transparent)`,
       }}>
-        <Icon size={18} color={iconColor} />
+        <Icon size={20} color={iconColor} />
       </div>
       <div style={{
-        fontSize: 12,
+        fontSize: 14,
         fontWeight: 700,
         color: 'var(--text-primary)',
         fontFamily: 'var(--font-mono)',
@@ -87,7 +87,7 @@ function NodeLabel({ label, subtitle, icon: Icon, iconColor, iconBg }: {
       </div>
       {subtitle && (
         <div style={{
-          fontSize: 10,
+          fontSize: 12,
           color: 'var(--text-muted)',
           fontFamily: 'var(--font-mono)',
           letterSpacing: '0.05em',

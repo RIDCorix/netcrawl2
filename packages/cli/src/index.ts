@@ -123,7 +123,7 @@ export class Guardian {
   if (!fs.existsSync(configPath)) {
     fs.writeFileSync(configPath, JSON.stringify({
       workspacePath: './workspace',
-      serverPort: 3001,
+      serverPort: 4800,
       uiPort: 5173,
     }, null, 2));
     success('Created netcrawl.config.json');
@@ -149,7 +149,7 @@ export class Guardian {
 async function cmdStart() {
   const repoRoot = findRepoRoot();
   log('Starting NetCrawl...');
-  log('Server: ' + chalk.yellow('http://localhost:3001'));
+  log('Server: ' + chalk.yellow('http://localhost:4800'));
   log('UI:     ' + chalk.yellow('http://localhost:5173'));
 
   const serverPkg = path.join(repoRoot, 'packages', 'server');
@@ -201,7 +201,7 @@ async function cmdReset() {
       return;
     }
     try {
-      const res = await fetch('http://localhost:3001/api/reset', {
+      const res = await fetch('http://localhost:4800/api/reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });

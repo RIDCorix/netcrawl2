@@ -1,0 +1,67 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "API Server: Build",
+      "type": "shell",
+      "command": "pnpm --filter server build",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "API Server",
+      "type": "shell",
+      "command": "bash -c 'for pid in $(lsof -ti tcp:4800); do kill -9 $pid 2>/dev/null; done; sleep 2; exec pnpm --filter server dev'",
+      "isBackground": true,
+      "dependsOn": "API Server: Build",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Web UI",
+      "type": "shell",
+      "command": "pnpm --filter ui dev",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Code Server (Daemon)",
+      "type": "shell",
+      "command": "pnpm --filter daemon start",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "NetCrawl: Start All",
+      "dependsOn": [
+        "API Server",
+        "Web UI",
+        "Code Server (Daemon)",
+        "Open Game View"
+      ],
+      "dependsOrder": "parallel",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "silent"
+      }
+    }
+  ]
+}

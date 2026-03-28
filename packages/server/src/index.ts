@@ -7,10 +7,10 @@ import { router } from './routes.js';
 import { startGameTick } from './gameTick.js';
 
 const app: Express = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 4800;
 
 // Middleware
-app.use(cors({ origin: ['http://localhost:5173', 'http://127.0.0.1:5173'] }));
+app.use(cors({ origin: true }));
 app.use(express.json());
 
 // Routes
