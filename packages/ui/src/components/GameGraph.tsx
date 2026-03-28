@@ -5,27 +5,36 @@ import ReactFlow, {
   Node,
   Edge,
   NodeTypes,
+  EdgeTypes,
   useNodesState,
   useEdgesState,
+  useViewport,
   BackgroundVariant,
   Handle,
   Position,
+  getSmoothStepPath,
+  EdgeProps,
+  BaseEdge,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { useGameStore, GameNode, GameEdge } from '../store/gameStore';
-import { useEffect, useCallback } from 'react';
+import { useGameStore, GameNode, GameEdge, Worker } from '../store/gameStore';
+import React, { useEffect, useCallback } from 'react';
 import { Zap, Mountain, Database, Shield, Lock, AlertTriangle, Radio } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 // ── Custom Node Components ──────────────────────────────────────────────────
 
-function NodeWrapper({ children, selected, glowColor, style = {} }: {
+function NodeWrapper({ children, selected, glowColor, style = {}, workers: nodeWorkers }: {
   children: React.ReactNode;
   selected?: boolean;
   glowColor?: string;
   style?: React.CSSProperties;
+  workers?: any[];
 }) {
   const borderColor = selected ? 'var(--accent)' : glowColor || 'var(--border-bright)';
+  const { selectWorker, selectedWorkerId } = useGameStore();
+  const { zoom } = useViewport();
+  const showDetails = zoom > 0.6;
 
   return (
     <div style={{
@@ -51,6 +60,62 @@ function NodeWrapper({ children, selected, glowColor, style = {} }: {
       <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
       <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
       {children}
+      {/* Worker dots above the node (hidden when zoomed out) */}
+      {showDetails && nodeWorkers && nodeWorkers.length > 0 && (
+        <div style={{
+          position: 'absolute',
+          top: -14,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          display: 'flex',
+          gap: 4,
+        }}>
+          {nodeWorkers.map((w: any) => {
+            const c = CLASS_COLORS[w.class_name] || '#a78bfa';
+            const isActive = ['running', 'harvesting', 'idle'].includes(w.status);
+            const isSelected = w.id === selectedWorkerId;
+            const actionLabel = w.status === 'harvesting' ? '⛏' : w.holding ? '📦' : null;
+
+            return (
+              <div
+                key={w.id}
+                title={`${w.class_name} (${w.status})\nid: ${w.id}\n@ ${w.current_node}`}
+                onClick={(e) => { e.stopPropagation(); selectWorker(w.id); }}
+                style={{
+                  position: 'relative',
+                  width: isSelected ? 12 : 8,
+                  height: isSelected ? 12 : 8,
+                  borderRadius: '50%',
+                  background: c,
+                  border: isSelected ? '2px solid #fff' : '1.5px solid rgba(0,0,0,0.5)',
+                  boxShadow: isSelected
+                    ? `0 0 8px ${c}, 0 0 16px ${c}`
+                    : isActive ? `0 0 6px ${c}, 0 0 12px ${c}40` : `0 0 4px ${c}60`,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                  pointerEvents: 'auto',
+                }}
+              >
+                {/* Action indicator */}
+                {actionLabel && (
+                  <div style={{
+                    position: 'absolute',
+                    top: -16,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    fontSize: 10,
+                    lineHeight: 1,
+                    pointerEvents: 'none',
+                    animation: 'worker-action-bounce 0.6s ease-in-out infinite',
+                  }}>
+                    {actionLabel}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -155,7 +220,7 @@ function DepletedOverlay({ depletedUntil }: { depletedUntil?: number }) {
 
 function HubNode({ data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} glowColor="var(--accent)" style={{
+    <NodeWrapper selected={selected} glowColor="var(--accent)" workers={data.workers} style={{
       animation: 'hub-pulse 3s ease-in-out infinite',
       minWidth: 130,
     }}>
@@ -176,6 +241,7 @@ function ResourceNode({ data, selected }: any) {
     <NodeWrapper
       selected={selected}
       glowColor={data.unlocked && !isDepleted ? color : undefined}
+      workers={data.workers}
       style={{
         opacity: data.unlocked ? (isDepleted ? 0.7 : 1) : 0.5,
         filter: isDepleted ? 'grayscale(60%)' : undefined,
@@ -201,7 +267,7 @@ function ResourceNode({ data, selected }: any) {
 
 function RelayNode({ data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} glowColor={data.unlocked ? 'var(--accent-secondary)' : undefined} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
+    <NodeWrapper selected={selected} glowColor={data.unlocked ? 'var(--accent-secondary)' : undefined} workers={data.workers} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
       <NodeLabel
         label={data.label}
         icon={Radio}
@@ -214,7 +280,7 @@ function RelayNode({ data, selected }: any) {
 
 function InfectedNode({ data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} glowColor="var(--danger)" style={{
+    <NodeWrapper selected={selected} glowColor="var(--danger)" workers={data.workers} style={{
       animation: 'infected-pulse 1.5s ease-in-out infinite',
       borderColor: 'var(--danger)',
     }}>
@@ -225,7 +291,7 @@ function InfectedNode({ data, selected }: any) {
 
 function LockedNode({ data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} style={{
+    <NodeWrapper selected={selected} workers={data.workers} style={{
       opacity: 0.4,
       border: '1px dashed var(--border-bright)',
     }}>
@@ -242,47 +308,165 @@ const NODE_TYPES: NodeTypes = {
   locked: LockedNode,
 };
 
-// ── Conversion helpers ──────────────────────────────────────────────────
+// ── Edge with CSS-animated traffic dots ─────────────────────────────────
+// Uses CSS offset-path animation — survives React re-renders without glitch.
 
-function toRFNodes(gameNodes: GameNode[], selectedId: string | null): Node[] {
-  return gameNodes.map(n => ({
-    id: n.id,
-    type: n.type,
-    position: n.position,
-    data: { ...n.data, selected: n.id === selectedId },
-    selected: n.id === selectedId,
-  }));
+function WorkerEdge(props: EdgeProps) {
+  const { sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, markerEnd, id, source, target } = props;
+  const [edgePath] = getSmoothStepPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
+
+  // Sample traffic once per second via interval, stored in a ref to avoid re-renders
+  const [snapshot, setSnapshot] = React.useState('');
+
+  React.useEffect(() => {
+    const sample = () => {
+      const workers = useGameStore.getState().workers;
+      const lines: string[] = [];
+      const seen = new Set<string>();
+      for (const w of workers) {
+        if (w.status !== 'moving' || !w.previous_node) continue;
+        const isFwd = w.previous_node === source && w.current_node === target;
+        const isRev = w.previous_node === target && w.current_node === source;
+        if (!isFwd && !isRev) continue;
+        const dir = isFwd ? 'fwd' : 'rev';
+        const key = `${w.class_name}-${dir}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const color = CLASS_COLORS[w.class_name] || '#a78bfa';
+        lines.push(`${color}:${dir}`);
+      }
+      const next = lines.sort().join('|');
+      setSnapshot(prev => prev === next ? prev : next);
+    };
+    sample();
+    const iv = setInterval(sample, 1000);
+    return () => clearInterval(iv);
+  }, [source, target]);
+
+  const dots = React.useMemo(() => {
+    if (!snapshot) return [];
+    return snapshot.split('|').map(s => {
+      const [color, dir] = s.split(':');
+      return { color, reverse: dir === 'rev' };
+    });
+  }, [snapshot]);
+
+  const hasTraffic = dots.length > 0;
+
+  return (
+    <>
+      <BaseEdge
+        path={edgePath}
+        markerEnd={markerEnd}
+        style={{
+          ...style,
+          stroke: hasTraffic ? 'rgba(255,255,255,0.2)' : (style?.stroke || 'var(--border-bright)'),
+          strokeWidth: hasTraffic ? 2.5 : (style?.strokeWidth || 1.5),
+        }}
+        id={id}
+      />
+      {dots.map((dot, i) => (
+        <circle key={`${dot.color}-${dot.reverse}-${i}`} r={4} fill={dot.color} stroke="#000" strokeWidth={1}>
+          <animateMotion
+            dur="1.1s"
+            repeatCount="indefinite"
+            keyPoints={dot.reverse ? "1;0;0" : "0;1;1"}
+            keyTimes="0;0.9;1"
+            calcMode="spline"
+            keySplines="0.42 0 0.58 1;0 0 1 1"
+            path={edgePath}
+          />
+        </circle>
+      ))}
+    </>
+  );
 }
 
-function toRFEdges(gameEdges: GameEdge[]): Edge[] {
-  return gameEdges.map(e => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    style: {
-      stroke: 'var(--border-bright)',
-      strokeWidth: 1.5,
-    },
-    animated: false,
-    type: 'smoothstep',
-  }));
+const EDGE_TYPES: EdgeTypes = {
+  worker: WorkerEdge,
+};
+
+// ── Conversion helpers ──────────────────────────────────────────────────
+
+const CLASS_COLORS: Record<string, string> = {
+  Miner: '#fbbf24',
+  Guardian: '#4ade80',
+  Scout: '#60a5fa',
+};
+
+function toRFNodes(gameNodes: GameNode[], selectedId: string | null, workers: Worker[]): Node[] {
+  return gameNodes.map(n => {
+    const nodeWorkers = workers.filter(w => {
+      if (w.status === 'moving' && w.previous_node) return false;
+      return (w.current_node || w.node_id) === n.id;
+    });
+    return {
+      id: n.id,
+      type: n.type,
+      position: n.position,
+      data: { ...n.data, selected: n.id === selectedId, workers: nodeWorkers },
+      selected: n.id === selectedId,
+    };
+  });
+}
+
+function toRFEdges(gameEdges: GameEdge[], edgeSelectMode: boolean, gameNodes: GameNode[]): Edge[] {
+  const isUnlocked = (nodeId: string) => {
+    const n = gameNodes.find(n => n.id === nodeId);
+    return n?.id === 'hub' || !!n?.data?.unlocked;
+  };
+
+  return gameEdges.map(e => {
+    const bothUnlocked = isUnlocked(e.source) && isUnlocked(e.target);
+    const selectable = edgeSelectMode && bothUnlocked;
+
+    return {
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      style: {
+        stroke: selectable ? 'var(--accent)' : edgeSelectMode && !bothUnlocked ? 'rgba(255,255,255,0.05)' : 'var(--border-bright)',
+        strokeWidth: selectable ? 3 : 1.5,
+        cursor: selectable ? 'pointer' : 'default',
+        opacity: edgeSelectMode && !bothUnlocked ? 0.3 : 1,
+      },
+      animated: selectable,
+      type: 'worker',
+      className: selectable ? 'edge-selectable' : '',
+    };
+  });
 }
 
 // ── Main Graph ──────────────────────────────────────────────────────────
 
 export function GameGraph() {
-  const { nodes: gameNodes, edges: gameEdges, selectedNodeId, selectNode } = useGameStore();
+  const { nodes: gameNodes, edges: gameEdges, selectedNodeId, selectNode, workers, edgeSelectMode } = useGameStore();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const isEdgeSelecting = !!edgeSelectMode;
 
   useEffect(() => {
-    setNodes(toRFNodes(gameNodes, selectedNodeId));
-    setEdges(toRFEdges(gameEdges));
-  }, [gameNodes, gameEdges, selectedNodeId]);
+    setNodes(toRFNodes(gameNodes, selectedNodeId, workers));
+    setEdges(toRFEdges(gameEdges, isEdgeSelecting, gameNodes));
+  }, [gameNodes, gameEdges, selectedNodeId, workers, isEdgeSelecting]);
 
   const onNodeClick = useCallback((_: any, node: Node) => {
+    if (isEdgeSelecting) return; // Ignore node clicks during edge selection
     selectNode(node.id === selectedNodeId ? null : node.id);
-  }, [selectedNodeId, selectNode]);
+  }, [selectedNodeId, selectNode, isEdgeSelecting]);
+
+  const onEdgeClick = useCallback((_: any, edge: Edge) => {
+    if (edgeSelectMode) {
+      // Only allow selecting edges where both nodes are unlocked
+      const isUnlocked = (id: string) => {
+        const n = gameNodes.find(n => n.id === id);
+        return n?.id === 'hub' || !!n?.data?.unlocked;
+      };
+      if (isUnlocked(edge.source) && isUnlocked(edge.target)) {
+        edgeSelectMode.onSelect({ source: edge.source, target: edge.target });
+      }
+    }
+  }, [edgeSelectMode, gameNodes]);
 
   return (
     <div style={{ width: '100%', height: '100%' }}>
@@ -292,7 +476,9 @@ export function GameGraph() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
+        onEdgeClick={onEdgeClick}
         nodeTypes={NODE_TYPES}
+        edgeTypes={EDGE_TYPES}
         fitView
         fitViewOptions={{ padding: 0.3 }}
         style={{ background: 'transparent' }}

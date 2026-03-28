@@ -1,9 +1,32 @@
 import {
   getGameState, saveGameState, getWorker, upsertWorker,
   addWorkerLog, getWorkers, Resources, Drop,
-  addToPlayerInventory,
 } from './db.js';
 import { broadcast } from './websocket.js';
+
+// ── Per-worker action lock ──────────────────────────────────────────────────
+// Each worker can only do one action at a time. The lock resolves when the
+// action's delay is complete.
+
+const workerLocks = new Map<string, Promise<void>>();
+
+async function acquireLock(workerId: string): Promise<void> {
+  while (workerLocks.has(workerId)) {
+    await workerLocks.get(workerId);
+  }
+}
+
+function setLock(workerId: string, durationMs: number): void {
+  const p = new Promise<void>(resolve => setTimeout(resolve, durationMs));
+  workerLocks.set(workerId, p);
+  p.then(() => workerLocks.delete(workerId));
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+const ACTION_DELAY = 1000; // ms for all actions
+const MOVE_DELAY = 1000;
+const MINE_DELAY = 1000;
 
 function edgeExists(edges: any[], from: string, to: string): boolean {
   return edges.some(e =>
@@ -58,19 +81,23 @@ function getDropTypeForNode(node: any): Drop['type'] {
 }
 
 function calcDropAmount(efficiency: number): number {
-  if (efficiency >= 2.5) {
-    // 2-3 drops
-    return 2 + (Math.random() < 0.5 ? 1 : 0);
-  } else if (efficiency >= 1.5) {
-    // 1-2 drops
-    return 1 + (Math.random() < 0.5 ? 1 : 0);
-  } else {
-    // always 1
-    return 1;
-  }
+  if (efficiency >= 2.5) return 2 + (Math.random() < 0.5 ? 1 : 0);
+  if (efficiency >= 1.5) return 1 + (Math.random() < 0.5 ? 1 : 0);
+  return 1;
 }
 
+// ── Main handler ────────────────────────────────────────────────────────────
+
 export async function handleWorkerAction(workerId: string, action: string, payload: any): Promise<any> {
+  // Log action doesn't need a lock
+  if (action === 'log') {
+    addWorkerLog(workerId, payload.message);
+    return { ok: true };
+  }
+
+  // Acquire per-worker lock (serializes actions)
+  await acquireLock(workerId);
+
   const worker = getWorker(workerId);
   if (!worker) return { ok: false, error: 'Worker not found' };
 
@@ -84,16 +111,24 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       if (!edgeExists(edges, currentNode, targetNodeId)) {
         return { ok: false, error: `No edge between ${currentNode} and ${targetNodeId}` };
       }
-      upsertWorker({ ...worker, status: 'moving', current_node: targetNodeId });
+
+      // Set status to moving immediately, set lock for travel duration
+      upsertWorker({ ...worker, status: 'moving', current_node: targetNodeId, previous_node: currentNode, move_id: Date.now() } as any);
       broadcastFullState();
-      setTimeout(() => {
-        const w = getWorker(workerId);
-        if (w && w.status === 'moving') {
-          upsertWorker({ ...w, status: 'idle' });
-          broadcastFullState();
-        }
-      }, 1000);
-      return { ok: true, travelTime: 1000 };
+
+      setLock(workerId, MOVE_DELAY);
+      await workerLocks.get(workerId);
+
+      // Arrive
+      const w = getWorker(workerId);
+      if (w && w.status === 'moving') {
+        const updated = { ...w, status: 'running' } as any;
+        delete updated.previous_node;
+        upsertWorker(updated);
+        broadcastFullState();
+      }
+
+      return { ok: true, travelTime: MOVE_DELAY };
     }
 
     case 'harvest': {
@@ -108,13 +143,21 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const totalCarrying = Object.values(carrying).reduce((a, b) => a + b, 0);
       const canCarry = Math.min(rate, 50 - totalCarrying);
       if (canCarry <= 0) return { ok: false, error: 'Carrying capacity full' };
-      carrying[resourceType] = (carrying[resourceType] || 0) + canCarry;
-      upsertWorker({ ...worker, status: 'harvesting', carrying: carrying as any });
-      setTimeout(() => {
-        const w = getWorker(workerId);
-        if (w) { upsertWorker({ ...w, status: 'idle' }); broadcastFullState(); }
-      }, 500);
+
+      upsertWorker({ ...worker, status: 'harvesting' });
       broadcastFullState();
+
+      carrying[resourceType] = (carrying[resourceType] || 0) + canCarry;
+
+      setLock(workerId, ACTION_DELAY);
+      await workerLocks.get(workerId);
+
+      const w2 = getWorker(workerId);
+      if (w2) {
+        upsertWorker({ ...w2, carrying: carrying as any, status: 'running' });
+        broadcastFullState();
+      }
+
       return { ok: true, harvested: { [resourceType]: canCarry } };
     }
 
@@ -124,15 +167,15 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       if (nodeIdx === -1) return { ok: false, error: 'Node not found' };
       const node = nodes[nodeIdx];
 
-      if (!node.data.mineable) {
-        return { ok: false, error: 'Node is not mineable' };
-      }
-      if (node.data.depleted) {
-        return { ok: false, error: 'Node is depleted', depletedUntil: node.data.depletedUntil };
-      }
-      if (!worker.equippedPickaxe) {
-        return { ok: false, error: 'No pickaxe equipped' };
-      }
+      if (!node.data.mineable) return { ok: false, error: 'Node is not mineable' };
+      if (node.data.depleted) return { ok: false, error: 'Node is depleted', reason: 'node_depleted', depletedUntil: node.data.depletedUntil };
+      if (!worker.equippedPickaxe) return { ok: false, error: 'No pickaxe equipped' };
+
+      upsertWorker({ ...worker, status: 'harvesting' });
+      broadcastFullState();
+
+      setLock(workerId, MINE_DELAY);
+      await workerLocks.get(workerId);
 
       const dropType = getDropTypeForNode(node);
       const efficiency = worker.equippedPickaxe.efficiency;
@@ -145,19 +188,21 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       let depletedUntil: number | undefined;
       let finalMineCount = currentMineCount;
 
-      if (currentMineCount >= 5) {
+      if (currentMineCount >= 999) {
         depleted = true;
         depletedUntil = Date.now() + 60000;
         finalMineCount = 0;
       }
 
-      const newNodes = nodes.map((n: any, i: number) => {
-        if (i === nodeIdx) {
+      // Re-read state (might have changed during delay)
+      const freshState = getGameState();
+      const newNodes = freshState.nodes.map((n: any, i: number) => {
+        if (n.id === node.id) {
           return {
             ...n,
             data: {
               ...n.data,
-              drops: [...currentDrops, drop],
+              drops: [...(Array.isArray(n.data.drops) ? n.data.drops : []), drop],
               mineCount: finalMineCount,
               depleted,
               depletedUntil,
@@ -167,14 +212,16 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         return n;
       });
 
-      saveGameState({ ...state, nodes: newNodes });
+      const w3 = getWorker(workerId);
+      if (w3) upsertWorker({ ...w3, status: 'running' });
+      saveGameState({ ...freshState, nodes: newNodes });
       broadcastFullState();
       return { ok: true, drop: { type: dropType, amount } };
     }
 
     case 'collect': {
       if (worker.holding !== null) {
-        return { ok: false, error: 'slot_full' };
+        return { ok: false, error: 'slot_full', reason: 'slot_full' };
       }
       const currentNode = worker.current_node || worker.node_id;
       const nodeIdx = nodes.findIndex((n: any) => n.id === currentNode);
@@ -182,48 +229,71 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const node = nodes[nodeIdx];
 
       const drops = Array.isArray(node.data.drops) ? [...node.data.drops] : [];
-      if (drops.length === 0) {
-        return { ok: false, error: 'nothing_here' };
-      }
+      if (drops.length === 0) return { ok: false, error: 'nothing_here', reason: 'nothing_here' };
 
-      const [pickedUp, ...remainingDrops] = drops;
-      const newNodes = nodes.map((n: any, i: number) => {
-        if (i === nodeIdx) {
+      setLock(workerId, ACTION_DELAY);
+      await workerLocks.get(workerId);
+
+      // Re-read (drops might have changed)
+      const freshState2 = getGameState();
+      const freshNode = freshState2.nodes.find((n: any) => n.id === currentNode);
+      const freshDrops = freshNode && Array.isArray(freshNode.data.drops) ? [...freshNode.data.drops] : [];
+      if (freshDrops.length === 0) return { ok: false, error: 'nothing_here', reason: 'nothing_here' };
+
+      const [pickedUp, ...remainingDrops] = freshDrops;
+      const newNodes2 = freshState2.nodes.map((n: any) => {
+        if (n.id === currentNode) {
           return { ...n, data: { ...n.data, drops: remainingDrops } };
         }
         return n;
       });
 
-      upsertWorker({ ...worker, holding: pickedUp });
-      saveGameState({ ...state, nodes: newNodes });
+      const w4 = getWorker(workerId);
+      if (w4) upsertWorker({ ...w4, holding: pickedUp });
+      saveGameState({ ...freshState2, nodes: newNodes2 });
       broadcastFullState();
       return { ok: true, item: pickedUp };
     }
 
     case 'deposit': {
       const currentNode = worker.current_node || worker.node_id;
-      if (currentNode !== 'hub') {
-        return { ok: false, error: 'Must be at hub to deposit' };
-      }
+      if (currentNode !== 'hub') return { ok: false, error: 'Must be at hub to deposit' };
 
-      // New-style: deposit held item into player inventory
-      if (worker.holding !== null) {
-        const held = worker.holding;
-        addToPlayerInventory(held.type, held.amount);
-        upsertWorker({ ...worker, holding: null, carrying: {}, status: 'idle' });
-        saveGameState({ ...state });
+      setLock(workerId, ACTION_DELAY);
+      await workerLocks.get(workerId);
+
+      const w5 = getWorker(workerId);
+      if (!w5) return { ok: false, error: 'Worker not found' };
+
+      // New-style: deposit held drop → convert to resources
+      if (w5.holding !== null) {
+        const held = w5.holding;
+        const dropToResource: Record<string, string> = {
+          ore_chunk: 'ore',
+          energy_crystal: 'energy',
+          data_shard: 'data',
+        };
+        const resourceKey = dropToResource[held.type];
+        const freshState = getGameState();
+        if (resourceKey) {
+          const newResources = { ...freshState.resources } as Record<string, number>;
+          newResources[resourceKey] = (newResources[resourceKey] || 0) + held.amount;
+          saveGameState({ ...freshState, resources: newResources as any });
+        }
+        upsertWorker({ ...w5, holding: null, carrying: {}, status: 'running' });
         broadcastFullState();
         return { ok: true, deposited: held };
       }
 
-      // Backward compat: deposit old-style carrying resources
-      const carrying = worker.carrying as Record<string, number>;
-      const newResources = { ...resources } as Record<string, number>;
+      // Backward compat: deposit carrying
+      const carrying = w5.carrying as Record<string, number>;
+      const freshState3 = getGameState();
+      const newResources = { ...freshState3.resources } as Record<string, number>;
       Object.keys(carrying).forEach(k => {
         newResources[k] = (newResources[k] || 0) + (carrying[k] || 0);
       });
-      upsertWorker({ ...worker, carrying: {}, status: 'idle' });
-      saveGameState({ ...state, resources: newResources as any });
+      upsertWorker({ ...w5, carrying: {}, status: 'running' });
+      saveGameState({ ...freshState3, resources: newResources as any });
       broadcastFullState();
       return { ok: true, deposited: carrying };
     }
@@ -244,21 +314,22 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         return { ok: false, error: 'Node not adjacent' };
       }
       const node = nodes.find((n: any) => n.id === nodeId);
-      if (!node || !node.data.infected) {
-        return { ok: false, error: 'Node is not infected' };
-      }
+      if (!node || !node.data.infected) return { ok: false, error: 'Node is not infected' };
       const res = resources as unknown as Record<string, number>;
-      if ((res.energy || 0) < 30) {
-        return { ok: false, error: 'Not enough energy (need 30)' };
-      }
-      const newNodes = nodes.map((n: any) => {
+      if ((res.energy || 0) < 30) return { ok: false, error: 'Not enough energy (need 30)' };
+
+      setLock(workerId, ACTION_DELAY);
+      await workerLocks.get(workerId);
+
+      const freshState4 = getGameState();
+      const newNodes3 = freshState4.nodes.map((n: any) => {
         if (n.id === nodeId) {
           return { ...n, type: n.type === 'infected' ? 'resource' : n.type, data: { ...n.data, infected: false } };
         }
         return n;
       });
-      const newResources = { ...res, energy: res.energy - 30 };
-      saveGameState({ ...state, nodes: newNodes, resources: newResources as any });
+      const newResources2 = { ...(freshState4.resources as any), energy: (freshState4.resources as any).energy - 30 };
+      saveGameState({ ...freshState4, nodes: newNodes3, resources: newResources2 });
       broadcastFullState();
       return { ok: true };
     }
@@ -267,12 +338,6 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const { from, to } = payload;
       const pathResult = bfsPath(edges, from, to);
       return { ok: true, path: pathResult || [] };
-    }
-
-    case 'log': {
-      const { message } = payload;
-      addWorkerLog(workerId, message);
-      return { ok: true };
     }
 
     case 'getResources': {

@@ -1,9 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { useGameState } from './hooks/useGameState';
+import { useGameStore } from './store/gameStore';
 import { ResourceBar } from './components/ResourceBar';
 import { GameGraph } from './components/GameGraph';
 import { NodeDetailPanel } from './components/NodeDetailPanel';
 import { WorkerListPanel } from './components/WorkerListPanel';
+import { WorkerDetailPanel } from './components/WorkerDetailPanel';
 import { InventoryPanel } from './components/InventoryPanel';
 
 const queryClient = new QueryClient({
@@ -14,6 +17,19 @@ const queryClient = new QueryClient({
 
 function GameView() {
   useGameState();
+  const toggleInventory = useGameStore(s => s.toggleInventory);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Don't trigger when typing in inputs
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+      if (e.key === 'e' || e.key === 'E') {
+        toggleInventory();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [toggleInventory]);
 
   return (
     <div style={{
@@ -35,6 +51,7 @@ function GameView() {
         <GameGraph />
       </div>
       <NodeDetailPanel />
+      <WorkerDetailPanel />
       <WorkerListPanel />
       <InventoryPanel />
     </div>

@@ -31,7 +31,25 @@ class WorkerMeta(type):
                 fields[key] = value
 
         namespace['_fields'] = fields
-        namespace['_class_name'] = name
+
+        # class_name: display name (defaults to Python class name)
+        if 'class_name' not in namespace:
+            # Inherit from parent or default to Python class name
+            for base in bases:
+                if hasattr(base, 'class_name') and base.class_name != base.__name__:
+                    namespace['class_name'] = base.class_name
+                    break
+            else:
+                namespace['class_name'] = name
+
+        # class_id: unique identifier (defaults to lowercase Python class name)
+        if 'class_id' not in namespace:
+            for base in bases:
+                if hasattr(base, 'class_id') and base.class_id != base.__name__.lower():
+                    namespace['class_id'] = base.class_id
+                    break
+            else:
+                namespace['class_id'] = name.lower()
 
         return super().__new__(mcs, name, bases, namespace)
 
@@ -119,7 +137,6 @@ class WorkerClass(metaclass=WorkerMeta):
         result = self._client.action("move", {"targetNodeId": node_id})
         if result.get("ok"):
             self._current_node = node_id
-            time.sleep(result.get("travelTime", 1000) / 1000)
         else:
             raise ValueError(f"Cannot move to {node_id}: {result.get('error')}")
 
@@ -235,7 +252,8 @@ class WorkerClass(metaclass=WorkerMeta):
         Called by daemon scanner to register with server.
         """
         return {
-            "class_name": cls.__name__,
+            "class_id": cls.class_id,
+            "class_name": cls.class_name,
             "fields": {
                 name: field.schema()
                 for name, field in cls._fields.items()

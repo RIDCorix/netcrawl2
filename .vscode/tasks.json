@@ -2,21 +2,10 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "API Server: Build",
-      "type": "shell",
-      "command": "pnpm --filter server build",
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "panel": "dedicated"
-      }
-    },
-    {
       "label": "API Server",
       "type": "shell",
-      "command": "bash -c 'for pid in $(lsof -ti tcp:4800); do kill -9 $pid 2>/dev/null; done; sleep 2; exec pnpm --filter server dev'",
+      "command": "bash scripts/kill-port.sh 4800 && rm -f packages/server/data/netcrawl-state.json && pnpm --filter server build && pnpm --filter server dev",
       "isBackground": true,
-      "dependsOn": "API Server: Build",
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",
@@ -26,7 +15,7 @@
     {
       "label": "Web UI",
       "type": "shell",
-      "command": "pnpm --filter ui dev",
+      "command": "bash scripts/kill-port.sh 5173 && pnpm --filter ui dev",
       "isBackground": true,
       "problemMatcher": [],
       "presentation": {
@@ -35,9 +24,9 @@
       }
     },
     {
-      "label": "Code Server (Daemon)",
+      "label": "Code Server",
       "type": "shell",
-      "command": "pnpm --filter daemon start",
+      "command": "pkill -9 -f 'uv run main.py' 2>/dev/null; sleep 1; cd workspace && uv run main.py",
       "isBackground": true,
       "problemMatcher": [],
       "presentation": {
@@ -50,8 +39,7 @@
       "dependsOn": [
         "API Server",
         "Web UI",
-        "Code Server (Daemon)",
-        "Open Game View"
+        "Code Server"
       ],
       "dependsOrder": "parallel",
       "problemMatcher": [],
@@ -59,6 +47,29 @@
         "kind": "build",
         "isDefault": true
       },
+      "presentation": {
+        "reveal": "silent"
+      }
+    },
+    {
+      "label": "NetCrawl: Kill All",
+      "type": "shell",
+      "command": "bash scripts/kill-port.sh 4800 && bash scripts/kill-port.sh 5173 && pkill -9 -f 'uv run main.py' 2>/dev/null; echo 'All killed'",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "NetCrawl: Restart All",
+      "dependsOn": [
+        "API Server",
+        "Web UI",
+        "Code Server"
+      ],
+      "dependsOrder": "parallel",
+      "problemMatcher": [],
       "presentation": {
         "reveal": "silent"
       }

@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* ── Design Tokens ─────────────────────────────────────────────────── */
 :root {
   /* Colors — deep space command center */
@@ -140,9 +144,21 @@ body::after {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
 }
 
-/* ── Edge glow on infected connections ─────────────────────────────── */
+/* ── Edge styles ───────────────────────────────────────────────────── */
 .react-flow__edge-path {
   filter: drop-shadow(0 0 2px rgba(0, 212, 170, 0.15));
+}
+
+.react-flow__edge.edge-selectable .react-flow__edge-path {
+  cursor: pointer;
+  filter: drop-shadow(0 0 4px rgba(0, 212, 170, 0.4));
+  transition: stroke 0.15s, stroke-width 0.15s;
+}
+
+.react-flow__edge.edge-selectable:hover .react-flow__edge-path {
+  stroke: #fff !important;
+  stroke-width: 4px !important;
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.6));
 }
 
 /* ── Animations ────────────────────────────────────────────────────── */
@@ -169,6 +185,11 @@ body::after {
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
+}
+
+@keyframes worker-action-bounce {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-3px); }
 }
 
 .pulse {

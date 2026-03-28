@@ -18,6 +18,7 @@ export const router: Router = Router();
 
 // ── In-memory store for registered Python worker classes ──────────────────
 interface WorkerClassEntry {
+  class_id: string;
   class_name: string;
   fields: Record<string, { type: string; field: string; description: string }>;
   docstring: string;
@@ -161,18 +162,38 @@ router.post('/craft', (req: Request, res: Response) => {
   res.json({ ok: true, item: newItem, resources: newResources });
 });
 
-// POST /api/deploy
+// ── Deploy Queue (code server polls this) ────────────────────────────────────
+
+interface DeployRequest {
+  id: string;
+  workerId: string;
+  nodeId: string;
+  classId: string;
+  equippedItems: Record<string, string>;
+  injectedFields: Record<string, any>;
+  createdAt: string;
+}
+
+const deployQueue: DeployRequest[] = [];
+
+// POST /api/deploy — queues a deploy request for the code server to pick up
 router.post('/deploy', async (req: Request, res: Response) => {
-  const { nodeId, className, commitHash, equippedItems } = req.body;
-  if (!nodeId || !className) {
-    return res.status(400).json({ error: 'nodeId and className are required' });
+  const { nodeId, classId, equippedItems, routes } = req.body;
+  if (!nodeId || !classId) {
+    return res.status(400).json({ error: 'nodeId and classId are required' });
+  }
+
+  // Verify class is registered
+  const workerClass = workerClassRegistry.get(classId);
+  if (!workerClass) {
+    return res.status(400).json({ error: `Unknown worker class: ${classId}` });
   }
 
   const state = getGameState();
   const node = state.nodes.find((n: any) => n.id === nodeId);
   if (!node) return res.status(404).json({ error: 'Node not found' });
 
-  // Handle equipped pickaxe
+  // Handle equipped pickaxe — deduct from inventory
   let equippedPickaxe: { itemType: string; efficiency: number } | null = null;
   const pickaxeItemType = equippedItems?.pickaxe;
   if (pickaxeItemType) {
@@ -187,34 +208,79 @@ router.post('/deploy', async (req: Request, res: Response) => {
   }
 
   const workerId = `worker_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  const workspacePath = getWorkspacePath();
 
-  // Build injected fields including pickaxe metadata for Python runner
+  // Build injected fields
   const injectedFields: Record<string, any> = {};
   if (equippedPickaxe) {
     injectedFields['pickaxe'] = { itemType: equippedPickaxe.itemType, efficiency: equippedPickaxe.efficiency };
   }
+  // Inject route fields (routes: { fieldName: ['hub', 'r1', 'r2'] })
+  if (routes && typeof routes === 'object') {
+    for (const [fieldName, path] of Object.entries(routes)) {
+      if (Array.isArray(path)) {
+        injectedFields[fieldName] = path;
+      }
+    }
+  }
 
-  const result = await spawnWorker({
-    workerId,
-    nodeId,
-    className,
-    commitHash: commitHash || 'HEAD',
-    workspacePath,
+  // Register the worker in DB as deploying
+  upsertWorker({
+    id: workerId,
+    node_id: nodeId,
+    class_name: workerClass.class_name,
+    commit_hash: 'HEAD',
+    status: 'deploying',
+    current_node: nodeId,
+    carrying: {},
+    pid: null,
+    deployed_at: new Date().toISOString(),
+    holding: null,
     equippedPickaxe,
-    injectedFields,
   });
 
-  if (!result.ok) {
-    // Return pickaxe to inventory if spawn failed
-    if (equippedPickaxe) {
-      addToPlayerInventory(equippedPickaxe.itemType, 1);
+  // Queue for code server
+  deployQueue.push({
+    id: workerId,
+    workerId,
+    nodeId,
+    classId,
+    equippedItems: equippedItems || {},
+    injectedFields,
+    createdAt: new Date().toISOString(),
+  });
+
+  broadcastFullState();
+  res.json({ ok: true, workerId, status: 'queued' });
+});
+
+// GET /api/deploy-queue — code server polls this to pick up deploy requests
+router.get('/deploy-queue', (req: Request, res: Response) => {
+  const pending = deployQueue.splice(0, deployQueue.length);
+  res.json({ requests: pending });
+});
+
+// POST /api/deploy-ack — code server reports that a worker was spawned
+router.post('/deploy-ack', (req: Request, res: Response) => {
+  const { workerId, pid, error: spawnError } = req.body;
+  if (!workerId) return res.status(400).json({ error: 'workerId required' });
+
+  const worker = getWorker(workerId);
+  if (!worker) return res.status(404).json({ error: 'Worker not found' });
+
+  if (spawnError) {
+    // Spawn failed — return equipped items
+    if (worker.equippedPickaxe) {
+      addToPlayerInventory(worker.equippedPickaxe.itemType, 1);
     }
-    return res.status(500).json({ error: result.error });
+    upsertWorker({ ...worker, status: 'crashed' });
+    addWorkerLog(workerId, `[ERROR] Spawn failed: ${spawnError}`);
+  } else {
+    upsertWorker({ ...worker, status: 'running', pid: pid || null });
+    addWorkerLog(workerId, `[INFO] Worker spawned (PID ${pid})`);
   }
 
   broadcastFullState();
-  res.json({ ok: true, workerId, pid: result.pid });
+  res.json({ ok: true });
 });
 
 // POST /api/recall
@@ -222,22 +288,38 @@ router.post('/recall', (req: Request, res: Response) => {
   const { workerId } = req.body;
   if (!workerId) return res.status(400).json({ error: 'workerId required' });
 
-  // Return equipped items before recalling
   const worker = getWorker(workerId);
-  if (worker) {
-    if (worker.equippedPickaxe) {
-      addToPlayerInventory(worker.equippedPickaxe.itemType, 1);
-    }
-    if (worker.holding) {
-      addToPlayerInventory(worker.holding.type, worker.holding.amount);
-    }
+  if (!worker) return res.status(404).json({ error: 'Worker not found' });
+
+  // Return equipped items
+  if (worker.equippedPickaxe) {
+    addToPlayerInventory(worker.equippedPickaxe.itemType, 1);
+  }
+  if (worker.holding) {
+    addToPlayerInventory(worker.holding.type, worker.holding.amount);
   }
 
-  const result = killWorker(workerId);
-  if (!result.ok) return res.status(404).json({ error: result.error });
+  // For deploying/suspended/crashed workers — just delete, no process to kill
+  if (['deploying', 'suspended', 'crashed'].includes(worker.status)) {
+    // Remove from deploy queue if still pending
+    const queueIdx = deployQueue.findIndex(r => r.workerId === workerId);
+    if (queueIdx !== -1) deployQueue.splice(queueIdx, 1);
 
-  const state = getGameState();
-  broadcast({ type: 'STATE_UPDATE', payload: { ...state, workers: getWorkers() } });
+    deleteWorker(workerId);
+    broadcastFullState();
+    return res.json({ ok: true });
+  }
+
+  // For running workers — kill the process
+  const result = killWorker(workerId);
+  if (!result.ok) {
+    // Process not found but worker exists — just clean up
+    deleteWorker(workerId);
+    broadcastFullState();
+    return res.json({ ok: true });
+  }
+
+  broadcastFullState();
   res.json({ ok: true });
 });
 
@@ -369,8 +451,8 @@ router.post('/reset', (req: Request, res: Response) => {
 });
 
 // POST /api/worker-classes/register
-// Body: { classes: [{ class_name, fields, docstring, file }] }
-// Called by the Python daemon on startup to register available worker classes
+// Body: { classes: [{ class_id, class_name, fields, docstring, file }] }
+// Called by the Python code server on startup to register available worker classes
 router.post('/worker-classes/register', (req: Request, res: Response) => {
   const { classes } = req.body as { classes: Omit<WorkerClassEntry, 'language'>[] };
   if (!Array.isArray(classes)) {
@@ -378,8 +460,8 @@ router.post('/worker-classes/register', (req: Request, res: Response) => {
   }
 
   for (const entry of classes) {
-    if (!entry.class_name) continue;
-    workerClassRegistry.set(entry.class_name, { ...entry, language: 'python' });
+    if (!entry.class_id) continue;
+    workerClassRegistry.set(entry.class_id, { ...entry, language: 'python' });
   }
 
   res.json({ ok: true, registered: classes.length });

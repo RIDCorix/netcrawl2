@@ -56,6 +56,7 @@ export interface Worker {
   commit_hash: string;
   status: 'deploying' | 'running' | 'suspending' | 'suspended' | 'crashed' | 'idle' | 'moving' | 'harvesting' | 'dead';
   current_node: string;
+  previous_node?: string;
   carrying: Partial<Resources>;
   pid: number | null;
   deployed_at?: string;
@@ -72,16 +73,24 @@ export interface GameState {
   workers: Worker[];
   connected: boolean;
   selectedNodeId: string | null;
+  selectedWorkerId: string | null;
   playerInventory: InventoryItem[];
   inventoryOpen: boolean;
+  // Deploy wizard — edge selection mode
+  edgeSelectMode: {
+    fieldName: string;
+    onSelect: (edge: { source: string; target: string }) => void;
+  } | null;
 }
 
 interface GameActions {
   setState: (state: Partial<GameState>) => void;
   setConnected: (connected: boolean) => void;
   selectNode: (nodeId: string | null) => void;
+  selectWorker: (workerId: string | null) => void;
   updateFromServer: (data: any) => void;
   toggleInventory: () => void;
+  setEdgeSelectMode: (mode: GameState['edgeSelectMode']) => void;
   setInventory: (inventory: InventoryItem[]) => void;
 }
 
@@ -94,12 +103,16 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   workers: [],
   connected: false,
   selectedNodeId: null,
+  selectedWorkerId: null,
   playerInventory: [],
   inventoryOpen: false,
+  edgeSelectMode: null,
 
   setState: (partial) => set((state) => ({ ...state, ...partial })),
   setConnected: (connected) => set({ connected }),
-  selectNode: (nodeId) => set({ selectedNodeId: nodeId }),
+  selectNode: (nodeId) => set({ selectedNodeId: nodeId, selectedWorkerId: null }),
+  selectWorker: (workerId) => set({ selectedWorkerId: workerId, selectedNodeId: null }),
+  setEdgeSelectMode: (mode) => set({ edgeSelectMode: mode }),
   toggleInventory: () => set((state) => ({ inventoryOpen: !state.inventoryOpen })),
   setInventory: (inventory) => set({ playerInventory: inventory }),
 

@@ -105,9 +105,14 @@ def main():
         except KeyboardInterrupt:
             break
         except Exception as e:
-            print(f"[{worker_id}] on_loop() error #{loop_count}: {e}", file=sys.stderr)
+            msg = f"on_loop() error #{loop_count}: {e}"
+            print(f"[{worker_id}] {msg}", file=sys.stderr)
             traceback.print_exc()
-            # Don't crash on loop errors — wait and retry
+            # Log to server so it shows in UI
+            try:
+                worker.error(msg)
+            except Exception:
+                pass
             time.sleep(2)
 
     print(f"[{worker_id}] Suspended cleanly after {loop_count} loops.")

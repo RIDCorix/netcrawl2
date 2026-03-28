@@ -15,6 +15,8 @@ from netcrawl.mixins.graph import AdvancedGraphGadget
 
 class Guardian(WorkerClass, AdvancedGraphGadget):
     shield = Shield()
+    class_name = "Guardian"
+    class_id = "guardian"
 
     def on_startup(self):
         self.repairs = 0
