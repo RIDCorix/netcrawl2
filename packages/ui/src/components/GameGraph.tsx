@@ -33,9 +33,9 @@ function NodeWrapper({ children, selected, glowColor, style = {}, workers: nodeW
   workers?: any[];
 }) {
   const borderColor = selected ? 'var(--accent)' : glowColor || 'var(--border-bright)';
-  const { selectWorker, selectedWorkerId } = useGameStore();
+  const { selectWorker, selectedWorkerId, settings: wrapperSettings } = useGameStore();
   const { zoom } = useViewport();
-  const showDetails = zoom > 0.6;
+  const showDetails = zoom > 0.6 && wrapperSettings.showWorkerDots;
 
   return (
     <div style={{
@@ -56,6 +56,7 @@ function NodeWrapper({ children, selected, glowColor, style = {}, workers: nodeW
       transition: 'all 0.2s ease',
       ...style,
     }}>
+      {/* Directional handles for smoothstep/bezier */}
       <Handle id="top" type="source" position={Position.Top} style={{ opacity: 0 }} />
       <Handle id="bottom" type="source" position={Position.Bottom} style={{ opacity: 0 }} />
       <Handle id="left" type="source" position={Position.Left} style={{ opacity: 0 }} />
@@ -64,6 +65,9 @@ function NodeWrapper({ children, selected, glowColor, style = {}, workers: nodeW
       <Handle id="bottom" type="target" position={Position.Bottom} style={{ opacity: 0 }} />
       <Handle id="left" type="target" position={Position.Left} style={{ opacity: 0 }} />
       <Handle id="right" type="target" position={Position.Right} style={{ opacity: 0 }} />
+      {/* Center handle for straight mode — hidden behind node */}
+      <Handle id="center" type="source" position={Position.Top} style={{ opacity: 0, top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
+      <Handle id="center" type="target" position={Position.Top} style={{ opacity: 0, top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
       {children}
       {/* Worker dots above the node (hidden when zoomed out) */}
       {showDetails && nodeWorkers && nodeWorkers.length > 0 && (
@@ -393,7 +397,8 @@ function WorkerEdge(props: EdgeProps) {
     });
   }, [snapshot]);
 
-  const hasTraffic = dots.length > 0;
+  const showTraffic = useGameStore(s => s.settings.showTrafficDots);
+  const hasTraffic = showTraffic && dots.length > 0;
 
   return (
     <>
@@ -407,7 +412,7 @@ function WorkerEdge(props: EdgeProps) {
         }}
         id={id}
       />
-      {dots.map((dot, i) => (
+      {hasTraffic && dots.map((dot, i) => (
         <circle key={`${dot.color}-${dot.reverse}-${i}`} r={4} fill={dot.color} stroke="#000" strokeWidth={1}>
           <animateMotion
             dur="1.1s"
@@ -452,8 +457,13 @@ function toRFNodes(gameNodes: GameNode[], selectedId: string | null, workers: Wo
   });
 }
 
-/** Determine which handles to use based on relative node positions */
-function getEdgeHandles(sourceId: string, targetId: string, gameNodes: GameNode[]): { sourceHandle?: string; targetHandle?: string } {
+/** Determine which handles to use based on edge style + relative node positions */
+function getEdgeHandles(sourceId: string, targetId: string, gameNodes: GameNode[], edgeStyle: string): { sourceHandle?: string; targetHandle?: string } {
+  // Straight mode: use center handles so lines go through middle of node
+  if (edgeStyle === 'straight') {
+    return { sourceHandle: 'center', targetHandle: 'center' };
+  }
+
   const s = gameNodes.find(n => n.id === sourceId);
   const t = gameNodes.find(n => n.id === targetId);
   if (!s || !t) return {};
@@ -461,21 +471,18 @@ function getEdgeHandles(sourceId: string, targetId: string, gameNodes: GameNode[
   const dx = t.position.x - s.position.x;
   const dy = t.position.y - s.position.y;
 
-  // Choose handle based on dominant direction
   if (Math.abs(dx) > Math.abs(dy)) {
-    // Horizontal dominant
     return dx > 0
       ? { sourceHandle: 'right', targetHandle: 'left' }
       : { sourceHandle: 'left', targetHandle: 'right' };
   } else {
-    // Vertical dominant
     return dy > 0
       ? { sourceHandle: 'bottom', targetHandle: 'top' }
       : { sourceHandle: 'top', targetHandle: 'bottom' };
   }
 }
 
-function toRFEdges(gameEdges: GameEdge[], edgeSelectMode: boolean, gameNodes: GameNode[]): Edge[] {
+function toRFEdges(gameEdges: GameEdge[], edgeSelectMode: boolean, gameNodes: GameNode[], edgeStyle: string): Edge[] {
   const isUnlocked = (nodeId: string) => {
     const n = gameNodes.find(n => n.id === nodeId);
     return n?.id === 'hub' || !!n?.data?.unlocked;
@@ -497,7 +504,7 @@ function toRFEdges(gameEdges: GameEdge[], edgeSelectMode: boolean, gameNodes: Ga
       },
       animated: selectable,
       type: 'worker',
-      ...getEdgeHandles(e.source, e.target, gameNodes),
+      ...getEdgeHandles(e.source, e.target, gameNodes, edgeStyle),
       className: selectable ? 'edge-selectable' : '',
     };
   });
@@ -506,15 +513,16 @@ function toRFEdges(gameEdges: GameEdge[], edgeSelectMode: boolean, gameNodes: Ga
 // ── Main Graph ──────────────────────────────────────────────────────────
 
 export function GameGraph() {
-  const { nodes: gameNodes, edges: gameEdges, selectedNodeId, selectNode, workers, edgeSelectMode } = useGameStore();
+  const { nodes: gameNodes, edges: gameEdges, selectedNodeId, selectNode, workers, edgeSelectMode, settings } = useGameStore();
   const [nodes, setNodes] = useNodesState([]);
   const [edges, setEdges] = useEdgesState([]);
   const isEdgeSelecting = !!edgeSelectMode;
+  const edgeStyle = settings.edgeStyle;
 
   useEffect(() => {
     setNodes(toRFNodes(gameNodes, selectedNodeId, workers));
-    setEdges(toRFEdges(gameEdges, isEdgeSelecting, gameNodes));
-  }, [gameNodes, gameEdges, selectedNodeId, workers, isEdgeSelecting]);
+    setEdges(toRFEdges(gameEdges, isEdgeSelecting, gameNodes, edgeStyle));
+  }, [gameNodes, gameEdges, selectedNodeId, workers, isEdgeSelecting, edgeStyle]);
 
   const onNodeClick = useCallback((_: any, node: Node) => {
     if (isEdgeSelecting) return; // Ignore node clicks during edge selection

@@ -110,6 +110,7 @@ export interface GameState {
     edgeStyle: 'straight' | 'smoothstep' | 'bezier';
     showTrafficDots: boolean;
     showWorkerDots: boolean;
+    keybindings: Record<string, string>; // action -> key
   };
   // Deploy wizard — edge selection mode
   edgeSelectMode: {
@@ -159,6 +160,12 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
     edgeStyle: 'smoothstep' as const,
     showTrafficDots: true,
     showWorkerDots: true,
+    keybindings: {
+      inventory: 'e',
+      achievements: 'a',
+      quests: 'q',
+      settings: 'Escape',
+    },
   },
   questSummary: { total: 0, claimed: 0, completed: 0, available: 0 },
   questsOpen: false,

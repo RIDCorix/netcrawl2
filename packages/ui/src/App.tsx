@@ -28,17 +28,28 @@ function GameView() {
   const toggleQuests = useGameStore(s => s.toggleQuests);
   const toggleSettings = useGameStore(s => s.toggleSettings);
 
+  const keybindings = useGameStore(s => s.settings.keybindings);
+
   useEffect(() => {
+    const actions: Record<string, () => void> = {
+      inventory: toggleInventory,
+      achievements: toggleAchievements,
+      quests: toggleQuests,
+      settings: toggleSettings,
+    };
+
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
-      if (e.key === 'e' || e.key === 'E') toggleInventory();
-      if (e.key === 'a' || e.key === 'A') toggleAchievements();
-      if (e.key === 'q' || e.key === 'Q') toggleQuests();
-      if (e.key === 'Escape') toggleSettings();
+      for (const [action, key] of Object.entries(keybindings)) {
+        if (e.key === key || e.key === key.toUpperCase()) {
+          actions[action]?.();
+          return;
+        }
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [toggleInventory, toggleAchievements, toggleQuests, toggleSettings]);
+  }, [toggleInventory, toggleAchievements, toggleQuests, toggleSettings, keybindings]);
 
   return (
     <div style={{
