@@ -160,25 +160,37 @@ interface Store {
 // ── Initial data ──────────────────────────────────────────────────────────────
 
 export const INITIAL_NODES = [
-  { id: 'hub', type: 'hub', position: { x: 400, y: 300 }, data: { label: 'Hub', unlocked: true, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
-  { id: 'r1', type: 'resource', position: { x: 200, y: 120 }, data: { label: 'Energy Node', resource: 'energy', rate: 5, unlocked: false, unlockCost: { energy: 20 }, mineable: true, drops: [], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
-  { id: 'r2', type: 'resource', position: { x: 620, y: 120 }, data: { label: 'Ore Mine', resource: 'ore', rate: 3, unlocked: false, unlockCost: { energy: 30 }, mineable: true, drops: [], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
-  { id: 'r3', type: 'resource', position: { x: 620, y: 480 }, data: { label: 'Data Cache', resource: 'data', rate: 2, unlocked: false, unlockCost: { energy: 40, ore: 20 }, mineable: true, drops: [], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
-  { id: 'relay1', type: 'relay', position: { x: 200, y: 480 }, data: { label: 'Relay Alpha', unlocked: false, unlockCost: { energy: 15 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
-  { id: 'relay2', type: 'relay', position: { x: 80, y: 300 }, data: { label: 'Relay Beta', unlocked: false, unlockCost: { energy: 25 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
-  { id: 'locked1', type: 'locked', position: { x: 750, y: 300 }, data: { label: 'Unknown Node', unlocked: false, unlockCost: { energy: 100, ore: 50, data: 20 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
-  // Compute nodes
-  { id: 'c1', type: 'compute', position: { x: 400, y: 540 }, data: { label: 'Compute Alpha', unlocked: false, unlockCost: { energy: 30, data: 10 }, difficulty: 'easy', rewardResource: 'data', solveCount: 0, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
-  { id: 'c2', type: 'compute', position: { x: 750, y: 480 }, data: { label: 'Compute Beta', unlocked: false, unlockCost: { energy: 60, data: 30, ore: 20 }, difficulty: 'medium', rewardResource: 'data', solveCount: 0, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+  // ── Core (center) ──
+  { id: 'hub', type: 'hub', position: { x: 0, y: 0 }, data: { label: 'Hub', unlocked: true, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
+
+  // ── North branch (Energy) ──
+  { id: 'r1', type: 'resource', position: { x: -100, y: -280 }, data: { label: 'Energy Node', resource: 'energy', rate: 5, unlocked: false, unlockCost: { energy: 20 }, mineable: true, drops: [], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
+
+  // ── Northeast branch (Ore) ──
+  { id: 'r2', type: 'resource', position: { x: 350, y: -200 }, data: { label: 'Ore Mine', resource: 'ore', rate: 3, unlocked: false, unlockCost: { energy: 30 }, mineable: true, drops: [], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
+  { id: 'locked1', type: 'locked', position: { x: 650, y: -350 }, data: { label: 'Deep Shaft', unlocked: false, unlockCost: { energy: 100, ore: 50, data: 20 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+
+  // ── East branch (Data + Compute) ──
+  { id: 'r3', type: 'resource', position: { x: 400, y: 180 }, data: { label: 'Data Cache', resource: 'data', rate: 2, unlocked: false, unlockCost: { energy: 40, ore: 20 }, mineable: true, drops: [], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
+  { id: 'c2', type: 'compute', position: { x: 700, y: 100 }, data: { label: 'Compute Beta', unlocked: false, unlockCost: { energy: 60, data: 30, ore: 20 }, difficulty: 'medium', rewardResource: 'data', solveCount: 0, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+
+  // ── West branch (Relay network) ──
+  { id: 'relay2', type: 'relay', position: { x: -350, y: -80 }, data: { label: 'Relay Beta', unlocked: false, unlockCost: { energy: 25 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+
+  // ── South branch (Relay + Compute) ──
+  { id: 'relay1', type: 'relay', position: { x: -200, y: 300 }, data: { label: 'Relay Alpha', unlocked: false, unlockCost: { energy: 15 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+  { id: 'c1', type: 'compute', position: { x: -50, y: 500 }, data: { label: 'Compute Alpha', unlocked: false, unlockCost: { energy: 30, data: 10 }, difficulty: 'easy', rewardResource: 'data', solveCount: 0, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
 ];
 
 export const INITIAL_EDGES = [
+  // Hub connections (star topology from center)
   { id: 'e1', source: 'hub', target: 'r1' },
   { id: 'e2', source: 'hub', target: 'r2' },
   { id: 'e3', source: 'hub', target: 'r3' },
   { id: 'e4', source: 'hub', target: 'relay1' },
-  { id: 'e5', source: 'r2', target: 'locked1' },
   { id: 'e6', source: 'hub', target: 'relay2' },
+  // Branches outward
+  { id: 'e5', source: 'r2', target: 'locked1' },
   { id: 'e7', source: 'relay1', target: 'relay2' },
   { id: 'e8', source: 'relay1', target: 'c1' },
   { id: 'e9', source: 'r3', target: 'c2' },

@@ -4,7 +4,7 @@
     {
       "label": "API Server",
       "type": "shell",
-      "command": "bash scripts/kill-port.sh 4800 && rm -f packages/server/data/netcrawl-state.json && pnpm --filter server build && pnpm --filter server dev",
+      "command": "bash scripts/kill-port.sh 4800 && pnpm --filter server build && pnpm --filter server dev",
       "isBackground": true,
       "problemMatcher": [],
       "presentation": {
@@ -14,6 +14,9 @@
     },
     {
       "label": "Web UI",
+      "dependsOn": [
+        "API Server",
+      ],
       "type": "shell",
       "command": "bash scripts/kill-port.sh 5173 && pnpm --filter ui dev",
       "isBackground": true,
@@ -25,6 +28,9 @@
     },
     {
       "label": "Code Server",
+      "dependsOn": [
+        "API Server",
+      ],
       "type": "shell",
       "command": "pkill -9 -f 'uv run main.py' 2>/dev/null; sleep 1; cd workspace && uv run main.py",
       "isBackground": true,
@@ -64,9 +70,8 @@
     {
       "label": "NetCrawl: Restart All",
       "dependsOn": [
-        "API Server",
+        "NetCrawl: Kill All",
         "Web UI",
-        "Code Server"
       ],
       "dependsOrder": "parallel",
       "problemMatcher": [],

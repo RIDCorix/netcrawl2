@@ -39,17 +39,17 @@ function NodeWrapper({ children, selected, glowColor, style = {}, workers: nodeW
   return (
     <div style={{
       position: 'relative',
-      padding: '16px 24px',
-      borderRadius: 'var(--radius-lg)',
+      padding: '6px',
+      borderRadius: '10px',
       background: 'var(--bg-glass-heavy)',
       backdropFilter: 'blur(16px)',
       border: `1px solid ${borderColor}`,
       boxShadow: selected
-        ? `0 0 0 1px var(--accent-dim), 0 0 24px rgba(0, 212, 170, 0.15), 0 8px 32px rgba(0, 0, 0, 0.5)`
+        ? `0 0 0 1px var(--accent-dim), 0 0 12px rgba(0, 212, 170, 0.15)`
         : glowColor
-          ? `0 0 16px ${glowColor}33, 0 8px 32px rgba(0, 0, 0, 0.4)`
-          : '0 4px 24px rgba(0, 0, 0, 0.4)',
-      minWidth: 140,
+          ? `0 0 8px ${glowColor}33`
+          : '0 2px 8px rgba(0, 0, 0, 0.4)',
+      minWidth: 0,
       textAlign: 'center' as const,
       cursor: 'pointer',
       transition: 'all 0.2s ease',
@@ -129,39 +129,28 @@ function NodeLabel({ label, subtitle, icon: Icon, iconColor, iconBg }: {
   iconBg?: string;
 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+    <>
+      <Icon size={16} color={iconColor} />
+      {/* Label outside the node box, positioned to the right */}
       <div style={{
-        width: 40,
-        height: 40,
-        borderRadius: 10,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: iconBg || `color-mix(in srgb, ${iconColor} 15%, transparent)`,
-        border: `1px solid color-mix(in srgb, ${iconColor} 25%, transparent)`,
+        position: 'absolute',
+        left: '100%',
+        top: '50%',
+        transform: 'translateY(-50%)',
+        marginLeft: 8,
+        pointerEvents: 'none',
+        whiteSpace: 'nowrap',
       }}>
-        <Icon size={20} color={iconColor} />
-      </div>
-      <div style={{
-        fontSize: 14,
-        fontWeight: 700,
-        color: 'var(--text-primary)',
-        fontFamily: 'var(--font-mono)',
-        letterSpacing: '0.02em',
-      }}>
-        {label}
-      </div>
-      {subtitle && (
-        <div style={{
-          fontSize: 12,
-          color: 'var(--text-muted)',
-          fontFamily: 'var(--font-mono)',
-          letterSpacing: '0.05em',
-        }}>
-          {subtitle}
+        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+          {label}
         </div>
-      )}
-    </div>
+        {subtitle && (
+          <div style={{ fontSize: 8, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+            {subtitle}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -223,9 +212,15 @@ function HubNode({ data, selected }: any) {
   return (
     <NodeWrapper selected={selected} glowColor="var(--accent)" workers={data.workers} style={{
       animation: 'hub-pulse 3s ease-in-out infinite',
-      minWidth: 130,
+      padding: '14px 20px',
+      borderRadius: 'var(--radius-lg)',
     }}>
-      <NodeLabel label={data.label} icon={Shield} iconColor="var(--accent)" subtitle="CENTRAL HUB" />
+      {/* Hub uses full layout, not icon-only */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+        <Shield size={20} color="var(--accent)" />
+        <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{data.label}</div>
+        <div style={{ fontSize: 8, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>CENTRAL HUB</div>
+      </div>
     </NodeWrapper>
   );
 }
@@ -513,7 +508,7 @@ export function GameGraph() {
         nodeTypes={NODE_TYPES}
         edgeTypes={EDGE_TYPES}
         fitView
-        fitViewOptions={{ padding: 0.3 }}
+        fitViewOptions={{ padding: 0.15 }}
         style={{ background: 'transparent' }}
         proOptions={{ hideAttribution: true }}
         minZoom={0.4}
