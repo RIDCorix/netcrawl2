@@ -345,8 +345,65 @@ const NODE_TYPES: NodeTypes = {
   compute: ComputeNode,
 };
 
-// ── Edge with CSS-animated traffic dots ─────────────────────────────────
-// Uses CSS offset-path animation — survives React re-renders without glitch.
+// ── Traffic dot driven by rAF (no SVG animateMotion) ────────────────────
+// A single rAF loop per edge drives all dots via direct DOM setAttribute.
+
+function TrafficDot({ color, reverse, pathData }: { color: string; reverse: boolean; pathData: string }) {
+  const circleRef = React.useRef<SVGCircleElement>(null);
+  const pathElRef = React.useRef<SVGPathElement | null>(null);
+  const colorRef = React.useRef(color);
+  const reverseRef = React.useRef(reverse);
+  const pathDataRef = React.useRef(pathData);
+  colorRef.current = color;
+  reverseRef.current = reverse;
+
+  // Rebuild measurement path when pathData changes
+  React.useEffect(() => {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    el.setAttribute('d', pathData);
+    pathElRef.current = el;
+    pathDataRef.current = pathData;
+  }, [pathData]);
+
+  // Single rAF loop for the lifetime of this component
+  React.useEffect(() => {
+    const MOVE_MS = 900;
+    const PAUSE_MS = 200;
+    const CYCLE = MOVE_MS + PAUSE_MS;
+    const start = performance.now();
+    let raf = 0;
+
+    const tick = (now: number) => {
+      const pathEl = pathElRef.current;
+      const circle = circleRef.current;
+      if (!pathEl || !circle) { raf = requestAnimationFrame(tick); return; }
+
+      const elapsed = (now - start) % CYCLE;
+      let t: number;
+      if (elapsed < MOVE_MS) {
+        const linear = elapsed / MOVE_MS;
+        t = linear < 0.5 ? 4 * linear * linear * linear : 1 - Math.pow(-2 * linear + 2, 3) / 2;
+      } else {
+        t = 1; // pause
+      }
+      if (reverseRef.current) t = 1 - t;
+
+      const len = pathEl.getTotalLength();
+      const pt = pathEl.getPointAtLength(len * t);
+      circle.setAttribute('cx', String(pt.x));
+      circle.setAttribute('cy', String(pt.y));
+
+      raf = requestAnimationFrame(tick);
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []); // empty deps — never restarts, reads refs for latest values
+
+  return <circle ref={circleRef} r={4} fill={color} stroke="#000" strokeWidth={1} />;
+}
+
+const MemoTrafficDot = React.memo(TrafficDot);
 
 function WorkerEdge(props: EdgeProps) {
   const { sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, markerEnd, id, source, target } = props;
@@ -361,7 +418,7 @@ function WorkerEdge(props: EdgeProps) {
     [edgePath] = getSmoothStepPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
   }
 
-  // Sample traffic once per second via interval, stored in a ref to avoid re-renders
+  // Sample traffic once per second
   const [snapshot, setSnapshot] = React.useState('');
 
   React.useEffect(() => {
@@ -374,12 +431,10 @@ function WorkerEdge(props: EdgeProps) {
         const isFwd = w.previous_node === source && w.current_node === target;
         const isRev = w.previous_node === target && w.current_node === source;
         if (!isFwd && !isRev) continue;
-        const dir = isFwd ? 'fwd' : 'rev';
-        const key = `${w.class_name}-${dir}`;
+        const key = `${w.class_name}-${isFwd ? 'f' : 'r'}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        const color = CLASS_COLORS[w.class_name] || '#a78bfa';
-        lines.push(`${color}:${dir}`);
+        lines.push(`${CLASS_COLORS[w.class_name] || '#a78bfa'}:${isFwd ? 'f' : 'r'}`);
       }
       const next = lines.sort().join('|');
       setSnapshot(prev => prev === next ? prev : next);
@@ -393,21 +448,12 @@ function WorkerEdge(props: EdgeProps) {
     if (!snapshot) return [];
     return snapshot.split('|').map(s => {
       const [color, dir] = s.split(':');
-      return { color, reverse: dir === 'rev' };
+      return { color, reverse: dir === 'r' };
     });
   }, [snapshot]);
 
   const showTraffic = useGameStore(s => s.settings.showTrafficDots);
   const hasTraffic = showTraffic && dots.length > 0;
-
-  // Track when traffic starts to force animation remount
-  const trafficEpochRef = React.useRef(0);
-  const prevHadTraffic = React.useRef(false);
-  if (hasTraffic && !prevHadTraffic.current) {
-    trafficEpochRef.current++;
-  }
-  prevHadTraffic.current = hasTraffic;
-  const trafficEpoch = trafficEpochRef.current;
 
   return (
     <>
@@ -422,17 +468,7 @@ function WorkerEdge(props: EdgeProps) {
         id={id}
       />
       {hasTraffic && dots.map((dot, i) => (
-        <circle key={`${id}-${trafficEpoch}-${i}`} r={4} fill={dot.color} stroke="#000" strokeWidth={1}>
-          <animateMotion
-            dur="1.1s"
-            repeatCount="indefinite"
-            keyPoints={dot.reverse ? "1;0;0" : "0;1;1"}
-            keyTimes="0;0.9;1"
-            calcMode="spline"
-            keySplines="0.42 0 0.58 1;0 0 1 1"
-            path={edgePath}
-          />
-        </circle>
+        <MemoTrafficDot key={`${i}-${dot.color}-${dot.reverse}`} color={dot.color} reverse={dot.reverse} pathData={edgePath} />
       ))}
     </>
   );
