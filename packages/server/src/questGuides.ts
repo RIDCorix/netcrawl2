@@ -180,16 +180,25 @@ Deploy miners to each resource type to collect all three.` },
   ],
 
   q_for_loop: [
-    { title: 'Scaling with Loops', content: `In Python:
+    { title: 'Understanding Loops', content: `Your worker's \`on_loop()\` method is called repeatedly -- it's already a loop!
 
 \`\`\`python
-for i in range(3):
-    deploy_worker()
+# This is what the runner does:
+while not shutdown:
+    worker.on_loop()   # called again and again
 \`\`\`
 
-In NetCrawl, deploy **3 workers** to automate your resource collection. More workers = more throughput.
+Each call to \`on_loop()\` is one iteration. Your miner mines, collects, deposits, and then the loop repeats.` },
+    { title: 'Watch the Loop', content: `Let your miner run and watch the logs. Each cycle is one loop iteration:
 
-Try deploying miners to different resource nodes for diversified income.` },
+\`\`\`
+[INFO] mine -> collect -> deposit  # iteration 1
+[INFO] mine -> collect -> deposit  # iteration 2
+[INFO] mine -> collect -> deposit  # iteration 3
+...
+\`\`\`
+
+Mine **5 times** to see the loop in action. Check the worker logs to track progress.` },
   ],
 
   q_batch_processing: [

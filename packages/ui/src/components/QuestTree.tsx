@@ -1,6 +1,7 @@
 import ReactFlow, {
   Node, Edge, NodeTypes, Background, BackgroundVariant, Controls,
   useNodesState, useEdgesState, Handle, Position,
+  ReactFlowProvider, useReactFlow,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -284,6 +285,10 @@ export function QuestTree() {
     selectQuest(node.id);
   }, [selectQuest]);
 
+  // Find the first available or completed quest to center on
+  const activeQuest = questData?.quests?.find((q: any) => q.status === 'completed') ||
+    questData?.quests?.find((q: any) => q.status === 'available');
+
   return (
     <AnimatePresence>
       {questsOpen && (
@@ -339,7 +344,11 @@ export function QuestTree() {
               onNodeClick={onNodeClick}
               nodeTypes={QUEST_NODE_TYPES}
               fitView
-              fitViewOptions={{ padding: 0.3 }}
+              fitViewOptions={{
+                padding: 0.5,
+                nodes: activeQuest ? [{ id: activeQuest.id }] : undefined,
+                maxZoom: 1.2,
+              }}
               style={{ background: 'transparent' }}
               proOptions={{ hideAttribution: true }}
               minZoom={0.3}

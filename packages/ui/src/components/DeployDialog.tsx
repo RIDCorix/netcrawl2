@@ -159,12 +159,15 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
   const [workerClasses, setWorkerClasses] = useState<WorkerClassEntry[]>([]);
   const [selectedClass, setSelectedClass] = useState('');
   const [deploying, setDeploying] = useState(false);
+  const [deployed, setDeployed] = useState(false); // true after successful deploy
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
-  const [equipped, setEquipped] = useState<Record<string, string>>({});
+  const [unitCount, setUnitCount] = useState(1);
+  // Per-unit equipment: equippedPerUnit[unitIndex][slotName] = itemType
+  const [equippedPerUnit, setEquippedPerUnit] = useState<Record<string, string>[]>([{}]);
+  const [currentUnitIdx, setCurrentUnitIdx] = useState(0);
   const [routes, setRoutes] = useState<Record<string, { source: string; target: string }>>({});
   const [step, setStep] = useState(0);
-  // Which route field we're currently selecting for
   const [selectingRoute, setSelectingRoute] = useState<string | null>(null);
 
   const selectedClassEntry = workerClasses.find(c => c.class_id === selectedClass);
@@ -179,7 +182,6 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
   const hasRoutes = routeSlots.length > 0;
   const hasEquipment = itemSlots.length > 0;
 
-  // Build step list dynamically
   const steps: { label: string; key: string }[] = [{ label: 'Class', key: 'class' }];
   if (hasRoutes) steps.push({ label: 'Routes', key: 'routes' });
   if (hasEquipment) steps.push({ label: 'Equipment', key: 'equipment' });
@@ -187,10 +189,17 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
 
   const currentStepKey = steps[step]?.key || 'class';
 
+  // Current unit's equipment (for the equipment step)
+  const equipped = equippedPerUnit[currentUnitIdx] || {};
+
+  // Count ALL equipped items across all units
   const equippedCounts: Record<string, number> = {};
-  for (const t of Object.values(equipped)) equippedCounts[t] = (equippedCounts[t] || 0) + 1;
+  for (const unitEquip of equippedPerUnit) {
+    for (const t of Object.values(unitEquip)) equippedCounts[t] = (equippedCounts[t] || 0) + 1;
+  }
   const availableInventory = playerInventory.map(i => ({ ...i, count: i.count - (equippedCounts[i.itemType] || 0) })).filter(i => i.count > 0);
-  const allSlotsFilled = itemSlots.every(s => !!equipped[s.name]);
+
+  const allSlotsFilled = equippedPerUnit.every(ue => itemSlots.every(s => !!ue[s.name]));
   const allRoutesFilled = routeSlots.every(s => !!routes[s.name]);
 
   useEffect(() => {
@@ -202,7 +211,15 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
   }, []);
 
   // Reset when class changes
-  useEffect(() => { setEquipped({}); setRoutes({}); setStep(0); }, [selectedClass]);
+  useEffect(() => {
+    setEquippedPerUnit([{}]);
+    setCurrentUnitIdx(0);
+    setUnitCount(1);
+    setRoutes({});
+    setStep(0);
+    setDeployed(false);
+    setMessage('');
+  }, [selectedClass]);
 
   // Clean up edge select mode on unmount
   useEffect(() => () => setEdgeSelectMode(null), []);
@@ -228,36 +245,43 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
   const getNodeLabel = (id: string) => gameNodes.find(n => n.id === id)?.data?.label || id;
 
   const handleDeploy = async () => {
-    if (!selectedClass) return;
+    if (!selectedClass || deploying || deployed) return;
     setDeploying(true);
     setMessage('');
+
+    const routePayload: Record<string, string[]> = {};
+    for (const [field, edge] of Object.entries(routes)) {
+      routePayload[field] = [edge.source, edge.target];
+    }
+
     try {
-      const body: any = { nodeId, classId: selectedClass };
-      if (Object.keys(equipped).length > 0) body.equippedItems = equipped;
-      if (Object.keys(routes).length > 0) {
-        body.routes = {};
-        for (const [field, edge] of Object.entries(routes)) {
-          body.routes[field] = [edge.source, edge.target];
-        }
+      const ids: string[] = [];
+      for (let i = 0; i < unitCount; i++) {
+        const body: any = { nodeId, classId: selectedClass };
+        const unitEquip = equippedPerUnit[i] || {};
+        if (Object.keys(unitEquip).length > 0) body.equippedItems = unitEquip;
+        if (Object.keys(routePayload).length > 0) body.routes = routePayload;
+        const res = await axios.post('/api/deploy', body);
+        ids.push(res.data.workerId);
       }
-      const res = await axios.post('/api/deploy', body);
-      setMessage(`Deployed: ${res.data.workerId}`);
-      setTimeout(() => onClose(), 1000);
+      setDeployed(true);
+      setMessage(`Deployed ${ids.length} unit${ids.length > 1 ? 's' : ''}`);
+      // Close immediately
+      onClose();
     } catch (err: any) {
       setMessage('Error: ' + (err.response?.data?.error || err.message));
-    } finally {
       setDeploying(false);
     }
   };
 
   const canGoNext = () => {
     if (currentStepKey === 'class') {
-      if (!selectedClass) return false;
-      // Check item requirements are satisfiable
+      if (!selectedClass || unitCount < 1) return false;
+      // Check item requirements satisfiable for N units
       for (const slot of itemSlots) {
         const accepts = SLOT_ACCEPTS[slot.itemType] || [];
         const owned = playerInventory.filter(i => accepts.includes(i.itemType)).reduce((s, i) => s + i.count, 0);
-        if (owned < 1) return false;
+        if (owned < unitCount) return false;
       }
       return true;
     }
@@ -355,7 +379,8 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
               // Check requirements
               const reqsMet = itemSlots.every(slot => {
                 const accepts = SLOT_ACCEPTS[slot.itemType] || [];
-                return playerInventory.some(i => accepts.includes(i.itemType) && i.count > 0);
+                const owned = playerInventory.filter(i => accepts.includes(i.itemType)).reduce((s, i) => s + i.count, 0);
+                return owned >= unitCount;
               });
 
               return (
@@ -399,7 +424,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                           {itemSlots.map(slot => {
                             const accepts = SLOT_ACCEPTS[slot.itemType] || [];
                             const owned = playerInventory.filter(i => accepts.includes(i.itemType)).reduce((s, i) => s + i.count, 0);
-                            const met = owned >= 1;
+                            const met = owned >= unitCount;
                             const Icon = ITEM_ICONS[accepts[0]] || Package;
                             return (
                               <div key={slot.name} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
@@ -412,7 +437,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                                   color: met ? 'var(--success)' : 'var(--danger)',
                                   marginLeft: 'auto',
                                 }}>
-                                  {owned}/1
+                                  {owned}/{unitCount}
                                 </span>
                               </div>
                             );
@@ -452,11 +477,31 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                           padding: '6px 10px', borderRadius: 'var(--radius-sm)',
                           background: 'var(--danger-dim)', border: '1px solid rgba(255,71,87,0.2)',
                         }}>
-                          Missing required items — craft them in Inventory first
+                          Not enough items for {unitCount} unit{unitCount > 1 ? 's' : ''} — craft more in Inventory
                         </div>
                       )}
                     </div>
                   )}
+
+                  {/* Unit count selector */}
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', marginBottom: 8 }}>
+                      DEPLOY COUNT
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <button onClick={() => { const n = Math.max(1, unitCount - 1); setUnitCount(n); setEquippedPerUnit(prev => prev.slice(0, n)); setCurrentUnitIdx(i => Math.min(i, n - 1)); }}
+                        style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 16, fontFamily: 'var(--font-mono)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        -
+                      </button>
+                      <span style={{ fontSize: 20, fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', minWidth: 32, textAlign: 'center' }}>
+                        {unitCount}
+                      </span>
+                      <button onClick={() => { const n = unitCount + 1; setUnitCount(n); setEquippedPerUnit(prev => { const next = [...prev]; while (next.length < n) next.push({}); return next; }); }}
+                        style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 16, fontFamily: 'var(--font-mono)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        +
+                      </button>
+                    </div>
+                  </div>
                 </div>
               );
             })()}
@@ -502,19 +547,59 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
               </div>
             )}
 
-            {/* STEP: Equipment */}
+            {/* STEP: Equipment (per-unit tabs) */}
             {currentStepKey === 'equipment' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>EQUIPMENT</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {/* Unit tabs */}
+                {unitCount > 1 && (
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {Array.from({ length: unitCount }).map((_, i) => {
+                      const unitFilled = itemSlots.every(s => !!(equippedPerUnit[i] || {})[s.name]);
+                      return (
+                        <button key={i} onClick={() => setCurrentUnitIdx(i)} style={{
+                          padding: '4px 12px', borderRadius: 'var(--radius-sm)',
+                          background: i === currentUnitIdx ? 'var(--accent-dim)' : 'transparent',
+                          border: `1px solid ${i === currentUnitIdx ? 'rgba(0,212,170,0.25)' : 'var(--border)'}`,
+                          color: i === currentUnitIdx ? 'var(--accent)' : 'var(--text-muted)',
+                          fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 700, cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', gap: 4,
+                        }}>
+                          Unit {i + 1}
+                          {unitFilled && <Check size={10} style={{ color: 'var(--success)' }} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>
+                  {unitCount > 1 ? `UNIT ${currentUnitIdx + 1} EQUIPMENT` : 'EQUIPMENT'}
+                </div>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   {itemSlots.map(slot => (
                     <EquipSlot key={slot.name} slotName={slot.name} acceptType={slot.itemType}
                       equipped={equipped[slot.name] ? playerInventory.find(i => i.itemType === equipped[slot.name]) || null : null}
-                      onEquip={t => setEquipped(p => ({ ...p, [slot.name]: t }))}
-                      onUnequip={() => setEquipped(p => { const n = { ...p }; delete n[slot.name]; return n; })} />
+                      onEquip={t => {
+                        setEquippedPerUnit(prev => {
+                          const next = [...prev];
+                          next[currentUnitIdx] = { ...(next[currentUnitIdx] || {}), [slot.name]: t };
+                          return next;
+                        });
+                      }}
+                      onUnequip={() => {
+                        setEquippedPerUnit(prev => {
+                          const next = [...prev];
+                          const u = { ...(next[currentUnitIdx] || {}) };
+                          delete u[slot.name];
+                          next[currentUnitIdx] = u;
+                          return next;
+                        });
+                      }} />
                   ))}
                 </div>
-                {!allSlotsFilled && <div style={{ fontSize: 10, color: 'var(--warning)', fontFamily: 'var(--font-mono)' }}>Drag items from below to fill slots</div>}
+                {!allSlotsFilled && <div style={{ fontSize: 10, color: 'var(--warning)', fontFamily: 'var(--font-mono)' }}>
+                  {unitCount > 1 ? `Fill equipment for all ${unitCount} units` : 'Drag items from below to fill slots'}
+                </div>}
                 <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, var(--border-bright), transparent)' }} />
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>INVENTORY</div>
                 {availableInventory.length === 0 ? (
@@ -538,6 +623,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                   <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)' }}>
                     <span style={{ color: 'var(--text-muted)' }}>Class: </span>
                     <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{selectedClassEntry?.class_name}</span>
+                    <span style={{ color: 'var(--accent)', fontWeight: 700, marginLeft: 8 }}>x{unitCount}</span>
                   </div>
                   <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)' }}>
                     <span style={{ color: 'var(--text-muted)' }}>Node: </span>
@@ -576,14 +662,14 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                 }}>Cancel</button>
               )}
               {isLastStep ? (
-                <button onClick={handleDeploy} disabled={deploying} style={{
-                  flex: 2, background: 'var(--accent)', color: '#000',
-                  border: 'none', borderRadius: 'var(--radius-sm)',
+                <button onClick={handleDeploy} disabled={deploying || deployed} style={{
+                  flex: 2, background: deploying || deployed ? 'var(--bg-elevated)' : 'var(--accent)', color: deploying || deployed ? 'var(--text-muted)' : '#000',
+                  border: deploying || deployed ? '1px solid var(--border)' : 'none', borderRadius: 'var(--radius-sm)',
                   padding: '12px', fontSize: 13, fontWeight: 800, fontFamily: 'var(--font-mono)',
-                  cursor: deploying ? 'not-allowed' : 'pointer', opacity: deploying ? 0.6 : 1,
+                  cursor: deploying || deployed ? 'not-allowed' : 'pointer', opacity: deploying || deployed ? 0.5 : 1,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 }}>
-                  <Upload size={14} /> {deploying ? 'DEPLOYING...' : 'DEPLOY WORKER'}
+                  <Upload size={14} /> {deploying ? `DEPLOYING ${unitCount}...` : `DEPLOY ${unitCount} WORKER${unitCount > 1 ? 'S' : ''}`}
                 </button>
               ) : (
                 <button onClick={() => setStep(s => s + 1)} disabled={!canGoNext()} style={{

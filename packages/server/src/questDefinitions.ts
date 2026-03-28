@@ -116,9 +116,9 @@ export const QUESTS: QuestDef[] = [
   // ── Chapter 2: Automation ─────────────────────────────────────────────────
   {
     id: 'q_for_loop', chapter: 2, name: 'For Loop', codeConcept: 'Loops',
-    description: 'Why do something once when you can loop? Scale up your workforce.',
+    description: 'Why do something once when you can loop? Your worker already runs on_loop() repeatedly.',
     sideQuest: false, prerequisites: ['q_expand_network'],
-    objectives: [{ id: 'o1', description: 'Deploy 3 workers total', statKey: 'total_workers_deployed', target: 3, type: 'stat_gte' }],
+    objectives: [{ id: 'o1', description: 'Mine 5 times', statKey: 'total_mines', target: 5, type: 'stat_gte' }],
     rewards: [{ kind: 'resources', resources: { energy: 100 } }],
     position: { x: 400, y: 480 },
   },
