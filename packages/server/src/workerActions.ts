@@ -66,10 +66,7 @@ function generateUuid(): string {
 }
 
 function getDropTypeForNode(node: any): Drop['type'] {
-  const resource = node.data?.resource;
-  if (resource === 'energy') return 'energy_crystal';
-  if (resource === 'data') return 'data_shard';
-  return 'ore_chunk';
+  return 'data_fragment';
 }
 
 function calcDropAmount(efficiency: number): number {
@@ -329,9 +326,8 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       if (w5.holding !== null) {
         const held = w5.holding;
         const dropToResource: Record<string, string> = {
-          ore_chunk: 'ore',
-          energy_crystal: 'energy',
-          data_shard: 'data',
+          data_fragment: 'data',
+          rp_shard: 'rp',
         };
         const resourceKey = dropToResource[held.type];
         const freshState = getGameState();
@@ -389,7 +385,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const node = nodes.find((n: any) => n.id === nodeId);
       if (!node || !node.data.infected) return { ok: false, error: 'Node is not infected' };
       const res = resources as unknown as Record<string, number>;
-      if ((res.energy || 0) < 30) return { ok: false, error: 'Not enough energy (need 30)' };
+      if ((res.data || 0) < 500) return { ok: false, error: 'Not enough data (need 500)' };
 
       setLock(workerId, ACTION_DELAY);
       await workerLocks.get(workerId);
@@ -401,7 +397,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         }
         return n;
       });
-      const newResources2 = { ...(freshState4.resources as any), energy: (freshState4.resources as any).energy - 30 };
+      const newResources2 = { ...(freshState4.resources as any), data: (freshState4.resources as any).data - 500 };
       saveGameState({ ...freshState4, nodes: newNodes3, resources: newResources2 });
       broadcastFullState();
       incrementStat('total_repairs', 1);
@@ -526,7 +522,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         // Award resources
         const template = PUZZLE_TEMPLATES.find(t => t.id === puzzle.templateId);
         const reward = (config?.baseReward || 5) * (template?.rewardMultiplier || 1);
-        const rewardType = sNode.data.rewardResource || 'data';
+        const rewardType = sNode.data.rewardResource || 'rp';
 
         const freshState = getGameState();
         const newRes = { ...freshState.resources } as Record<string, number>;

@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Pickaxe, Shield, Radio, Zap, Mountain, Database, Hammer, X, Check } from 'lucide-react';
+import { Pickaxe, Shield, Radio, Database, Cpu, Star, Hammer, X, Check } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -9,7 +9,7 @@ interface Recipe {
   name: string;
   description: string;
   output: { itemType: string; count: number; metadata?: { efficiency?: number } };
-  cost: { ore?: number; energy?: number; data?: number };
+  cost: { data?: number; rp?: number; credits?: number };
   affordable: boolean;
 }
 
@@ -84,22 +84,22 @@ function RecipeCard({
 
       {/* Cost */}
       <div className="flex flex-wrap gap-2">
-        {recipe.cost.energy !== undefined && (
-          <div className="flex items-center gap-1 px-2 py-0.5 rounded text-xs" style={{ background: 'rgba(250,204,21,0.08)', color: 'var(--energy-color)', fontFamily: 'var(--font-mono)' }}>
-            <Zap size={10} />
-            {recipe.cost.energy}
-          </div>
-        )}
-        {recipe.cost.ore !== undefined && (
-          <div className="flex items-center gap-1 px-2 py-0.5 rounded text-xs" style={{ background: 'rgba(120,80,40,0.15)', color: 'var(--ore-color)', fontFamily: 'var(--font-mono)' }}>
-            <Mountain size={10} />
-            {recipe.cost.ore}
-          </div>
-        )}
         {recipe.cost.data !== undefined && (
-          <div className="flex items-center gap-1 px-2 py-0.5 rounded text-xs" style={{ background: 'rgba(96,165,250,0.08)', color: 'var(--data-color)', fontFamily: 'var(--font-mono)' }}>
+          <div className="flex items-center gap-1 px-2 py-0.5 rounded text-xs" style={{ background: 'rgba(69,170,242,0.08)', color: 'var(--data-color)', fontFamily: 'var(--font-mono)' }}>
             <Database size={10} />
             {recipe.cost.data}
+          </div>
+        )}
+        {recipe.cost.rp !== undefined && (
+          <div className="flex items-center gap-1 px-2 py-0.5 rounded text-xs" style={{ background: 'rgba(167,139,250,0.08)', color: 'var(--rp-color)', fontFamily: 'var(--font-mono)' }}>
+            <Cpu size={10} />
+            {recipe.cost.rp}
+          </div>
+        )}
+        {recipe.cost.credits !== undefined && (
+          <div className="flex items-center gap-1 px-2 py-0.5 rounded text-xs" style={{ background: 'rgba(245,158,11,0.08)', color: 'var(--credits-color)', fontFamily: 'var(--font-mono)' }}>
+            <Star size={10} />
+            {recipe.cost.credits}
           </div>
         )}
       </div>
@@ -188,19 +188,19 @@ function ConfirmDialog({
           {recipe.description}
         </div>
         <div className="flex flex-wrap gap-2">
-          {recipe.cost.energy !== undefined && (
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded text-xs" style={{ background: 'rgba(250,204,21,0.08)', color: 'var(--energy-color)', fontFamily: 'var(--font-mono)' }}>
-              <Zap size={10} /> -{recipe.cost.energy} energy
-            </div>
-          )}
-          {recipe.cost.ore !== undefined && (
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded text-xs" style={{ background: 'rgba(120,80,40,0.15)', color: 'var(--ore-color)', fontFamily: 'var(--font-mono)' }}>
-              <Mountain size={10} /> -{recipe.cost.ore} ore
-            </div>
-          )}
           {recipe.cost.data !== undefined && (
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded text-xs" style={{ background: 'rgba(96,165,250,0.08)', color: 'var(--data-color)', fontFamily: 'var(--font-mono)' }}>
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded text-xs" style={{ background: 'rgba(69,170,242,0.08)', color: 'var(--data-color)', fontFamily: 'var(--font-mono)' }}>
               <Database size={10} /> -{recipe.cost.data} data
+            </div>
+          )}
+          {recipe.cost.rp !== undefined && (
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded text-xs" style={{ background: 'rgba(167,139,250,0.08)', color: 'var(--rp-color)', fontFamily: 'var(--font-mono)' }}>
+              <Cpu size={10} /> -{recipe.cost.rp} RP
+            </div>
+          )}
+          {recipe.cost.credits !== undefined && (
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded text-xs" style={{ background: 'rgba(245,158,11,0.08)', color: 'var(--credits-color)', fontFamily: 'var(--font-mono)' }}>
+              <Star size={10} /> -{recipe.cost.credits} credits
             </div>
           )}
         </div>

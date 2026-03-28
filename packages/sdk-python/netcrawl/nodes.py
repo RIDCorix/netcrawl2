@@ -57,7 +57,7 @@ class HubNode(BaseNode):
 
 
 class ResourceNode(BaseNode):
-    """A resource-producing node (energy, ore, data)."""
+    """A resource-producing node (data)."""
 
     @property
     def resource_type(self) -> str:
@@ -75,7 +75,7 @@ class ResourceNode(BaseNode):
         """Mine this resource node. Requires a pickaxe equipped on the worker.
         Creates a drop on the ground that can be collected.
 
-        Returns: { ok, drop: { type, amount } }
+        Returns: { ok, drop: { type: 'data_fragment', amount } }
         """
         result = self._client.action("compute_mine", {})
         # Use the existing mine action via pickaxe

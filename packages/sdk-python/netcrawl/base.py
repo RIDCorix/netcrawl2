@@ -261,7 +261,7 @@ class WorkerClass(metaclass=WorkerMeta):
     def harvest(self) -> dict:
         """
         Legacy: harvest resources at current node (old carry system).
-        Returns: { "harvested": { "energy": 5 } }
+        Returns: { "harvested": { "data": 5 } }
         """
         result = self._client.action("harvest", {})
         if result.get("ok"):
@@ -282,7 +282,7 @@ class WorkerClass(metaclass=WorkerMeta):
 
     def repair(self, node_id: str) -> bool:
         """
-        Repair an infected node. Costs 30 energy from game resources.
+        Repair an infected node. Costs 30 data from game resources.
         Must be adjacent to the target node.
         """
         result = self._client.action("repair", {"nodeId": node_id})
@@ -314,7 +314,7 @@ class WorkerClass(metaclass=WorkerMeta):
 
     @property
     def carrying(self) -> dict:
-        """Currently carried resources (legacy). E.g. { 'energy': 5 }"""
+        """Currently carried resources (legacy). E.g. { 'data': 5 }"""
         return self._inventory.copy()
 
     @property

@@ -1,14 +1,22 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Mountain, Database, Star, Wifi, WifiOff, ShieldAlert, Activity, Package, Trophy, BookOpen, Settings } from 'lucide-react';
+import { Database, Cpu, Star, Wifi, WifiOff, ShieldAlert, Activity, Package, Trophy, BookOpen, Settings } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useRef, useEffect, useState } from 'react';
 
-function ResourceItem({ icon: Icon, value, label, color, prevValue }: {
+function formatBytes(n: number): string {
+  if (n < 1000) return `${n} B`;
+  if (n < 1000000) return `${(n / 1000).toFixed(1)} kB`;
+  if (n < 1000000000) return `${(n / 1000000).toFixed(1)} MB`;
+  return `${(n / 1000000000).toFixed(1)} GB`;
+}
+
+function ResourceItem({ icon: Icon, value, label, color, prevValue, formatFn }: {
   icon: any;
   value: number;
   label: string;
   color: string;
   prevValue: number;
+  formatFn?: (n: number) => string;
 }) {
   const [pulse, setPulse] = useState(false);
   const diff = value - prevValue;
@@ -45,7 +53,7 @@ function ResourceItem({ icon: Icon, value, label, color, prevValue }: {
         color: 'var(--text-primary)',
         fontVariantNumeric: 'tabular-nums',
       }}>
-        {value.toLocaleString()}
+        {formatFn ? formatFn(value) : value.toLocaleString()}
       </span>
 
       {/* Delta indicator */}
@@ -144,12 +152,9 @@ export function ResourceBar() {
       <div style={{ width: 1, height: 20, background: 'var(--border-bright)', flexShrink: 0 }} />
 
       {/* Resources — inline */}
-      <ResourceItem icon={Zap} value={resources.energy} label="Energy" color="var(--energy-color)" prevValue={prev.energy} />
-      <ResourceItem icon={Mountain} value={resources.ore} label="Ore" color="var(--ore-color)" prevValue={prev.ore} />
-      <ResourceItem icon={Database} value={resources.data} label="Data" color="var(--data-color)" prevValue={prev.data} />
-      {(resources as any).credits > 0 && (
-        <ResourceItem icon={Star} value={(resources as any).credits || 0} label="Credits" color="#f59e0b" prevValue={(prev as any).credits || 0} />
-      )}
+      <ResourceItem icon={Database} value={resources.data} label="Data" color="var(--data-color)" prevValue={prev.data} formatFn={formatBytes} />
+      <ResourceItem icon={Cpu} value={resources.rp} label="RP" color="var(--rp-color)" prevValue={prev.rp} />
+      <ResourceItem icon={Star} value={resources.credits} label="Credits" color="var(--credits-color)" prevValue={prev.credits} />
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />

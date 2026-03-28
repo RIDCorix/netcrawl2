@@ -18,23 +18,36 @@ if (!fs.existsSync(dataDir)) {
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export interface Resources {
-  energy: number;
-  ore: number;
-  data: number;
-  credits?: number;
+  data: number;       // primary currency (bytes), mined from resource nodes
+  rp: number;         // research points, from compute nodes
+  credits: number;    // premium currency, from API nodes / quests
 }
+
+/** FLOP capacity — not a currency, but a limit on what can be built/deployed */
+export interface FlopState {
+  total: number;      // max FLOP (upgraded via Hub/Relay)
+  used: number;       // currently allocated
+}
+
+export const FLOP_COSTS = {
+  worker: 8,
+  cache: 20,
+  api: 25,
+} as const;
+
+export const INITIAL_FLOP: FlopState = { total: 50, used: 0 };
 
 // === Drop System ===
 export interface Drop {
   id: string;           // uuid
-  type: 'ore_chunk' | 'energy_crystal' | 'data_shard';
+  type: 'data_fragment' | 'rp_shard';
   amount: number;
 }
 
 // === Player Inventory ===
 export interface InventoryItem {
   id: string;
-  itemType: 'pickaxe_basic' | 'pickaxe_iron' | 'pickaxe_diamond' | 'shield' | 'beacon' | 'ore_chunk' | 'energy_crystal' | 'data_shard' | 'chip_pack_basic' | 'chip_pack_premium' | 'scanner' | 'signal_booster' | 'overclock_kit' | 'antivirus_module' | 'memory_allocator' | 'fullstack_pickaxe';
+  itemType: 'pickaxe_basic' | 'pickaxe_iron' | 'pickaxe_diamond' | 'shield' | 'beacon' | 'data_fragment' | 'rp_shard' | 'chip_pack_basic' | 'chip_pack_premium' | 'scanner' | 'signal_booster' | 'overclock_kit' | 'antivirus_module' | 'memory_allocator' | 'fullstack_pickaxe';
   count: number;
   metadata?: {
     efficiency?: number;
@@ -54,6 +67,7 @@ export interface GameStateRow {
   nodes: any[];
   edges: any[];
   resources: Resources;
+  flop: FlopState;
   tick: number;
   gameOver: boolean;
   playerInventory: InventoryItem[];
@@ -83,9 +97,9 @@ export interface WorkerLogRow {
 
 // === Crafting Recipes ===
 export interface RecipeCost {
-  ore?: number;
-  energy?: number;
   data?: number;
+  rp?: number;
+  credits?: number;
 }
 
 export interface Recipe {
@@ -102,35 +116,35 @@ export const RECIPES: Recipe[] = [
     name: 'Basic Pickaxe',
     description: 'Standard mining tool. efficiency 1.0×',
     output: { itemType: 'pickaxe_basic', count: 1, metadata: { efficiency: 1.0 } },
-    cost: { ore: 20 },
+    cost: { data: 200 },
   },
   {
     id: 'pickaxe_iron',
     name: 'Iron Pickaxe',
     description: 'Stronger pick. efficiency 1.5×. Yields 1-2 drops.',
     output: { itemType: 'pickaxe_iron', count: 1, metadata: { efficiency: 1.5 } },
-    cost: { ore: 50, energy: 30 },
+    cost: { data: 500, rp: 5 },
   },
   {
     id: 'pickaxe_diamond',
     name: 'Diamond Pickaxe',
     description: 'Finest tool. efficiency 2.5×. Yields 2-3 drops.',
     output: { itemType: 'pickaxe_diamond', count: 1, metadata: { efficiency: 2.5 } },
-    cost: { ore: 100, energy: 60, data: 40 },
+    cost: { data: 2000, rp: 20 },
   },
   {
     id: 'shield',
     name: 'Shield',
     description: 'Protects worker from infection damage.',
     output: { itemType: 'shield', count: 1 },
-    cost: { energy: 30, ore: 20 },
+    cost: { data: 300, rp: 3 },
   },
   {
     id: 'beacon',
     name: 'Beacon',
     description: 'Increases scan radius for workers.',
     output: { itemType: 'beacon', count: 1 },
-    cost: { data: 50 },
+    cost: { data: 500, rp: 8 },
   },
 ];
 
@@ -164,27 +178,27 @@ export const INITIAL_NODES = [
   // ── Core (center) ──
   { id: 'hub', type: 'hub', position: { x: 0, y: 0 }, data: { label: 'Hub', unlocked: true, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
 
-  // ── North branch (Energy) ──
-  { id: 'r1', type: 'resource', position: { x: -100, y: -280 }, data: { label: 'Energy Node', resource: 'energy', rate: 5, unlocked: false, unlockCost: { energy: 20 }, mineable: true, drops: [], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
+  // ── North branch ──
+  { id: 'r1', type: 'resource', position: { x: -100, y: -280 }, data: { label: 'Data Mine Alpha', resource: 'data', rate: 50, unlocked: false, unlockCost: { data: 100 }, mineable: true, drops: [], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
 
-  // ── Northeast branch (Ore) ──
-  { id: 'r2', type: 'resource', position: { x: 350, y: -200 }, data: { label: 'Ore Mine', resource: 'ore', rate: 3, unlocked: false, unlockCost: { energy: 30 }, mineable: true, drops: [], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
-  { id: 'locked1', type: 'locked', position: { x: 650, y: -350 }, data: { label: 'Deep Shaft', unlocked: false, unlockCost: { energy: 100, ore: 50, data: 20 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+  // ── Northeast branch ──
+  { id: 'r2', type: 'resource', position: { x: 350, y: -200 }, data: { label: 'Data Mine Beta', resource: 'data', rate: 30, unlocked: false, unlockCost: { data: 200 }, mineable: true, drops: [], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
+  { id: 'locked1', type: 'locked', position: { x: 650, y: -350 }, data: { label: 'Deep Shaft', unlocked: false, unlockCost: { data: 5000, rp: 10 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
 
   // ── East branch (Data + Compute) ──
-  { id: 'r3', type: 'resource', position: { x: 400, y: 180 }, data: { label: 'Data Cache', resource: 'data', rate: 2, unlocked: false, unlockCost: { energy: 40, ore: 20 }, mineable: true, drops: [], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
-  { id: 'c2', type: 'compute', position: { x: 700, y: 100 }, data: { label: 'Compute Beta', unlocked: false, unlockCost: { energy: 60, data: 30, ore: 20 }, difficulty: 'medium', rewardResource: 'data', solveCount: 0, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+  { id: 'r3', type: 'resource', position: { x: 400, y: 180 }, data: { label: 'Data Mine Gamma', resource: 'data', rate: 20, unlocked: false, unlockCost: { data: 300 }, mineable: true, drops: [], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
+  { id: 'c2', type: 'compute', position: { x: 700, y: 100 }, data: { label: 'Compute Beta', unlocked: false, unlockCost: { data: 2000, rp: 5 }, difficulty: 'medium', rewardResource: 'rp', solveCount: 0, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
 
   // ── West branch (Relay network) ──
-  { id: 'relay2', type: 'relay', position: { x: -350, y: -80 }, data: { label: 'Relay Beta', unlocked: false, unlockCost: { energy: 25 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+  { id: 'relay2', type: 'relay', position: { x: -350, y: -80 }, data: { label: 'Relay Beta', unlocked: false, unlockCost: { data: 150 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
 
   // ── South branch (Relay + Compute) ──
-  { id: 'relay1', type: 'relay', position: { x: -200, y: 300 }, data: { label: 'Relay Alpha', unlocked: false, unlockCost: { energy: 15 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
-  { id: 'c1', type: 'compute', position: { x: -50, y: 500 }, data: { label: 'Compute Alpha', unlocked: false, unlockCost: { energy: 30, data: 10 }, difficulty: 'easy', rewardResource: 'data', solveCount: 0, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+  { id: 'relay1', type: 'relay', position: { x: -200, y: 300 }, data: { label: 'Relay Alpha', unlocked: false, unlockCost: { data: 80 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+  { id: 'c1', type: 'compute', position: { x: -50, y: 500 }, data: { label: 'Compute Alpha', unlocked: false, unlockCost: { data: 500 }, difficulty: 'easy', rewardResource: 'rp', solveCount: 0, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
 
   // ── Empty nodes (buildable) ──
-  { id: 'empty1', type: 'empty', position: { x: -500, y: 150 }, data: { label: 'Open Slot', unlocked: false, unlockCost: { energy: 40, ore: 30 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
-  { id: 'empty2', type: 'empty', position: { x: 500, y: -50 }, data: { label: 'Open Slot', unlocked: false, unlockCost: { energy: 50, ore: 20, data: 20 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+  { id: 'empty1', type: 'empty', position: { x: -500, y: 150 }, data: { label: 'Open Slot', unlocked: false, unlockCost: { data: 1000, rp: 5 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+  { id: 'empty2', type: 'empty', position: { x: 500, y: -50 }, data: { label: 'Open Slot', unlocked: false, unlockCost: { data: 2000, rp: 10 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
 ];
 
 export const INITIAL_EDGES = [
@@ -205,7 +219,7 @@ export const INITIAL_EDGES = [
   { id: 'e12', source: 'r3', target: 'empty2' },
 ];
 
-export const INITIAL_RESOURCES: Resources = { energy: 50, ore: 0, data: 0 };
+export const INITIAL_RESOURCES: Resources = { data: 500, rp: 0, credits: 0 };
 
 export const INITIAL_PLAYER_INVENTORY: InventoryItem[] = [
   { id: 'starter-pick', itemType: 'pickaxe_basic', count: 1, metadata: { efficiency: 1.0 } },
@@ -216,6 +230,7 @@ const INITIAL_STORE: Store = {
     nodes: INITIAL_NODES,
     edges: INITIAL_EDGES,
     resources: INITIAL_RESOURCES,
+    flop: INITIAL_FLOP,
     tick: 0,
     gameOver: false,
     playerInventory: INITIAL_PLAYER_INVENTORY,

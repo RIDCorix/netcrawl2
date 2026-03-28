@@ -40,7 +40,7 @@ export const RARITY_COLORS: Record<ChipRarity, string> = {
 export const ITEM_LABELS: Record<string, string> = {
   pickaxe_basic: 'Basic Pickaxe', pickaxe_iron: 'Iron Pickaxe', pickaxe_diamond: 'Diamond Pickaxe',
   shield: 'Shield', beacon: 'Beacon',
-  ore_chunk: 'Ore Chunk', energy_crystal: 'Energy Crystal', data_shard: 'Data Shard',
+  data_fragment: 'Data Fragment', rp_shard: 'RP Shard',
   chip_pack_basic: 'Basic Pack', chip_pack_premium: 'Premium Pack',
   scanner: 'Scanner', signal_booster: 'Signal Booster', overclock_kit: 'Overclock Kit',
   antivirus_module: 'Antivirus Module', memory_allocator: 'Memory Allocator',
@@ -50,6 +50,6 @@ export const ITEM_LABELS: Record<string, string> = {
 export const ITEM_COLORS: Record<string, string> = {
   pickaxe_basic: '#9ca3af', pickaxe_iron: '#c0c0c0', pickaxe_diamond: '#60a5fa',
   shield: '#4ade80', beacon: '#00d4aa',
-  ore_chunk: '#a78bfa', energy_crystal: '#ffd32a', data_shard: '#45aaf2',
+  data_fragment: '#45aaf2', rp_shard: '#a78bfa',
   chip_pack_basic: '#9ca3af', chip_pack_premium: '#f59e0b',
 };

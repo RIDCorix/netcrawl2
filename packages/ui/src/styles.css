@@ -31,9 +31,9 @@
   --success:           #2ed573;
   --warning:           #ffa502;
 
-  --energy-color:      #ffd32a;
-  --ore-color:         #a78bfa;
   --data-color:        #45aaf2;
+  --rp-color:          #a78bfa;
+  --credits-color:     #f59e0b;
 
   /* Typography */
   --font-sans:  'Inter', system-ui, -apple-system, sans-serif;

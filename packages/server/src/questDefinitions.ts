@@ -73,7 +73,7 @@ export const QUESTS: QuestDef[] = [
     description: 'Every journey begins with a single deployment. Deploy your first worker to the network.',
     sideQuest: false, prerequisites: [],
     objectives: [{ id: 'o1', description: 'Deploy 1 worker', statKey: 'total_workers_deployed', target: 1, type: 'stat_gte' }],
-    rewards: [{ kind: 'resources', resources: { energy: 50 } }],
+    rewards: [{ kind: 'resources', resources: { data: 500 } }],
     position: { x: 400, y: 0 },
   },
   {
@@ -89,7 +89,7 @@ export const QUESTS: QuestDef[] = [
     description: 'A function that computes but never returns is useless. Bring resources back to the hub.',
     sideQuest: false, prerequisites: ['q_first_harvest'],
     objectives: [{ id: 'o1', description: 'Deposit resources at hub', statKey: 'total_deposits', target: 1, type: 'stat_gte' }],
-    rewards: [{ kind: 'resources', resources: { ore: 30 } }],
+    rewards: [{ kind: 'resources', resources: { data: 300 } }],
     position: { x: 400, y: 240 },
   },
   {
@@ -102,12 +102,12 @@ export const QUESTS: QuestDef[] = [
   },
   {
     id: 'q_variable_types', chapter: 1, name: 'Variable Types', codeConcept: 'Data Types',
-    description: 'Python has many types: int, str, float. Your network has energy, ore, and data.',
+    description: 'Python has many types: int, str, float. Your network has data and rp.',
     sideQuest: true, prerequisites: ['q_expand_network'],
     objectives: [
-      { id: 'o1', description: 'Deposit ore', statKey: 'total_ore_deposited', target: 1, type: 'stat_gte' },
-      { id: 'o2', description: 'Deposit energy', statKey: 'total_energy_deposited', target: 1, type: 'stat_gte' },
-      { id: 'o3', description: 'Deposit data', statKey: 'total_data_deposited', target: 1, type: 'stat_gte' },
+      { id: 'o1', description: 'Deposit data', statKey: 'total_data_deposited', target: 10, type: 'stat_gte' },
+      { id: 'o2', description: 'Deposit data', statKey: 'total_data_deposited', target: 10, type: 'stat_gte' },
+      { id: 'o3', description: 'Deposit rp', statKey: 'total_rp_deposited', target: 10, type: 'stat_gte' },
     ],
     rewards: [{ kind: 'chips', chips: [{ chipType: 'harvest_speed_1', rarity: 'common' }] }],
     position: { x: 620, y: 360 },
@@ -119,7 +119,7 @@ export const QUESTS: QuestDef[] = [
     description: 'Why do something once when you can loop? Your worker already runs on_loop() repeatedly.',
     sideQuest: false, prerequisites: ['q_expand_network'],
     objectives: [{ id: 'o1', description: 'Mine 5 times', statKey: 'total_mines', target: 5, type: 'stat_gte' }],
-    rewards: [{ kind: 'resources', resources: { energy: 100 } }],
+    rewards: [{ kind: 'resources', resources: { data: 1000 } }],
     position: { x: 400, y: 480 },
   },
   {
@@ -132,9 +132,9 @@ export const QUESTS: QuestDef[] = [
   },
   {
     id: 'q_accumulator', chapter: 2, name: 'Accumulator Pattern', codeConcept: 'State',
-    description: 'total = 0; for item in items: total += item. Accumulate 100 ore.',
+    description: 'total = 0; for item in items: total += item. Accumulate 1000 data.',
     sideQuest: false, prerequisites: ['q_batch_processing'],
-    objectives: [{ id: 'o1', description: 'Deposit 100 ore total', statKey: 'total_ore_deposited', target: 100, type: 'stat_gte' }],
+    objectives: [{ id: 'o1', description: 'Deposit 1000 data total', statKey: 'total_data_deposited', target: 1000, type: 'stat_gte' }],
     rewards: [{ kind: 'items', items: [{ itemType: 'pickaxe_iron', count: 1, metadata: { efficiency: 1.5 } }] }],
     position: { x: 400, y: 720 },
   },
@@ -169,8 +169,8 @@ export const QUESTS: QuestDef[] = [
     description: 'Data packets find the shortest path. Diversify your resource streams.',
     sideQuest: false, prerequisites: ['q_graph_theory'],
     objectives: [
-      { id: 'o1', description: 'Deposit 10+ ore', statKey: 'total_ore_deposited', target: 10, type: 'stat_gte' },
-      { id: 'o2', description: 'Deposit 10+ energy', statKey: 'total_energy_deposited', target: 10, type: 'stat_gte' },
+      { id: 'o1', description: 'Deposit 100+ data', statKey: 'total_data_deposited', target: 100, type: 'stat_gte' },
+      { id: 'o2', description: 'Deposit 100+ data', statKey: 'total_data_deposited', target: 100, type: 'stat_gte' },
     ],
     rewards: [{ kind: 'items', items: [{ itemType: 'beacon', count: 2 }] }],
     position: { x: 400, y: 960 },
@@ -222,7 +222,7 @@ export const QUESTS: QuestDef[] = [
     description: 'Never rely on a single point of failure. Scale your workforce.',
     sideQuest: true, prerequisites: ['q_if_statement'],
     objectives: [{ id: 'o1', description: 'Deploy 8 workers total', statKey: 'total_workers_deployed', target: 8, type: 'stat_gte' }],
-    rewards: [{ kind: 'resources', resources: { energy: 200, ore: 100 } }],
+    rewards: [{ kind: 'resources', resources: { data: 2000 } }],
     position: { x: 600, y: 1260 },
   },
 
@@ -256,8 +256,8 @@ export const QUESTS: QuestDef[] = [
     description: 'Efficient memory use is key. Accumulate massive resource reserves.',
     sideQuest: true, prerequisites: ['q_profiling'],
     objectives: [
-      { id: 'o1', description: 'Deposit 200+ ore', statKey: 'total_ore_deposited', target: 200, type: 'stat_gte' },
-      { id: 'o2', description: 'Deposit 200+ energy', statKey: 'total_energy_deposited', target: 200, type: 'stat_gte' },
+      { id: 'o1', description: 'Deposit 2000+ data', statKey: 'total_data_deposited', target: 2000, type: 'stat_gte' },
+      { id: 'o2', description: 'Deposit 2000+ data', statKey: 'total_data_deposited', target: 2000, type: 'stat_gte' },
     ],
     rewards: [{ kind: 'unique_equipment', itemType: 'memory_allocator', name: 'Memory Allocator', description: 'Pickaxe with 3.0x efficiency', metadata: { efficiency: 3.0 } }],
     position: { x: 600, y: 1500 },
@@ -284,7 +284,7 @@ export const QUESTS: QuestDef[] = [
     sideQuest: false, prerequisites: ['q_design_patterns'],
     objectives: [
       { id: 'o1', description: 'Deploy 20 workers total', statKey: 'total_workers_deployed', target: 20, type: 'stat_gte' },
-      { id: 'o2', description: 'Deposit 500+ ore', statKey: 'total_ore_deposited', target: 500, type: 'stat_gte' },
+      { id: 'o2', description: 'Deposit 5000+ data', statKey: 'total_data_deposited', target: 5000, type: 'stat_gte' },
     ],
     rewards: [
       { kind: 'unique_equipment', itemType: 'fullstack_pickaxe', name: 'Full Stack Pickaxe', description: '5.0x efficiency legendary pickaxe', metadata: { efficiency: 5.0 } },
@@ -307,20 +307,20 @@ export const UNLOCKABLE_RECIPES = [
     name: 'Scanner',
     description: 'Increases scan radius for workers.',
     output: { itemType: 'scanner', count: 1 },
-    cost: { data: 40, energy: 20 } as Record<string, number>,
+    cost: { rp: 400, data: 200 } as Record<string, number>,
   },
   {
     id: 'signal_booster',
     name: 'Signal Booster',
     description: 'Boosts relay node speed.',
     output: { itemType: 'signal_booster', count: 1 },
-    cost: { ore: 60, energy: 40 } as Record<string, number>,
+    cost: { data: 600 } as Record<string, number>,
   },
   {
     id: 'overclock_kit',
     name: 'Overclock Kit',
     description: 'Temporary 2x speed boost.',
     output: { itemType: 'overclock_kit', count: 1 },
-    cost: { ore: 80, energy: 60, data: 40 } as Record<string, number>,
+    cost: { data: 800, rp: 400 } as Record<string, number>,
   },
 ];

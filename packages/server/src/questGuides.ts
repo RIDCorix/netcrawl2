@@ -80,13 +80,13 @@ Your worker will appear as a colored dot on the Hub node. Check the **Workers pa
   q_first_harvest: [
     { title: 'Understanding Resources', content: `The network has 3 resource types:
 
-- **Energy** (yellow) -- Powers everything
-- **Ore** (purple) -- Used for crafting
-- **Data** (blue) -- Advanced recipes
+- **Data** (blue) -- Primary currency, mined from resource nodes
+- **RP** (purple) -- Research points, earned from compute nodes
+- **Credits** (amber) -- Premium currency, from API nodes and quests
 
 Resource nodes produce drops when mined. You need a **Pickaxe** to mine.` },
 
-    { title: 'Unlock a Resource Node', content: `Click on the **Ore Mine** node. If it is locked, click **"Unlock"** and spend the required Energy.
+    { title: 'Unlock a Resource Node', content: `Click on a **Data Mine** node. If it is locked, click **"Unlock"** and spend the required Data.
 
 Once unlocked, the node shows its production rate (e.g., \`+3/harvest\`).` },
 
@@ -130,9 +130,8 @@ self.move("hub")    # travel back to Hub
 self.deposit()      # converts the drop to resources
 \`\`\`
 
-- \`ore_chunk\` becomes **Ore**
-- \`energy_crystal\` becomes **Energy**
-- \`data_shard\` becomes **Data**` },
+- \`data_fragment\` becomes **Data**
+- \`rp_shard\` becomes **RP**` },
 
     { title: 'Complete Mining Loop', content: `A complete mining loop:
 
@@ -156,7 +155,7 @@ Click on your **worker dot** to see its logs and current status in the right pan
 | Type | Description |
 |------|-------------|
 | **Hub** | Your base, always unlocked |
-| **Resource** | Produces energy, ore, or data |
+| **Resource** | Produces data when mined |
 | **Relay** | Network infrastructure |
 | **Locked** | Unknown, costs resources to unlock |` },
 
@@ -172,11 +171,11 @@ Unlocking nodes expands your network and gives workers more places to operate.
 
 | Type | Python Analogy | Color |
 |------|---------------|-------|
-| Energy | \`int\` | Yellow |
-| Ore | \`str\` | Purple |
-| Data | \`float\` | Blue |
+| Data | \`int\` | Blue |
+| RP | \`str\` | Purple |
+| Credits | \`float\` | Amber |
 
-Deploy miners to each resource type to collect all three.` },
+Deploy miners to resource nodes and complete API requests to earn all three.` },
   ],
 
   q_for_loop: [
@@ -226,11 +225,11 @@ for item in items:
     total += item
 \`\`\`
 
-Your ore counter works the same way. Each deposit adds to the total. Reach **100 ore** to complete this quest.
+Your data counter works the same way. Each deposit adds to the total. Reach **100 data** to complete this quest.
 
 **Tips to speed up:**
 - Deploy multiple miners
-- Upgrade the Ore Mine node
+- Upgrade the Data Mine node
 - Install harvest speed chips` },
   ],
 
@@ -278,7 +277,7 @@ def bfs(start, end):
             return path
 \`\`\`
 
-Diversify: deposit both **ore** and **energy** (10+ each).` },
+Diversify: deposit **data** from multiple nodes (10+ each).` },
   ],
 
   q_relay_network: [
@@ -404,7 +403,7 @@ while True:
 data = collections.deque(maxlen=100)
 \`\`\`
 
-Accumulate **200+ ore** and **200+ energy** to prove your efficiency.
+Accumulate **200+ data** and **10+ RP** to prove your efficiency.
 
 **Reward:** The unique **Memory Allocator** pickaxe (3.0x efficiency).` },
   ],
@@ -429,7 +428,7 @@ Unlock **ALL nodes** and craft **ALL recipes** to demonstrate mastery.
 
 In NetCrawl, that means:
 - **20+ workers** deployed (massive workforce)
-- **500+ ore** deposited (sustained production)
+- **500+ data** deposited (sustained production)
 
 \`\`\`python
 # You've mastered:

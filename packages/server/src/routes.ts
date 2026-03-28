@@ -451,8 +451,8 @@ router.get('/worker-classes', (req: Request, res: Response) => {
 // ── Build System (empty → structure) ──────────────────────────────────────
 
 const BUILD_COSTS: Record<string, Record<string, number>> = {
-  cache: { ore: 40, data: 30, energy: 20 },
-  api: { ore: 30, data: 40, energy: 30 },
+  cache: { data: 1500, rp: 5 },
+  api: { data: 2000, rp: 8 },
 };
 
 router.post('/node/build', (req: Request, res: Response) => {

@@ -159,9 +159,9 @@ export function WorkerDetailPanel() {
 
             {worker.holding && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Package size={12} style={{ color: 'var(--energy-color)' }} />
+                <Package size={12} style={{ color: 'var(--accent)' }} />
                 <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Holding:</span>
-                <span style={{ fontSize: 11, color: 'var(--energy-color)', fontFamily: 'var(--font-mono)' }}>
+                <span style={{ fontSize: 11, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>
                   {worker.holding.amount}× {worker.holding.type}
                 </span>
               </div>

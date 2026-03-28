@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Pickaxe, Shield, Radio, Package, Zap, Mountain, Database, Search, Hammer, Check, Cpu, Gift } from 'lucide-react';
+import { X, Pickaxe, Shield, Radio, Package, Database, Search, Hammer, Check, Cpu, Star, Gift } from 'lucide-react';
 import { useGameStore, InventoryItem, Chip } from '../store/gameStore';
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
@@ -10,7 +10,7 @@ import { ITEM_LABELS, ITEM_COLORS, RARITY_COLORS } from '../constants/colors';
 const ITEM_ICONS: Record<string, any> = {
   pickaxe_basic: Pickaxe, pickaxe_iron: Pickaxe, pickaxe_diamond: Pickaxe,
   shield: Shield, beacon: Radio,
-  ore_chunk: Mountain, energy_crystal: Zap, data_shard: Database,
+  data_fragment: Database, rp_shard: Cpu,
   chip_pack_basic: Gift, chip_pack_premium: Gift,
 };
 
@@ -19,7 +19,7 @@ const ITEM_ICONS: Record<string, any> = {
 const INV_TABS = [
   { key: 'all', label: 'All' },
   { key: 'equipment', label: 'Equipment', types: ['pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond', 'shield', 'beacon'] },
-  { key: 'materials', label: 'Materials', types: ['ore_chunk', 'energy_crystal', 'data_shard'] },
+  { key: 'materials', label: 'Materials', types: ['data_fragment', 'rp_shard'] },
   { key: 'packs', label: 'Packs', types: ['chip_pack_basic', 'chip_pack_premium'] },
 ];
 
@@ -36,7 +36,7 @@ interface Recipe {
   name: string;
   description: string;
   output: { itemType: string; count: number; metadata?: { efficiency?: number } };
-  cost: { ore?: number; energy?: number; data?: number };
+  cost: { data?: number; rp?: number; credits?: number };
   affordable: boolean;
 }
 
@@ -116,9 +116,9 @@ function CraftSlot({ recipe, dimmed, onCraft }: { recipe: Recipe; dimmed: boolea
       </span>
       {/* Cost indicators */}
       <div style={{ position: 'absolute', bottom: -2, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 1 }}>
-        {recipe.cost.energy !== undefined && <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--energy-color)' }} />}
-        {recipe.cost.ore !== undefined && <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--ore-color)' }} />}
         {recipe.cost.data !== undefined && <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--data-color)' }} />}
+        {recipe.cost.rp !== undefined && <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--rp-color)' }} />}
+        {recipe.cost.credits !== undefined && <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--credits-color)' }} />}
       </div>
     </button>
   );
@@ -188,9 +188,9 @@ function CraftConfirm({ recipe, onConfirm, onCancel, crafting }: {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {recipe.cost.energy !== undefined && <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--energy-color)', background: 'rgba(255,211,42,0.08)', padding: '2px 8px', borderRadius: 'var(--radius-sm)' }}>-{recipe.cost.energy} energy</span>}
-          {recipe.cost.ore !== undefined && <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ore-color)', background: 'rgba(167,139,250,0.08)', padding: '2px 8px', borderRadius: 'var(--radius-sm)' }}>-{recipe.cost.ore} ore</span>}
           {recipe.cost.data !== undefined && <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--data-color)', background: 'rgba(69,170,242,0.08)', padding: '2px 8px', borderRadius: 'var(--radius-sm)' }}>-{recipe.cost.data} data</span>}
+          {recipe.cost.rp !== undefined && <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--rp-color)', background: 'rgba(167,139,250,0.08)', padding: '2px 8px', borderRadius: 'var(--radius-sm)' }}>-{recipe.cost.rp} RP</span>}
+          {recipe.cost.credits !== undefined && <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--credits-color)', background: 'rgba(245,158,11,0.08)', padding: '2px 8px', borderRadius: 'var(--radius-sm)' }}>-{recipe.cost.credits} credits</span>}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={onCancel} style={{ flex: 1, padding: '8px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer' }}>Cancel</button>
@@ -252,7 +252,7 @@ function ChipPackSection() {
               <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{p.description}</div>
               <div style={{ display: 'flex', gap: 4 }}>
                 {Object.entries(p.cost).map(([k, v]) => (
-                  <span key={k} style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: k === 'energy' ? 'var(--energy-color)' : k === 'ore' ? 'var(--ore-color)' : 'var(--data-color)' }}>
+                  <span key={k} style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: k === 'data' ? 'var(--data-color)' : k === 'rp' ? 'var(--rp-color)' : 'var(--credits-color)' }}>
                     {v as number} {k}
                   </span>
                 ))}
@@ -589,9 +589,9 @@ export function InventoryPanel() {
                 background: 'var(--bg-primary)', border: '1px solid var(--border)',
               }}>
                 {[
-                  { icon: Zap, label: 'Energy', value: resources.energy, color: 'var(--energy-color)' },
-                  { icon: Mountain, label: 'Ore', value: resources.ore, color: 'var(--ore-color)' },
                   { icon: Database, label: 'Data', value: resources.data, color: 'var(--data-color)' },
+                  { icon: Cpu, label: 'RP', value: resources.rp, color: 'var(--rp-color)' },
+                  { icon: Star, label: 'Credits', value: resources.credits, color: 'var(--credits-color)' },
                 ].map(r => (
                   <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <r.icon size={11} style={{ color: r.color }} />

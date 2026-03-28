@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Zap, Mountain, Database, Lock, AlertTriangle, MousePointer, Upload, Pickaxe, ArrowUp, Info } from 'lucide-react';
+import { X, Database, Cpu, Star, Lock, AlertTriangle, MousePointer, Upload, Pickaxe, ArrowUp, Info } from 'lucide-react';
 import { useGameStore, GameNode, Resources } from '../store/gameStore';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -8,8 +8,8 @@ import { NODE_DIALOG_REGISTRY, NodeDialogConfig, NodeInfoDialog } from './NodeIn
 import { DeployDialog } from './DeployDialog';
 
 function CostBadge({ cost }: { cost: Partial<Resources> }) {
-  const icons: any = { energy: Zap, ore: Mountain, data: Database };
-  const colors: any = { energy: 'var(--energy-color)', ore: 'var(--ore-color)', data: 'var(--data-color)' };
+  const icons: any = { data: Database, rp: Cpu, credits: Star };
+  const colors: any = { data: 'var(--data-color)', rp: 'var(--rp-color)', credits: 'var(--credits-color)' };
   return (
     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
       {Object.entries(cost).map(([key, val]) => {
@@ -234,8 +234,8 @@ export function NodeDetailPanel() {
     Object.entries(cost).every(([k, v]) => (resources as any)[k] >= v);
 
   const BUILD_COSTS: Record<string, Record<string, number>> = {
-    cache: { ore: 40, data: 30, energy: 20 },
-    api: { ore: 30, data: 40, energy: 30 },
+    cache: { data: 1500, rp: 5 },
+    api: { data: 2000, rp: 8 },
   };
 
   const handleBuild = async (structureType: string) => {
@@ -257,8 +257,7 @@ export function NodeDetailPanel() {
     if (n.type === 'infected') return 'var(--danger)';
     if (n.type === 'hub') return 'var(--accent)';
     if (n.type === 'resource') {
-      const colors: any = { energy: 'var(--energy-color)', ore: 'var(--ore-color)', data: 'var(--data-color)' };
-      return colors[n.data.resource || ''] || 'var(--accent)';
+      return 'var(--data-color)';
     }
     if (n.type === 'relay') return 'var(--accent-secondary)';
     if (n.type === 'cache') return '#a78bfa';

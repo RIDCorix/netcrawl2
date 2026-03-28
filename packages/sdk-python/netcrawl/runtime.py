@@ -74,7 +74,7 @@ class RuntimeItem:
         Mine the current node using this pickaxe.
         Creates a drop on the node floor. Use worker.collect() to pick it up.
 
-        Returns: { ok: True, drop: { type: 'ore_chunk', amount: 1 } }
+        Returns: { ok: True, drop: { type: 'data_fragment', amount: 1 } }
         Fails if: not mineable, node depleted, no pickaxe equipped.
         """
         if self._worker is None:

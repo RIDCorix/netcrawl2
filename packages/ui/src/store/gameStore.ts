@@ -1,9 +1,9 @@
 import { create } from 'zustand';
 
 export interface Resources {
-  energy: number;
-  ore: number;
   data: number;
+  rp: number;
+  credits: number;
 }
 
 export type ChipRarity = 'common' | 'uncommon' | 'rare' | 'legendary';
@@ -38,7 +38,7 @@ export interface NodeData {
 
 export interface Drop {
   id: string;
-  type: 'ore_chunk' | 'energy_crystal' | 'data_shard';
+  type: 'data_fragment' | 'rp_shard';
   amount: number;
 }
 
@@ -57,7 +57,7 @@ export interface GameEdge {
 
 export interface InventoryItem {
   id: string;
-  itemType: 'pickaxe_basic' | 'pickaxe_iron' | 'pickaxe_diamond' | 'shield' | 'beacon' | 'ore_chunk' | 'energy_crystal' | 'data_shard';
+  itemType: 'pickaxe_basic' | 'pickaxe_iron' | 'pickaxe_diamond' | 'shield' | 'beacon' | 'data_fragment' | 'rp_shard';
   count: number;
   metadata?: {
     efficiency?: number;
@@ -142,7 +142,7 @@ interface GameActions {
 export const useGameStore = create<GameState & GameActions>((set) => ({
   nodes: [],
   edges: [],
-  resources: { energy: 0, ore: 0, data: 0 },
+  resources: { data: 0, rp: 0, credits: 0 },
   tick: 0,
   gameOver: false,
   workers: [],

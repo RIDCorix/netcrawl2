@@ -20,7 +20,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { useGameStore, GameNode, GameEdge, Worker } from '../store/gameStore';
 import React, { useEffect, useCallback } from 'react';
-import { Zap, Mountain, Database, Shield, Lock, AlertTriangle, Radio, Pickaxe, Package, Cpu, Box, HardDrive, Globe } from 'lucide-react';
+import { Database, Shield, Lock, AlertTriangle, Radio, Pickaxe, Package, Cpu, Box, HardDrive, Globe } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 // ── Worker Dots Row (with enter/leave animations) ───────────────────────────
@@ -267,10 +267,8 @@ function HubNode({ data, selected }: any) {
 }
 
 function ResourceNode({ data, selected }: any) {
-  const icons: any = { energy: Zap, ore: Mountain, data: Database };
-  const colors: any = { energy: 'var(--energy-color)', ore: 'var(--ore-color)', data: 'var(--data-color)' };
-  const Icon = icons[data.resource] || Zap;
-  const color = colors[data.resource] || 'var(--text-muted)';
+  const Icon = Database;
+  const color = 'var(--data-color)';
   const dropsCount = Array.isArray(data.drops) ? data.drops.length : 0;
   const isDepleted = !!data.depleted;
 
