@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Mountain, Database, Wifi, WifiOff, ShieldAlert, Activity, Package, Trophy } from 'lucide-react';
+import { Zap, Mountain, Database, Wifi, WifiOff, ShieldAlert, Activity, Package, Trophy, BookOpen } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useRef, useEffect, useState } from 'react';
 
@@ -71,7 +71,7 @@ function ResourceItem({ icon: Icon, value, label, color, prevValue }: {
 }
 
 export function ResourceBar() {
-  const { resources, tick, connected, gameOver, inventoryOpen, toggleInventory, playerInventory, achievements, toggleAchievements } = useGameStore();
+  const { resources, tick, connected, gameOver, inventoryOpen, toggleInventory, playerInventory, achievements, toggleAchievements, questSummary, toggleQuests } = useGameStore();
   const totalItems = playerInventory.reduce((sum, i) => sum + i.count, 0);
   const prevRef = useRef(resources);
   const [prev, setPrev] = useState(resources);
@@ -150,6 +150,28 @@ export function ResourceBar() {
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />
+
+      {/* Quests */}
+      <motion.button
+        onClick={toggleQuests}
+        whileTap={{ scale: 0.96 }}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 4,
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-sm)',
+          padding: '5px 8px',
+          color: 'var(--text-muted)',
+          cursor: 'pointer', flexShrink: 0,
+        }}
+      >
+        <BookOpen size={12} style={{ color: '#60a5fa' }} />
+        {questSummary.completed > 0 && (
+          <span style={{ fontSize: 9, fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#4ade80' }}>
+            {questSummary.completed}
+          </span>
+        )}
+      </motion.button>
 
       {/* Achievements */}
       <motion.button

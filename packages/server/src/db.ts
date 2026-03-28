@@ -33,7 +33,7 @@ export interface Drop {
 // === Player Inventory ===
 export interface InventoryItem {
   id: string;
-  itemType: 'pickaxe_basic' | 'pickaxe_iron' | 'pickaxe_diamond' | 'shield' | 'beacon' | 'ore_chunk' | 'energy_crystal' | 'data_shard' | 'chip_pack_basic' | 'chip_pack_premium';
+  itemType: 'pickaxe_basic' | 'pickaxe_iron' | 'pickaxe_diamond' | 'shield' | 'beacon' | 'ore_chunk' | 'energy_crystal' | 'data_shard' | 'chip_pack_basic' | 'chip_pack_premium' | 'scanner' | 'signal_booster' | 'overclock_kit' | 'antivirus_module' | 'memory_allocator' | 'fullstack_pickaxe';
   count: number;
   metadata?: {
     efficiency?: number;
@@ -133,6 +133,14 @@ export const RECIPES: Recipe[] = [
   },
 ];
 
+// === Quest System ===
+export interface QuestState {
+  questStatus: Record<string, 'locked' | 'available' | 'completed' | 'claimed'>;
+  activePassives: Record<string, { description: string; effect: Record<string, number> }>;
+  unlockedRecipes: string[];
+  claimedAt: Record<string, string>;
+}
+
 // === Achievement System ===
 export interface AchievementState {
   unlocked: Record<string, string>; // id -> ISO timestamp
@@ -146,6 +154,7 @@ interface Store {
   worker_logs: WorkerLogRow[];
   next_log_id: number;
   achievement_state: AchievementState;
+  quest_state: QuestState;
 }
 
 // ── Initial data ──────────────────────────────────────────────────────────────
@@ -190,6 +199,7 @@ const INITIAL_STORE: Store = {
   worker_logs: [],
   next_log_id: 1,
   achievement_state: { unlocked: {}, stats: {}, statArrays: {} },
+  quest_state: { questStatus: {}, activePassives: {}, unlockedRecipes: [], claimedAt: {} },
 };
 
 // ── Store management ──────────────────────────────────────────────────────────
@@ -245,6 +255,10 @@ export function initDb() {
       // Migrate: add achievement_state
       if (!store.achievement_state) {
         store.achievement_state = { unlocked: {}, stats: {}, statArrays: {} };
+      }
+      // Migrate: add quest_state
+      if (!store.quest_state) {
+        store.quest_state = { questStatus: {}, activePassives: {}, unlockedRecipes: [], claimedAt: {} };
       }
     } catch {
       console.warn('[DB] Could not parse state file, starting fresh');
@@ -458,4 +472,39 @@ export function markAchievementUnlocked(id: string): void {
 
 export function isAchievementUnlocked(id: string): boolean {
   return !!store.achievement_state.unlocked[id];
+}
+
+// ── Quest Helpers ────────────────────────────────────────────────────────────
+
+export function getQuestState(): QuestState {
+  return store.quest_state;
+}
+
+export function getQuestStatus(questId: string): QuestState['questStatus'][string] | undefined {
+  return store.quest_state.questStatus[questId];
+}
+
+export function setQuestStatus(questId: string, status: 'locked' | 'available' | 'completed' | 'claimed') {
+  store.quest_state.questStatus[questId] = status;
+  if (status === 'claimed') {
+    store.quest_state.claimedAt[questId] = new Date().toISOString();
+  }
+}
+
+export function addActivePassive(id: string, description: string, effect: Record<string, number>) {
+  store.quest_state.activePassives[id] = { description, effect };
+}
+
+export function getActivePassives(): Record<string, { description: string; effect: Record<string, number> }> {
+  return store.quest_state.activePassives || {};
+}
+
+export function addUnlockedRecipe(recipeId: string) {
+  if (!store.quest_state.unlockedRecipes.includes(recipeId)) {
+    store.quest_state.unlockedRecipes.push(recipeId);
+  }
+}
+
+export function getUnlockedRecipes(): string[] {
+  return store.quest_state.unlockedRecipes || [];
 }

@@ -31,6 +31,11 @@ export function useGameState() {
           updateFromServer(msg.payload);
         } else if (msg.type === 'ACHIEVEMENT_UNLOCKED') {
           useGameStore.getState().addAchievementToast(msg.payload);
+        } else if (msg.type === 'QUEST_AVAILABLE' || msg.type === 'QUEST_COMPLETED') {
+          useGameStore.getState().addQuestToast({
+            ...msg.payload,
+            type: msg.type === 'QUEST_AVAILABLE' ? 'available' : 'completed',
+          });
         }
       } catch (err) {
         console.error('[WS] Parse error:', err);

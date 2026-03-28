@@ -10,6 +10,8 @@ import { WorkerDetailPanel } from './components/WorkerDetailPanel';
 import { InventoryPanel } from './components/InventoryPanel';
 import { AchievementToast } from './components/AchievementToast';
 import { AchievementsPanel } from './components/AchievementsPanel';
+import { QuestTree } from './components/QuestTree';
+import { QuestToast } from './components/QuestToast';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,16 +23,18 @@ function GameView() {
   useGameState();
   const toggleInventory = useGameStore(s => s.toggleInventory);
   const toggleAchievements = useGameStore(s => s.toggleAchievements);
+  const toggleQuests = useGameStore(s => s.toggleQuests);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
       if (e.key === 'e' || e.key === 'E') toggleInventory();
       if (e.key === 'a' || e.key === 'A') toggleAchievements();
+      if (e.key === 'q' || e.key === 'Q') toggleQuests();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [toggleInventory, toggleAchievements]);
+  }, [toggleInventory, toggleAchievements, toggleQuests]);
 
   return (
     <div style={{
@@ -56,7 +60,9 @@ function GameView() {
       <WorkerListPanel />
       <InventoryPanel />
       <AchievementsPanel />
+      <QuestTree />
       <AchievementToast />
+      <QuestToast />
     </div>
   );
 }

@@ -18,6 +18,8 @@ import {
   NODE_UPGRADE_DEFS, getUpgradeKey, CHIP_PACK_DEFS, rollChip,
 } from './upgradeDefinitions.js';
 import { checkAchievements, getAchievementList, getAchievementSummary, RARITY_ORDINAL } from './achievements.js';
+import { checkQuests, claimQuestReward, getQuestList, getQuestEdges, getQuestSummary } from './quests.js';
+import { getActivePassives, getUnlockedRecipes } from './db.js';
 import { incrementStat, addToStatArray, setStatMax } from './db.js';
 
 export const router: Router = Router();
@@ -48,7 +50,7 @@ function getWorkspacePath(): string {
 
 function broadcastFullState() {
   const state = getGameState();
-  broadcast({ type: 'STATE_UPDATE', payload: { ...state, workers: getWorkers(), achievements: getAchievementSummary() } });
+  broadcast({ type: 'STATE_UPDATE', payload: { ...state, workers: getWorkers(), achievements: getAchievementSummary(), questSummary: getQuestSummary() } });
 }
 
 // GET /api/state
@@ -111,6 +113,7 @@ router.post('/unlock', (req: Request, res: Response) => {
   broadcast({ type: 'STATE_UPDATE', payload: { ...state, nodes: newNodes, resources: newResources, workers: getWorkers(), achievements: getAchievementSummary() } });
   incrementStat('total_nodes_unlocked', 1);
   checkAchievements();
+  checkQuests();
   res.json({ ok: true, resources: newResources });
 });
 
@@ -168,6 +171,7 @@ router.post('/craft', (req: Request, res: Response) => {
   incrementStat('total_crafts', 1);
   addToStatArray('crafted_recipes', recipe.id);
   checkAchievements();
+  checkQuests();
 
   const inventory = getPlayerInventory();
   const newItem = inventory.find(i => i.itemType === recipe.output.itemType);
@@ -264,6 +268,7 @@ router.post('/deploy', async (req: Request, res: Response) => {
   broadcastFullState();
   incrementStat('total_workers_deployed', 1);
   checkAchievements();
+  checkQuests();
   res.json({ ok: true, workerId, status: 'queued' });
 });
 
@@ -570,6 +575,7 @@ router.post('/node/upgrade', (req: Request, res: Response) => {
   incrementStat('total_upgrades', 1);
   setStatMax('max_node_level', nextUpgrade.level);
   checkAchievements();
+  checkQuests();
   res.json({ ok: true, level: nextUpgrade.level, name: nextUpgrade.name });
 });
 
@@ -600,6 +606,7 @@ router.post('/node/chip/insert', (req: Request, res: Response) => {
   broadcastFullState();
   incrementStat('total_chips_installed', 1);
   checkAchievements();
+  checkQuests();
   res.json({ ok: true });
 });
 
@@ -687,6 +694,7 @@ router.post('/chip-pack/open', (req: Request, res: Response) => {
     setStatMax('highest_rarity', RARITY_ORDINAL[c.rarity] ?? 0);
   }
   checkAchievements();
+  checkQuests();
   res.json({ ok: true, chips: newChips });
 });
 
@@ -707,6 +715,27 @@ router.get('/chip-packs', (req: Request, res: Response) => {
 // GET /api/achievements
 router.get('/achievements', (req: Request, res: Response) => {
   res.json({ achievements: getAchievementList() });
+});
+
+// ── Quest System ─────────────────────────────────────────────────────────────
+
+// GET /api/quests — full quest tree with status and progress
+router.get('/quests', (req: Request, res: Response) => {
+  res.json({ quests: getQuestList(), edges: getQuestEdges() });
+});
+
+// POST /api/quests/:questId/claim — claim quest reward
+router.post('/quests/:questId/claim', (req: Request, res: Response) => {
+  const questId = req.params.questId as string;
+  const result = claimQuestReward(questId);
+  if (!result.ok) return res.status(400).json({ error: result.error });
+  broadcastFullState();
+  res.json({ ok: true });
+});
+
+// GET /api/passives — active passive effects
+router.get('/passives', (req: Request, res: Response) => {
+  res.json({ passives: getActivePassives() });
 });
 
 // POST /api/worker/action (called by worker subprocesses)

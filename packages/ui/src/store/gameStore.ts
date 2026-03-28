@@ -100,6 +100,10 @@ export interface GameState {
   };
   achievementToasts: Array<{ id: string; name: string; description: string; category: string; timestamp: number }>;
   achievementsOpen: boolean;
+  questSummary: { total: number; claimed: number; completed: number; available: number };
+  questsOpen: boolean;
+  selectedQuestId: string | null;
+  questToasts: Array<{ id: string; name: string; type: 'available' | 'completed'; timestamp: number }>;
   // Deploy wizard — edge selection mode
   edgeSelectMode: {
     fieldName: string;
@@ -115,6 +119,10 @@ interface GameActions {
   updateFromServer: (data: any) => void;
   toggleInventory: () => void;
   toggleAchievements: () => void;
+  toggleQuests: () => void;
+  selectQuest: (questId: string | null) => void;
+  addQuestToast: (toast: { id: string; name: string; type: 'available' | 'completed' }) => void;
+  removeQuestToast: (id: string) => void;
   addAchievementToast: (toast: { id: string; name: string; description: string; category: string }) => void;
   removeAchievementToast: (id: string) => void;
   setEdgeSelectMode: (mode: GameState['edgeSelectMode']) => void;
@@ -137,6 +145,10 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   achievements: { unlocked: {}, stats: {}, totalUnlocked: 0, totalAchievements: 0 },
   achievementToasts: [],
   achievementsOpen: false,
+  questSummary: { total: 0, claimed: 0, completed: 0, available: 0 },
+  questsOpen: false,
+  selectedQuestId: null,
+  questToasts: [],
   edgeSelectMode: null,
 
   setState: (partial) => set((state) => ({ ...state, ...partial })),
@@ -146,6 +158,14 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   setEdgeSelectMode: (mode) => set({ edgeSelectMode: mode }),
   toggleInventory: () => set((state) => ({ inventoryOpen: !state.inventoryOpen })),
   toggleAchievements: () => set((state) => ({ achievementsOpen: !state.achievementsOpen })),
+  toggleQuests: () => set((state) => ({ questsOpen: !state.questsOpen })),
+  selectQuest: (questId) => set({ selectedQuestId: questId }),
+  addQuestToast: (toast) => set((state) => ({
+    questToasts: [...state.questToasts.slice(-2), { ...toast, timestamp: Date.now() }],
+  })),
+  removeQuestToast: (id) => set((state) => ({
+    questToasts: state.questToasts.filter(t => t.id !== id),
+  })),
   addAchievementToast: (toast) => set((state) => ({
     achievementToasts: [...state.achievementToasts.slice(-2), { ...toast, timestamp: Date.now() }],
   })),
@@ -165,6 +185,7 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
       playerInventory: data.playerInventory ?? state.playerInventory,
       playerChips: data.playerChips ?? state.playerChips,
       achievements: data.achievements ?? state.achievements,
+      questSummary: data.questSummary ?? state.questSummary,
     }));
   },
 }));

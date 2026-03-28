@@ -5,6 +5,8 @@ import {
 } from './db.js';
 import { broadcast } from './websocket.js';
 import { checkAchievements } from './achievements.js';
+import { checkQuests } from './quests.js';
+import { getActivePassives } from './db.js';
 
 // ── Per-worker action lock ──────────────────────────────────────────────────
 // Each worker can only do one action at a time. The lock resolves when the
@@ -26,9 +28,25 @@ function setLock(workerId: string, durationMs: number): void {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-const ACTION_DELAY = 1000; // ms for all actions
+const ACTION_DELAY = 1000;
 const MOVE_DELAY = 1000;
 const MINE_DELAY = 1000;
+
+/** Get aggregated passive multipliers from quest rewards */
+function getPassiveEffects(): Record<string, number> {
+  const passives = getActivePassives();
+  const agg: Record<string, number> = {};
+  for (const p of Object.values(passives)) {
+    for (const [k, v] of Object.entries(p.effect)) {
+      if (k.endsWith('_mult')) {
+        agg[k] = (agg[k] || 1) * v;
+      } else {
+        agg[k] = (agg[k] || 0) + v;
+      }
+    }
+  }
+  return agg;
+}
 
 function edgeExists(edges: any[], from: string, to: string): boolean {
   return edges.some(e =>
@@ -143,13 +161,15 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         return { ok: false, error: 'Not at a resource node' };
       }
       const chipEffects = getNodeChipEffects(currentNode);
+      const passiveEffects = getPassiveEffects();
       const resourceType = node.data.resource as keyof Resources;
       const baseRate = node.data.rate || 1;
       const rateBonus = chipEffects['production_rate'] || 0;
-      const rate = Math.floor((baseRate + rateBonus) * (chipEffects['harvest_speed_mult'] || 1));
+      const harvestMult = (chipEffects['harvest_speed_mult'] || 1) * (passiveEffects['global_harvest_speed_mult'] || 1);
+      const rate = Math.floor((baseRate + rateBonus) * harvestMult);
       const carrying = { ...worker.carrying } as Record<string, number>;
       const totalCarrying = Object.values(carrying).reduce((a, b) => a + b, 0);
-      const capacityBonus = chipEffects['capacity_bonus'] || 0;
+      const capacityBonus = (chipEffects['capacity_bonus'] || 0) + (passiveEffects['global_capacity_bonus'] || 0);
       const canCarry = Math.min(rate, (50 + capacityBonus) - totalCarrying);
       if (canCarry <= 0) return { ok: false, error: 'Carrying capacity full' };
 
@@ -158,7 +178,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
 
       carrying[resourceType] = (carrying[resourceType] || 0) + canCarry;
 
-      const harvestDelay = Math.round(ACTION_DELAY / (chipEffects['harvest_speed_mult'] || 1));
+      const harvestDelay = Math.round(ACTION_DELAY / harvestMult);
       setLock(workerId, harvestDelay);
       await workerLocks.get(workerId);
 
@@ -182,7 +202,9 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       if (!worker.equippedPickaxe) return { ok: false, error: 'No pickaxe equipped' };
 
       const mineChipEffects = getNodeChipEffects(currentNode);
-      const mineDelay = Math.round(MINE_DELAY / (mineChipEffects['harvest_speed_mult'] || 1));
+      const minePassives = getPassiveEffects();
+      const mineMult = (mineChipEffects['harvest_speed_mult'] || 1) * (minePassives['global_harvest_speed_mult'] || 1);
+      const mineDelay = Math.round(MINE_DELAY / mineMult);
 
       upsertWorker({ ...worker, status: 'harvesting' });
       broadcastFullState();
@@ -231,6 +253,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       broadcastFullState();
       incrementStat('total_mines', 1);
       checkAchievements();
+      checkQuests();
       return { ok: true, drop: { type: dropType, amount } };
     }
 
@@ -303,6 +326,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
           incrementStat('total_deposits', 1);
         }
         checkAchievements();
+      checkQuests();
         return { ok: true, deposited: held };
       }
 
@@ -321,6 +345,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       }
       incrementStat('total_deposits', 1);
       checkAchievements();
+      checkQuests();
       return { ok: true, deposited: carrying };
     }
 
@@ -359,6 +384,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       broadcastFullState();
       incrementStat('total_repairs', 1);
       checkAchievements();
+      checkQuests();
       return { ok: true };
     }
 
