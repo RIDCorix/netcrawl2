@@ -4,6 +4,7 @@ import { ResourceBar } from './components/ResourceBar';
 import { GameGraph } from './components/GameGraph';
 import { NodeDetailPanel } from './components/NodeDetailPanel';
 import { WorkerListPanel } from './components/WorkerListPanel';
+import { InventoryPanel } from './components/InventoryPanel';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,6 +23,7 @@ function GameView() {
       </div>
       <NodeDetailPanel />
       <WorkerListPanel />
+      <InventoryPanel />
     </div>
   );
 }

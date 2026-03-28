@@ -1,8 +1,9 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Zap, Mountain, Database, Play, Lock, AlertTriangle, MousePointer, PauseCircle } from 'lucide-react';
-import { useGameStore, GameNode, Resources } from '../store/gameStore';
+import { X, Zap, Mountain, Database, Play, Lock, AlertTriangle, MousePointer, PauseCircle, Pickaxe } from 'lucide-react';
+import { useGameStore, GameNode, Resources, InventoryItem } from '../store/gameStore';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { CraftPanel } from './CraftPanel';
 
 function CostBadge({ cost }: { cost: Partial<Resources> }) {
   const icons: any = { energy: Zap, ore: Mountain, data: Database };
@@ -59,12 +60,20 @@ function Button({ onClick, children, variant = 'primary', disabled = false }: {
   );
 }
 
-function DeployPanel({ nodeId }: { nodeId: string }) {
-  const { workers } = useGameStore();
+const PICKAXE_ITEM_TYPES = ['pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond'];
+const PICKAXE_LABELS: Record<string, string> = {
+  pickaxe_basic: 'Basic Pickaxe (eff 1.0×)',
+  pickaxe_iron: 'Iron Pickaxe (eff 1.5×)',
+  pickaxe_diamond: 'Diamond Pickaxe (eff 2.5×)',
+};
+
+function DeployPanel({ nodeId, workerClasses }: { nodeId: string; workerClasses: any[] }) {
+  const { workers, playerInventory } = useGameStore();
   const [revisions, setRevisions] = useState<any[]>([]);
   const [classes, setClasses] = useState<string[]>([]);
   const [selectedRevision, setSelectedRevision] = useState('HEAD');
   const [selectedClass, setSelectedClass] = useState('');
+  const [selectedPickaxe, setSelectedPickaxe] = useState('');
   const [deploying, setDeploying] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -72,6 +81,17 @@ function DeployPanel({ nodeId }: { nodeId: string }) {
   const blockingWorker = workers.find(
     w => w.node_id === nodeId && (w.status === 'running' || w.status === 'suspending')
   );
+
+  // Available pickaxes in inventory
+  const availablePickaxes = playerInventory.filter(i => PICKAXE_ITEM_TYPES.includes(i.itemType) && i.count > 0);
+
+  // Check if selected class requires a pickaxe
+  const selectedClassEntry = workerClasses.find(c => c.class_name === selectedClass);
+  const requiresPickaxe = selectedClassEntry?.fields
+    ? Object.values(selectedClassEntry.fields as Record<string, any>).some(
+        (f: any) => f.item_type === 'Pickaxe' || f.type === 'item'
+      )
+    : false;
 
   useEffect(() => {
     axios.get('/api/revisions').then(r => {
@@ -86,16 +106,27 @@ function DeployPanel({ nodeId }: { nodeId: string }) {
     }).catch(() => {});
   }, []);
 
+  // Auto-select first available pickaxe
+  useEffect(() => {
+    if (availablePickaxes.length > 0 && !selectedPickaxe) {
+      setSelectedPickaxe(availablePickaxes[0].itemType);
+    }
+  }, [availablePickaxes, selectedPickaxe]);
+
   const handleDeploy = async () => {
     if (!selectedClass) return;
     setDeploying(true);
     setMessage('');
     try {
-      const res = await axios.post('/api/deploy', {
+      const body: any = {
         nodeId,
         className: selectedClass,
         commitHash: selectedRevision,
-      });
+      };
+      if (requiresPickaxe && selectedPickaxe) {
+        body.equippedItems = { pickaxe: selectedPickaxe };
+      }
+      const res = await axios.post('/api/deploy', body);
       setMessage(`Deployed worker: ${res.data.workerId}`);
     } catch (err: any) {
       setMessage('Error: ' + (err.response?.data?.error || err.message));
@@ -140,6 +171,48 @@ function DeployPanel({ nodeId }: { nodeId: string }) {
           </select>
         </div>
 
+        {/* Pickaxe selector — shown for classes that require a pickaxe OR always if pickaxes are available */}
+        {availablePickaxes.length > 0 && (
+          <div>
+            <label className="text-xs block mb-1 flex items-center gap-1" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+              <Pickaxe size={11} />
+              Pickaxe (Equipment)
+            </label>
+            <select
+              style={selectStyle}
+              value={selectedPickaxe}
+              onChange={e => setSelectedPickaxe(e.target.value)}
+            >
+              <option value="">-- None --</option>
+              {availablePickaxes.map(item => (
+                <option key={item.itemType} value={item.itemType}>
+                  {PICKAXE_LABELS[item.itemType] || item.itemType} (×{item.count})
+                </option>
+              ))}
+            </select>
+            {requiresPickaxe && !selectedPickaxe && (
+              <div className="text-xs mt-1" style={{ color: '#f87171', fontFamily: 'var(--font-mono)' }}>
+                This class requires a pickaxe
+              </div>
+            )}
+          </div>
+        )}
+
+        {availablePickaxes.length === 0 && requiresPickaxe && (
+          <div
+            className="flex items-center gap-1.5 px-2 py-1.5 rounded text-xs"
+            style={{
+              background: 'rgba(239,68,68,0.08)',
+              border: '1px solid rgba(239,68,68,0.25)',
+              color: '#f87171',
+              fontFamily: 'var(--font-mono)',
+            }}
+          >
+            <Pickaxe size={11} />
+            No pickaxes in inventory — craft one first
+          </div>
+        )}
+
         {blockingWorker && (
           <div
             className="flex items-center gap-1.5 px-2 py-1.5 rounded text-xs"
@@ -154,7 +227,7 @@ function DeployPanel({ nodeId }: { nodeId: string }) {
             Suspend active worker first
           </div>
         )}
-        <Button onClick={handleDeploy} disabled={deploying || !selectedClass || !!blockingWorker}>
+        <Button onClick={handleDeploy} disabled={deploying || !selectedClass || !!blockingWorker || (requiresPickaxe && !selectedPickaxe && availablePickaxes.length === 0)}>
           {deploying ? 'Deploying...' : 'Deploy'}
         </Button>
 
@@ -177,8 +250,16 @@ export function NodeDetailPanel() {
   const [gathering, setGathering] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
   const [msg, setMsg] = useState('');
+  const [workerClasses, setWorkerClasses] = useState<any[]>([]);
 
   const node = nodes.find((n: any) => n.id === selectedNodeId);
+
+  useEffect(() => {
+    // Fetch worker classes to check if pickaxe is required
+    axios.get('/api/worker-classes').then(r => {
+      setWorkerClasses(r.data.classes || []);
+    }).catch(() => {});
+  }, []);
 
   const handleGather = async () => {
     if (!node) return;
@@ -272,6 +353,31 @@ export function NodeDetailPanel() {
             </div>
           ) : null}
 
+          {/* Depletion status */}
+          {node.data.depleted && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}>
+              <span className="text-xs" style={{ color: '#f87171', fontFamily: 'var(--font-mono)' }}>
+                DEPLETED — recovers in {node.data.depletedUntil ? Math.max(0, Math.ceil((node.data.depletedUntil - Date.now()) / 1000)) : '?'}s
+              </span>
+            </div>
+          )}
+
+          {/* Drops on node */}
+          {Array.isArray(node.data.drops) && node.data.drops.length > 0 && (
+            <div className="px-2 py-1.5 rounded" style={{ background: 'rgba(250,204,21,0.08)', border: '1px solid rgba(250,204,21,0.25)' }}>
+              <div className="text-xs font-semibold mb-1" style={{ color: '#facc15', fontFamily: 'var(--font-mono)' }}>
+                DROPS ON GROUND ({node.data.drops.length})
+              </div>
+              <div className="flex flex-col gap-0.5">
+                {node.data.drops.map((drop: any) => (
+                  <div key={drop.id} className="text-xs" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                    • {drop.type} ×{drop.amount}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Resource info */}
           {node.type === 'resource' && (
             <div style={{ borderTop: '1px solid var(--border)', paddingTop: '10px' }}>
@@ -286,6 +392,12 @@ export function NodeDetailPanel() {
                 <span className="text-xs" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Rate:</span>
                 <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>+{node.data.rate}/harvest</span>
               </div>
+              {node.data.mineable && (
+                <div className="flex items-center gap-2 mt-1">
+                  <Pickaxe size={11} style={{ color: 'var(--text-muted)' }} />
+                  <span className="text-xs" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>mineable</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -338,9 +450,16 @@ export function NodeDetailPanel() {
             )}
           </div>
 
+          {/* Craft panel (hub only) */}
+          {node.id === 'hub' && (
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
+              <CraftPanel />
+            </div>
+          )}
+
           {/* Deploy panel for hub and unlocked nodes */}
           {(node.id === 'hub' || node.data.unlocked) && !node.data.infected && (
-            <DeployPanel nodeId={node.id} />
+            <DeployPanel nodeId={node.id} workerClasses={workerClasses} />
           )}
         </motion.div>
       )}

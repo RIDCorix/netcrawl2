@@ -13,7 +13,18 @@ export interface NodeData {
   rate?: number;
   unlockCost?: Partial<Resources>;
   infected?: boolean;
+  mineable?: boolean;
+  drops?: Drop[];
+  mineCount?: number;
+  depleted?: boolean;
+  depletedUntil?: number;
   [key: string]: any;
+}
+
+export interface Drop {
+  id: string;
+  type: 'ore_chunk' | 'energy_crystal' | 'data_shard';
+  amount: number;
 }
 
 export interface GameNode {
@@ -29,6 +40,15 @@ export interface GameEdge {
   target: string;
 }
 
+export interface InventoryItem {
+  id: string;
+  itemType: 'pickaxe_basic' | 'pickaxe_iron' | 'pickaxe_diamond' | 'shield' | 'beacon' | 'ore_chunk' | 'energy_crystal' | 'data_shard';
+  count: number;
+  metadata?: {
+    efficiency?: number;
+  };
+}
+
 export interface Worker {
   id: string;
   node_id: string;
@@ -39,6 +59,8 @@ export interface Worker {
   carrying: Partial<Resources>;
   pid: number | null;
   deployed_at?: string;
+  holding?: Drop | null;
+  equippedPickaxe?: { itemType: string; efficiency: number } | null;
 }
 
 export interface GameState {
@@ -50,6 +72,8 @@ export interface GameState {
   workers: Worker[];
   connected: boolean;
   selectedNodeId: string | null;
+  playerInventory: InventoryItem[];
+  inventoryOpen: boolean;
 }
 
 interface GameActions {
@@ -57,6 +81,8 @@ interface GameActions {
   setConnected: (connected: boolean) => void;
   selectNode: (nodeId: string | null) => void;
   updateFromServer: (data: any) => void;
+  toggleInventory: () => void;
+  setInventory: (inventory: InventoryItem[]) => void;
 }
 
 export const useGameStore = create<GameState & GameActions>((set) => ({
@@ -68,10 +94,14 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   workers: [],
   connected: false,
   selectedNodeId: null,
+  playerInventory: [],
+  inventoryOpen: false,
 
   setState: (partial) => set((state) => ({ ...state, ...partial })),
   setConnected: (connected) => set({ connected }),
   selectNode: (nodeId) => set({ selectedNodeId: nodeId }),
+  toggleInventory: () => set((state) => ({ inventoryOpen: !state.inventoryOpen })),
+  setInventory: (inventory) => set({ playerInventory: inventory }),
 
   updateFromServer: (data) => {
     set((state) => ({
@@ -81,6 +111,7 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
       tick: data.tick ?? state.tick,
       gameOver: data.gameOver ?? state.gameOver,
       workers: data.workers ?? state.workers,
+      playerInventory: data.playerInventory ?? state.playerInventory,
     }));
   },
 }));

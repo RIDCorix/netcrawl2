@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Mountain, Database, Wifi, WifiOff } from 'lucide-react';
+import { Zap, Mountain, Database, Wifi, WifiOff, Package } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useRef, useEffect, useState } from 'react';
 
@@ -39,7 +39,8 @@ function ResourceItem({ icon: Icon, value, label, color }: {
 }
 
 export function ResourceBar() {
-  const { resources, tick, connected, gameOver } = useGameStore();
+  const { resources, tick, connected, gameOver, inventoryOpen, toggleInventory, playerInventory } = useGameStore();
+  const totalItems = playerInventory.reduce((sum, i) => sum + i.count, 0);
 
   return (
     <div
@@ -74,8 +75,52 @@ export function ResourceBar() {
         <ResourceItem icon={Database} value={resources.data} label="Data" color="var(--data-color)" />
       </div>
 
-      {/* Tick + connection */}
+      {/* Right side: Inventory + Tick + Connection */}
       <div className="flex items-center gap-3">
+        {/* Inventory button */}
+        <motion.button
+          onClick={toggleInventory}
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.96 }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            background: inventoryOpen ? 'var(--accent)' : 'var(--bg-glass)',
+            border: `1px solid ${inventoryOpen ? 'var(--accent)' : 'var(--border)'}`,
+            borderRadius: '8px',
+            padding: '6px 12px',
+            color: inventoryOpen ? '#000' : 'var(--text-muted)',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '12px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            transition: 'all 0.15s',
+            position: 'relative',
+          }}
+        >
+          <Package size={13} />
+          Inventory
+          {totalItems > 0 && (
+            <span
+              style={{
+                background: inventoryOpen ? '#000' : 'var(--accent)',
+                color: inventoryOpen ? 'var(--accent)' : '#000',
+                borderRadius: '999px',
+                fontSize: '10px',
+                fontWeight: 700,
+                width: '16px',
+                height: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {totalItems > 99 ? '99+' : totalItems}
+            </span>
+          )}
+        </motion.button>
+
         <div className="text-xs" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
           TICK #{tick}
         </div>

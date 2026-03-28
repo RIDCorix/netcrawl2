@@ -12,7 +12,7 @@ With env vars:
   NETCRAWL_API_URL=http://localhost:3001
   NETCRAWL_SCRIPT_PATH=C:/path/to/workers/collector.py
   NETCRAWL_CLASS_NAME=Collector
-  NETCRAWL_INJECTED={"route1": ["hub","r1","hub"], "route2": ["hub","r2"]}
+  NETCRAWL_INJECTED={"pickaxe": {"itemType": "pickaxe_basic", "efficiency": 1.0}, "to_mine": ["hub", "r1"], "to_hub": ["r1", "hub"]}
 """
 
 import os, sys, json, importlib.util, time, signal, traceback
@@ -34,7 +34,7 @@ def main():
     script_path = os.environ["NETCRAWL_SCRIPT_PATH"]
     class_name = os.environ["NETCRAWL_CLASS_NAME"]
     injected_raw = os.environ.get("NETCRAWL_INJECTED", "{}")
-    injected_fields = json.loads(injected_raw)
+    injected_fields_raw = json.loads(injected_raw)
 
     # Dynamically import the user's script
     spec = importlib.util.spec_from_file_location("worker_module", script_path)
@@ -53,12 +53,38 @@ def main():
         print(f"ERROR: Class '{class_name}' not found in {script_path}", file=sys.stderr)
         sys.exit(1)
 
+    # Process injected fields:
+    # - ItemField + dict value → convert to RuntimeItem proxy
+    # - RouteField + list value → keep as list
+    # - Other → keep as-is
+    from netcrawl.fields import ItemField, RouteField
+    from netcrawl.runtime import RuntimeItem
+
+    injected_fields = {}
+    for field_name, value in injected_fields_raw.items():
+        cls_field = WorkerCls._fields.get(field_name)
+        if isinstance(cls_field, ItemField) and isinstance(value, dict):
+            # Create a RuntimeItem proxy — _worker will be set after __init__
+            item_proxy = RuntimeItem(value)
+            injected_fields[field_name] = item_proxy
+        elif isinstance(cls_field, RouteField) and isinstance(value, list):
+            injected_fields[field_name] = value
+        else:
+            # Unknown field or raw value — inject as-is
+            injected_fields[field_name] = value
+
     # Instantiate with injected values
     worker = WorkerCls(
         worker_id=worker_id,
         api_url=api_url,
         injected_fields=injected_fields,
     )
+    # WorkerClass.__init__ already sets _worker on RuntimeItem instances,
+    # but do it again here for any that may have been missed
+    for field_name in WorkerCls._fields:
+        instance = getattr(worker, field_name, None)
+        if instance is not None and hasattr(instance, '_worker'):
+            instance._worker = worker
 
     print(f"[{worker_id}] Starting {class_name}...")
 

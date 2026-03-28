@@ -31,6 +31,7 @@ function NodeWrapper({ children, selected, style = {} }: { children: React.React
         textAlign: 'center',
         cursor: 'pointer',
         transition: 'all 0.15s',
+        position: 'relative',
         ...style,
       }}
     >
@@ -60,6 +61,60 @@ function NodeLabel({ label, subtitle, icon: Icon, iconColor }: {
   );
 }
 
+/** Shows a badge for drops sitting on the node */
+function DropsIndicator({ count }: { count: number }) {
+  if (count === 0) return null;
+  return (
+    <motion.div
+      initial={{ scale: 0 }}
+      animate={{ scale: 1 }}
+      style={{
+        position: 'absolute',
+        top: -8,
+        right: -8,
+        background: '#facc15',
+        color: '#000',
+        fontSize: '10px',
+        fontWeight: 700,
+        fontFamily: 'var(--font-mono)',
+        borderRadius: '999px',
+        width: '18px',
+        height: '18px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2,
+        boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+      }}
+    >
+      {count}
+    </motion.div>
+  );
+}
+
+/** Shows depletion countdown */
+function DepletedOverlay({ depletedUntil }: { depletedUntil?: number }) {
+  const remaining = depletedUntil ? Math.max(0, Math.ceil((depletedUntil - Date.now()) / 1000)) : 0;
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        borderRadius: '9px',
+        background: 'rgba(0,0,0,0.55)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1,
+      }}
+    >
+      <span style={{ color: '#f87171', fontSize: '11px', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
+        {remaining > 0 ? `${remaining}s` : 'depleted'}
+      </span>
+    </div>
+  );
+}
+
 function HubNode({ data, selected }: any) {
   return (
     <NodeWrapper selected={selected} style={{ border: '1.5px solid var(--accent)', minWidth: '110px' }}>
@@ -73,13 +128,30 @@ function ResourceNode({ data, selected }: any) {
   const colors: any = { energy: 'var(--energy-color)', ore: 'var(--ore-color)', data: 'var(--data-color)' };
   const Icon = icons[data.resource] || Zap;
   const color = colors[data.resource] || 'var(--text-muted)';
+  const dropsCount = Array.isArray(data.drops) ? data.drops.length : 0;
+  const isDepleted = !!data.depleted;
+
   return (
-    <NodeWrapper selected={selected} style={{ opacity: data.unlocked ? 1 : 0.6 }}>
+    <NodeWrapper
+      selected={selected}
+      style={{
+        opacity: data.unlocked ? (isDepleted ? 0.7 : 1) : 0.6,
+        filter: isDepleted ? 'grayscale(60%)' : undefined,
+      }}
+    >
+      {isDepleted && <DepletedOverlay depletedUntil={data.depletedUntil} />}
+      <DropsIndicator count={dropsCount} />
       <NodeLabel
         label={data.label}
         icon={Icon}
-        iconColor={data.unlocked ? color : 'var(--text-muted)'}
-        subtitle={data.unlocked ? `+${data.rate}/harvest` : 'Locked'}
+        iconColor={data.unlocked ? (isDepleted ? 'var(--text-muted)' : color) : 'var(--text-muted)'}
+        subtitle={
+          isDepleted
+            ? 'Depleted'
+            : data.unlocked
+            ? `+${data.rate}/harvest`
+            : 'Locked'
+        }
       />
     </NodeWrapper>
   );

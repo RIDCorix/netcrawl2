@@ -1,4 +1,4 @@
-import { getGameState, saveGameState } from './db.js';
+import { getGameState, saveGameState, getWorkers } from './db.js';
 import { broadcast } from './websocket.js';
 
 export function startGameTick() {
@@ -40,19 +40,38 @@ function tick() {
     }
   }
 
+  // Check depleted nodes and recover them
+  const now = Date.now();
+  nodes = nodes.map((n: any) => {
+    if (n.data.depleted && n.data.depletedUntil && now >= n.data.depletedUntil) {
+      changed = true;
+      console.log(`[Tick] Node ${n.id} recovered from depletion`);
+      return {
+        ...n,
+        data: {
+          ...n.data,
+          depleted: false,
+          depletedUntil: undefined,
+          mineCount: 0,
+        },
+      };
+    }
+    return n;
+  });
+
   // Check if hub is infected → game over
   const hub = nodes.find((n: any) => n.id === 'hub');
   if (hub && (hub.data.infected || hub.type === 'infected')) {
-    saveGameState({ nodes, edges, resources, tick: tick + 1, gameOver: true });
-    broadcast({ type: 'STATE_UPDATE', payload: { nodes, edges, resources, tick: tick + 1, gameOver: true } });
+    saveGameState({ nodes, edges, resources, tick: tick + 1, gameOver: true, playerInventory: state.playerInventory });
+    broadcast({ type: 'STATE_UPDATE', payload: { nodes, edges, resources, tick: tick + 1, gameOver: true, workers: getWorkers() } });
     console.log('[Tick] GAME OVER - Hub infected!');
     return;
   }
 
-  saveGameState({ nodes, edges, resources, tick: tick + 1, gameOver: false });
+  saveGameState({ nodes, edges, resources, tick: tick + 1, gameOver: false, playerInventory: state.playerInventory });
 
   if (changed || tick % 5 === 0) {
-    broadcast({ type: 'STATE_UPDATE', payload: { nodes, edges, resources, tick: tick + 1, gameOver: false } });
+    broadcast({ type: 'STATE_UPDATE', payload: { nodes, edges, resources, tick: tick + 1, gameOver: false, workers: getWorkers() } });
   }
 }
 

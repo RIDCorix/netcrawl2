@@ -6,7 +6,7 @@ WorkerMeta metaclass and WorkerClass base class.
 
 import inspect
 import time
-from netcrawl.fields import WorkerField
+from netcrawl.fields import WorkerField, ItemField
 
 
 class WorkerMeta(type):
@@ -63,7 +63,7 @@ class WorkerClass(metaclass=WorkerMeta):
 
             def on_loop(self):
                 self.move_through(self.route1)
-                self.collect()
+                self.pickaxe.mine_and_collect()
                 self.move_through(self.route2)
                 self.deposit()
                 self.trips += 1
@@ -75,6 +75,7 @@ class WorkerClass(metaclass=WorkerMeta):
     _api_url: str = ""
     _current_node: str = "hub"
     _inventory: dict = {}
+    _holding = None   # Drop | None — the 1-slot internal inventory
     _client = None  # ApiClient instance
 
     def __init__(self, worker_id: str, api_url: str, injected_fields: dict):
@@ -82,6 +83,7 @@ class WorkerClass(metaclass=WorkerMeta):
         self._api_url = api_url
         self._current_node = "hub"
         self._inventory = {}
+        self._holding = None
 
         # Import here to avoid circular imports at module load time
         from netcrawl.client import ApiClient
@@ -90,6 +92,12 @@ class WorkerClass(metaclass=WorkerMeta):
         # Inject field values (replace descriptor instances with actual values)
         for field_name, value in injected_fields.items():
             setattr(self, field_name, value)
+
+        # Give RuntimeItem instances a back-reference to self
+        for field_name in self.__class__._fields:
+            instance = getattr(self, field_name, None)
+            if instance is not None and hasattr(instance, '_worker'):
+                instance._worker = self
 
     # ── Lifecycle hooks (override these) ────────────────────────────────────
 
@@ -135,33 +143,40 @@ class WorkerClass(metaclass=WorkerMeta):
 
     def collect(self) -> dict:
         """
-        Collect resources at current node.
+        Pick up a drop from the current node into the 1-slot internal inventory.
+        Returns: { ok: True, item: { type, amount } }
+        Fails if: slot is full ('slot_full'), or nothing to collect ('nothing_here').
+        """
+        result = self._client.action("collect", {})
+        if result.get("ok"):
+            self._holding = result.get("item")
+        return result
+
+    def deposit(self) -> dict:
+        """
+        Deposit the held item (or old-style carrying resources) into player inventory.
+        Must be at Hub node.
+        Returns: { ok: True, deposited: { type, amount } }
+        """
+        result = self._client.action("deposit", {})
+        if result.get("ok"):
+            self._holding = None
+            self._inventory = {}
+        return result
+
+    def harvest(self) -> dict:
+        """
+        Legacy: harvest resources at current node (old carry system).
         Returns: { "harvested": { "energy": 5 } }
-        Worker has 1 inventory slot — can only hold one resource type at a time.
         """
         result = self._client.action("harvest", {})
         if result.get("ok"):
             self._inventory = result.get("carrying", {})
         return result
 
-    # Alias
-    def harvest(self) -> dict:
-        return self.collect()
-
-    def deposit(self) -> dict:
-        """
-        Deposit all carried resources at Hub.
-        Must be at Hub node to deposit.
-        Returns: { "deposited": { "energy": 5 } }
-        """
-        result = self._client.action("deposit", {})
-        if result.get("ok"):
-            self._inventory = {}
-        return result
-
     # ── Scanning ─────────────────────────────────────────────────────────────
 
-    def scan(self) -> list[dict]:
+    def scan(self) -> list:
         """
         Scan adjacent nodes.
         Returns list of: { id, type, resources, infected, adjacent: bool }
@@ -197,8 +212,13 @@ class WorkerClass(metaclass=WorkerMeta):
     # ── Inventory ─────────────────────────────────────────────────────────────
 
     @property
+    def holding(self):
+        """Currently held item in the 1-slot internal inventory. None if empty."""
+        return self._holding
+
+    @property
     def carrying(self) -> dict:
-        """Currently carried resources. E.g. { 'energy': 5 }"""
+        """Currently carried resources (legacy). E.g. { 'energy': 5 }"""
         return self._inventory.copy()
 
     @property

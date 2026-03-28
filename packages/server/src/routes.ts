@@ -6,7 +6,9 @@ import {
   getGameState, saveGameState, resetGameState,
   getWorkers, getWorker, upsertWorker, deleteWorker,
   addWorkerLog, getWorkerLogs,
-  INITIAL_NODES, INITIAL_EDGES, INITIAL_RESOURCES,
+  INITIAL_NODES, INITIAL_EDGES, INITIAL_RESOURCES, INITIAL_PLAYER_INVENTORY,
+  RECIPES, Recipe,
+  getPlayerInventory, addToPlayerInventory, removeFromPlayerInventory, getItemEfficiency,
 } from './db.js';
 import { handleWorkerAction } from './workerActions.js';
 import { spawnWorker, killWorker, suspendWorker, getActiveProcesses } from './workerSpawner.js';
@@ -35,6 +37,11 @@ function getWorkspacePath(): string {
     }
   }
   return path.join(process.cwd(), 'workspace');
+}
+
+function broadcastFullState() {
+  const state = getGameState();
+  broadcast({ type: 'STATE_UPDATE', payload: { ...state, workers: getWorkers() } });
 }
 
 // GET /api/state
@@ -98,16 +105,65 @@ router.post('/unlock', (req: Request, res: Response) => {
   res.json({ ok: true, resources: newResources });
 });
 
+// GET /api/inventory
+router.get('/inventory', (req: Request, res: Response) => {
+  const inventory = getPlayerInventory();
+  res.json({ inventory, recipes: RECIPES });
+});
+
+// GET /api/recipes
+router.get('/recipes', (req: Request, res: Response) => {
+  const state = getGameState();
+  const resources = state.resources as unknown as Record<string, number>;
+  const recipesWithAffordable = RECIPES.map(recipe => {
+    const affordable = Object.entries(recipe.cost).every(([resource, amount]) => {
+      return (resources[resource] || 0) >= (amount as number);
+    });
+    return { ...recipe, affordable };
+  });
+  res.json({ recipes: recipesWithAffordable });
+});
+
 // POST /api/craft
 router.post('/craft', (req: Request, res: Response) => {
-  const { itemId } = req.body;
-  // Placeholder for crafting system
-  res.json({ ok: true, item: itemId, message: 'Crafting system coming soon' });
+  const { recipeId } = req.body;
+  const recipe = RECIPES.find(r => r.id === recipeId);
+  if (!recipe) {
+    return res.status(404).json({ error: 'Recipe not found' });
+  }
+
+  const state = getGameState();
+  const resources = state.resources as unknown as Record<string, number>;
+
+  // Check resources
+  for (const [resource, amount] of Object.entries(recipe.cost)) {
+    if ((resources[resource] || 0) < (amount as number)) {
+      return res.status(400).json({
+        error: `Not enough ${resource} (need ${amount}, have ${resources[resource] || 0})`,
+      });
+    }
+  }
+
+  // Deduct resources
+  const newResources = { ...resources };
+  for (const [resource, amount] of Object.entries(recipe.cost)) {
+    newResources[resource] -= (amount as number);
+  }
+
+  // Add item to player inventory
+  addToPlayerInventory(recipe.output.itemType, recipe.output.count, recipe.output.metadata);
+
+  saveGameState({ ...state, resources: newResources as any });
+  broadcastFullState();
+
+  const inventory = getPlayerInventory();
+  const newItem = inventory.find(i => i.itemType === recipe.output.itemType);
+  res.json({ ok: true, item: newItem, resources: newResources });
 });
 
 // POST /api/deploy
 router.post('/deploy', async (req: Request, res: Response) => {
-  const { nodeId, className, commitHash } = req.body;
+  const { nodeId, className, commitHash, equippedItems } = req.body;
   if (!nodeId || !className) {
     return res.status(400).json({ error: 'nodeId and className are required' });
   }
@@ -116,8 +172,28 @@ router.post('/deploy', async (req: Request, res: Response) => {
   const node = state.nodes.find((n: any) => n.id === nodeId);
   if (!node) return res.status(404).json({ error: 'Node not found' });
 
+  // Handle equipped pickaxe
+  let equippedPickaxe: { itemType: string; efficiency: number } | null = null;
+  const pickaxeItemType = equippedItems?.pickaxe;
+  if (pickaxeItemType) {
+    const removed = removeFromPlayerInventory(pickaxeItemType, 1);
+    if (!removed) {
+      return res.status(400).json({ error: `Not enough ${pickaxeItemType} in inventory` });
+    }
+    equippedPickaxe = {
+      itemType: pickaxeItemType,
+      efficiency: getItemEfficiency(pickaxeItemType),
+    };
+  }
+
   const workerId = `worker_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const workspacePath = getWorkspacePath();
+
+  // Build injected fields including pickaxe metadata for Python runner
+  const injectedFields: Record<string, any> = {};
+  if (equippedPickaxe) {
+    injectedFields['pickaxe'] = { itemType: equippedPickaxe.itemType, efficiency: equippedPickaxe.efficiency };
+  }
 
   const result = await spawnWorker({
     workerId,
@@ -125,13 +201,19 @@ router.post('/deploy', async (req: Request, res: Response) => {
     className,
     commitHash: commitHash || 'HEAD',
     workspacePath,
+    equippedPickaxe,
+    injectedFields,
   });
 
   if (!result.ok) {
+    // Return pickaxe to inventory if spawn failed
+    if (equippedPickaxe) {
+      addToPlayerInventory(equippedPickaxe.itemType, 1);
+    }
     return res.status(500).json({ error: result.error });
   }
 
-  broadcast({ type: 'STATE_UPDATE', payload: { ...state, workers: getWorkers() } });
+  broadcastFullState();
   res.json({ ok: true, workerId, pid: result.pid });
 });
 
@@ -139,6 +221,17 @@ router.post('/deploy', async (req: Request, res: Response) => {
 router.post('/recall', (req: Request, res: Response) => {
   const { workerId } = req.body;
   if (!workerId) return res.status(400).json({ error: 'workerId required' });
+
+  // Return equipped items before recalling
+  const worker = getWorker(workerId);
+  if (worker) {
+    if (worker.equippedPickaxe) {
+      addToPlayerInventory(worker.equippedPickaxe.itemType, 1);
+    }
+    if (worker.holding) {
+      addToPlayerInventory(worker.holding.type, worker.holding.amount);
+    }
+  }
 
   const result = killWorker(workerId);
   if (!result.ok) return res.status(404).json({ error: result.error });
@@ -165,8 +258,14 @@ router.post('/worker/suspend', (req: Request, res: Response) => {
   // Send SIGTERM to the child process
   const result = suspendWorker(workerId);
   if (!result.ok) {
-    // If no process found, mark as suspended anyway
-    upsertWorker({ ...worker, status: 'suspended', pid: null });
+    // If no process found, mark as suspended anyway and return items
+    if (worker.equippedPickaxe) {
+      addToPlayerInventory(worker.equippedPickaxe.itemType, 1);
+    }
+    if (worker.holding) {
+      addToPlayerInventory(worker.holding.type, worker.holding.amount);
+    }
+    upsertWorker({ ...worker, status: 'suspended', pid: null, equippedPickaxe: null, holding: null });
   }
 
   const state = getGameState();
@@ -183,7 +282,13 @@ router.post('/worker/suspend-all', (req: Request, res: Response) => {
     upsertWorker({ ...worker, status: 'suspending' });
     const result = suspendWorker(worker.id);
     if (!result.ok) {
-      upsertWorker({ ...worker, status: 'suspended', pid: null });
+      if (worker.equippedPickaxe) {
+        addToPlayerInventory(worker.equippedPickaxe.itemType, 1);
+      }
+      if (worker.holding) {
+        addToPlayerInventory(worker.holding.type, worker.holding.amount);
+      }
+      upsertWorker({ ...worker, status: 'suspended', pid: null, equippedPickaxe: null, holding: null });
     }
   }
 
