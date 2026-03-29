@@ -1,5 +1,6 @@
 import { getGameState, saveGameState, getWorkers, incrementStat } from './db.js';
 import { broadcast } from './websocket.js';
+import { broadcastFullState } from './broadcastHelper.js';
 import { getNeighborIds } from './graphUtils.js';
 import { checkAchievements } from './achievements.js';
 import { tickAPINodes } from './apiNodeEngine.js';
@@ -66,7 +67,7 @@ function tick() {
   const hub = nodes.find((n: any) => n.id === 'hub');
   if (hub && (hub.data.infected || hub.type === 'infected')) {
     saveGameState({ ...state, nodes, edges, resources, tick: tick + 1, gameOver: true });
-    broadcast({ type: 'STATE_UPDATE', payload: { nodes, edges, resources, tick: tick + 1, gameOver: true, workers: getWorkers() } });
+    broadcastFullState();
     incrementStat('total_game_overs', 1);
     checkAchievements();
     console.log('[Tick] GAME OVER - Hub infected!');
@@ -79,6 +80,6 @@ function tick() {
   tickAPINodes();
 
   if (changed || tick % 5 === 0) {
-    broadcast({ type: 'STATE_UPDATE', payload: { nodes, edges, resources, tick: tick + 1, gameOver: false, workers: getWorkers() } });
+    broadcastFullState();
   }
 }

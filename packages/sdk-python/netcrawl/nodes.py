@@ -1,7 +1,7 @@
 """
 netcrawl/nodes.py
 
-Typed node objects returned by WorkerClass.get_current_node().
+Typed node objects returned by UnitClass.get_current_node().
 Each node type exposes type-specific methods.
 """
 
@@ -12,28 +12,28 @@ if TYPE_CHECKING:
     from netcrawl.client import ApiClient
 
 
-class Edge:
+class NodeEdge:
     """Represents a connection from the current node to another."""
     def __init__(self, id: str, other_node: str):
         self.id = id
         self.other_node = other_node
 
     def __repr__(self):
-        return f"Edge(id={self.id!r}, other_node={self.other_node!r})"
+        return f"NodeEdge(id={self.id!r}, other_node={self.other_node!r})"
 
 
 class BaseNode:
     """Base class for all node types. Provides common properties."""
 
-    def __init__(self, info: dict, client: 'ApiClient', worker_id: str):
+    def __init__(self, info: dict, client: 'ApiClient', unit_id: str):
         self._info = info
         self._client = client
-        self._worker_id = worker_id
+        self._unit_id = unit_id
         self.id: str = info['id']
         self.type: str = info['type']
         self.label: str = info.get('label', '')
         self.data: dict = info.get('data', {})
-        self.edges: list[Edge] = [Edge(e['id'], e['otherNode']) for e in info.get('edges', [])]
+        self.edges: list[NodeEdge] = [NodeEdge(e['id'], e['otherNode']) for e in info.get('edges', [])]
 
     @property
     def is_unlocked(self) -> bool:
@@ -72,14 +72,11 @@ class ResourceNode(BaseNode):
         return bool(self.data.get('mineable'))
 
     def mine(self) -> dict:
-        """Mine this resource node. Requires a pickaxe equipped on the worker.
+        """Mine this resource node. Requires a pickaxe equipped on the unit.
         Creates a drop on the ground that can be collected.
 
         Returns: { ok, drop: { type: 'data_fragment', amount } }
         """
-        result = self._client.action("compute_mine", {})
-        # Use the existing mine action via pickaxe
-        # Note: mining is done through the pickaxe equipment, not the node directly
         raise NotImplementedError(
             "Mining is done through equipment: self.pickaxe.mine(). "
             "The ResourceNode provides info about the node."
@@ -92,7 +89,7 @@ class RelayNode(BaseNode):
 
 
 class ComputeNode(BaseNode):
-    """A compute puzzle node. Workers can request puzzles and submit answers."""
+    """A compute puzzle node. Units can request puzzles and submit answers."""
 
     @property
     def difficulty(self) -> str:
@@ -152,7 +149,7 @@ class ComputeTask:
 
 class APINode(BaseNode):
     """
-    An API endpoint node. Receives external requests that workers must handle.
+    An API endpoint node. Receives external requests that units must handle.
 
     Usage:
         node = self.get_current_node()
@@ -225,7 +222,7 @@ class APIRequestObj:
 
 
 class CacheNodeType(BaseNode):
-    """A cache structure node. Workers access it via get_service()."""
+    """A cache structure node. Units access it via get_service()."""
     pass
 
 
@@ -259,8 +256,8 @@ NODE_TYPE_MAP = {
 }
 
 
-def create_node(info: dict, client: 'ApiClient', worker_id: str) -> BaseNode:
+def create_node(info: dict, client: 'ApiClient', unit_id: str) -> BaseNode:
     """Factory: create the appropriate typed node from server info."""
     node_type = info.get('type', '')
     cls = NODE_TYPE_MAP.get(node_type, BaseNode)
-    return cls(info, client, worker_id)
+    return cls(info, client, unit_id)

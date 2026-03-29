@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { simpleGit } from 'simple-git';
 import {
-  getGameState, saveGameState, resetGameState,
+  getGameState, getVisibleState, saveGameState, resetGameState,
   getWorkers, getWorker, upsertWorker, deleteWorker,
   addWorkerLog, getWorkerLogs,
   INITIAL_NODES, INITIAL_EDGES, INITIAL_RESOURCES, INITIAL_PLAYER_INVENTORY,
@@ -20,12 +20,12 @@ import {
 } from './workerRegistry.js';
 import { broadcastFullState } from './broadcastHelper.js';
 import {
-  NODE_UPGRADE_DEFS, getUpgradeKey, CHIP_PACK_DEFS, rollChip,
+  NODE_UPGRADE_DEFS, getUpgradeKey, CHIP_PACK_DEFS, rollChip, getNodeXpThreshold,
 } from './upgradeDefinitions.js';
 import { checkAchievements, getAchievementList, RARITY_ORDINAL } from './achievements.js';
 import { checkQuests, claimQuestReward, getQuestList, getQuestEdges } from './quests.js';
 import { getActivePassives, getUnlockedRecipes } from './db.js';
-import { incrementStat, addToStatArray, setStatMax, awardXp, getPlayerLevelSummary } from './db.js';
+import { incrementStat, addToStatArray, setStatMax, awardXp, getPlayerLevelSummary, grantNodeXp } from './db.js';
 import { XP_REWARDS } from './levelSystem.js';
 
 export const router: Router = Router();
@@ -45,8 +45,9 @@ function getWorkspacePath(): string {
 // GET /api/state
 router.get('/state', (req: Request, res: Response) => {
   const state = getGameState();
+  const { nodes, edges } = getVisibleState(2);
   const workers = getWorkers();
-  res.json({ ...state, workers });
+  res.json({ ...state, nodes, edges, workers });
 });
 
 // POST /api/gather
@@ -63,6 +64,7 @@ router.post('/gather', (req: Request, res: Response) => {
   const newResources = { ...state.resources };
   (newResources as any)[resourceType] = ((newResources as any)[resourceType] || 0) + 10;
   saveGameState({ ...state, resources: newResources });
+  grantNodeXp(nodeId, 'harvest');
   broadcastFullState();
   res.json({ ok: true, resources: newResources });
 });
@@ -82,10 +84,12 @@ router.post('/unlock', (req: Request, res: Response) => {
   if (costError) return res.status(400).json({ error: costError });
   const newResources = deductCost(resources, cost);
 
-  // Unlock node
+  // Unlock node — initialize nodeXp threshold for upgrade system
   const newNodes = state.nodes.map((n: any) => {
     if (n.id === nodeId) {
-      return { ...n, data: { ...n.data, unlocked: true } };
+      const key = getUpgradeKey(n.type, n.data.resource);
+      const threshold = getNodeXpThreshold(key, 1);
+      return { ...n, data: { ...n.data, unlocked: true, nodeXp: 0, nodeXpToNext: threshold } };
     }
     return n;
   });
@@ -534,10 +538,17 @@ router.get('/node/upgrades', (req: Request, res: Response) => {
   const currentLevel = node.data.upgradeLevel || 0;
   const resources = state.resources as unknown as Record<string, number>;
 
+  // Node XP info
+  const nodeXp = node.data.nodeXp || 0;
+  const nextLevel = currentLevel + 1;
+  const nodeXpToNext = getNodeXpThreshold(key, nextLevel);
+  const xpReady = nodeXpToNext > 0 ? nodeXp >= nodeXpToNext : true; // no threshold = always ready
+
   const levels = upgrades.map(u => ({
     ...u,
     unlocked: u.level <= currentLevel,
     affordable: Object.entries(u.cost).every(([k, v]) => (resources[k] || 0) >= (v as number)),
+    xpReady: u.level <= currentLevel || (u.level === nextLevel && xpReady),
   }));
 
   res.json({
@@ -549,6 +560,9 @@ router.get('/node/upgrades', (req: Request, res: Response) => {
     levels,
     chipSlots: node.data.chipSlots || 0,
     installedChips: node.data.installedChips || [],
+    nodeXp,
+    nodeXpToNext: nodeXpToNext || 0,
+    xpReady,
   });
 });
 
@@ -570,6 +584,13 @@ router.post('/node/upgrade', (req: Request, res: Response) => {
   const nextUpgrade = upgrades.find(u => u.level === currentLevel + 1);
   if (!nextUpgrade) return res.status(400).json({ error: 'Already at max level' });
 
+  // Check node XP requirement
+  const xpThreshold = getNodeXpThreshold(key, currentLevel + 1);
+  const nodeXp = node.data.nodeXp || 0;
+  if (xpThreshold > 0 && nodeXp < xpThreshold) {
+    return res.status(400).json({ error: `Node needs more experience (${nodeXp}/${xpThreshold} XP)` });
+  }
+
   const resources = state.resources as unknown as Record<string, number>;
   const costError = checkCost(resources, nextUpgrade.cost as Record<string, number>);
   if (costError) return res.status(400).json({ error: costError });
@@ -578,7 +599,7 @@ router.post('/node/upgrade', (req: Request, res: Response) => {
   // Apply effects
   const newNodes = state.nodes.map((n: any) => {
     if (n.id !== nodeId) return n;
-    const data = { ...n.data, upgradeLevel: nextUpgrade.level };
+    const data = { ...n.data, upgradeLevel: nextUpgrade.level, nodeXp: 0, nodeXpToNext: 0 };
     if (nextUpgrade.effects.rateBonus) data.rate = (data.rate || 0) + nextUpgrade.effects.rateBonus;
     if (nextUpgrade.effects.chipSlots !== undefined) data.chipSlots = nextUpgrade.effects.chipSlots;
     if (nextUpgrade.effects.autoCollect) data.autoCollect = true;

@@ -79,7 +79,7 @@ function ResourceItem({ icon: Icon, value, label, color, prevValue, formatFn }: 
 }
 
 export function ResourceBar() {
-  const { resources, tick, connected, gameOver, inventoryOpen, toggleInventory, playerInventory, achievements, toggleAchievements, questSummary, toggleQuests, toggleSettings } = useGameStore();
+  const { resources, tick, connected, gameOver, inventoryOpen, toggleInventory, playerInventory, achievements, toggleAchievements, questSummary, toggleQuests, toggleSettings, levelSummary, toggleLevel } = useGameStore();
   const totalItems = playerInventory.reduce((sum, i) => sum + i.count, 0);
   const prevRef = useRef(resources);
   const [prev, setPrev] = useState(resources);
@@ -155,6 +155,45 @@ export function ResourceBar() {
       <ResourceItem icon={Database} value={resources.data} label="Data" color="var(--data-color)" prevValue={prev.data} formatFn={formatBytes} />
       <ResourceItem icon={Cpu} value={resources.rp} label="RP" color="var(--rp-color)" prevValue={prev.rp} />
       <ResourceItem icon={Star} value={resources.credits} label="Credits" color="var(--credits-color)" prevValue={prev.credits} />
+
+      {/* Level + XP bar */}
+      <motion.button
+        onClick={toggleLevel}
+        whileTap={{ scale: 0.96 }}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-sm)',
+          padding: '4px 10px',
+          color: 'var(--text-muted)',
+          cursor: 'pointer', flexShrink: 0,
+        }}
+      >
+        <Zap size={12} style={{ color: '#00d4aa' }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontSize: 11, fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#00d4aa' }}>
+              Lv.{levelSummary.level}
+            </span>
+            <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+              {levelSummary.level >= levelSummary.maxLevel
+                ? 'MAX'
+                : `${Math.floor(levelSummary.xpToNext > 0 ? (levelSummary.xp / levelSummary.xpToNext) * 100 : 100)}%`}
+            </span>
+          </div>
+          {/* XP progress bar */}
+          <div style={{ width: 64, height: 3, background: 'var(--bg-primary)', borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{
+              width: `${levelSummary.xpToNext > 0 ? (levelSummary.xp / levelSummary.xpToNext) * 100 : 100}%`,
+              height: '100%',
+              background: levelSummary.level >= levelSummary.maxLevel ? '#f59e0b' : '#00d4aa',
+              borderRadius: 2,
+              transition: 'width 0.3s ease',
+            }} />
+          </div>
+        </div>
+      </motion.button>
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />

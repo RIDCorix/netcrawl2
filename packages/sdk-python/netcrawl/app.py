@@ -1,21 +1,21 @@
 """
 netcrawl/app.py
 
-NetCrawl code server — registers worker classes with the game server,
-polls for deploy requests, and spawns worker subprocesses.
+NetCrawl code server — registers unit classes with the game server,
+polls for deploy requests, and spawns unit subprocesses.
 """
 
 import time
 from typing import Type
 
-from netcrawl.base import WorkerClass
+from netcrawl.base import UnitClass
 from netcrawl.client import http_post, http_get
-from netcrawl.daemon.spawner import spawn_worker, kill_worker, list_active
+from netcrawl.daemon.spawner import spawn_unit, kill_unit, list_active
 
 
 class NetCrawl:
     """
-    Code server that bridges your worker classes with the game server.
+    Code server that bridges your unit classes with the game server.
 
     Usage:
         app = NetCrawl(server="http://localhost:4800")
@@ -27,11 +27,11 @@ class NetCrawl:
     def __init__(self, server: str = "http://localhost:4800", api_key: str = ""):
         self.server = server.rstrip("/")
         self.api_key = api_key
-        self._classes: dict[str, Type[WorkerClass]] = {}
+        self._classes: dict[str, Type[UnitClass]] = {}
         self._class_files: dict[str, str] = {}
 
-    def register(self, cls: Type[WorkerClass]) -> None:
-        """Register a worker class for deployment. Raises on duplicate class_id."""
+    def register(self, cls: Type[UnitClass]) -> None:
+        """Register a unit class for deployment. Raises on duplicate class_id."""
         import inspect
         class_id = cls.class_id
         class_name = cls.class_name
@@ -55,7 +55,7 @@ class NetCrawl:
         return http_get(f"{self.server}{path}")
 
     def _register_all(self) -> None:
-        """Register all worker classes with the game server."""
+        """Register all unit classes with the game server."""
         classes = []
         for class_id, cls in self._classes.items():
             schema = cls.get_schema()
@@ -63,14 +63,14 @@ class NetCrawl:
             schema["language"] = "python"
             classes.append(schema)
 
-        result = self._post("/api/worker-classes/register", {"classes": classes})
+        result = self._post("/api/unit-classes/register", {"classes": classes})
         if result.get("ok"):
-            print(f"[NetCrawl] Registered {result.get('registered', 0)} worker classes")
+            print(f"[NetCrawl] Registered {result.get('registered', 0)} unit classes")
         else:
             print(f"[NetCrawl] Registration failed: {result.get('error')}")
 
     def _poll_deploy_queue(self) -> None:
-        """Poll the game server for pending deploy requests and spawn workers."""
+        """Poll the game server for pending deploy requests and spawn units."""
         try:
             result = self._get("/api/deploy-queue")
             requests = result.get("requests", [])
@@ -80,8 +80,8 @@ class NetCrawl:
             pass  # Server might be temporarily unreachable
 
     def _handle_deploy(self, deploy_req: dict) -> None:
-        """Spawn a worker subprocess for a deploy request."""
-        worker_id = deploy_req["workerId"]
+        """Spawn a unit subprocess for a deploy request."""
+        unit_id = deploy_req["unitId"]
         class_id = deploy_req["classId"]
         node_id = deploy_req["nodeId"]
         injected_fields = deploy_req.get("injectedFields", {})
@@ -90,17 +90,17 @@ class NetCrawl:
         if not cls:
             print(f"[NetCrawl] Unknown class_id: {class_id}")
             self._post("/api/deploy-ack", {
-                "workerId": worker_id,
-                "error": f"Unknown worker class_id: {class_id}",
+                "unitId": unit_id,
+                "error": f"Unknown unit class_id: {class_id}",
             })
             return
 
         script_path = self._class_files.get(class_id, "")
-        print(f"[NetCrawl] Spawning {cls.class_name} (id={class_id}, worker={worker_id}) on node {node_id}")
+        print(f"[NetCrawl] Spawning {cls.class_name} (id={class_id}, unit={unit_id}) on node {node_id}")
 
         try:
-            pid = spawn_worker(
-                worker_id=worker_id,
+            pid = spawn_unit(
+                unit_id=unit_id,
                 script_path=script_path,
                 class_name=cls.__name__,  # Python class name for import
                 api_url=self.server,
@@ -108,13 +108,13 @@ class NetCrawl:
             )
             print(f"[NetCrawl] Spawned {cls.class_name} — PID {pid}")
             self._post("/api/deploy-ack", {
-                "workerId": worker_id,
+                "unitId": unit_id,
                 "pid": pid,
             })
         except Exception as e:
             print(f"[NetCrawl] Spawn failed: {e}")
             self._post("/api/deploy-ack", {
-                "workerId": worker_id,
+                "unitId": unit_id,
                 "error": str(e),
             })
 
@@ -135,14 +135,14 @@ class NetCrawl:
         """
         Start the code server:
         1. Wait for the game server
-        2. Register all worker classes
+        2. Register all unit classes
         3. Poll for deploy requests every second
         4. Re-register every 30s to handle server restarts
         """
         print(f"[NetCrawl] Code Server starting...")
         print(f"[NetCrawl] Server: {self.server}")
-        worker_list = ', '.join(f"{cls.class_name}({cid})" for cid, cls in self._classes.items())
-        print(f"[NetCrawl] Workers: {worker_list}")
+        unit_list = ', '.join(f"{cls.class_name}({cid})" for cid, cls in self._classes.items())
+        print(f"[NetCrawl] Units: {unit_list}")
         print()
 
         # Wait for server
@@ -171,6 +171,6 @@ class NetCrawl:
                     self._register_all()
         except KeyboardInterrupt:
             print("\n[NetCrawl] Shutting down...")
-            for w in list_active():
-                kill_worker(w["worker_id"])
-            print("[NetCrawl] All workers stopped. Goodbye!")
+            for u in list_active():
+                kill_unit(u["unit_id"])
+            print("[NetCrawl] All units stopped. Goodbye!")

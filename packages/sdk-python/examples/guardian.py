@@ -1,15 +1,15 @@
 """
-Guardian worker: patrols the network and repairs infected nodes.
+Guardian unit: patrols the network and repairs infected nodes.
 Uses SensorGadget for automatic pathfinding.
 """
 import time
-from netcrawl import WorkerClass, SensorGadget
+from netcrawl import UnitClass, SensorGadget
 from netcrawl.items.equipment import Shield
 
 
-class Guardian(WorkerClass):
+class Guardian(UnitClass):
     """
-    Patrol and repair worker.
+    Patrol and repair unit.
 
     Deploy requirements:
     - shield: 1x Shield item (reduces infection damage)

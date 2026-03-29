@@ -17,8 +17,8 @@ class Pickaxe(ItemField):
     Mining tool. Deploy-time: consumes 1 pickaxe from inventory.
     Runtime: provides self.pickaxe.mine() to create drops at current node.
 
-    Usage in worker:
-        class Miner(WorkerClass):
+    Usage in unit:
+        class Miner(UnitClass):
             pickaxe = Pickaxe()
 
             def on_loop(self):
@@ -46,7 +46,7 @@ class Pickaxe(ItemField):
     def mine(self) -> dict:
         """
         Mine the current node using this pickaxe.
-        Creates a drop on the node floor. Use worker.collect() to pick it up.
+        Creates a drop on the node floor. Use unit.collect() to pick it up.
 
         This method is available at class-definition time for type hints,
         but the actual implementation at runtime is on RuntimeItem._worker.
@@ -57,7 +57,7 @@ class Pickaxe(ItemField):
         """
         raise RuntimeError(
             "pickaxe.mine() called on the descriptor — "
-            "this means the worker was not initialized correctly. "
+            "this means the unit was not initialized correctly. "
             "The runner should have replaced this with a RuntimeItem."
         )
 
@@ -115,7 +115,7 @@ class SensorGadget(GadgetField):
     methods at runtime. No deploy-time cost — just declare on your worker.
 
     Usage:
-        class Scout(WorkerClass):
+        class Scout(UnitClass):
             sensor = SensorGadget()
 
             def on_loop(self):

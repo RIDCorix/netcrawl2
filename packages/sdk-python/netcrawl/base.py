@@ -1,17 +1,17 @@
 """
 netcrawl/base.py
 
-WorkerMeta metaclass and WorkerClass base class.
+UnitMeta metaclass and UnitClass base class.
 """
 
 import inspect
 import time
-from netcrawl.fields import WorkerField, ItemField
+from netcrawl.fields import UnitField, ItemField
 
 
-class WorkerMeta(type):
+class UnitMeta(type):
     """
-    Metaclass that discovers WorkerField declarations on class definition.
+    Metaclass that discovers UnitField declarations on class definition.
     Builds _fields dict: { field_name: field_instance }
     Used by daemon scanner to know deploy-time requirements.
     """
@@ -26,7 +26,7 @@ class WorkerMeta(type):
 
         # Discover new fields declared directly in this class
         for key, value in namespace.items():
-            if isinstance(value, WorkerField):
+            if isinstance(value, UnitField):
                 value._field_name = key
                 fields[key] = value
 
@@ -63,13 +63,13 @@ class WorkerMeta(type):
         return super().__new__(mcs, name, bases, namespace)
 
 
-class WorkerClass(metaclass=WorkerMeta):
+class UnitClass(metaclass=UnitMeta):
     """
-    Base class for all NetCrawl workers.
+    Base class for all NetCrawl units.
 
     Lifecycle:
     1. Daemon discovers class, reads _fields for requirements schema
-    2. User deploys from UI, specifying items and routes
+    2. User deploys from UI, specifying items and edges/routes
     3. Daemon forks subprocess with env vars
     4. Runner instantiates class, injects field values, calls on_startup()
     5. Runner calls on_loop() in a loop until process is killed
@@ -79,34 +79,34 @@ class WorkerClass(metaclass=WorkerMeta):
     - State persists between on_loop() calls (instance stays alive)
 
     Example:
-        class Collector(WorkerClass):
+        class Collector(UnitClass):
             pickaxe = Pickaxe()
-            route1 = Route("Path to ore mine")
-            route2 = Route("Return path")
+            to_mine = Edge("Edge to ore mine")
+            to_hub = Edge("Return edge")
 
             def on_startup(self):
                 self.trips = 0
                 self.info("Collector started!")
 
             def on_loop(self):
-                self.move_through(self.route1)
+                self.move(self.to_mine)
                 self.pickaxe.mine_and_collect()
-                self.move_through(self.route2)
+                self.move(self.to_hub)
                 self.deposit()
                 self.trips += 1
                 self.info(f"Completed trip #{self.trips}")
     """
 
     # Set by runner at instantiation time
-    _worker_id: str = ""
+    _unit_id: str = ""
     _api_url: str = ""
     _current_node: str = "hub"
     _inventory: dict = {}
     _holding = None   # Drop | None — the 1-slot internal inventory
     _client = None  # ApiClient instance
 
-    def __init__(self, worker_id: str, api_url: str, injected_fields: dict):
-        self._worker_id = worker_id
+    def __init__(self, unit_id: str, api_url: str, injected_fields: dict):
+        self._unit_id = unit_id
         self._api_url = api_url
         self._current_node = "hub"
         self._inventory = {}
@@ -114,7 +114,7 @@ class WorkerClass(metaclass=WorkerMeta):
 
         # Import here to avoid circular imports at module load time
         from netcrawl.client import ApiClient
-        self._client = ApiClient(api_url=api_url, worker_id=worker_id)
+        self._client = ApiClient(api_url=api_url, unit_id=unit_id)
 
         # Inject field values (replace descriptor instances with actual values)
         for field_name, value in injected_fields.items():
@@ -123,24 +123,24 @@ class WorkerClass(metaclass=WorkerMeta):
         # Give RuntimeItem instances a back-reference to self
         for field_name in self.__class__._fields:
             instance = getattr(self, field_name, None)
-            if instance is not None and hasattr(instance, '_worker'):
-                instance._worker = self
+            if instance is not None and hasattr(instance, '_unit'):
+                instance._unit = self
 
     # ── Lifecycle hooks (override these) ────────────────────────────────────
 
     def on_startup(self):
-        """Called once when the worker is first deployed. Override to initialize state."""
+        """Called once when the unit is first deployed. Override to initialize state."""
         pass
 
     def on_loop(self):
-        """Called repeatedly in a loop. Override with your worker logic."""
+        """Called repeatedly in a loop. Override with your unit logic."""
         pass
 
     # ── Node access ─────────────────────────────────────────────────────────
 
     def get_current_node(self):
         """
-        Get a typed node object for the worker's current position.
+        Get a typed node object for the unit's current position.
 
         Returns a subclass of BaseNode based on node type:
         - HubNode, ResourceNode, RelayNode, ComputeNode, LockedNode, InfectedNode
@@ -156,7 +156,7 @@ class WorkerClass(metaclass=WorkerMeta):
         result = self._client.action("get_node_info", {})
         if not result.get("ok"):
             raise ValueError(f"get_current_node() failed: {result.get('error')}")
-        return create_node(result, self._client, self._worker_id)
+        return create_node(result, self._client, self._unit_id)
 
     # ── Services ────────────────────────────────────────────────────────────
 
@@ -182,22 +182,26 @@ class WorkerClass(metaclass=WorkerMeta):
 
         service_type = result.get("serviceType")
         if service_type == "cache":
-            return CacheService(self._client, self._worker_id, node_id, result)
+            return CacheService(self._client, self._unit_id, node_id, result)
 
         raise ServiceNotReachable(f"Unknown service type: {service_type}")
 
     # ── Movement ────────────────────────────────────────────────────────────
 
-    def move(self, target: str) -> None:
+    def move(self, target) -> None:
         """
-        Move along an edge or to a node.
+        Move along an edge, to a node, or through a route.
+        - If target is a list: treats as a route (sequence of edges/nodes) and moves through all
         - If target looks like an edge ID (starts with 'e'): uses move_edge
         - Otherwise: legacy move by node ID
 
         Raises ValueError if the edge/node is not connected.
         """
-        # Try edge-based first (edge IDs like 'e1', 'e2', etc.)
-        if target.startswith('e') and target[1:].isdigit():
+        # Route: list of edge IDs or node IDs
+        if isinstance(target, list):
+            return self.move_through(target)
+        # Edge-based (edge IDs like 'e1', 'e2', etc.)
+        if isinstance(target, str) and target.startswith('e') and target[1:].isdigit():
             return self.move_edge(target)
         # Legacy: move by node ID
         result = self._client.action("move", {"targetNodeId": target})
@@ -208,7 +212,7 @@ class WorkerClass(metaclass=WorkerMeta):
 
     def move_edge(self, edge_id: str) -> dict:
         """
-        Move along a specific edge. The worker travels to the other end
+        Move along a specific edge. The unit travels to the other end
         of the edge from their current position.
 
         Raises ValueError if the edge doesn't connect to the current node.
@@ -302,10 +306,10 @@ class WorkerClass(metaclass=WorkerMeta):
     def _log(self, level: str, msg: str) -> None:
         tag = level.upper()
         self._client.action("log", {"message": f"[{tag}] {msg}", "level": level})
-        print(f"[{self._worker_id}] {tag}: {msg}")
+        print(f"[{self._unit_id}] {tag}: {msg}")
 
     def info(self, msg: str) -> None:
-        """Log an info message. Visible in the UI's worker log panel."""
+        """Log an info message. Visible in the UI's unit log panel."""
         self._log("info", msg)
 
     def warn(self, msg: str) -> None:

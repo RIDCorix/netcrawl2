@@ -146,3 +146,53 @@ export const BASE_CHIP_SLOTS: Record<string, number> = {
   locked: 0,
   infected: 0,
 };
+
+// ── Node XP System ─────────────────────────────────────────────────────────
+// Each node gains XP through interactions specific to its type.
+// When nodeXp >= nodeXpToNext, the upgrade button unlocks (still costs resources).
+
+/**
+ * XP required for a node to be ready for upgrade to the given level.
+ * Scales per level so later upgrades need more usage.
+ */
+export const NODE_XP_THRESHOLDS: Record<string, number[]> = {
+  // [xpForLv1, xpForLv2, xpForLv3]
+  'resource:data': [100, 300, 800],
+  'relay':         [80, 250],
+  'hub':           [150, 500],
+};
+
+/** XP granted per action, keyed by node type */
+export const NODE_XP_PER_ACTION: Record<string, Record<string, number>> = {
+  'resource:data': {
+    mine: 8,        // worker mines this node
+    harvest: 3,     // manual gather from UI
+  },
+  'relay': {
+    pass_through: 5,  // worker moves through this relay
+  },
+  'hub': {
+    deposit: 4,       // worker deposits resources here
+  },
+  'compute': {
+    solve_puzzle: 15,  // worker solves a puzzle here
+  },
+  'cache': {
+    cache_hit: 3,      // cache get/set used
+  },
+  'api': {
+    complete_request: 10, // API request completed
+  },
+};
+
+/** Get XP threshold for a node at a given upgrade level */
+export function getNodeXpThreshold(upgradeKey: string, targetLevel: number): number {
+  const thresholds = NODE_XP_THRESHOLDS[upgradeKey];
+  if (!thresholds || targetLevel < 1 || targetLevel > thresholds.length) return 0;
+  return thresholds[targetLevel - 1];
+}
+
+/** Get XP per action for a node type + action */
+export function getNodeXpForAction(upgradeKey: string, action: string): number {
+  return NODE_XP_PER_ACTION[upgradeKey]?.[action] || NODE_XP_PER_ACTION[upgradeKey.split(':')[0]]?.[action] || 0;
+}

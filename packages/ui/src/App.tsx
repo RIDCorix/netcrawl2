@@ -14,6 +14,8 @@ import { QuestTree } from './components/QuestTree';
 import { QuestToast } from './components/QuestToast';
 import { ActiveQuestsPanel } from './components/ActiveQuestsPanel';
 import { SettingsPanel } from './components/SettingsPanel';
+import { LevelPanel } from './components/LevelPanel';
+import { LevelUpToast } from './components/LevelUpToast';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,6 +39,7 @@ function GameView() {
       if (state.inventoryOpen) { state.toggleInventory(); return; }
       if (state.achievementsOpen) { state.toggleAchievements(); return; }
       if (state.questsOpen) { state.toggleQuests(); return; }
+      if (state.levelOpen) { state.toggleLevel(); return; }
       state.toggleSettings();
       return;
     }
@@ -45,6 +48,7 @@ function GameView() {
       inventory: state.toggleInventory,
       achievements: state.toggleAchievements,
       quests: state.toggleQuests,
+      level: state.toggleLevel,
       settings: state.toggleSettings,
     };
 
@@ -89,8 +93,10 @@ function GameView() {
       <AchievementsPanel />
       <SettingsPanel />
       <QuestTree />
+      <LevelPanel />
       <AchievementToast />
       <QuestToast />
+      <LevelUpToast />
     </div>
   );
 }

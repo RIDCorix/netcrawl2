@@ -182,13 +182,14 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   achievementsOpen: false,
   settingsOpen: false,
   settings: {
-    edgeStyle: 'smoothstep' as const,
+    edgeStyle: 'straight' as const,
     showTrafficDots: true,
     showWorkerDots: true,
     keybindings: {
       inventory: 'e',
       achievements: 'a',
       quests: 'q',
+      level: 'l',
       settings: 'Escape',
     },
   },

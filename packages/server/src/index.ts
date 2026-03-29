@@ -1,7 +1,7 @@
 import express, { Express } from 'express';
 import cors from 'cors';
 import http from 'http';
-import { initDb, getGameState, getWorkers, setLevelBroadcast, getPlayerLevelSummary } from './db.js';
+import { initDb, getGameState, getVisibleState, getWorkers, setLevelBroadcast, getPlayerLevelSummary } from './db.js';
 import { initWebSocket, broadcast } from './websocket.js';
 import { router } from './routes.js';
 import { startGameTick } from './gameTick.js';
@@ -31,11 +31,12 @@ async function main() {
   const server = http.createServer(app);
   const wss = initWebSocket(server);
 
-  // Send full state on WS connect
+  // Send visible state on WS connect
   wss.on('connection', (ws: any) => {
     const state = getGameState();
+    const { nodes, edges } = getVisibleState(2);
     const workers = getWorkers();
-    ws.send(JSON.stringify({ type: 'STATE_UPDATE', payload: { ...state, workers, levelSummary: getPlayerLevelSummary() } }));
+    ws.send(JSON.stringify({ type: 'STATE_UPDATE', payload: { ...state, nodes, edges, workers, levelSummary: getPlayerLevelSummary() } }));
   });
 
   // Start game tick

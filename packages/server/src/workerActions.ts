@@ -2,7 +2,7 @@ import {
   getGameState, saveGameState, getWorker, upsertWorker,
   addWorkerLog, Resources, Drop,
   getNodeChipEffects, incrementStat, setStatMax,
-  addToPlayerInventory, awardXp,
+  addToPlayerInventory, awardXp, grantNodeXp,
   cacheGet, cacheSet, cacheKeys, getCacheRange, getCacheCapacity,
 } from './db.js';
 import { XP_REWARDS } from './levelSystem.js';
@@ -130,6 +130,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const moveDelayE = Math.round(MOVE_DELAY * (moveEffectsE['move_speed_mult'] || 1));
 
       upsertWorker({ ...worker, status: 'moving', current_node: targetNodeE, previous_node: currentNodeE, move_id: Date.now() } as any);
+      grantNodeXp(targetNodeE, 'pass_through');
       broadcastFullState();
       setLock(workerId, moveDelayE);
       await workerLocks.get(workerId);
@@ -157,6 +158,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const moveDelay = Math.round(MOVE_DELAY * (moveEffects['move_speed_mult'] || 1));
 
       upsertWorker({ ...worker, status: 'moving', current_node: targetNodeId, previous_node: currentNode, move_id: Date.now() } as any);
+      grantNodeXp(targetNodeId, 'pass_through');
       broadcastFullState();
 
       setLock(workerId, moveDelay);
@@ -273,6 +275,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       broadcastFullState();
       incrementStat('total_mines', 1);
       awardXp(XP_REWARDS.mine_node);
+      grantNodeXp(currentNode, 'mine');
       checkAchievements();
       checkQuests();
       return { ok: true, drop: { type: dropType, amount } };
@@ -345,6 +348,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
           incrementStat(`total_${resourceKey}_deposited`, held.amount);
           incrementStat('total_deposits', 1);
           awardXp(XP_REWARDS.deposit_resources);
+          grantNodeXp('hub', 'deposit');
         }
         checkAchievements();
       checkQuests();
@@ -366,6 +370,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       }
       incrementStat('total_deposits', 1);
       awardXp(XP_REWARDS.deposit_resources);
+      grantNodeXp('hub', 'deposit');
       checkAchievements();
       checkQuests();
       return { ok: true, deposited: carrying };
@@ -548,6 +553,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         incrementStat('total_puzzles_solved', 1);
         const puzzleDiff = sNode.data.difficulty || 'easy';
         awardXp(XP_REWARDS[`solve_puzzle_${puzzleDiff}`] || XP_REWARDS.solve_puzzle_easy);
+        grantNodeXp(submitNode, 'solve_puzzle');
         checkAchievements();
         checkQuests();
 
@@ -621,6 +627,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
 
       const val = cacheGet(cacheNodeId, cacheKey);
       if (val === undefined) return { ok: true, hit: false, value: null };
+      grantNodeXp(cacheNodeId, 'cache_hit');
       return { ok: true, hit: true, value: val };
     }
 

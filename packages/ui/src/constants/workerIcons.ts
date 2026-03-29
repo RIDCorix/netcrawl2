@@ -1,30 +1,36 @@
 /**
- * Maps lucide icon names (from SDK class_icon) to React components.
- * Worker classes declare an icon name string; the UI resolves it here.
+ * Maps lucide icon names (from SDK class_icon / Icon enum) to React components.
+ * Must stay in sync with netcrawl/icons.py Icon enum.
  */
 
 import {
-  Bot, Pickaxe, ShieldCheck, Radar, Search, Wrench, Hammer,
-  Cpu, Zap, Eye, Cog, Bug, Truck, Antenna, Gauge,
+  Bot, Pickaxe, Hammer, Wrench, Cog, Drill,
+  Shield, ShieldCheck, Swords, Bug,
+  Radar, Search, Eye, Compass, Map, ScanLine, Antenna, Satellite,
+  Truck, Send, Route, ArrowRight, Workflow,
+  Cpu, Database, HardDrive, Terminal, Code, Binary, Braces,
+  Globe, Wifi, Network, Radio, Signal,
+  Zap, Gauge, Timer, FlaskConical, Microscope, Sparkles, Crown, Star,
   type LucideIcon,
 } from 'lucide-react';
 
 const ICON_MAP: Record<string, LucideIcon> = {
+  // Default
   Bot,
-  Pickaxe,
-  ShieldCheck,
-  Radar,
-  Search,
-  Wrench,
-  Hammer,
-  Cpu,
-  Zap,
-  Eye,
-  Cog,
-  Bug,
-  Truck,
-  Antenna,
-  Gauge,
+  // Mining / Resources
+  Pickaxe, Hammer, Wrench, Cog, Drill,
+  // Combat / Defense
+  Shield, ShieldCheck, Swords, Bug,
+  // Exploration / Scanning
+  Radar, Search, Eye, Compass, Map, ScanLine, Antenna, Satellite,
+  // Transport / Movement
+  Truck, Send, Route, ArrowRight, Workflow,
+  // Compute / Data
+  Cpu, Database, HardDrive, Terminal, Code, Binary, Braces,
+  // Network / Communication
+  Globe, Wifi, Network, Radio, Signal,
+  // Utility
+  Zap, Gauge, Timer, FlaskConical, Microscope, Sparkles, Crown, Star,
 };
 
 export function getWorkerIcon(iconName: string | undefined): LucideIcon {

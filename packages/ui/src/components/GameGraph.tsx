@@ -8,7 +8,6 @@ import ReactFlow, {
   EdgeTypes,
   useNodesState,
   useEdgesState,
-  useViewport,
   BackgroundVariant,
   Handle,
   Position,
@@ -19,7 +18,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useGameStore, GameNode, GameEdge, Worker } from '../store/gameStore';
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useMemo, useRef } from 'react';
 import { Database, Shield, Lock, AlertTriangle, Radio, Pickaxe, Package, Cpu, Box, HardDrive, Globe } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -112,17 +111,20 @@ function WorkerDotsRow({ workers, show }: { workers: any[]; show: boolean }) {
 
 // ── Custom Node Components ──────────────────────────────────────────────────
 
-function NodeWrapper({ children, selected, glowColor, style = {}, workers: nodeWorkers }: {
+const HANDLE_STYLE_HIDDEN = { opacity: 0 } as const;
+const HANDLE_STYLE_CENTER = { opacity: 0, top: '50%', left: '50%', transform: 'translate(-50%, -50%)' } as const;
+
+function NodeWrapper({ children, selected, glowColor, style = {}, workers: nodeWorkers, showWorkerDots, edgeStyle: currentEdgeStyle, fadeIn }: {
   children: React.ReactNode;
   selected?: boolean;
   glowColor?: string;
   style?: React.CSSProperties;
   workers?: any[];
+  showWorkerDots?: boolean;
+  edgeStyle?: string;
+  fadeIn?: boolean;
 }) {
   const borderColor = selected ? 'var(--accent)' : glowColor || 'var(--border-bright)';
-  const { settings: wrapperSettings } = useGameStore();
-  const { zoom } = useViewport();
-  const showDetails = zoom > 0.6 && wrapperSettings.showWorkerDots;
 
   return (
     <div style={{
@@ -130,7 +132,6 @@ function NodeWrapper({ children, selected, glowColor, style = {}, workers: nodeW
       padding: '6px',
       borderRadius: '10px',
       background: 'var(--bg-glass-heavy)',
-      backdropFilter: 'blur(16px)',
       border: `1px solid ${borderColor}`,
       boxShadow: selected
         ? `0 0 0 1px var(--accent-dim), 0 0 12px rgba(0, 212, 170, 0.15)`
@@ -140,24 +141,28 @@ function NodeWrapper({ children, selected, glowColor, style = {}, workers: nodeW
       minWidth: 0,
       textAlign: 'center' as const,
       cursor: 'pointer',
-      transition: 'all 0.2s ease',
+      animation: fadeIn ? 'node-fade-in 0.5s ease-out' : undefined,
       ...style,
     }}>
-      {/* Directional handles for smoothstep/bezier */}
-      <Handle id="top" type="source" position={Position.Top} style={{ opacity: 0 }} />
-      <Handle id="bottom" type="source" position={Position.Bottom} style={{ opacity: 0 }} />
-      <Handle id="left" type="source" position={Position.Left} style={{ opacity: 0 }} />
-      <Handle id="right" type="source" position={Position.Right} style={{ opacity: 0 }} />
-      <Handle id="top" type="target" position={Position.Top} style={{ opacity: 0 }} />
-      <Handle id="bottom" type="target" position={Position.Bottom} style={{ opacity: 0 }} />
-      <Handle id="left" type="target" position={Position.Left} style={{ opacity: 0 }} />
-      <Handle id="right" type="target" position={Position.Right} style={{ opacity: 0 }} />
-      {/* Center handle for straight mode — hidden behind node */}
-      <Handle id="center" type="source" position={Position.Top} style={{ opacity: 0, top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
-      <Handle id="center" type="target" position={Position.Top} style={{ opacity: 0, top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
+      {currentEdgeStyle === 'straight' ? (
+        <>
+          <Handle id="center" type="source" position={Position.Top} style={HANDLE_STYLE_CENTER} />
+          <Handle id="center" type="target" position={Position.Top} style={HANDLE_STYLE_CENTER} />
+        </>
+      ) : (
+        <>
+          <Handle id="top" type="source" position={Position.Top} style={HANDLE_STYLE_HIDDEN} />
+          <Handle id="bottom" type="source" position={Position.Bottom} style={HANDLE_STYLE_HIDDEN} />
+          <Handle id="left" type="source" position={Position.Left} style={HANDLE_STYLE_HIDDEN} />
+          <Handle id="right" type="source" position={Position.Right} style={HANDLE_STYLE_HIDDEN} />
+          <Handle id="top" type="target" position={Position.Top} style={HANDLE_STYLE_HIDDEN} />
+          <Handle id="bottom" type="target" position={Position.Bottom} style={HANDLE_STYLE_HIDDEN} />
+          <Handle id="left" type="target" position={Position.Left} style={HANDLE_STYLE_HIDDEN} />
+          <Handle id="right" type="target" position={Position.Right} style={HANDLE_STYLE_HIDDEN} />
+        </>
+      )}
       {children}
-      {/* Worker dots above the node (hidden when zoomed out) */}
-      <WorkerDotsRow workers={nodeWorkers || []} show={showDetails} />
+      <WorkerDotsRow workers={nodeWorkers || []} show={!!showWorkerDots} />
     </div>
   );
 }
@@ -251,7 +256,7 @@ function DepletedOverlay({ depletedUntil }: { depletedUntil?: number }) {
 
 function HubNode({ data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} glowColor="var(--accent)" workers={data.workers} style={{
+    <NodeWrapper selected={selected} glowColor="var(--accent)" workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} style={{
       animation: 'hub-pulse 3s ease-in-out infinite',
       padding: '14px 20px',
       borderRadius: 'var(--radius-lg)',
@@ -277,6 +282,9 @@ function ResourceNode({ data, selected }: any) {
       selected={selected}
       glowColor={data.unlocked && !isDepleted ? color : undefined}
       workers={data.workers}
+      showWorkerDots={data.showWorkerDots}
+      edgeStyle={data.edgeStyle}
+      fadeIn={data.fadeIn}
       style={{
         opacity: data.unlocked ? (isDepleted ? 0.7 : 1) : 0.5,
         filter: isDepleted ? 'grayscale(60%)' : undefined,
@@ -302,7 +310,7 @@ function ResourceNode({ data, selected }: any) {
 
 function RelayNode({ data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} glowColor={data.unlocked ? 'var(--accent-secondary)' : undefined} workers={data.workers} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
+    <NodeWrapper selected={selected} glowColor={data.unlocked ? 'var(--accent-secondary)' : undefined} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
       <NodeLabel
         label={data.label}
         icon={Radio}
@@ -315,7 +323,7 @@ function RelayNode({ data, selected }: any) {
 
 function InfectedNode({ data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} glowColor="var(--danger)" workers={data.workers} style={{
+    <NodeWrapper selected={selected} glowColor="var(--danger)" workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} style={{
       animation: 'infected-pulse 1.5s ease-in-out infinite',
       borderColor: 'var(--danger)',
     }}>
@@ -326,7 +334,7 @@ function InfectedNode({ data, selected }: any) {
 
 function LockedNode({ data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} workers={data.workers} style={{
+    <NodeWrapper selected={selected} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} style={{
       opacity: 0.4,
       border: '1px dashed var(--border-bright)',
     }}>
@@ -344,7 +352,7 @@ const DIFFICULTY_COLORS: Record<string, string> = {
 function ComputeNode({ data, selected }: any) {
   const color = DIFFICULTY_COLORS[data.difficulty] || '#a78bfa';
   return (
-    <NodeWrapper selected={selected} glowColor={data.unlocked ? color : undefined} workers={data.workers} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
+    <NodeWrapper selected={selected} glowColor={data.unlocked ? color : undefined} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
       <NodeLabel
         label={data.label}
         icon={Cpu}
@@ -369,7 +377,7 @@ function ComputeNode({ data, selected }: any) {
 function APINodeComponent({ data, selected }: any) {
   const pendingCount = data.pendingRequests || 0;
   return (
-    <NodeWrapper selected={selected} glowColor={data.unlocked ? '#f59e0b' : undefined} workers={data.workers} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
+    <NodeWrapper selected={selected} glowColor={data.unlocked ? '#f59e0b' : undefined} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
       {pendingCount > 0 && (
         <motion.div
           initial={{ scale: 0 }}
@@ -396,7 +404,7 @@ function APINodeComponent({ data, selected }: any) {
 
 function EmptyNode({ data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} workers={data.workers} style={{
+    <NodeWrapper selected={selected} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} style={{
       opacity: data.unlocked ? 0.8 : 0.4,
       border: '1px dashed var(--border-bright)',
     }}>
@@ -412,7 +420,7 @@ function EmptyNode({ data, selected }: any) {
 
 function CacheNode({ data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} glowColor={data.unlocked ? '#a78bfa' : undefined} workers={data.workers} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
+    <NodeWrapper selected={selected} glowColor={data.unlocked ? '#a78bfa' : undefined} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
       <NodeLabel
         label={data.label}
         icon={HardDrive}
@@ -572,25 +580,31 @@ import { CLASS_COLORS } from '../constants/colors';
 
 // ── Conversion helpers ──────────────────────────────────────────────────
 
-function toRFNodes(gameNodes: GameNode[], selectedId: string | null, workers: Worker[]): Node[] {
+function toRFNodes(gameNodes: GameNode[], selectedId: string | null, workers: Worker[], showWorkerDots: boolean, edgeStyle: string, fadeInIds: Set<string>): Node[] {
+  // Pre-build worker lookup by node id to avoid O(nodes × workers) filtering
+  const workersByNode = new Map<string, any[]>();
+  for (const w of workers) {
+    const nodeId = w.status === 'moving' && w.previous_node ? w.previous_node : (w.current_node || w.node_id);
+    if (!workersByNode.has(nodeId)) workersByNode.set(nodeId, []);
+    workersByNode.get(nodeId)!.push({
+      ...w,
+      leaving: w.status === 'moving' && w.previous_node === nodeId,
+    });
+    // Also add to destination node if moving
+    if (w.status === 'moving' && w.previous_node && w.current_node !== w.previous_node) {
+      const destId = w.current_node || w.node_id;
+      if (!workersByNode.has(destId)) workersByNode.set(destId, []);
+      workersByNode.get(destId)!.push({ ...w, leaving: false });
+    }
+  }
+
   return gameNodes.map(n => {
-    // Workers at this node (not moving)
-    const stationaryWorkers = workers.filter(w => {
-      if (w.status === 'moving' && w.previous_node) return false;
-      return (w.current_node || w.node_id) === n.id;
-    }).map(w => ({ ...w, leaving: false }));
-
-    // Workers leaving this node (moving, previous_node matches)
-    const leavingWorkers = workers.filter(w =>
-      w.status === 'moving' && w.previous_node === n.id
-    ).map(w => ({ ...w, leaving: true }));
-
-    const nodeWorkers = [...stationaryWorkers, ...leavingWorkers];
+    const nodeWorkers = workersByNode.get(n.id) || [];
     return {
       id: n.id,
       type: n.type,
       position: n.position,
-      data: { ...n.data, selected: n.id === selectedId, workers: nodeWorkers },
+      data: { ...n.data, selected: n.id === selectedId, workers: nodeWorkers, showWorkerDots, edgeStyle, fadeIn: fadeInIds.has(n.id) },
       selected: n.id === selectedId,
     };
   });
@@ -657,11 +671,44 @@ export function GameGraph() {
   const [edges, setEdges] = useEdgesState([]);
   const isEdgeSelecting = !!edgeSelectMode;
   const edgeStyle = settings.edgeStyle;
+  const showWorkerDots = settings.showWorkerDots;
+
+  // Track known node IDs to detect newly appeared nodes for fade-in
+  const knownNodeIdsRef = useRef<Set<string>>(new Set());
+  const fadeInIdsRef = useRef<Set<string>>(new Set());
+
+  const rfNodes = useMemo(() => {
+    const currentIds = new Set(gameNodes.map(n => n.id));
+    const newIds = new Set<string>();
+    // On first load (knownNodeIdsRef empty), don't fade — just register all as known
+    if (knownNodeIdsRef.current.size > 0) {
+      for (const id of currentIds) {
+        if (!knownNodeIdsRef.current.has(id)) newIds.add(id);
+      }
+    }
+    knownNodeIdsRef.current = currentIds;
+    // Merge new fade-in IDs (will be cleared after animation completes)
+    for (const id of newIds) fadeInIdsRef.current.add(id);
+
+    return toRFNodes(gameNodes, selectedNodeId, workers, showWorkerDots, edgeStyle, fadeInIdsRef.current);
+  }, [gameNodes, selectedNodeId, workers, showWorkerDots, edgeStyle]);
+
+  const rfEdges = useMemo(
+    () => toRFEdges(gameEdges, isEdgeSelecting, gameNodes, edgeStyle),
+    [gameEdges, isEdgeSelecting, gameNodes, edgeStyle]
+  );
 
   useEffect(() => {
-    setNodes(toRFNodes(gameNodes, selectedNodeId, workers));
-    setEdges(toRFEdges(gameEdges, isEdgeSelecting, gameNodes, edgeStyle));
-  }, [gameNodes, gameEdges, selectedNodeId, workers, isEdgeSelecting, edgeStyle]);
+    setNodes(rfNodes);
+    setEdges(rfEdges);
+  }, [rfNodes, rfEdges]);
+
+  // Clear fade-in flags after animation duration
+  useEffect(() => {
+    if (fadeInIdsRef.current.size === 0) return;
+    const timer = setTimeout(() => { fadeInIdsRef.current.clear(); }, 600);
+    return () => clearTimeout(timer);
+  }, [rfNodes]);
 
   const onNodeClick = useCallback((_: any, node: Node) => {
     if (isEdgeSelecting) return; // Ignore node clicks during edge selection

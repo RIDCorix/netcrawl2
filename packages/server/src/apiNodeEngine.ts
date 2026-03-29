@@ -8,7 +8,7 @@
  * to an unauthenticated request, the node gets infected (security breach).
  */
 
-import { getGameState, saveGameState, incrementStat, awardXp } from './db.js';
+import { getGameState, saveGameState, incrementStat, awardXp, grantNodeXp } from './db.js';
 import { XP_REWARDS } from './levelSystem.js';
 import { broadcastFullState } from './broadcastHelper.js';
 
@@ -267,6 +267,7 @@ export function apiRespond(nodeId: string, workerId: string, requestId: string, 
   incrementStat('total_api_requests_completed', 1);
   incrementStat('total_credits_earned', credits);
   awardXp(XP_REWARDS.complete_api_request);
+  grantNodeXp(nodeId, 'complete_request');
   broadcastFullState();
 
   return {

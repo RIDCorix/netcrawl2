@@ -2,12 +2,12 @@
 Scout: explores the map, logs discovered nodes.
 """
 import time
-from netcrawl import WorkerClass, Route, SensorGadget
+from netcrawl import UnitClass, Route, SensorGadget
 
 
-class Scout(WorkerClass):
+class Scout(UnitClass):
     """
-    Exploration worker. Finds unknown nodes and logs them.
+    Exploration unit. Finds unknown nodes and logs them.
     No items required — sensor gadget is auto-provided.
     """
     patrol_route = Route("Patrol circuit (loop path)")
@@ -25,5 +25,5 @@ class Scout(WorkerClass):
             self.discovered.add(node["id"])
             self.info(f"Discovered: {node['id']} (type={node['type']})")
 
-        self.move_through(self.patrol_route)
+        self.move(self.patrol_route)
         time.sleep(1)

@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Database, Cpu, Star, Lock, AlertTriangle, MousePointer, Upload, Pickaxe, ArrowUp, Info } from 'lucide-react';
+import { X, Database, Cpu, Star, Lock, AlertTriangle, MousePointer, Upload, Pickaxe, ArrowUp, Info, Shield, Radio, Box, Server, Globe, Zap, Bug } from 'lucide-react';
 import { useGameStore, GameNode, Resources } from '../store/gameStore';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -76,6 +76,18 @@ function ActionButton({ onClick, children, variant = 'primary', disabled = false
 
 import { SectionLabel, Divider } from './ui/primitives';
 
+const NODE_TYPE_ICONS: Record<string, any> = {
+  hub: Shield,
+  resource: Database,
+  relay: Radio,
+  compute: Cpu,
+  empty: Box,
+  cache: Server,
+  api: Globe,
+  infected: Bug,
+  locked: Lock,
+};
+
 function StatusMessage({ msg }: { msg: string }) {
   if (!msg) return null;
   const isError = msg.startsWith('Error') || msg.includes('failed') || msg.includes('enough');
@@ -108,7 +120,7 @@ function NodeUpgradeSection({ nodeId, node }: { nodeId: string; node: GameNode }
     axios.get(`/api/node/upgrades?nodeId=${nodeId}`)
       .then(r => setUpgradeData(r.data))
       .catch(() => {});
-  }, [nodeId, node.data.upgradeLevel]);
+  }, [nodeId, node.data.upgradeLevel, node.data.nodeXp]);
 
   const handleUpgrade = async () => {
     setUpgrading(true);
@@ -167,10 +179,16 @@ function NodeUpgradeSection({ nodeId, node }: { nodeId: string; node: GameNode }
         )}
 
         {nextLevel && (
-          <ActionButton onClick={handleUpgrade} disabled={upgrading || !nextLevel.affordable}>
+          <ActionButton onClick={handleUpgrade} disabled={upgrading || !nextLevel.affordable || !nextLevel.xpReady}>
             <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <ArrowUp size={12} />
-              {upgrading ? 'UPGRADING...' : nextLevel.affordable ? `UPGRADE TO LV.${nextLevel.level}` : 'INSUFFICIENT RESOURCES'}
+              {upgrading
+                ? 'UPGRADING...'
+                : !nextLevel.xpReady
+                  ? 'NODE EXP NOT READY'
+                  : nextLevel.affordable
+                    ? `UPGRADE TO LV.${nextLevel.level}`
+                    : 'INSUFFICIENT RESOURCES'}
             </span>
           </ActionButton>
         )}
@@ -178,13 +196,6 @@ function NodeUpgradeSection({ nodeId, node }: { nodeId: string; node: GameNode }
         {upgradeMsg && <StatusMessage msg={upgradeMsg} />}
       </div>
 
-      {/* Chip Slots */}
-      {chipSlots > 0 && (
-        <>
-          <Divider />
-          <ChipSlotManager nodeId={nodeId} chipSlots={chipSlots} installedChips={installedChips} />
-        </>
-      )}
     </>
   );
 }
@@ -309,25 +320,42 @@ export function NodeDetailPanel() {
 
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: getNodeColor(node),
-                  fontFamily: 'var(--font-mono)',
-                  letterSpacing: '0.12em',
-                  textTransform: 'uppercase',
-                }}>
-                  {node.type}
-                </div>
-                <div style={{
-                  fontSize: 18,
-                  fontWeight: 800,
-                  color: 'var(--text-primary)',
-                  fontFamily: 'var(--font-mono)',
-                  marginTop: 2,
-                }}>
-                  {node.data.label}
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                {/* Node type icon */}
+                {(() => {
+                  const NodeIcon = NODE_TYPE_ICONS[node.type] || Box;
+                  return (
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 'var(--radius-sm)',
+                      background: `color-mix(in srgb, ${getNodeColor(node)} 12%, transparent)`,
+                      border: `1px solid color-mix(in srgb, ${getNodeColor(node)} 25%, transparent)`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0, marginTop: 2,
+                    }}>
+                      <NodeIcon size={18} style={{ color: getNodeColor(node) }} />
+                    </div>
+                  );
+                })()}
+                <div>
+                  <div style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: getNodeColor(node),
+                    fontFamily: 'var(--font-mono)',
+                    letterSpacing: '0.12em',
+                    textTransform: 'uppercase',
+                  }}>
+                    {node.type}
+                  </div>
+                  <div style={{
+                    fontSize: 18,
+                    fontWeight: 800,
+                    color: 'var(--text-primary)',
+                    fontFamily: 'var(--font-mono)',
+                    marginTop: 2,
+                  }}>
+                    {node.data.label}
+                  </div>
                 </div>
               </div>
               <button
@@ -347,6 +375,55 @@ export function NodeDetailPanel() {
                 <X size={14} />
               </button>
             </div>
+
+            {/* Node XP */}
+            {(() => {
+              const nodeXp = node.data.nodeXp || 0;
+              const nodeXpToNext = node.data.nodeXpToNext || 0;
+              const upgradeLevel = node.data.upgradeLevel || 0;
+              const hasXpSystem = nodeXpToNext > 0;
+              const xpPercent = hasXpSystem ? Math.min(100, (nodeXp / nodeXpToNext) * 100) : 0;
+              const xpFull = hasXpSystem && nodeXp >= nodeXpToNext;
+              const isMax = !hasXpSystem;
+
+              // Hide for locked nodes, and for unlocked nodes with no upgrade path
+              if (!node.data.unlocked && node.id !== 'hub') return null;
+              if (isMax && upgradeLevel === 0) return null;
+
+              return (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '6px 10px', borderRadius: 'var(--radius-sm)',
+                  background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                }}>
+                  <Zap size={12} style={{ color: '#00d4aa', flexShrink: 0 }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ fontSize: 11, fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#00d4aa' }}>
+                        Lv.{upgradeLevel}
+                      </span>
+                      <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                        {isMax ? 'MAX' : xpFull ? 'READY' : `${Math.floor(xpPercent)}%`}
+                      </span>
+                    </div>
+                    <div style={{ width: '100%', height: 3, background: 'var(--bg-primary)', borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{
+                        width: `${isMax ? 100 : xpPercent}%`,
+                        height: '100%',
+                        background: isMax ? '#f59e0b' : '#00d4aa',
+                        borderRadius: 2,
+                        transition: 'width 0.3s ease',
+                      }} />
+                    </div>
+                  </div>
+                  {hasXpSystem && (
+                    <span style={{ fontSize: 8, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', flexShrink: 0 }}>
+                      {nodeXp}/{nodeXpToNext}
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Node ID badge */}
             <div style={{
@@ -674,6 +751,14 @@ export function NodeDetailPanel() {
                     DEPLOY WORKER
                   </span>
                 </ActionButton>
+              </>
+            )}
+
+            {/* Chip Slots — 4x2 grid at bottom */}
+            {(node.id === 'hub' || node.data.unlocked) && (node.data.chipSlots || 0) > 0 && (
+              <>
+                <Divider />
+                <ChipSlotManager nodeId={node.id} chipSlots={node.data.chipSlots || 0} installedChips={node.data.installedChips || []} />
               </>
             )}
           </motion.div>

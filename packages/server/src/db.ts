@@ -7,6 +7,7 @@
 import path from 'path';
 import fs from 'fs';
 import { INITIAL_LEVEL_STATE, type LevelState, grantXp, getLevelSummary, getTitleForLevel, type LevelSummary, type LevelUpResult } from './levelSystem.js';
+import { getUpgradeKey, getNodeXpForAction, getNodeXpThreshold, NODE_UPGRADE_DEFS } from './upgradeDefinitions.js';
 
 const DATA_PATH = path.join(process.cwd(), 'data', 'netcrawl-state.json');
 
@@ -191,97 +192,98 @@ export const INITIAL_NODES = [
   // ═══════════════════════════════════════════════════════════════════════════
   // Core
   // ═══════════════════════════════════════════════════════════════════════════
-  { id: 'hub', type: 'hub', position: { x: 0, y: 0 }, data: { label: 'Hub', unlocked: true, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
+  // Hub is ~90×72px; offset so its visual center aligns with (0,0)
+  { id: 'hub', type: 'hub', position: { x: -45, y: -36 }, data: { label: 'Hub', unlocked: true, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // NORTH — Mining District (easy start, main data income)
   // ═══════════════════════════════════════════════════════════════════════════
-  { id: 'n_relay1', type: 'relay',    position: { x: 0,    y: -300 },  data: Y('Relay N1', { data: 50 }) },
-  { id: 'n_mine1',  type: 'resource', position: { x: -250, y: -500 },  data: R('Data Mine Alpha', 50, { data: 100 }) },
-  { id: 'n_mine2',  type: 'resource', position: { x: 250,  y: -500 },  data: R('Data Mine Beta', 40, { data: 150 }) },
+  { id: 'n_relay1', type: 'resource', position: { x: 0,    y: -300 },  data: R('Data Mine Nano', 30, { data: 20 }) },
+  { id: 'n_mine1',  type: 'resource', position: { x: -220, y: -500 },  data: R('Data Mine Alpha', 50, { data: 100 }) },
+  { id: 'n_mine2',  type: 'resource', position: { x: 220,  y: -500 },  data: R('Data Mine Beta', 40, { data: 150 }) },
   { id: 'n_relay2', type: 'relay',    position: { x: 0,    y: -700 },  data: Y('Relay N2', { data: 200 }) },
-  { id: 'n_mine3',  type: 'resource', position: { x: -300, y: -900 },  data: R('Data Mine Gamma', 60, { data: 400 }) },
-  { id: 'n_mine4',  type: 'resource', position: { x: 300,  y: -900 },  data: R('Data Mine Delta', 55, { data: 500 }) },
-  { id: 'n_empty1', type: 'empty',    position: { x: 0,    y: -1000 }, data: E('Open Slot', { data: 800, rp: 3 }) },
+  { id: 'n_mine3',  type: 'resource', position: { x: -220, y: -900 },  data: R('Data Mine Gamma', 60, { data: 400 }) },
+  { id: 'n_mine4',  type: 'resource', position: { x: 220,  y: -900 },  data: R('Data Mine Delta', 55, { data: 500 }) },
+  { id: 'n_empty1', type: 'empty',    position: { x: 0,    y: -1100 }, data: E('Open Slot', { data: 800, rp: 3 }) },
   { id: 'n_deep1',  type: 'resource', position: { x: 0,    y: -1300 }, data: R('Deep Core Alpha', 100, { data: 2000, rp: 5 }) },
-  { id: 'n_deep2',  type: 'resource', position: { x: -350, y: -1200 }, data: R('Deep Core Beta', 80, { data: 1500, rp: 3 }) },
+  { id: 'n_deep2',  type: 'resource', position: { x: -350, y: -1100 }, data: R('Deep Core Beta', 80, { data: 1500, rp: 3 }) },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // NORTHEAST — Compute Cluster (research / RP income)
   // ═══════════════════════════════════════════════════════════════════════════
-  { id: 'ne_relay1', type: 'relay',    position: { x: 400,  y: -200 },  data: Y('Relay NE1', { data: 120 }) },
-  { id: 'ne_comp1',  type: 'compute',  position: { x: 650,  y: -350 },  data: C('Compute C1', 'easy', { data: 300 }) },
-  { id: 'ne_mine1',  type: 'resource', position: { x: 700,  y: -100 },  data: R('Data Silo East', 35, { data: 250 }) },
-  { id: 'ne_relay2', type: 'relay',    position: { x: 950,  y: -250 },  data: Y('Relay NE2', { data: 600 }) },
-  { id: 'ne_comp2',  type: 'compute',  position: { x: 1200, y: -400 },  data: C('Compute C2', 'medium', { data: 1000, rp: 5 }) },
-  { id: 'ne_comp3',  type: 'compute',  position: { x: 1200, y: -100 },  data: C('Compute C3', 'medium', { data: 1200, rp: 8 }) },
-  { id: 'ne_empty1', type: 'empty',    position: { x: 950,  y: -550 },  data: E('Open Slot', { data: 1500, rp: 5 }) },
-  { id: 'ne_comp4',  type: 'compute',  position: { x: 1500, y: -250 },  data: C('Compute C4', 'hard', { data: 3000, rp: 15 }) },
+  { id: 'ne_relay1', type: 'relay',    position: { x: 350,  y: -200 },  data: Y('Relay NE1', { data: 120 }) },
+  { id: 'ne_comp1',  type: 'compute',  position: { x: 560,  y: -380 },  data: C('Compute C1', 'easy', { data: 300 }) },
+  { id: 'ne_mine1',  type: 'resource', position: { x: 560,  y: -60 },   data: R('Data Silo East', 35, { data: 250 }) },
+  { id: 'ne_relay2', type: 'relay',    position: { x: 780,  y: -280 },  data: Y('Relay NE2', { data: 600 }) },
+  { id: 'ne_comp2',  type: 'compute',  position: { x: 980,  y: -430 },  data: C('Compute C2', 'medium', { data: 1000, rp: 5 }) },
+  { id: 'ne_comp3',  type: 'compute',  position: { x: 980,  y: -130 },  data: C('Compute C3', 'medium', { data: 1200, rp: 8 }) },
+  { id: 'ne_empty1', type: 'empty',    position: { x: 780,  y: -500 },  data: E('Open Slot', { data: 1500, rp: 5 }) },
+  { id: 'ne_comp4',  type: 'compute',  position: { x: 1200, y: -280 },  data: C('Compute C4', 'hard', { data: 3000, rp: 15 }) },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // EAST — Trade Route (mid-game expansion)
   // ═══════════════════════════════════════════════════════════════════════════
-  { id: 'e_relay1', type: 'relay',    position: { x: 450,  y: 100 },   data: Y('Relay E1', { data: 180 }) },
-  { id: 'e_mine1',  type: 'resource', position: { x: 700,  y: 200 },   data: R('Data Mine Echo', 45, { data: 350 }) },
-  { id: 'e_mine2',  type: 'resource', position: { x: 700,  y: -50 },   data: R('Data Vein East', 30, { data: 300 }) },
-  { id: 'e_relay2', type: 'relay',    position: { x: 1000, y: 100 },   data: Y('Relay E2', { data: 800 }) },
-  { id: 'e_empty1', type: 'empty',    position: { x: 1000, y: 350 },   data: E('Open Slot', { data: 2000, rp: 8 }) },
-  { id: 'e_mine3',  type: 'resource', position: { x: 1300, y: 0 },     data: R('Data Mine Foxtrot', 70, { data: 1200 }) },
-  { id: 'e_mine4',  type: 'resource', position: { x: 1300, y: 250 },   data: R('Data Mine Golf', 65, { data: 1000 }) },
-  { id: 'e_empty2', type: 'empty',    position: { x: 1550, y: 120 },   data: E('Open Slot', { data: 3000, rp: 12 }) },
+  { id: 'e_relay1', type: 'relay',    position: { x: 420,  y: 100 },   data: Y('Relay E1', { data: 180 }) },
+  { id: 'e_mine1',  type: 'resource', position: { x: 650,  y: -40 },   data: R('Data Mine Echo', 45, { data: 350 }) },
+  { id: 'e_mine2',  type: 'resource', position: { x: 650,  y: 240 },   data: R('Data Vein East', 30, { data: 300 }) },
+  { id: 'e_relay2', type: 'relay',    position: { x: 880,  y: 100 },   data: Y('Relay E2', { data: 800 }) },
+  { id: 'e_empty1', type: 'empty',    position: { x: 880,  y: 320 },   data: E('Open Slot', { data: 2000, rp: 8 }) },
+  { id: 'e_mine3',  type: 'resource', position: { x: 1110, y: -40 },   data: R('Data Mine Foxtrot', 70, { data: 1200 }) },
+  { id: 'e_mine4',  type: 'resource', position: { x: 1110, y: 240 },   data: R('Data Mine Golf', 65, { data: 1000 }) },
+  { id: 'e_empty2', type: 'empty',    position: { x: 1340, y: 100 },   data: E('Open Slot', { data: 3000, rp: 12 }) },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SOUTHEAST — Deep Territory (late game, high yield)
   // ═══════════════════════════════════════════════════════════════════════════
-  { id: 'se_relay1', type: 'relay',    position: { x: 350,  y: 400 },   data: Y('Relay SE1', { data: 250 }) },
-  { id: 'se_mine1',  type: 'resource', position: { x: 600,  y: 550 },   data: R('Data Mine Hotel', 50, { data: 500 }) },
-  { id: 'se_comp1',  type: 'compute',  position: { x: 350,  y: 700 },   data: C('Compute C5', 'easy', { data: 600 }) },
-  { id: 'se_relay2', type: 'relay',    position: { x: 650,  y: 850 },   data: Y('Relay SE2', { data: 1200 }) },
-  { id: 'se_mine2',  type: 'resource', position: { x: 900,  y: 700 },   data: R('Data Mine India', 85, { data: 1800 }) },
-  { id: 'se_empty1', type: 'empty',    position: { x: 900,  y: 1000 },  data: E('Open Slot', { data: 2500, rp: 10 }) },
-  { id: 'se_locked1',type: 'locked',   position: { x: 400,  y: 1050 },  data: Y('Encrypted Vault', { data: 5000, rp: 20 }) },
+  { id: 'se_relay1', type: 'relay',    position: { x: 350,  y: 340 },   data: Y('Relay SE1', { data: 250 }) },
+  { id: 'se_mine1',  type: 'resource', position: { x: 560,  y: 460 },   data: R('Data Mine Hotel', 50, { data: 500 }) },
+  { id: 'se_comp1',  type: 'compute',  position: { x: 350,  y: 560 },   data: C('Compute C5', 'easy', { data: 600 }) },
+  { id: 'se_relay2', type: 'relay',    position: { x: 680,  y: 660 },   data: Y('Relay SE2', { data: 1200 }) },
+  { id: 'se_mine2',  type: 'resource', position: { x: 900,  y: 560 },   data: R('Data Mine India', 85, { data: 1800 }) },
+  { id: 'se_empty1', type: 'empty',    position: { x: 680,  y: 860 },   data: E('Open Slot', { data: 2500, rp: 10 }) },
+  { id: 'se_locked1',type: 'locked',   position: { x: 350,  y: 780 },   data: Y('Encrypted Vault', { data: 5000, rp: 20 }) },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SOUTH — Relay Backbone (connects west and east)
   // ═══════════════════════════════════════════════════════════════════════════
-  { id: 's_relay1', type: 'relay',    position: { x: -100, y: 350 },    data: Y('Relay S1', { data: 80 }) },
-  { id: 's_comp1',  type: 'compute',  position: { x: 100,  y: 550 },    data: C('Compute Alpha', 'easy', { data: 400 }) },
-  { id: 's_mine1',  type: 'resource', position: { x: -200, y: 600 },    data: R('Data Mine Juliet', 40, { data: 350 }) },
-  { id: 's_relay2', type: 'relay',    position: { x: 0,    y: 800 },    data: Y('Relay S2', { data: 700 }) },
-  { id: 's_mine2',  type: 'resource', position: { x: -250, y: 950 },    data: R('Data Mine Kilo', 75, { data: 1500 }) },
-  { id: 's_mine3',  type: 'resource', position: { x: 250,  y: 950 },    data: R('Data Mine Lima', 70, { data: 1400 }) },
-  { id: 's_empty1', type: 'empty',    position: { x: 0,    y: 1100 },   data: E('Open Slot', { data: 2000, rp: 8 }) },
+  { id: 's_relay1', type: 'relay',    position: { x: 0,    y: 380 },    data: Y('Relay S1', { data: 80 }) },
+  { id: 's_comp1',  type: 'compute',  position: { x: 220,  y: 560 },    data: C('Compute Alpha', 'easy', { data: 400 }) },
+  { id: 's_mine1',  type: 'resource', position: { x: -220, y: 560 },    data: R('Data Mine Juliet', 40, { data: 350 }) },
+  { id: 's_relay2', type: 'relay',    position: { x: 0,    y: 760 },    data: Y('Relay S2', { data: 700 }) },
+  { id: 's_mine2',  type: 'resource', position: { x: -220, y: 960 },    data: R('Data Mine Kilo', 75, { data: 1500 }) },
+  { id: 's_mine3',  type: 'resource', position: { x: 220,  y: 960 },    data: R('Data Mine Lima', 70, { data: 1400 }) },
+  { id: 's_empty1', type: 'empty',    position: { x: 0,    y: 1160 },   data: E('Open Slot', { data: 2000, rp: 8 }) },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SOUTHWEST — Defense Perimeter (infected zone nearby)
   // ═══════════════════════════════════════════════════════════════════════════
-  { id: 'sw_relay1', type: 'relay',    position: { x: -400, y: 300 },   data: Y('Relay SW1', { data: 150 }) },
-  { id: 'sw_mine1',  type: 'resource', position: { x: -600, y: 200 },   data: R('Data Mine Mike', 45, { data: 400 }) },
-  { id: 'sw_mine2',  type: 'resource', position: { x: -650, y: 450 },   data: R('Data Mine November', 55, { data: 600 }) },
-  { id: 'sw_relay2', type: 'relay',    position: { x: -400, y: 600 },   data: Y('Relay SW2', { data: 900 }) },
-  { id: 'sw_comp1',  type: 'compute',  position: { x: -650, y: 700 },   data: C('Compute C6', 'medium', { data: 1200, rp: 5 }) },
-  { id: 'sw_empty1', type: 'empty',    position: { x: -900, y: 500 },   data: E('Open Slot', { data: 1800, rp: 7 }) },
-  { id: 'sw_locked1',type: 'locked',   position: { x: -900, y: 300 },   data: Y('Quarantine Zone', { data: 4000, rp: 15 }) },
+  { id: 'sw_relay1', type: 'relay',    position: { x: -350, y: 340 },   data: Y('Relay SW1', { data: 150 }) },
+  { id: 'sw_mine1',  type: 'resource', position: { x: -560, y: 200 },   data: R('Data Mine Mike', 45, { data: 400 }) },
+  { id: 'sw_mine2',  type: 'resource', position: { x: -560, y: 480 },   data: R('Data Mine November', 55, { data: 600 }) },
+  { id: 'sw_relay2', type: 'relay',    position: { x: -560, y: 680 },   data: Y('Relay SW2', { data: 900 }) },
+  { id: 'sw_comp1',  type: 'compute',  position: { x: -780, y: 800 },   data: C('Compute C6', 'medium', { data: 1200, rp: 5 }) },
+  { id: 'sw_empty1', type: 'empty',    position: { x: -780, y: 200 },   data: E('Open Slot', { data: 1800, rp: 7 }) },
+  { id: 'sw_locked1',type: 'locked',   position: { x: -780, y: 60 },    data: Y('Quarantine Zone', { data: 4000, rp: 15 }) },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // WEST — Relay Network (connectivity backbone)
   // ═══════════════════════════════════════════════════════════════════════════
-  { id: 'w_relay1', type: 'relay',    position: { x: -400, y: -100 },   data: Y('Relay W1', { data: 100 }) },
+  { id: 'w_relay1', type: 'relay',    position: { x: -420, y: -60 },    data: Y('Relay W1', { data: 100 }) },
   { id: 'w_mine1',  type: 'resource', position: { x: -650, y: -200 },   data: R('Data Mine Oscar', 35, { data: 250 }) },
-  { id: 'w_relay2', type: 'relay',    position: { x: -650, y: 50 },     data: Y('Relay W2', { data: 500 }) },
-  { id: 'w_empty1', type: 'empty',    position: { x: -900, y: -100 },   data: E('Open Slot', { data: 1000, rp: 5 }) },
-  { id: 'w_mine2',  type: 'resource', position: { x: -900, y: 100 },    data: R('Data Mine Papa', 60, { data: 800 }) },
+  { id: 'w_relay2', type: 'relay',    position: { x: -650, y: 80 },     data: Y('Relay W2', { data: 500 }) },
+  { id: 'w_empty1', type: 'empty',    position: { x: -880, y: -60 },    data: E('Open Slot', { data: 1000, rp: 5 }) },
+  { id: 'w_mine2',  type: 'resource', position: { x: -880, y: 140 },    data: R('Data Mine Papa', 60, { data: 800 }) },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // NORTHWEST — Research Outpost (high RP, hard compute)
   // ═══════════════════════════════════════════════════════════════════════════
-  { id: 'nw_relay1', type: 'relay',    position: { x: -350, y: -400 },  data: Y('Relay NW1', { data: 200 }) },
-  { id: 'nw_mine1',  type: 'resource', position: { x: -600, y: -500 },  data: R('Data Mine Quebec', 45, { data: 500 }) },
-  { id: 'nw_comp1',  type: 'compute',  position: { x: -350, y: -700 },  data: C('Research Lab', 'hard', { data: 2000, rp: 10 }) },
-  { id: 'nw_relay2', type: 'relay',    position: { x: -600, y: -800 },  data: Y('Relay NW2', { data: 1500 }) },
-  { id: 'nw_comp2',  type: 'compute',  position: { x: -850, y: -650 },  data: C('Deep Research Lab', 'hard', { data: 4000, rp: 20 }) },
-  { id: 'nw_empty1', type: 'empty',    position: { x: -850, y: -900 },  data: E('Open Slot', { data: 3000, rp: 15 }) },
-  { id: 'nw_locked1',type: 'locked',   position: { x: -600, y: -1100 }, data: Y('Observatory', { data: 8000, rp: 30 }) },
+  { id: 'nw_relay1', type: 'relay',    position: { x: -320, y: -280 },  data: Y('Relay NW1', { data: 200 }) },
+  { id: 'nw_mine1',  type: 'resource', position: { x: -540, y: -380 },  data: R('Data Mine Quebec', 45, { data: 500 }) },
+  { id: 'nw_comp1',  type: 'compute',  position: { x: -400, y: -520 },  data: C('Research Lab', 'hard', { data: 2000, rp: 10 }) },
+  { id: 'nw_relay2', type: 'relay',    position: { x: -600, y: -680 },  data: Y('Relay NW2', { data: 1500 }) },
+  { id: 'nw_comp2',  type: 'compute',  position: { x: -820, y: -560 },  data: C('Deep Research Lab', 'hard', { data: 4000, rp: 20 }) },
+  { id: 'nw_empty1', type: 'empty',    position: { x: -600, y: -880 },  data: E('Open Slot', { data: 3000, rp: 15 }) },
+  { id: 'nw_locked1',type: 'locked',   position: { x: -600, y: -1080 }, data: Y('Observatory', { data: 8000, rp: 30 }) },
 ];
 
 export const INITIAL_EDGES = [
@@ -459,6 +461,22 @@ export function initDb() {
       if (!store.level_state) {
         store.level_state = { ...INITIAL_LEVEL_STATE };
       }
+      // Migrate: initialize nodeXpToNext for unlocked nodes
+      store.game_state.nodes = store.game_state.nodes.map((n: any) => {
+        if (n.data.nodeXpToNext === undefined && (n.data.unlocked || n.id === 'hub')) {
+          const key = getUpgradeKey(n.type, n.data.resource);
+          const currentLevel = n.data.upgradeLevel || 0;
+          const threshold = getNodeXpThreshold(key, currentLevel + 1);
+          return { ...n, data: { ...n.data, nodeXp: n.data.nodeXp || 0, nodeXpToNext: threshold } };
+        }
+        return n;
+      });
+      // Migrate: sync node positions from INITIAL_NODES (positions are dev-controlled, not player-controlled)
+      const positionMap = new Map(INITIAL_NODES.map(n => [n.id, n.position]));
+      store.game_state.nodes = store.game_state.nodes.map((n: any) => {
+        const pos = positionMap.get(n.id);
+        return pos ? { ...n, position: pos } : n;
+      });
     } catch {
       console.warn('[DB] Could not parse state file, starting fresh');
       store = JSON.parse(JSON.stringify(INITIAL_STORE));
@@ -483,6 +501,53 @@ function persist() {
 
 export function getGameState(): GameStateRow {
   return store.game_state;
+}
+
+/**
+ * Return only nodes within `depth` hops of any unlocked node,
+ * plus the edges that connect visible nodes.
+ * This avoids sending the entire map to the client.
+ */
+export function getVisibleState(depth = 2): { nodes: any[]; edges: any[] } {
+  const { nodes, edges } = store.game_state;
+
+  // Build adjacency list from edges
+  const adj = new Map<string, Set<string>>();
+  for (const e of edges) {
+    if (!adj.has(e.source)) adj.set(e.source, new Set());
+    if (!adj.has(e.target)) adj.set(e.target, new Set());
+    adj.get(e.source)!.add(e.target);
+    adj.get(e.target)!.add(e.source);
+  }
+
+  // BFS from all unlocked nodes
+  const visible = new Set<string>();
+  const queue: { id: string; d: number }[] = [];
+
+  for (const n of nodes) {
+    if (n.id === 'hub' || n.data?.unlocked) {
+      visible.add(n.id);
+      queue.push({ id: n.id, d: 0 });
+    }
+  }
+
+  while (queue.length > 0) {
+    const { id, d } = queue.shift()!;
+    if (d >= depth) continue;
+    const neighbors = adj.get(id);
+    if (!neighbors) continue;
+    for (const nid of neighbors) {
+      if (!visible.has(nid)) {
+        visible.add(nid);
+        queue.push({ id: nid, d: d + 1 });
+      }
+    }
+  }
+
+  return {
+    nodes: nodes.filter(n => visible.has(n.id)),
+    edges: edges.filter(e => visible.has(e.source) && visible.has(e.target)),
+  };
 }
 
 export function saveGameState(state: GameStateRow) {
@@ -725,8 +790,15 @@ export function setLevelBroadcast(fn: (data: any) => void) {
 }
 
 export function awardXp(amount: number): LevelUpResult {
+  const prevFlopBonus = store.level_state.flopBonus;
   const result = grantXp(store.level_state, amount);
   store.level_state = result.newState;
+
+  // Sync FLOP capacity with level bonus
+  const flopDelta = result.newState.flopBonus - prevFlopBonus;
+  if (flopDelta > 0) {
+    store.game_state.flop.total += flopDelta;
+  }
 
   // Apply milestone rewards
   for (const milestone of result.newMilestones) {
@@ -767,6 +839,51 @@ export function awardXp(amount: number): LevelUpResult {
 
 export function getPlayerLevelSummary(): LevelSummary {
   return getLevelSummary(store.level_state);
+}
+
+// ── Node XP ─────────────────────────────────────────────────────────────────
+
+/**
+ * Grant XP to a specific node. Nodes gain XP through usage interactions.
+ * When nodeXp >= nodeXpToNext, the node is "ready" and can be upgraded
+ * (upgrade still costs resources).
+ *
+ * Returns true if XP was granted.
+ */
+export function grantNodeXp(nodeId: string, action: string): boolean {
+  const state = store.game_state;
+  const nodeIdx = state.nodes.findIndex((n: any) => n.id === nodeId);
+  if (nodeIdx === -1) return false;
+
+  const node = state.nodes[nodeIdx];
+  const key = getUpgradeKey(node.type, node.data.resource);
+  const xpAmount = getNodeXpForAction(key, action);
+  if (xpAmount <= 0) return false;
+
+  const currentLevel = node.data.upgradeLevel || 0;
+  const upgrades = NODE_UPGRADE_DEFS[key];
+  if (!upgrades) return false;
+
+  // Already at max level — no more XP needed
+  const maxLevel = upgrades.length;
+  if (currentLevel >= maxLevel) return false;
+
+  const threshold = getNodeXpThreshold(key, currentLevel + 1);
+  if (threshold <= 0) return false;
+
+  const currentXp = node.data.nodeXp || 0;
+  const newXp = Math.min(currentXp + xpAmount, threshold); // cap at threshold
+
+  state.nodes[nodeIdx] = {
+    ...node,
+    data: {
+      ...node.data,
+      nodeXp: newXp,
+      nodeXpToNext: threshold,
+    },
+  };
+
+  return true;
 }
 
 export function getUnlockedRecipes(): string[] {

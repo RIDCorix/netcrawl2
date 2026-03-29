@@ -44,17 +44,17 @@ def _do_request(req: urllib.request.Request, timeout: int) -> dict:
 
 class ApiClient:
     """
-    HTTP client for worker subprocess → game server communication.
+    HTTP client for unit subprocess → game server communication.
     """
 
-    def __init__(self, api_url: str, worker_id: str):
+    def __init__(self, api_url: str, unit_id: str):
         self.api_url = api_url.rstrip("/")
-        self.worker_id = worker_id
+        self.unit_id = unit_id
 
     def action(self, action: str, payload: dict) -> dict:
-        """POST /api/worker/action — returns server response as dict."""
-        return http_post(f"{self.api_url}/api/worker/action", {
-            "workerId": self.worker_id,
+        """POST /api/unit/action — returns server response as dict."""
+        return http_post(f"{self.api_url}/api/unit/action", {
+            "unitId": self.unit_id,
             "action": action,
             "payload": payload,
         })
