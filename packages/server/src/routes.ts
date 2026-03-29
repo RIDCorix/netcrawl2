@@ -447,6 +447,10 @@ router.post('/worker-classes/register', (req: Request, res: Response) => {
     registerWorkerClass({ ...entry, language: 'python' });
   }
 
+  // Mark code server as connected (triggers q_setup quest)
+  incrementStat('code_server_connected', 1);
+  checkQuests();
+
   res.json({ ok: true, registered: classes.length });
 });
 

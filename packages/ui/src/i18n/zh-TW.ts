@@ -95,7 +95,26 @@ export const zhTW: Record<string, string> = {
   'common.cancel':  '取消',
   'common.ok':      '確定',
 
+  // === Tutorial ===
+  'tutorial.welcome.title': '歡迎來到 NetCrawl',
+  'tutorial.welcome.content': '一款可程式化的放置遊戲，讓你用 Python 編寫 worker 來自動化你的網路。讓我們用 5 個步驟快速開始。',
+  'tutorial.quests.title': '任務書',
+  'tutorial.quests.content': '按下 [Q] 或點擊任務書按鈕查看當前目標。第一章會引導你完成初始設定。',
+  'tutorial.setup.title': '設置工作區',
+  'tutorial.setup.content': '點擊第一章的「開發設定」任務，取得設置 Python 工作區的逐步說明。',
+  'tutorial.deploy.title': '部署 Worker',
+  'tutorial.deploy.content': '點擊 Hub 節點，然後點擊「部署 Worker」來新增一個 Python worker。Worker 會自動執行你的程式碼。',
+  'tutorial.inventory.title': '背包與合成',
+  'tutorial.inventory.content': '按下 [E] 或點擊背包圖示開啟背包。為挖礦工人合成鎬子，為守衛合成盾牌。',
+  'tutorial.btn.start': '開始',
+  'tutorial.btn.next': '下一步',
+  'tutorial.btn.done': '完成',
+  'tutorial.btn.skip': '跳過教學',
+
   // === Quests ===
+  'quest.q_setup.name': '開發設定',
+  'quest.q_setup.desc': '下載 VSCode、複製 workspace_example，並連接 code server 以開始遊戲。',
+
   'quest.q_hello_world.name': '你好，世界！',
   'quest.q_hello_world.desc': '每段旅程都始於第一次部署。部署你的第一個 Worker。',
   'quest.q_first_mine.name': '採集資料',

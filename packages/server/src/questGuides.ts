@@ -6,75 +6,112 @@
 import type { GuideStep } from './questDefinitions.js';
 
 export const QUEST_GUIDES: Record<string, GuideStep[]> = {
-  q_hello_world: [
-    { title: 'Clone the Repository', content: `Open your terminal and navigate to the NetCrawl workspace:
+  q_setup: [
+    { title: 'Install VSCode', content: `NetCrawl workers are Python scripts. You need a code editor.
+
+Download **Visual Studio Code** from [code.visualstudio.com](https://code.visualstudio.com) and install it.
+
+Also install the **Python extension** in VSCode:
+1. Open VSCode
+2. Press \`Ctrl+Shift+X\` (Extensions)
+3. Search "Python" → Install the Microsoft Python extension` },
+
+    { title: 'Copy the Workspace Template', content: `NetCrawl ships with a starter template. Copy it to get started:
 
 \`\`\`bash
-cd workspace/
+# From the netcrawl2 folder:
+cp -r workspace_example workspace
+cd workspace
 \`\`\`
 
-This folder contains your worker code. The \`workspace_example/\` folder has starter templates you can reference.` },
+The \`workspace/\` folder is yours to edit. It contains:
+- \`main.py\` — entry point (registers your workers)
+- \`workers/\` — your worker classes go here
+- \`pyproject.toml\` — Python dependencies` },
 
-    { title: 'Understanding Workers', content: `Workers are Python classes that automate tasks on the network. Each worker has:
+    { title: 'Install uv (Python Package Manager)', content: `NetCrawl uses **uv** for fast Python dependency management.
 
-- \`on_startup()\` -- Called once when deployed
-- \`on_loop()\` -- Called repeatedly to do work
+**Windows (PowerShell):**
+\`\`\`powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+\`\`\`
 
-Workers can move between nodes, mine resources, collect drops, and deposit them at the Hub.` },
+**macOS / Linux:**
+\`\`\`bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+\`\`\`
 
-    { title: 'Write Your First Worker', content: `Open \`workspace/workers/\` and create a new file, or modify an existing one.
-
-A minimal worker looks like:
-
-\`\`\`python
-from netcrawl import WorkerClass
-
-class HelloWorker(WorkerClass):
-    class_name = "Hello"
-    class_id = "hello"
-
-    def on_startup(self):
-        self.info("Hello, World!")
-
-    def on_loop(self):
-        self.info("I am alive!")
-        import time
-        time.sleep(5)
+Then in your workspace folder:
+\`\`\`bash
+uv sync
 \`\`\`` },
 
-    { title: 'Register in main.py', content: `Open \`workspace/main.py\` and register your worker:
+    { title: 'Start the Game Server', content: `The game server must be running before your code server.
 
-\`\`\`python
-from workers.hello import HelloWorker
+In the \`netcrawl2/\` folder, run:
 
-app.register(HelloWorker)
+\`\`\`bash
+pnpm dev
 \`\`\`
 
-This tells the code server about your new worker class.` },
+You should see the UI open at **http://localhost:5173** and the API server at **http://localhost:3001**.
 
-    { title: 'Start the Code Server', content: `In the \`workspace/\` directory, run:
+Keep this terminal open.` },
+
+    { title: 'Run Your Code Server', content: `Now start your Python code server. In the \`workspace/\` folder:
 
 \`\`\`bash
 uv run main.py
 \`\`\`
 
 You should see:
-
 \`\`\`
-[NetCrawl] Registered: Hello (id=hello)
-[NetCrawl] Code server running...
+[NetCrawl] Registered: Miner (id=miner)
+[NetCrawl] Registered: Scout (id=scout)
+[NetCrawl] Code server connected ✓
 \`\`\`
 
-The code server connects to the game server and registers your worker classes.` },
+**This quest completes automatically** when the code server connects to the game server!
 
-    { title: 'Deploy from the UI', content: `In the game UI:
+🎉 Once connected, the Deploy Worker button becomes active. Head to the next quest.` },
+  ],
 
-1. Click on the **Hub** node
-2. Click **"Deploy Worker"**
-3. Select your worker class from the dropdown
+  q_hello_world: [
+    { title: 'Open the Deploy Dialog', content: `Your code server is connected. Now deploy your first worker!
+
+In the game UI:
+1. Click the **Hub** node (center of the graph)
+2. Click **"Deploy Worker"** in the panel that opens
+3. Select a worker class from the dropdown (e.g. "Miner")
 4. Click **"Deploy"**
 
-Your worker will appear as a colored dot on the Hub node. Check the **Workers panel** (bottom-left) to see its status and logs.` },
+Your worker will appear as a colored dot on the Hub node.` },
+
+    { title: 'Watch the Worker Panel', content: `After deploying, check the **Workers** panel (bottom-left corner of the screen).
+
+You'll see your worker with:
+- Its **name** and **status** (deploying → running)
+- **Logs** showing what it's doing each loop
+- A **Suspend** button to gracefully stop it
+
+Click the worker row to select it and see detailed logs in the right panel.` },
+
+    { title: 'Your Worker is a Loop', content: `Every worker runs an infinite loop:
+
+\`\`\`python
+def on_loop(self):
+    # This is called repeatedly, forever
+    self.move("n_relay1")
+    self.pickaxe.mine()
+    self.collect()
+    self.move("hub")
+    self.deposit()
+\`\`\`
+
+\`on_startup()\` runs once when deployed.
+\`on_loop()\` runs forever until suspended.
+
+Watch the logs to confirm your worker is alive. Then move on to the next quest!` },
   ],
 
   q_first_harvest: [

@@ -95,7 +95,26 @@ export const ja: Record<string, string> = {
   'common.cancel':  'キャンセル',
   'common.ok':      'OK',
 
+  // === Tutorial ===
+  'tutorial.welcome.title': 'NetCrawlへようこそ',
+  'tutorial.welcome.content': 'Pythonワーカーを書いてネットワークを自動化するプログラマブルアイドルゲームです。5つのステップで始めましょう。',
+  'tutorial.quests.title': 'クエストブック',
+  'tutorial.quests.content': '[Q]キーまたはクエストボタンを押して現在の目標を確認。チャプター1がセットアップを案内します。',
+  'tutorial.setup.title': 'ワークスペースの設定',
+  'tutorial.setup.content': 'チャプター1の「開発セットアップ」クエストをクリックして、Pythonワークスペースの設定手順を確認しましょう。',
+  'tutorial.deploy.title': 'ワーカーをデプロイ',
+  'tutorial.deploy.content': 'Hubノードをクリックし、「ワーカーをデプロイ」をクリックしてPythonワーカーを追加。ワーカーがコードを自動実行します。',
+  'tutorial.inventory.title': 'インベントリ & クラフト',
+  'tutorial.inventory.content': '[E]キーまたはバッグアイコンでインベントリを開く。採掘者にはピッケル、ガーディアンにはシールドをクラフト。',
+  'tutorial.btn.start': 'スタート',
+  'tutorial.btn.next': '次へ',
+  'tutorial.btn.done': '完了',
+  'tutorial.btn.skip': 'チュートリアルをスキップ',
+
   // === Quests ===
+  'quest.q_setup.name': '開発セットアップ',
+  'quest.q_setup.desc': 'VSCodeをダウンロードし、workspace_exampleをコピーして、コードサーバーを接続してゲームを開始しましょう。',
+
   'quest.q_hello_world.name': 'Hello, World!',
   'quest.q_hello_world.desc': 'すべての旅は最初のデプロイから始まる。最初のワーカーをデプロイしよう。',
   'quest.q_first_mine.name': 'データ採掘',

@@ -204,6 +204,7 @@ export function ResourceBar() {
       <motion.button
         onClick={toggleQuests}
         whileTap={{ scale: 0.96 }}
+        data-tutorial="quests-btn"
         style={{
           display: 'flex', alignItems: 'center', gap: 4,
           background: 'var(--bg-elevated)',
@@ -249,6 +250,7 @@ export function ResourceBar() {
         onClick={toggleInventory}
         whileTap={{ scale: 0.96 }}
         title={t('hud.inventory')}
+        data-tutorial="inventory-btn"
         style={{
           display: 'flex',
           alignItems: 'center',

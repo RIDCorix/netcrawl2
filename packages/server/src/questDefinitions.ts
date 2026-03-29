@@ -92,12 +92,20 @@ export const QUESTS: QuestDef[] = [
 
   // ── Mainline ──
   {
+    id: 'q_setup', chapter: 1, name: 'Dev Setup', codeConcept: 'Environment',
+    description: 'Download VSCode, copy workspace_example, and connect your code server to the game.',
+    mainline: true, prerequisites: [],
+    objectives: [{ id: 'o1', description: 'Connect code server', statKey: 'code_server_connected', target: 1, type: 'stat_gte' }],
+    rewards: [{ kind: 'resources', resources: { data: 200 } }],
+    position: { x: 400, y: 0 },
+  },
+  {
     id: 'q_hello_world', chapter: 1, name: 'Hello, World!', codeConcept: 'Running Code',
     description: 'Every journey begins with a single deployment. Deploy your first worker.',
-    mainline: true, prerequisites: [],
+    mainline: true, prerequisites: ['q_setup'],
     objectives: [{ id: 'o1', description: 'Deploy 1 worker', statKey: 'total_workers_deployed', target: 1, type: 'stat_gte' }],
     rewards: [{ kind: 'resources', resources: { data: 500 } }],
-    position: { x: 400, y: 0 },
+    position: { x: 400, y: 300 },
   },
   {
     id: 'q_first_mine', chapter: 1, name: 'Gather Data', codeConcept: 'Return Values',
@@ -105,7 +113,7 @@ export const QUESTS: QuestDef[] = [
     mainline: true, prerequisites: ['q_hello_world'],
     objectives: [{ id: 'o1', description: 'Mine a resource node', statKey: 'total_mines', target: 1, type: 'stat_gte' }],
     rewards: [{ kind: 'items', items: [{ itemType: 'pickaxe_basic', count: 1, metadata: { efficiency: 1.0 } }] }],
-    position: { x: 400, y: 300 },
+    position: { x: 400, y: 600 },
   },
   {
     id: 'q_first_deposit', chapter: 1, name: 'Return Statement', codeConcept: 'Functions',
@@ -113,7 +121,7 @@ export const QUESTS: QuestDef[] = [
     mainline: true, prerequisites: ['q_first_mine'],
     objectives: [{ id: 'o1', description: 'Deposit at hub', statKey: 'total_deposits', target: 1, type: 'stat_gte' }],
     rewards: [{ kind: 'resources', resources: { data: 300 } }],
-    position: { x: 400, y: 600 },
+    position: { x: 400, y: 900 },
   },
   {
     id: 'q_unlock_node', chapter: 1, name: 'Import Module', codeConcept: 'Imports',
@@ -121,7 +129,7 @@ export const QUESTS: QuestDef[] = [
     mainline: true, prerequisites: ['q_first_deposit'],
     objectives: [{ id: 'o1', description: 'Unlock 1 node', statKey: 'total_nodes_unlocked', target: 1, type: 'stat_gte' }],
     rewards: [{ kind: 'passive', effectId: 'harvest_speed_5', description: '+5% harvest speed', effect: { global_harvest_speed_mult: 1.05 } }],
-    position: { x: 400, y: 900 },
+    position: { x: 400, y: 1200 },
   },
 
   // ── Side quests ──
@@ -131,7 +139,7 @@ export const QUESTS: QuestDef[] = [
     mainline: false, prerequisites: ['q_first_deposit'],
     objectives: [{ id: 'o1', description: 'Craft 1 item', statKey: 'total_crafts', target: 1, type: 'stat_gte' }],
     rewards: [{ kind: 'resources', resources: { data: 200 } }],
-    position: { x: 0, y: 500 },
+    position: { x: 0, y: 800 },
   },
 
   // ════════════════════════════════════════════════════════════════════════════

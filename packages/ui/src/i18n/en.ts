@@ -95,7 +95,26 @@ export const en: Record<string, string> = {
   'common.cancel':  'Cancel',
   'common.ok':      'OK',
 
+  // === Tutorial ===
+  'tutorial.welcome.title': 'Welcome to NetCrawl',
+  'tutorial.welcome.content': 'A programmable idle game where you write Python workers to automate your network. Let\'s get you started in 5 quick steps.',
+  'tutorial.quests.title': 'Quest Book',
+  'tutorial.quests.content': 'Press [Q] or click the Quest Book button to see your current objectives. Chapter 1 guides you through setup.',
+  'tutorial.setup.title': 'Set Up Your Workspace',
+  'tutorial.setup.content': 'Click the "Dev Setup" quest in Chapter 1 to get step-by-step instructions for setting up your Python workspace.',
+  'tutorial.deploy.title': 'Deploy a Worker',
+  'tutorial.deploy.content': 'Click the Hub node, then click "Deploy Worker" to add a Python worker. Workers run your code automatically.',
+  'tutorial.inventory.title': 'Inventory & Crafting',
+  'tutorial.inventory.content': 'Press [E] or click the bag icon to open your inventory. Craft Pickaxes for your miners and Shields for guardians.',
+  'tutorial.btn.start': 'Get Started',
+  'tutorial.btn.next': 'Next',
+  'tutorial.btn.done': 'Done',
+  'tutorial.btn.skip': 'Skip tutorial',
+
   // === Quests ===
+  'quest.q_setup.name': 'Dev Setup',
+  'quest.q_setup.desc': 'Download VSCode, copy workspace_example, and connect your code server to start the game.',
+
   'quest.q_hello_world.name': 'Hello, World!',
   'quest.q_hello_world.desc': 'Every journey begins with a single deployment. Deploy your first worker.',
   'quest.q_first_mine.name': 'Gather Data',

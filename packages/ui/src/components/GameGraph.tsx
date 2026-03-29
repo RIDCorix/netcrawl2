@@ -262,7 +262,7 @@ function HubNode({ data, selected }: any) {
       borderRadius: 'var(--radius-lg)',
     }}>
       {/* Hub uses full layout, not icon-only */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+      <div data-tutorial="hub-node" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
         <Shield size={20} color="var(--accent)" />
         <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{data.label}</div>
         <div style={{ fontSize: 8, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>CENTRAL HUB</div>

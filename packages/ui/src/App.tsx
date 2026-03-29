@@ -16,6 +16,7 @@ import { ActiveQuestsPanel } from './components/ActiveQuestsPanel';
 import { SettingsPanel } from './components/SettingsPanel';
 import { LevelPanel } from './components/LevelPanel';
 import { LevelUpToast } from './components/LevelUpToast';
+import { TutorialOverlay } from './components/TutorialOverlay';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -103,6 +104,7 @@ function GameView() {
       <AchievementToast />
       <QuestToast />
       <LevelUpToast />
+      <TutorialOverlay />
     </div>
   );
 }

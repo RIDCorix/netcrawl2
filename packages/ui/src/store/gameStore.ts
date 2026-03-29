@@ -183,6 +183,7 @@ interface GameActions {
   toggleLevel: () => void;
   addLevelUpToast: (toast: { level: number; title: string; titleZh: string }) => void;
   removeLevelUpToast: (level: number) => void;
+  resetTutorial: () => void;
 }
 
 export const useGameStore = create<GameState & GameActions>((set) => ({
@@ -250,6 +251,9 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   removeLevelUpToast: (level) => set((state) => ({
     levelUpToasts: state.levelUpToasts.filter(t => t.level !== level),
   })),
+  resetTutorial: () => {
+    localStorage.removeItem('netcrawl-tutorial');
+  },
 
   updateFromServer: (data) => {
     set((state) => ({
