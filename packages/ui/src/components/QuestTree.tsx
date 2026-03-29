@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Lock, Check, BookOpen, Star, Gift, Play, RefreshCw, Network, ShieldCheck, Server, Gauge, Blocks, Trophy } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useState, useEffect, useCallback } from 'react';
+import { useT } from '../hooks/useT';
 import axios from 'axios';
 import { QuestGuideDialog } from './QuestGuideDialog';
 import { CHAPTER_COLORS } from '../constants/colors';
@@ -16,6 +17,7 @@ import { CHAPTER_COLORS } from '../constants/colors';
 
 function QuestNode({ data }: any) {
   const { selectQuest, selectedQuestId } = useGameStore();
+  const t = useT();
   const q = data.quest;
   const status = q.status;
   const color = CHAPTER_COLORS[q.chapter] || '#9ca3af';
@@ -74,7 +76,7 @@ function QuestNode({ data }: any) {
         color: status === 'locked' ? 'var(--text-muted)' : 'var(--text-primary)',
         fontFamily: 'var(--font-mono)',
       }}>
-        {q.name}
+        {t('quest.' + q.id + '.name') || q.name}
       </div>
 
       {/* Code concept tag */}
@@ -124,6 +126,7 @@ function QuestDetail({ quest, onClose }: { quest: any; onClose: () => void }) {
   const [claiming, setClaiming] = useState(false);
   const [msg, setMsg] = useState('');
   const color = CHAPTER_COLORS[quest.chapter] || '#9ca3af';
+  const t = useT();
 
   const handleClaim = async () => {
     setClaiming(true);
@@ -152,7 +155,7 @@ function QuestDetail({ quest, onClose }: { quest: any; onClose: () => void }) {
             CH.{quest.chapter} {quest.sideQuest ? '/ SIDE QUEST' : '/ MAIN QUEST'}
           </div>
           <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
-            {quest.name}
+            {t('quest.' + quest.id + '.name') || quest.name}
           </div>
           <div style={{ fontSize: 10, color, fontFamily: 'var(--font-mono)', marginTop: 2, padding: '1px 6px', background: `${color}15`, borderRadius: 'var(--radius-sm)', display: 'inline-block' }}>
             {quest.codeConcept}
@@ -165,7 +168,7 @@ function QuestDetail({ quest, onClose }: { quest: any; onClose: () => void }) {
 
       {/* Description */}
       <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', lineHeight: 1.6 }}>
-        {quest.description}
+        {t('quest.' + quest.id + '.desc') || quest.description}
       </div>
 
       {/* Objectives */}
@@ -253,6 +256,7 @@ const CHAPTER_ICONS: Record<number, any> = {
 
 export function QuestTree() {
   const { questsOpen, toggleQuests, selectedQuestId, selectQuest, settings } = useGameStore();
+  const t = useT();
   const edgeStyle = settings.edgeStyle;
   const [questData, setQuestData] = useState<any>(null);
   const [activeChapter, setActiveChapter] = useState(1);
@@ -388,7 +392,7 @@ export function QuestTree() {
             <div style={{ flex: 1, overflowY: 'auto', padding: '8px' }}>
               {chapters.map(ch => {
                 const color = CHAPTER_COLORS[ch] || '#666';
-                const name = CHAPTER_NAMES[ch] || `Ch.${ch}`;
+                const name = t('chapter.' + ch + '.name') || CHAPTER_NAMES[ch] || `Ch.${ch}`;
                 const ChIcon = CHAPTER_ICONS[ch] || BookOpen;
                 const { claimed, total } = getChapterProgress(ch);
                 const isActive = ch === activeChapter;
@@ -470,7 +474,7 @@ export function QuestTree() {
             }}>
               {(() => { const Icon = CHAPTER_ICONS[activeChapter] || BookOpen; return <Icon size={16} style={{ color: CHAPTER_COLORS[activeChapter] || '#666' }} />; })()}
               <span style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--font-mono)', color: CHAPTER_COLORS[activeChapter] || '#666', letterSpacing: '0.08em' }}>
-                {CHAPTER_NAMES[activeChapter] || `Chapter ${activeChapter}`}
+                {t('chapter.' + activeChapter + '.name') || CHAPTER_NAMES[activeChapter] || `Chapter ${activeChapter}`}
               </span>
             </div>
 

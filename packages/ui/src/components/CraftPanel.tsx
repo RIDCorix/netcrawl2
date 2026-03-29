@@ -3,6 +3,7 @@ import { Pickaxe, Shield, Radio, Database, Cpu, Star, Hammer, X, Check } from 'l
 import { useGameStore } from '../store/gameStore';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useT } from '../hooks/useT';
 
 interface Recipe {
   id: string;
@@ -36,6 +37,7 @@ function RecipeCard({
   recipe: Recipe;
   onCraft: (recipe: Recipe) => void;
 }) {
+  const t = useT();
   const Icon = RECIPE_ICONS[recipe.output.itemType] || Hammer;
   const iconColor = RECIPE_ICON_COLORS[recipe.output.itemType] || 'var(--text-muted)';
 
@@ -74,10 +76,10 @@ function RecipeCard({
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-            {recipe.name}
+            {t('item.' + recipe.output.itemType + '.name') || recipe.name}
           </div>
           <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.4 }}>
-            {recipe.description}
+            {t('item.' + recipe.output.itemType + '.desc') || recipe.description}
           </div>
         </div>
       </div>
@@ -138,6 +140,7 @@ function ConfirmDialog({
   onCancel: () => void;
   crafting: boolean;
 }) {
+  const t = useT();
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -175,7 +178,7 @@ function ConfirmDialog({
       >
         <div className="flex items-center justify-between">
           <div className="text-sm font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-            Craft {recipe.name}?
+            Craft {t('item.' + recipe.output.itemType + '.name') || recipe.name}?
           </div>
           <button
             onClick={onCancel}
@@ -185,7 +188,7 @@ function ConfirmDialog({
           </button>
         </div>
         <div className="text-xs" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-          {recipe.description}
+          {t('item.' + recipe.output.itemType + '.desc') || recipe.description}
         </div>
         <div className="flex flex-wrap gap-2">
           {recipe.cost.data !== undefined && (

@@ -4,6 +4,7 @@ import { useGameStore, InventoryItem, Chip } from '../store/gameStore';
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { ITEM_LABELS, ITEM_COLORS, RARITY_COLORS } from '../constants/colors';
+import { useT } from '../hooks/useT';
 
 // ── Item config ─────────────────────────────────────────────────────────────
 
@@ -43,9 +44,10 @@ interface Recipe {
 // ── Grid slot ───────────────────────────────────────────────────────────────
 
 function ItemSlot({ item, dimmed }: { item: InventoryItem; dimmed: boolean }) {
+  const t = useT();
   const Icon = ITEM_ICONS[item.itemType] || Package;
   const color = ITEM_COLORS[item.itemType] || '#666';
-  const label = ITEM_LABELS[item.itemType] || item.itemType;
+  const label = t('item.' + item.itemType + '.name') || ITEM_LABELS[item.itemType] || item.itemType;
 
   return (
     <div style={{
@@ -89,8 +91,11 @@ function EmptySlot() {
 // ── Craft slot ──────────────────────────────────────────────────────────────
 
 function CraftSlot({ recipe, dimmed, onCraft }: { recipe: Recipe; dimmed: boolean; onCraft: () => void }) {
+  const t = useT();
   const Icon = ITEM_ICONS[recipe.output.itemType] || Hammer;
   const color = ITEM_COLORS[recipe.output.itemType] || '#666';
+  const displayName = t('item.' + recipe.output.itemType + '.name') || recipe.name;
+  const displayDesc = t('item.' + recipe.output.itemType + '.desc') || recipe.description;
 
   return (
     <button
@@ -108,11 +113,11 @@ function CraftSlot({ recipe, dimmed, onCraft }: { recipe: Recipe; dimmed: boolea
         position: 'relative',
         padding: 0,
       }}
-      title={`${recipe.name}\n${recipe.description}\n${Object.entries(recipe.cost).map(([k, v]) => `${v} ${k}`).join(', ')}`}
+      title={`${displayName}\n${displayDesc}\n${Object.entries(recipe.cost).map(([k, v]) => `${v} ${k}`).join(', ')}`}
     >
       <Icon size={18} style={{ color: recipe.affordable ? color : 'var(--text-muted)' }} />
       <span style={{ fontSize: 8, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', fontWeight: 600, textAlign: 'center', lineHeight: 1.1, padding: '0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
-        {recipe.name}
+        {displayName}
       </span>
       {/* Cost indicators */}
       <div style={{ position: 'absolute', bottom: -2, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 1 }}>
@@ -164,8 +169,11 @@ function TabBar({ tabs, active, onChange, hasResults }: {
 function CraftConfirm({ recipe, onConfirm, onCancel, crafting }: {
   recipe: Recipe; onConfirm: () => void; onCancel: () => void; crafting: boolean;
 }) {
+  const t = useT();
   const Icon = ITEM_ICONS[recipe.output.itemType] || Hammer;
   const color = ITEM_COLORS[recipe.output.itemType] || '#666';
+  const displayName = t('item.' + recipe.output.itemType + '.name') || recipe.name;
+  const displayDesc = t('item.' + recipe.output.itemType + '.desc') || recipe.description;
 
   return (
     <motion.div
@@ -183,8 +191,8 @@ function CraftConfirm({ recipe, onConfirm, onCancel, crafting }: {
             <Icon size={20} style={{ color }} />
           </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>Craft {recipe.name}?</div>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>{recipe.description}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>Craft {displayName}?</div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>{displayDesc}</div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -209,6 +217,7 @@ function CraftConfirm({ recipe, onConfirm, onCancel, crafting }: {
 
 function ChipPackSection() {
   const { resources } = useGameStore();
+  const t = useT();
   const [packs, setPacks] = useState<any[]>([]);
   const [opening, setOpening] = useState(false);
   const [revealed, setRevealed] = useState<Chip[]>([]);
@@ -248,8 +257,8 @@ function ChipPackSection() {
               background: 'var(--bg-elevated)', border: '1px solid var(--border)',
               display: 'flex', flexDirection: 'column', gap: 6,
             }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{p.name}</div>
-              <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{p.description}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{t('item.' + p.packType + '.name') || p.name}</div>
+              <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{t('item.' + p.packType + '.desc') || p.description}</div>
               <div style={{ display: 'flex', gap: 4 }}>
                 {Object.entries(p.cost).map(([k, v]) => (
                   <span key={k} style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: k === 'data' ? 'var(--data-color)' : k === 'rp' ? 'var(--rp-color)' : 'var(--credits-color)' }}>
@@ -311,7 +320,7 @@ function ChipPackSection() {
                     }}
                   >
                     <Cpu size={18} style={{ color: RARITY_COLORS[chip.rarity] }} />
-                    <div style={{ fontSize: 8, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', textAlign: 'center', lineHeight: 1.2 }}>{chip.name}</div>
+                    <div style={{ fontSize: 8, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', textAlign: 'center', lineHeight: 1.2 }}>{t('chip.' + chip.chipType + '.name') || chip.name}</div>
                     <div style={{ fontSize: 7, color: RARITY_COLORS[chip.rarity], fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: 700 }}>{chip.rarity}</div>
                   </motion.div>
                 ))}
@@ -335,11 +344,12 @@ function ChipPackSection() {
 
 function OwnedChipsSection({ search }: { search: string }) {
   const { playerChips } = useGameStore();
+  const t = useT();
   if (playerChips.length === 0) return null;
 
   const q = search.toLowerCase();
   const filtered = q
-    ? playerChips.filter(c => c.name.toLowerCase().includes(q) || c.chipType.toLowerCase().includes(q) || c.rarity.includes(q))
+    ? playerChips.filter(c => (t('chip.' + c.chipType + '.name') || c.name).toLowerCase().includes(q) || c.chipType.toLowerCase().includes(q) || c.rarity.includes(q))
     : playerChips;
 
   return (
@@ -354,9 +364,10 @@ function OwnedChipsSection({ search }: { search: string }) {
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           {filtered.map(chip => {
             const color = RARITY_COLORS[chip.rarity];
-            const dimmed = q && !chip.name.toLowerCase().includes(q);
+            const chipName = t('chip.' + chip.chipType + '.name') || chip.name;
+            const dimmed = q && !chipName.toLowerCase().includes(q);
             return (
-              <div key={chip.id} title={`${chip.name}\n${chip.rarity}\n${chip.effect.type}: ${chip.effect.value}`} style={{
+              <div key={chip.id} title={`${chipName}\n${chip.rarity}\n${chip.effect.type}: ${chip.effect.value}`} style={{
                 width: 64, height: 72, borderRadius: 'var(--radius-sm)',
                 background: 'var(--bg-elevated)', border: `1px solid ${color}40`,
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
@@ -364,7 +375,7 @@ function OwnedChipsSection({ search }: { search: string }) {
               }}>
                 <Cpu size={16} style={{ color }} />
                 <div style={{ fontSize: 7, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', textAlign: 'center', lineHeight: 1.1, padding: '0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
-                  {chip.name}
+                  {chipName}
                 </div>
                 <div style={{ fontSize: 6, color, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', fontWeight: 700 }}>{chip.rarity}</div>
               </div>

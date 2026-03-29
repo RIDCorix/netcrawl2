@@ -4,6 +4,7 @@ import { useGameStore } from '../store/gameStore';
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { CATEGORY_COLORS } from '../constants/colors';
+import { useT } from '../hooks/useT';
 
 const CATEGORY_LABELS: Record<string, string> = {
   all: 'All',
@@ -30,6 +31,7 @@ interface AchievementItem {
 
 export function AchievementsPanel() {
   const { achievementsOpen, toggleAchievements, achievements: summary } = useGameStore();
+  const t = useT();
   const [items, setItems] = useState<AchievementItem[]>([]);
   const [activeTab, setActiveTab] = useState('all');
 
@@ -152,8 +154,8 @@ export function AchievementsPanel() {
                         {item.unlocked ? <Check size={12} style={{ color }} /> : <Lock size={10} style={{ color: 'var(--text-muted)' }} />}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{item.name}</div>
-                        <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 1 }}>{item.description}</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{t('ach.' + item.id + '.name') || item.name}</div>
+                        <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 1 }}>{t('ach.' + item.id + '.desc') || item.description}</div>
                         {item.progress && !item.unlocked && (
                           <div style={{ marginTop: 4, height: 3, borderRadius: 2, background: 'var(--bg-primary)', overflow: 'hidden', maxWidth: 120 }}>
                             <div style={{ height: '100%', width: `${Math.min(100, (item.progress.current / item.progress.target) * 100)}%`, background: color, borderRadius: 2 }} />

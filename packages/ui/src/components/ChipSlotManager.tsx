@@ -4,6 +4,7 @@ import { useGameStore, Chip } from '../store/gameStore';
 import { useState } from 'react';
 import axios from 'axios';
 import { RARITY_COLORS } from '../constants/colors';
+import { useT } from '../hooks/useT';
 
 const GRID_COLS = 4;
 const GRID_ROWS = 2;
@@ -12,7 +13,9 @@ const MAX_SLOTS_DISPLAY = GRID_COLS * GRID_ROWS; // 8 slots max in grid
 function ChipCard({ chip, small, onAction, actionIcon }: {
   chip: Chip; small?: boolean; onAction?: () => void; actionIcon?: React.ReactNode;
 }) {
+  const t = useT();
   const color = RARITY_COLORS[chip.rarity];
+  const chipName = t('chip.' + chip.chipType + '.name') || chip.name;
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8,
@@ -25,7 +28,7 @@ function ChipCard({ chip, small, onAction, actionIcon }: {
       <Cpu size={small ? 10 : 12} style={{ color, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: small ? 9 : 10, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {chip.name}
+          {chipName}
         </div>
         <div style={{ fontSize: small ? 8 : 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
           {chip.effect.type}: {chip.effect.value}
@@ -50,13 +53,15 @@ function GridSlot({ chip, onRemove, onInsert, disabled }: {
   onInsert?: () => void;
   disabled?: boolean;
 }) {
+  const t = useT();
   if (chip) {
     const color = RARITY_COLORS[chip.rarity];
+    const chipName = t('chip.' + chip.chipType + '.name') || chip.name;
     return (
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        title={`${chip.name}\n${chip.effect.type}: ${chip.effect.value}`}
+        title={`${chipName}\n${chip.effect.type}: ${chip.effect.value}`}
         style={{
           position: 'relative',
           aspectRatio: '1',
@@ -81,7 +86,7 @@ function GridSlot({ chip, onRemove, onInsert, disabled }: {
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           width: '100%',
         }}>
-          {chip.name.replace('Chip ', '').replace('Module', 'Mod')}
+          {chipName.replace('Chip ', '').replace('Module', 'Mod')}
         </div>
         {/* Rarity dot */}
         <div style={{

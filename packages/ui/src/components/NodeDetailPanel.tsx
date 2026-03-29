@@ -77,6 +77,10 @@ function ActionButton({ onClick, children, variant = 'primary', disabled = false
 
 import { SectionLabel, Divider } from './ui/primitives';
 
+function toSnakeCase(str: string): string {
+  return str.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+}
+
 const NODE_TYPE_ICONS: Record<string, any> = {
   hub: Shield,
   resource: Database,
@@ -113,6 +117,7 @@ function StatusMessage({ msg }: { msg: string }) {
 
 function NodeUpgradeSection({ nodeId, node }: { nodeId: string; node: GameNode }) {
   const { resources } = useGameStore();
+  const t = useT();
   const [upgradeData, setUpgradeData] = useState<any>(null);
   const [upgrading, setUpgrading] = useState(false);
   const [upgradeMsg, setUpgradeMsg] = useState('');
@@ -168,10 +173,10 @@ function NodeUpgradeSection({ nodeId, node }: { nodeId: string; node: GameNode }
             background: 'var(--bg-primary)', border: '1px solid var(--border)',
           }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-              {nextLevel.name}
+              {t('upgrade.' + toSnakeCase(nextLevel.name) + '.name') || nextLevel.name}
             </div>
             <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
-              {nextLevel.description}
+              {t('upgrade.' + toSnakeCase(nextLevel.name) + '.desc') || nextLevel.description}
             </div>
             <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
               <CostBadge cost={nextLevel.cost} />
