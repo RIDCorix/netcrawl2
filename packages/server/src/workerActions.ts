@@ -11,7 +11,7 @@ import { checkQuests } from './quests.js';
 import { getActivePassives } from './db.js';
 import { broadcastFullState } from './broadcastHelper.js';
 import { getNeighborIds, edgeExists, bfsPath } from './graphUtils.js';
-import { apiPoll, apiRespond, getAPIPendingCount, getAPIStats } from './apiNodeEngine.js';
+import { apiPoll, apiRespond, apiReject, getAPIPendingCount, getAPIStats } from './apiNodeEngine.js';
 import { generatePuzzle, PuzzleInstance, DIFFICULTY_CONFIG, PUZZLE_TEMPLATES } from './puzzleDefinitions.js';
 
 // ── Per-node puzzle state (in-memory) ───────────────────────────────────────
@@ -402,7 +402,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const freshState4 = getGameState();
       const newNodes3 = freshState4.nodes.map((n: any) => {
         if (n.id === nodeId) {
-          return { ...n, type: n.type === 'infected' ? 'resource' : n.type, data: { ...n.data, infected: false } };
+          return { ...n, type: n.type === 'infected' ? 'resource' : n.type, data: { ...n.data, infected: false, infectionValue: 0 } };
         }
         return n;
       });
@@ -582,6 +582,35 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const node = nodes.find((n: any) => n.id === currentNodeAS);
       if (!node || node.type !== 'api') return { ok: false, error: 'Not at an API node' };
       return { ok: true, ...getAPIStats(currentNodeAS) };
+    }
+
+    case 'api_reject': {
+      const currentNodeRej = worker.current_node || worker.node_id;
+      const { requestId: rejReqId, statusCode } = payload;
+      if (!rejReqId) return { ok: false, error: 'requestId required' };
+      if (!statusCode) return { ok: false, error: 'statusCode required (e.g. 401, 400, 429, 500)' };
+      return apiReject(currentNodeRej, workerId, rejReqId, statusCode);
+    }
+
+    case 'validate_token': {
+      // Worker must be AT an auth node to validate
+      const currentNodeVT = worker.current_node || worker.node_id;
+      const authNode = nodes.find((n: any) => n.id === currentNodeVT);
+      if (!authNode || authNode.type !== 'auth') {
+        return { ok: false, error: 'Must be at an auth node to validate tokens', reason: 'not_at_auth_node' };
+      }
+      if (!authNode.data.unlocked) {
+        return { ok: false, error: 'Auth node is locked' };
+      }
+      const { token } = payload;
+      if (!token) return { ok: false, error: 'token required' };
+      // Auth nodes validate tokens: all non-null tokens are valid (simple model)
+      // In future: could add revoke lists
+      const valid = typeof token === 'string' && token.length > 0;
+      const ttl = 30; // ticks
+      setLock(workerId, ACTION_DELAY / 2); // half-speed validation
+      await workerLocks.get(workerId);
+      return { ok: true, valid, ttl, token };
     }
 
     // ── Service / Cache actions ──────────────────────────────────────────────

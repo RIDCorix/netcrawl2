@@ -19,7 +19,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { useGameStore, GameNode, GameEdge, Worker } from '../store/gameStore';
 import React, { useEffect, useCallback, useMemo, useRef } from 'react';
-import { Database, Shield, Lock, AlertTriangle, Radio, Pickaxe, Package, Cpu, Box, HardDrive, Globe } from 'lucide-react';
+import { Database, Shield, Lock, AlertTriangle, Radio, Pickaxe, Package, Cpu, Box, HardDrive, Globe, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 // ── Worker Dots Row (with enter/leave animations) ───────────────────────────
@@ -374,30 +374,130 @@ function ComputeNode({ data, selected }: any) {
   );
 }
 
-function APINodeComponent({ data, selected }: any) {
-  const pendingCount = data.pendingRequests || 0;
+function AuthNodeComponent({ data, selected }: any) {
+  const label = data.data?.label || 'Auth';
+  const unlocked = data.data?.unlocked || false;
+
   return (
-    <NodeWrapper selected={selected} glowColor={data.unlocked ? '#f59e0b' : undefined} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
-      {pendingCount > 0 && (
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          style={{
-            position: 'absolute', top: -8, right: -8,
-            background: '#f59e0b', color: '#000',
-            fontSize: 9, fontWeight: 800, fontFamily: 'var(--font-mono)',
-            borderRadius: '999px', width: 18, height: 18,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+    <NodeWrapper selected={selected} glowColor="#a78bfa" workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} style={{ opacity: unlocked ? 1 : 0.5 }}>
+      <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
+      <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
+      <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
+      <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
+
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+        <div style={{
+          width: 24, height: 24,
+          background: 'rgba(167,139,250,0.2)',
+          borderRadius: 6,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <ShieldCheck size={14} style={{ color: '#a78bfa' }} />
+        </div>
+        <div style={{
+          fontSize: 9, fontWeight: 700,
+          color: unlocked ? 'var(--text-primary)' : 'var(--text-muted)',
+          fontFamily: 'var(--font-mono)',
+          textAlign: 'center',
+        }}>
+          {label}
+        </div>
+        <div style={{ fontSize: 8, fontFamily: 'var(--font-mono)', color: '#a78bfa', letterSpacing: '0.05em' }}>
+          {unlocked ? 'READY' : 'LOCKED'}
+        </div>
+      </div>
+    </NodeWrapper>
+  );
+}
+
+function APINodeComponent({ data, selected }: any) {
+  const infectionValue = data.data?.infectionValue || 0;
+  const pendingReqs = data.data?.pendingRequests || 0;
+  const infected = data.data?.infected || false;
+  const label = data.data?.label || 'API';
+  const unlocked = data.data?.unlocked || false;
+
+  const slaStatus = infected ? 'infected'
+    : infectionValue >= 60 ? 'danger'
+    : infectionValue >= 30 ? 'warning'
+    : 'normal';
+
+  const slaColor = {
+    normal: '#f59e0b',
+    warning: '#f97316',
+    danger: '#ef4444',
+    infected: '#7f1d1d',
+  }[slaStatus];
+
+  const infectionBarColor = infectionValue >= 60 ? '#ef4444'
+    : infectionValue >= 30 ? '#f97316'
+    : '#4ade80';
+
+  return (
+    <NodeWrapper selected={selected} glowColor={slaColor} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} style={{ opacity: unlocked ? 1 : 0.5 }}>
+      <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
+      <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
+      <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
+      <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
+
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+        {/* Icon */}
+        <div style={{
+          width: 24, height: 24,
+          background: infected ? 'rgba(239,68,68,0.2)' : `${slaColor}20`,
+          borderRadius: 6,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {infected
+            ? <span style={{ fontSize: 14 }}>⚠️</span>
+            : <Globe size={14} style={{ color: slaColor }} />}
+        </div>
+
+        {/* Label */}
+        <div style={{
+          fontSize: 9, fontWeight: 700,
+          color: unlocked ? 'var(--text-primary)' : 'var(--text-muted)',
+          fontFamily: 'var(--font-mono)',
+          textAlign: 'center',
+          maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {label}
+        </div>
+
+        {/* Request queue badge */}
+        {unlocked && !infected && (
+          <div style={{
+            fontSize: 8, fontFamily: 'var(--font-mono)',
+            color: pendingReqs > 3 ? '#ef4444' : pendingReqs > 0 ? '#f59e0b' : 'var(--text-muted)',
+            letterSpacing: '0.05em',
           }}>
-          {pendingCount}
-        </motion.div>
-      )}
-      <NodeLabel
-        label={data.label}
-        icon={Globe}
-        iconColor={data.unlocked ? '#f59e0b' : 'var(--text-muted)'}
-        subtitle={data.unlocked ? 'API ENDPOINT' : 'LOCKED'}
-      />
+            {pendingReqs > 0 ? `${pendingReqs} req${pendingReqs > 1 ? 's' : ''}` : 'idle'}
+          </div>
+        )}
+
+        {/* Infection bar */}
+        {unlocked && infectionValue > 0 && (
+          <div style={{ width: 56, height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden', marginTop: 1 }}>
+            <div style={{
+              height: '100%',
+              width: `${infectionValue}%`,
+              background: infectionBarColor,
+              borderRadius: 2,
+              transition: 'width 0.5s, background 0.5s',
+            }} />
+          </div>
+        )}
+
+        {/* Infected badge */}
+        {infected && (
+          <div style={{
+            fontSize: 7, fontFamily: 'var(--font-mono)', fontWeight: 800,
+            color: '#ef4444', letterSpacing: '0.08em',
+          }}>
+            INFECTED
+          </div>
+        )}
+      </div>
     </NodeWrapper>
   );
 }
@@ -441,6 +541,7 @@ const NODE_TYPES: NodeTypes = {
   empty: EmptyNode,
   cache: CacheNode,
   api: APINodeComponent,
+  auth: AuthNodeComponent,
 };
 
 // ── Traffic dot driven by rAF (no SVG animateMotion) ────────────────────

@@ -9,6 +9,23 @@ import time
 from netcrawl.fields import UnitField, ItemField
 
 
+class APIRequest:
+    """Represents a pending request from an API node's queue."""
+
+    def __init__(self, data: dict):
+        self.id: str = data["id"]
+        self.type: str = data["type"]
+        self.body: dict = data.get("body", {})
+        self.has_token: bool = data.get("has_token", False)
+        self.token: str | None = data.get("token")
+        self.deadline_tick: int = data.get("deadline_tick", 0)
+        self.reward: dict = data.get("reward", {})
+
+    def __repr__(self) -> str:
+        auth = "auth" if self.has_token else "NO_TOKEN"
+        return f"<APIRequest id={self.id[:8]} type={self.type} {auth}>"
+
+
 class UnitMeta(type):
     """
     Metaclass that discovers UnitField declarations on class definition.
@@ -300,6 +317,86 @@ class UnitClass(metaclass=UnitMeta):
         """
         result = self._client.action("repair", {"nodeId": node_id})
         return result.get("ok", False)
+
+    # ── API Node methods ────────────────────────────────────────────────────────
+
+    def poll_request(self):
+        """
+        Poll the current API node for the next pending request.
+        Must be standing on an api-type node.
+        Returns a Request object or None if no requests are pending.
+
+        Example:
+            req = self.poll_request()
+            if req is None:
+                time.sleep(0.5)
+                return
+        """
+        result = self._client.action("api_poll", {})
+        if not result.get("ok"):
+            raise RuntimeError(result.get("error", "api_poll failed"))
+        req_data = result.get("request")
+        if req_data is None:
+            return None
+        return APIRequest(req_data)
+
+    def respond(self, request_id: str, response_data: dict):
+        """
+        Respond to a request with a 2xx success response.
+        Only call this for AUTHENTICATED requests (req.has_token == True).
+
+        Calling this on an unauthenticated request adds +25 infection!
+
+        Example:
+            self.respond(req.id, {"result": 42})
+        """
+        result = self._client.action("api_respond", {
+            "requestId": request_id,
+            "responseData": response_data,
+        })
+        if not result.get("ok"):
+            raise RuntimeError(result.get("error", "api_respond failed"))
+        return result
+
+    def reject(self, request_id: str, status_code: int = 401):
+        """
+        Reject a request with an error status code (4xx or 5xx).
+        Use this for:
+          - Unauthenticated requests: reject(req.id, 401)
+          - Unknown request type: reject(req.id, 400)
+          - Rate limiting: reject(req.id, 429)
+          - Server error: reject(req.id, 500)
+
+        Example:
+            if not req.has_token:
+                self.reject(req.id, 401)
+        """
+        result = self._client.action("api_reject", {
+            "requestId": request_id,
+            "statusCode": status_code,
+        })
+        if not result.get("ok"):
+            # Non-fatal: rejection may fail if request is already done
+            self.warn(f"reject({status_code}) failed: {result.get('error')}")
+        return result
+
+    def validate_token(self, token: str) -> dict:
+        """
+        Validate a token by querying the auth node you're currently standing on.
+        Must be at an auth-type node to call this.
+        Returns dict with keys: valid (bool), ttl (int ticks).
+
+        Example:
+            self.move("auth_iam1")
+            result = self.validate_token(req.token)
+            if result["valid"]:
+                self.move(api_node_id)
+                self.respond(req.id, {...})
+        """
+        result = self._client.action("validate_token", {"token": token})
+        if not result.get("ok"):
+            raise RuntimeError(result.get("error", "validate_token failed"))
+        return {"valid": result.get("valid", False), "ttl": result.get("ttl", 0)}
 
     # ── Logging ──────────────────────────────────────────────────────────────
 

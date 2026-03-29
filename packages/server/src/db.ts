@@ -187,6 +187,10 @@ const Y = (label: string, cost: Record<string, number>) =>
   ({ label, unlocked: false, unlockCost: cost, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] });
 const E = (label: string, cost: Record<string, number>) =>
   ({ label, unlocked: false, unlockCost: cost, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] });
+const P = (label: string, tier: number, cost: Record<string, number>) =>
+  ({ label, unlocked: false, unlockCost: cost, tier, infectionValue: 0, pendingRequests: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] });
+const AU = (label: string, cost: Record<string, number>) =>
+  ({ label, unlocked: false, unlockCost: cost, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] });
 
 export const INITIAL_NODES = [
   // ═══════════════════════════════════════════════════════════════════════════
@@ -231,6 +235,11 @@ export const INITIAL_NODES = [
   { id: 'e_mine3',  type: 'resource', position: { x: 1110, y: -40 },   data: R('Data Mine Foxtrot', 70, { data: 1200 }) },
   { id: 'e_mine4',  type: 'resource', position: { x: 1110, y: 240 },   data: R('Data Mine Golf', 65, { data: 1000 }) },
   { id: 'e_empty2', type: 'empty',    position: { x: 1340, y: 100 },   data: E('Open Slot', { data: 3000, rp: 12 }) },
+
+  // ── East API Cluster ──
+  { id: 'api_east_1', type: 'api',  position: { x: 1110, y: -240 }, data: P('Echo Service', 1, { data: 400 }) },
+  { id: 'api_east_2', type: 'api',  position: { x: 1340, y: -240 }, data: P('Compute API', 1, { data: 800, rp: 3 }) },
+  { id: 'auth_iam1',  type: 'auth', position: { x: 1560, y: -100 }, data: AU('IAM Auth', { data: 600, rp: 5 }) },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SOUTHEAST — Deep Territory (late game, high yield)
@@ -372,6 +381,12 @@ export const INITIAL_EDGES = [
   { id: 'e94', source: 'ne_relay1', target: 'e_relay1' },    // Northeast ↔ East
   { id: 'e95', source: 'e_relay1',  target: 'se_relay1' },   // East ↔ Southeast
   { id: 'e96', source: 'w_relay1',  target: 'sw_relay1' },   // West ↔ Southwest
+
+  // ── East API Cluster edges ──
+  { id: 'eapi1', source: 'e_mine3',   target: 'api_east_1' },
+  { id: 'eapi2', source: 'api_east_1', target: 'api_east_2' },
+  { id: 'eapi3', source: 'api_east_2', target: 'auth_iam1' },
+  { id: 'eapi4', source: 'e_empty2',  target: 'auth_iam1' },
 ];
 
 export const INITIAL_RESOURCES: Resources = { data: 500, rp: 0, credits: 0 };

@@ -1,16 +1,20 @@
 /**
  * API Node Engine — generates requests for API nodes, validates responses.
  *
- * Each API node acts as an external-facing endpoint that receives "requests"
- * over time. Workers must poll for requests and respond correctly.
- *
- * Security: some requests arrive WITHOUT a token. If a worker responds
- * to an unauthenticated request, the node gets infected (security breach).
+ * Infection Value system:
+ *   - Responding to unauthenticated request → +25 infectionValue
+ *   - Unauthenticated request expires (not rejected) → +8 infectionValue
+ *   - Authenticated request expires → +3 infectionValue
+ *   - Wrong answer → +3 infectionValue
+ *   - Correct answer → -1 infectionValue (healing)
+ *   - infectionValue >= 100 → node infected (data.infected = true)
+ *   - Passive decay: -0.2 per tick when < 60
  */
 
 import { getGameState, saveGameState, incrementStat, awardXp, grantNodeXp } from './db.js';
 import { XP_REWARDS } from './levelSystem.js';
 import { broadcastFullState } from './broadcastHelper.js';
+import { checkQuests } from './quests.js';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -19,9 +23,10 @@ export interface APIRequest {
   type: string;
   body: Record<string, any>;
   hasToken: boolean;
+  token: string | null;   // actual token value (may be present even if hasToken=false for phishing)
   deadlineTick: number;
   reward: { credits: number };
-  status: 'pending' | 'accepted' | 'completed' | 'failed' | 'expired';
+  status: 'pending' | 'accepted' | 'completed' | 'failed' | 'expired' | 'rejected';
   acceptedBy: string | null;
 }
 
@@ -43,7 +48,7 @@ export interface APISpec {
 interface RequestTemplate {
   type: string;
   generate: () => { body: Record<string, any>; answer: any };
-  reward: number; // credits
+  reward: number;
 }
 
 const TEMPLATES: RequestTemplate[] = [
@@ -87,19 +92,72 @@ const TEMPLATES: RequestTemplate[] = [
   },
 ];
 
-// ── Per-node request queues ─────────────────────────────────────────────────
+// ── Per-node state ──────────────────────────────────────────────────────────
 
 const nodeQueues = new Map<string, APIRequest[]>();
-// Stored answers for validation
 const requestAnswers = new Map<string, any>();
 
 const MAX_QUEUE_SIZE = 5;
-const UNAUTHENTICATED_CHANCE = 0.15; // 15% of requests have no token
-const REQUEST_DEADLINE_TICKS = 60; // 60 ticks (~60s) to respond
+const UNAUTHENTICATED_CHANCE = 0.2; // 20% of requests have no token
+const REQUEST_DEADLINE_TICKS = 60;
+
+// ── Token management ────────────────────────────────────────────────────────
+
+// Generate a random token value
+function generateToken(): string {
+  return Math.random().toString(36).slice(2, 10).toUpperCase();
+}
 
 export function getAPIQueue(nodeId: string): APIRequest[] {
   if (!nodeQueues.has(nodeId)) nodeQueues.set(nodeId, []);
   return nodeQueues.get(nodeId)!;
+}
+
+// ── Infection value helpers ─────────────────────────────────────────────────
+
+function applyInfectionDelta(nodeId: string, delta: number): void {
+  const state = getGameState();
+  const node = state.nodes.find((n: any) => n.id === nodeId);
+  if (!node || node.type !== 'api') return;
+
+  const current = node.data.infectionValue || 0;
+  const newVal = Math.max(0, Math.min(100, current + delta));
+  const nowInfected = newVal >= 100;
+
+  const newNodes = state.nodes.map((n: any) => {
+    if (n.id !== nodeId) return n;
+    return {
+      ...n,
+      data: {
+        ...n.data,
+        infectionValue: newVal,
+        infected: nowInfected || n.data.infected,
+      },
+    };
+  });
+  saveGameState({ ...state, nodes: newNodes });
+  if (nowInfected && !node.data.infected) {
+    broadcastFullState();
+  }
+}
+
+export function getNodeInfectionValue(nodeId: string): number {
+  const state = getGameState();
+  const node = state.nodes.find((n: any) => n.id === nodeId);
+  return node?.data?.infectionValue || 0;
+}
+
+// ── SLA status ──────────────────────────────────────────────────────────────
+
+export function getSLAStatus(nodeId: string): 'normal' | 'warning' | 'danger' | 'infected' {
+  const state = getGameState();
+  const node = state.nodes.find((n: any) => n.id === nodeId);
+  if (!node) return 'normal';
+  if (node.data.infected) return 'infected';
+  const val = node.data.infectionValue || 0;
+  if (val >= 60) return 'danger';
+  if (val >= 30) return 'warning';
+  return 'normal';
 }
 
 // ── Generation (called from gameTick) ───────────────────────────────────────
@@ -108,36 +166,57 @@ let generateCounter = 0;
 
 export function tickAPINodes() {
   generateCounter++;
-  if (generateCounter < 10) return; // generate every ~10 ticks
+  if (generateCounter < 10) return;
   generateCounter = 0;
 
   const state = getGameState();
   if (state.gameOver) return;
 
-  const apiNodes = state.nodes.filter((n: any) => n.type === 'api' && n.data.unlocked);
+  const apiNodes = state.nodes.filter((n: any) => n.type === 'api' && n.data.unlocked && !n.data.infected);
+
   for (const node of apiNodes) {
     const queue = getAPIQueue(node.id);
-    // Remove expired
     const activeTick = state.tick;
+
+    // Check for expired requests and apply infection penalties
+    let infectionDelta = 0;
     for (let i = queue.length - 1; i >= 0; i--) {
-      if (queue[i].status === 'pending' && queue[i].deadlineTick <= activeTick) {
-        queue[i].status = 'expired';
+      const req = queue[i];
+      if (req.status === 'pending' && req.deadlineTick <= activeTick) {
+        req.status = 'expired';
+        // Unauthenticated expired without rejection = bad (you ignored a threat)
+        if (!req.hasToken) {
+          infectionDelta += 8;
+        } else {
+          // Authenticated expired = missed SLA
+          infectionDelta += 3;
+        }
       }
     }
-    // Clean up old completed/expired/failed (keep last 10 for history)
-    const done = queue.filter(r => ['completed', 'failed', 'expired'].includes(r.status));
+
+    // Passive healing: slowly reduce infection when below 60
+    const currentInfection = node.data.infectionValue || 0;
+    if (currentInfection > 0 && currentInfection < 60) {
+      infectionDelta -= 0.5;
+    }
+
+    if (infectionDelta !== 0) {
+      applyInfectionDelta(node.id, infectionDelta);
+    }
+
+    // Clean up old done requests (keep last 10)
+    const done = queue.filter(r => ['completed', 'failed', 'expired', 'rejected'].includes(r.status));
     if (done.length > 10) {
-      const toRemove = done.slice(0, done.length - 10);
-      for (const r of toRemove) {
+      for (const r of done.slice(0, done.length - 10)) {
         const idx = queue.indexOf(r);
         if (idx !== -1) queue.splice(idx, 1);
         requestAnswers.delete(r.id);
       }
     }
 
-    const pendingCount = queue.filter(r => r.status === 'pending').length;
+    const pendingCount = queue.filter(r => r.status === 'pending' || r.status === 'accepted').length;
 
-    // Update node data with pending count for UI
+    // Update node data with pending count + infection for UI
     const freshState = getGameState();
     const updatedNodes = freshState.nodes.map((n: any) => {
       if (n.id !== node.id) return n;
@@ -158,6 +237,7 @@ export function tickAPINodes() {
       type: template.type,
       body,
       hasToken,
+      token: hasToken ? generateToken() : null,
       deadlineTick: state.tick + REQUEST_DEADLINE_TICKS,
       reward: { credits: template.reward },
       status: 'pending',
@@ -175,6 +255,7 @@ export function apiPoll(nodeId: string, workerId: string): any {
   const state = getGameState();
   const node = state.nodes.find((n: any) => n.id === nodeId);
   if (!node || node.type !== 'api') return { ok: false, error: 'Not at an API node' };
+  if (node.data.infected) return { ok: false, error: 'Node is infected — repair it first', reason: 'infected' };
 
   const queue = getAPIQueue(nodeId);
   const pending = queue.find(r => r.status === 'pending');
@@ -190,10 +271,39 @@ export function apiPoll(nodeId: string, workerId: string): any {
       type: pending.type,
       body: pending.body,
       has_token: pending.hasToken,
+      token: pending.token,
       deadline_tick: pending.deadlineTick,
       reward: pending.reward,
     },
   };
+}
+
+export function apiReject(nodeId: string, workerId: string, requestId: string, statusCode: number): any {
+  const state = getGameState();
+  const node = state.nodes.find((n: any) => n.id === nodeId);
+  if (!node || node.type !== 'api') return { ok: false, error: 'Not at an API node' };
+
+  const queue = getAPIQueue(nodeId);
+  const request = queue.find(r => r.id === requestId);
+  if (!request) return { ok: false, error: 'Request not found' };
+  if (request.status !== 'accepted') return { ok: false, error: `Request status is '${request.status}', expected 'accepted'` };
+
+  request.status = 'rejected';
+
+  // Rejecting an unauthenticated request correctly (4xx) → good, no penalty
+  if (!request.hasToken && statusCode >= 400 && statusCode < 500) {
+    // Correct: rejected unauthenticated with proper 4xx
+    applyInfectionDelta(nodeId, -0.5); // tiny heal for doing the right thing
+    return { ok: true, correct: true, message: 'Correctly rejected unauthenticated request' };
+  }
+
+  // Rejecting a valid request unnecessarily → small penalty
+  if (request.hasToken && statusCode >= 400) {
+    applyInfectionDelta(nodeId, 2);
+    return { ok: true, correct: false, message: 'Rejected a valid request — small SLA penalty' };
+  }
+
+  return { ok: true };
 }
 
 export function apiRespond(nodeId: string, workerId: string, requestId: string, responseData: any): any {
@@ -206,27 +316,25 @@ export function apiRespond(nodeId: string, workerId: string, requestId: string, 
   if (!request) return { ok: false, error: 'Request not found' };
   if (request.status !== 'accepted') return { ok: false, error: `Request status is '${request.status}', expected 'accepted'` };
 
-  // ── Security check: responding to unauthenticated request = breach ──
+  // ── Security check: responding 2xx to unauthenticated request ──
   if (!request.hasToken) {
     request.status = 'failed';
-    // INFECT the node!
-    const newNodes = state.nodes.map((n: any) => {
-      if (n.id !== nodeId) return n;
-      return { ...n, type: 'infected', data: { ...n.data, infected: true } };
-    });
-    saveGameState({ ...state, nodes: newNodes });
+    applyInfectionDelta(nodeId, 25);
+    const freshState = getGameState();
+    const freshNode = freshState.nodes.find((n: any) => n.id === nodeId);
     broadcastFullState();
     return {
       ok: false,
-      error: 'SECURITY BREACH: responded to unauthenticated request — node infected!',
+      error: 'SECURITY BREACH: responded to unauthenticated request! Use reject(req.id, 401) instead.',
       reason: 'security_breach',
-      infected: true,
+      infectionValue: freshNode?.data?.infectionValue || 0,
     };
   }
 
   // ── Deadline check ──
   if (state.tick > request.deadlineTick) {
     request.status = 'failed';
+    applyInfectionDelta(nodeId, 3);
     return { ok: false, error: 'Request expired — deadline exceeded', reason: 'deadline_exceeded' };
   }
 
@@ -240,6 +348,7 @@ export function apiRespond(nodeId: string, workerId: string, requestId: string, 
   const correct = JSON.stringify(responseData) === JSON.stringify(expected);
   if (!correct) {
     request.status = 'failed';
+    applyInfectionDelta(nodeId, 3);
     return {
       ok: false,
       error: 'Incorrect response',
@@ -252,22 +361,24 @@ export function apiRespond(nodeId: string, workerId: string, requestId: string, 
   // ── Success! ──
   request.status = 'completed';
   requestAnswers.delete(requestId);
+  applyInfectionDelta(nodeId, -1); // healing on correct response
 
-  // Calculate credits (bonus for fast response)
+  // Calculate credits (speed bonus for fast response)
   const totalWindow = REQUEST_DEADLINE_TICKS;
   const ticksRemaining = request.deadlineTick - state.tick;
   const speedBonus = ticksRemaining > totalWindow * 0.5 ? 2 : 1;
   const credits = request.reward.credits * speedBonus;
 
-  // Add credits to resources
-  const newResources = { ...state.resources } as Record<string, number>;
+  const freshState2 = getGameState();
+  const newResources = { ...freshState2.resources } as Record<string, number>;
   newResources['credits'] = (newResources['credits'] || 0) + credits;
-  saveGameState({ ...state, resources: newResources as any });
+  saveGameState({ ...freshState2, resources: newResources as any });
 
   incrementStat('total_api_requests_completed', 1);
   incrementStat('total_credits_earned', credits);
   awardXp(XP_REWARDS.complete_api_request);
   grantNodeXp(nodeId, 'complete_request');
+  checkQuests();
   broadcastFullState();
 
   return {
@@ -279,17 +390,19 @@ export function apiRespond(nodeId: string, workerId: string, requestId: string, 
 }
 
 export function getAPIPendingCount(nodeId: string): number {
-  const queue = getAPIQueue(nodeId);
-  return queue.filter(r => r.status === 'pending').length;
+  return getAPIQueue(nodeId).filter(r => r.status === 'pending' || r.status === 'accepted').length;
 }
 
-export function getAPIStats(nodeId: string): { pending: number; completed: number; failed: number; expired: number } {
+export function getAPIStats(nodeId: string): { pending: number; completed: number; failed: number; expired: number; rejected: number; infectionValue: number; slaStatus: string } {
   const queue = getAPIQueue(nodeId);
   return {
     pending: queue.filter(r => r.status === 'pending' || r.status === 'accepted').length,
     completed: queue.filter(r => r.status === 'completed').length,
     failed: queue.filter(r => r.status === 'failed').length,
     expired: queue.filter(r => r.status === 'expired').length,
+    rejected: queue.filter(r => r.status === 'rejected').length,
+    infectionValue: getNodeInfectionValue(nodeId),
+    slaStatus: getSLAStatus(nodeId),
   };
 }
 
@@ -297,7 +410,7 @@ export function getAPIStats(nodeId: string): { pending: number; completed: numbe
 
 export const API_SPEC: APISpec = {
   name: 'Compute API',
-  description: 'Receives math computation requests. Respond with correct results to earn credits.',
+  description: 'Receives math computation and echo requests. Respond correctly to earn credits.',
   endpoints: [
     {
       method: 'POST',
@@ -314,5 +427,5 @@ export const API_SPEC: APISpec = {
       example: { body: { value: 42 }, response: { value: 42 } },
     },
   ],
-  securityNote: 'Requests may arrive WITHOUT authentication (has_token=False). You MUST check request.has_token and drop unauthenticated requests. Responding to them causes a SECURITY BREACH and infects the node.',
+  securityNote: 'Some requests arrive WITHOUT a token (has_token=False). You MUST call reject(req.id, 401) for these. Responding with 2xx to an unauthenticated request adds +25 infection. Requests that expire without being rejected add +8 infection. 100 infection = node infected.',
 };
