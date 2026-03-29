@@ -19,7 +19,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { useGameStore, GameNode, GameEdge, Worker } from '../store/gameStore';
 import React, { useEffect, useCallback, useMemo, useRef } from 'react';
-import { Database, Shield, Lock, AlertTriangle, Radio, Pickaxe, Package, Cpu, Box, HardDrive, Globe, ShieldCheck } from 'lucide-react';
+import { Database, Shield, Lock, AlertTriangle, Pickaxe, Package, Cpu, Box, HardDrive, Globe, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 // ── Worker Dots Row (with enter/leave animations) ───────────────────────────
@@ -308,18 +308,6 @@ function ResourceNode({ data, selected }: any) {
   );
 }
 
-function RelayNode({ data, selected }: any) {
-  return (
-    <NodeWrapper selected={selected} glowColor={data.unlocked ? 'var(--accent-secondary)' : undefined} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
-      <NodeLabel
-        label={data.label}
-        icon={Radio}
-        iconColor={data.unlocked ? 'var(--accent-secondary)' : 'var(--text-muted)'}
-        subtitle={data.unlocked ? 'ACTIVE' : 'LOCKED'}
-      />
-    </NodeWrapper>
-  );
-}
 
 function InfectedNode({ data, selected }: any) {
   return (
@@ -534,7 +522,6 @@ function CacheNode({ data, selected }: any) {
 const NODE_TYPES: NodeTypes = {
   hub: HubNode,
   resource: ResourceNode,
-  relay: RelayNode,
   infected: InfectedNode,
   locked: LockedNode,
   compute: ComputeNode,
@@ -877,8 +864,7 @@ export function GameGraph() {
             if (node.type === 'hub') return '#00d4aa';
             if (node.type === 'infected') return '#ff4757';
             if (node.type === 'resource') return '#45aaf2';
-            if (node.type === 'relay') return '#7c6af0';
-            if (node.type === 'cache') return '#a78bfa';
+if (node.type === 'cache') return '#a78bfa';
             if (node.type === 'api') return '#f59e0b';
             if (node.type === 'empty') return '#555';
             return '#333';

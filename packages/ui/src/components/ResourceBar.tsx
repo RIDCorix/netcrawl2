@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Database, Cpu, Star, Wifi, WifiOff, ShieldAlert, Activity, Package, Trophy, BookOpen, Settings, Zap } from 'lucide-react';
+import { Database, Cpu, Star, Wifi, WifiOff, ShieldAlert, Activity, Package, Trophy, BookOpen, Settings, Zap, Layers } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useRef, useEffect, useState } from 'react';
 import { useT } from '../hooks/useT';
@@ -80,7 +80,7 @@ function ResourceItem({ icon: Icon, value, label, color, prevValue, formatFn }: 
 }
 
 export function ResourceBar() {
-  const { resources, tick, connected, gameOver, inventoryOpen, toggleInventory, playerInventory, achievements, toggleAchievements, questSummary, toggleQuests, toggleSettings, levelSummary, toggleLevel } = useGameStore();
+  const { resources, tick, connected, gameOver, inventoryOpen, toggleInventory, playerInventory, achievements, toggleAchievements, questSummary, toggleQuests, toggleSettings, levelSummary, toggleLevel, activeLayer, layerMeta, openLayerSelect } = useGameStore();
   const totalItems = playerInventory.reduce((sum, i) => sum + i.count, 0);
   const prevRef = useRef(resources);
   const [prev, setPrev] = useState(resources);
@@ -199,6 +199,43 @@ export function ResourceBar() {
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />
+
+      {/* Layers */}
+      <motion.button
+        onClick={openLayerSelect}
+        whileTap={{ scale: 0.96 }}
+        title="Network Layers"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 4,
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-sm)',
+          padding: '5px 8px',
+          color: 'var(--text-muted)',
+          cursor: 'pointer', flexShrink: 0,
+          position: 'relative',
+        }}
+      >
+        <Layers size={12} style={{ color: '#60a5fa' }} />
+        <span style={{
+          fontSize: 9,
+          fontWeight: 800,
+          fontFamily: 'var(--font-mono)',
+          color: '#60a5fa',
+        }}>
+          {activeLayer}
+        </span>
+        {/* Dot indicator when unlocked layers > 1 */}
+        {layerMeta.filter(l => l.unlocked).length > 1 && (
+          <span style={{
+            position: 'absolute',
+            top: 2, right: 2,
+            width: 5, height: 5,
+            borderRadius: '50%',
+            background: '#4ade80',
+          }} />
+        )}
+      </motion.button>
 
       {/* Quests */}
       <motion.button

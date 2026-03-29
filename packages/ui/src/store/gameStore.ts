@@ -123,6 +123,26 @@ const savedSettings = (() => {
   } catch { return DEFAULT_SETTINGS }
 })()
 
+export interface LayerMeta {
+  id: number;
+  name: string;
+  tagline: string;
+  description: string;
+  color: string;
+  emoji: string;
+  unlocked: boolean;
+  thresholds: {
+    total_data_deposited?: number;
+    rp?: number;
+    credits?: number;
+  };
+  progress: {
+    total_data_deposited?: number;
+    rp?: number;
+    credits?: number;
+  };
+}
+
 export interface GameState {
   nodes: GameNode[];
   edges: GameEdge[];
@@ -160,6 +180,11 @@ export interface GameState {
     fieldName: string;
     onSelect: (edge: { id: string; source: string; target: string }) => void;
   } | null;
+  // Multi-layer system
+  activeLayer: number;
+  layerMeta: LayerMeta[];
+  layerSelectOpen: boolean;
+  layerUnlockToasts: Array<{ id: number; name: string; emoji: string; timestamp: number }>;
 }
 
 interface GameActions {
@@ -184,6 +209,11 @@ interface GameActions {
   addLevelUpToast: (toast: { level: number; title: string; titleZh: string }) => void;
   removeLevelUpToast: (level: number) => void;
   resetTutorial: () => void;
+  // Layer actions
+  openLayerSelect: () => void;
+  closeLayerSelect: () => void;
+  addLayerUnlockToast: (toast: { id: number; name: string; emoji: string }) => void;
+  removeLayerUnlockToast: (id: number) => void;
 }
 
 export const useGameStore = create<GameState & GameActions>((set) => ({
@@ -212,6 +242,10 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   levelOpen: false,
   levelUpToasts: [],
   edgeSelectMode: null,
+  activeLayer: 0,
+  layerMeta: [],
+  layerSelectOpen: false,
+  layerUnlockToasts: [],
 
   setState: (partial) => set((state) => ({ ...state, ...partial })),
   setConnected: (connected) => set({ connected }),
@@ -255,6 +289,15 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
     localStorage.removeItem('netcrawl-tutorial');
   },
 
+  openLayerSelect: () => set({ layerSelectOpen: true }),
+  closeLayerSelect: () => set({ layerSelectOpen: false }),
+  addLayerUnlockToast: (toast) => set((state) => ({
+    layerUnlockToasts: [...state.layerUnlockToasts.slice(-2), { ...toast, timestamp: Date.now() }],
+  })),
+  removeLayerUnlockToast: (id) => set((state) => ({
+    layerUnlockToasts: state.layerUnlockToasts.filter(t => t.id !== id),
+  })),
+
   updateFromServer: (data) => {
     set((state) => ({
       nodes: data.nodes ?? state.nodes,
@@ -268,6 +311,8 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
       achievements: data.achievements ?? state.achievements,
       questSummary: data.questSummary ?? state.questSummary,
       levelSummary: data.levelSummary ?? state.levelSummary,
+      activeLayer: data.activeLayer ?? state.activeLayer,
+      layerMeta: data.layerMeta ?? state.layerMeta,
     }));
   },
 }));

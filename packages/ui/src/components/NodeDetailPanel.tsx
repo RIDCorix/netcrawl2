@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Database, Cpu, Star, Lock, AlertTriangle, MousePointer, Upload, Pickaxe, ArrowUp, Info, Shield, Radio, Box, Server, Globe, Zap, Bug } from 'lucide-react';
+import { X, Database, Cpu, Star, Lock, AlertTriangle, MousePointer, Upload, Pickaxe, ArrowUp, Info, Shield, Box, Server, Globe, Zap, Bug } from 'lucide-react';
 import { useGameStore, GameNode, Resources } from '../store/gameStore';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -84,7 +84,6 @@ function toSnakeCase(str: string): string {
 const NODE_TYPE_ICONS: Record<string, any> = {
   hub: Shield,
   resource: Database,
-  relay: Radio,
   compute: Cpu,
   empty: Box,
   cache: Server,
@@ -277,8 +276,7 @@ export function NodeDetailPanel() {
     if (n.type === 'resource') {
       return 'var(--data-color)';
     }
-    if (n.type === 'relay') return 'var(--accent-secondary)';
-    if (n.type === 'cache') return '#a78bfa';
+if (n.type === 'cache') return '#a78bfa';
     if (n.type === 'api') return '#f59e0b';
     if (n.type === 'empty') return 'var(--text-muted)';
     return 'var(--text-muted)';

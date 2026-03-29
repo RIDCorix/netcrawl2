@@ -83,11 +83,6 @@ class ResourceNode(BaseNode):
         )
 
 
-class RelayNode(BaseNode):
-    """A network relay node."""
-    pass
-
-
 class ComputeNode(BaseNode):
     """A compute puzzle node. Units can request puzzles and submit answers."""
 
@@ -246,7 +241,6 @@ class InfectedNode(BaseNode):
 NODE_TYPE_MAP = {
     'hub': HubNode,
     'resource': ResourceNode,
-    'relay': RelayNode,
     'compute': ComputeNode,
     'api': APINode,
     'cache': CacheNodeType,

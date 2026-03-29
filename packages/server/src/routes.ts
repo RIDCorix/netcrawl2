@@ -10,7 +10,9 @@ import {
   RECIPES, Recipe, Chip,
   getPlayerInventory, addToPlayerInventory, removeFromPlayerInventory, getItemEfficiency,
   getPlayerChips, addPlayerChip, removePlayerChip,
+  getLayerManager, isLayerUnlocked, switchActiveLayer, getStat,
 } from './db.js';
+import { LAYER_DEFS } from './layerDefinitions.js';
 import { handleWorkerAction } from './workerActions.js';
 import { spawnWorker, killWorker, suspendWorker, getActiveProcesses } from './workerSpawner.js';
 import { checkCost, deductCost } from './stateHelpers.js';
@@ -790,4 +792,50 @@ router.post('/worker/action', async (req: Request, res: Response) => {
   }
   const result = await handleWorkerAction(workerId, action, payload || {});
   res.json(result);
+});
+
+// GET /api/layers
+router.get('/layers', (req: Request, res: Response) => {
+  const state = getGameState();
+  const layerManager = getLayerManager();
+
+  const layers = LAYER_DEFS.map(def => {
+    const unlocked = isLayerUnlocked(def.id);
+    const isActive = (layerManager?.currentLayer ?? 0) === def.id;
+    const progress: Record<string, number> = {};
+    const thresh = def.unlockThresholds;
+    if (thresh) {
+      if (thresh.total_data_deposited !== undefined) progress.total_data_deposited = getStat('total_data_deposited');
+      if (thresh.rp !== undefined) progress.rp = state.resources.rp;
+      if (thresh.credits !== undefined) progress.credits = state.resources.credits;
+    }
+    return { ...def, unlocked, isActive, progress };
+  });
+
+  res.json({ layers, activeLayer: layerManager?.currentLayer ?? 0 });
+});
+
+// POST /api/layer/switch
+router.post('/layer/switch', (req: Request, res: Response) => {
+  const { layerId } = req.body;
+  if (layerId === undefined || typeof layerId !== 'number') {
+    return res.status(400).json({ error: 'layerId (number) required' });
+  }
+
+  const activeWorkers = getWorkers().filter((w: any) =>
+    ['running', 'moving', 'harvesting'].includes(w.status)
+  );
+  if (activeWorkers.length > 0) {
+    return res.status(400).json({
+      error: 'Recall all active workers before switching layers',
+      reason: 'workers_running',
+      count: activeWorkers.length,
+    });
+  }
+
+  const result = switchActiveLayer(layerId);
+  if (!result.ok) return res.status(400).json({ error: result.error });
+
+  broadcastFullState();
+  res.json({ ok: true, layerId });
 });

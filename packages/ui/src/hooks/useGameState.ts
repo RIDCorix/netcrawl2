@@ -38,6 +38,8 @@ export function useGameState() {
           });
         } else if (msg.type === 'LEVEL_UP') {
           useGameStore.getState().addLevelUpToast(msg.payload);
+        } else if (msg.type === 'LAYER_UNLOCKED') {
+          useGameStore.getState().addLayerUnlockToast(msg.payload);
         }
       } catch (err) {
         console.error('[WS] Parse error:', err);

@@ -17,6 +17,8 @@ import { SettingsPanel } from './components/SettingsPanel';
 import { LevelPanel } from './components/LevelPanel';
 import { LevelUpToast } from './components/LevelUpToast';
 import { TutorialOverlay } from './components/TutorialOverlay';
+import { LayerSelectScreen } from './components/LayerSelectScreen';
+import { LayerUnlockToast } from './components/LayerUnlockToast';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -105,6 +107,8 @@ function GameView() {
       <QuestToast />
       <LevelUpToast />
       <TutorialOverlay />
+      <LayerSelectScreen />
+      <LayerUnlockToast />
     </div>
   );
 }

@@ -30,10 +30,6 @@ export const NODE_UPGRADE_DEFS: Record<string, UpgradeLevel[]> = {
     { level: 2, name: 'Data Cluster', description: '+1 chip slot', cost: { data: 1000, rp: 8 }, effects: { chipSlots: 2 } },
     { level: 3, name: 'Auto Sync', description: 'Drops auto-deposit to hub', cost: { data: 5000, rp: 25 }, effects: { autoCollect: true } },
   ],
-  'relay': [
-    { level: 1, name: 'Signal Amp', description: '+1 chip slot', cost: { data: 500 }, effects: { chipSlots: 1 } },
-    { level: 2, name: 'Fast Lane', description: 'Workers pass through 30% faster', cost: { data: 1500, rp: 5 }, effects: { moveSpeedMult: 0.7 } },
-  ],
   'hub': [
     { level: 1, name: 'Expansion Bay', description: '+1 chip slot (total 2)', cost: { data: 2000, rp: 10 }, effects: { chipSlots: 2 } },
     { level: 2, name: 'Command Center', description: '+2 chip slots (total 4), +1 defense', cost: { data: 8000, rp: 30 }, effects: { chipSlots: 4, defenseBonus: 1 } },
@@ -142,7 +138,6 @@ export function rollChip(weights: Record<ChipRarity, number>): ChipDef {
 export const BASE_CHIP_SLOTS: Record<string, number> = {
   hub: 1,
   resource: 1,
-  relay: 0,
   locked: 0,
   infected: 0,
 };
@@ -158,7 +153,6 @@ export const BASE_CHIP_SLOTS: Record<string, number> = {
 export const NODE_XP_THRESHOLDS: Record<string, number[]> = {
   // [xpForLv1, xpForLv2, xpForLv3]
   'resource:data': [100, 300, 800],
-  'relay':         [80, 250],
   'hub':           [150, 500],
 };
 
@@ -167,9 +161,6 @@ export const NODE_XP_PER_ACTION: Record<string, Record<string, number>> = {
   'resource:data': {
     mine: 8,        // worker mines this node
     harvest: 3,     // manual gather from UI
-  },
-  'relay': {
-    pass_through: 5,  // worker moves through this relay
   },
   'hub': {
     deposit: 4,       // worker deposits resources here
