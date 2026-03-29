@@ -35,13 +35,14 @@ function QuestNode({ data }: any) {
       onClick={() => selectQuest(q.id)}
       style={{
         padding: !q.mainline ? '10px 14px' : '14px 18px',
+        width: !q.mainline ? 140 : 180,
         borderRadius: !q.mainline ? 'var(--radius-lg)' : 'var(--radius-md)',
         background: bg,
         border: `${isSelected ? '2px' : '1.5px'} ${status === 'locked' ? 'dashed' : 'solid'} ${isSelected ? 'var(--accent)' : borderColor}`,
         boxShadow: isSelected ? `0 0 16px var(--accent-dim)` : status === 'completed' ? `0 0 12px ${color}20` : 'none',
         opacity: status === 'locked' ? 0.35 : 1,
         cursor: status === 'locked' ? 'default' : 'pointer',
-        minWidth: !q.mainline ? 120 : 160,
+        boxSizing: 'border-box' as const,
         textAlign: 'center' as const,
         transition: 'all 0.2s',
         position: 'relative',
@@ -288,13 +289,20 @@ export function QuestTree() {
       const t = chapterQuests.find((q: any) => q.id === targetId);
       if (!s || !t) return { sourceHandle: 'center', targetHandle: 'center' };
 
-      // Straight mode or same-x (vertical chain): always center-to-center for clean lines
-      if (edgeStyle === 'straight' || s.position.x === t.position.x) {
-        return { sourceHandle: 'center', targetHandle: 'center' };
-      }
-
       const dx = t.position.x - s.position.x;
       const dy = t.position.y - s.position.y;
+
+      // Same-x vertical chain: use bottom→top so line doesn't cut through node interior
+      if (s.position.x === t.position.x) {
+        return dy > 0
+          ? { sourceHandle: 'bottom', targetHandle: 'top' }
+          : { sourceHandle: 'top', targetHandle: 'bottom' };
+      }
+
+      // Straight mode: center handles
+      if (edgeStyle === 'straight') {
+        return { sourceHandle: 'center', targetHandle: 'center' };
+      }
       if (Math.abs(dx) > Math.abs(dy)) {
         return dx > 0
           ? { sourceHandle: 'right', targetHandle: 'left' }

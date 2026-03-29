@@ -6,6 +6,7 @@
 
 import path from 'path';
 import fs from 'fs';
+import { INITIAL_LEVEL_STATE, type LevelState, grantXp, getLevelSummary, type LevelSummary, type LevelUpResult } from './levelSystem.js';
 
 const DATA_PATH = path.join(process.cwd(), 'data', 'netcrawl-state.json');
 
@@ -170,53 +171,204 @@ interface Store {
   next_log_id: number;
   achievement_state: AchievementState;
   quest_state: QuestState;
+  level_state: import('./levelSystem.js').LevelState;
 }
 
 // ── Initial data ──────────────────────────────────────────────────────────────
 
+// Helper to create typed node data
+const R = (label: string, rate: number, cost: Record<string, number>) =>
+  ({ label, resource: 'data' as const, rate, unlocked: false, unlockCost: cost, mineable: true, drops: [] as any[], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] });
+const C = (label: string, diff: 'easy' | 'medium' | 'hard', cost: Record<string, number>) =>
+  ({ label, unlocked: false, unlockCost: cost, difficulty: diff, rewardResource: 'rp' as const, solveCount: 0, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] });
+const Y = (label: string, cost: Record<string, number>) =>
+  ({ label, unlocked: false, unlockCost: cost, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] });
+const E = (label: string, cost: Record<string, number>) =>
+  ({ label, unlocked: false, unlockCost: cost, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] });
+
 export const INITIAL_NODES = [
-  // ── Core (center) ──
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Core
+  // ═══════════════════════════════════════════════════════════════════════════
   { id: 'hub', type: 'hub', position: { x: 0, y: 0 }, data: { label: 'Hub', unlocked: true, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
 
-  // ── North branch ──
-  { id: 'r1', type: 'resource', position: { x: -100, y: -280 }, data: { label: 'Data Mine Alpha', resource: 'data', rate: 50, unlocked: false, unlockCost: { data: 100 }, mineable: true, drops: [], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
+  // ═══════════════════════════════════════════════════════════════════════════
+  // NORTH — Mining District (easy start, main data income)
+  // ═══════════════════════════════════════════════════════════════════════════
+  { id: 'n_relay1', type: 'relay',    position: { x: 0,    y: -300 },  data: Y('Relay N1', { data: 50 }) },
+  { id: 'n_mine1',  type: 'resource', position: { x: -250, y: -500 },  data: R('Data Mine Alpha', 50, { data: 100 }) },
+  { id: 'n_mine2',  type: 'resource', position: { x: 250,  y: -500 },  data: R('Data Mine Beta', 40, { data: 150 }) },
+  { id: 'n_relay2', type: 'relay',    position: { x: 0,    y: -700 },  data: Y('Relay N2', { data: 200 }) },
+  { id: 'n_mine3',  type: 'resource', position: { x: -300, y: -900 },  data: R('Data Mine Gamma', 60, { data: 400 }) },
+  { id: 'n_mine4',  type: 'resource', position: { x: 300,  y: -900 },  data: R('Data Mine Delta', 55, { data: 500 }) },
+  { id: 'n_empty1', type: 'empty',    position: { x: 0,    y: -1000 }, data: E('Open Slot', { data: 800, rp: 3 }) },
+  { id: 'n_deep1',  type: 'resource', position: { x: 0,    y: -1300 }, data: R('Deep Core Alpha', 100, { data: 2000, rp: 5 }) },
+  { id: 'n_deep2',  type: 'resource', position: { x: -350, y: -1200 }, data: R('Deep Core Beta', 80, { data: 1500, rp: 3 }) },
 
-  // ── Northeast branch ──
-  { id: 'r2', type: 'resource', position: { x: 350, y: -200 }, data: { label: 'Data Mine Beta', resource: 'data', rate: 30, unlocked: false, unlockCost: { data: 200 }, mineable: true, drops: [], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
-  { id: 'locked1', type: 'locked', position: { x: 650, y: -350 }, data: { label: 'Deep Shaft', unlocked: false, unlockCost: { data: 5000, rp: 10 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+  // ═══════════════════════════════════════════════════════════════════════════
+  // NORTHEAST — Compute Cluster (research / RP income)
+  // ═══════════════════════════════════════════════════════════════════════════
+  { id: 'ne_relay1', type: 'relay',    position: { x: 400,  y: -200 },  data: Y('Relay NE1', { data: 120 }) },
+  { id: 'ne_comp1',  type: 'compute',  position: { x: 650,  y: -350 },  data: C('Compute C1', 'easy', { data: 300 }) },
+  { id: 'ne_mine1',  type: 'resource', position: { x: 700,  y: -100 },  data: R('Data Silo East', 35, { data: 250 }) },
+  { id: 'ne_relay2', type: 'relay',    position: { x: 950,  y: -250 },  data: Y('Relay NE2', { data: 600 }) },
+  { id: 'ne_comp2',  type: 'compute',  position: { x: 1200, y: -400 },  data: C('Compute C2', 'medium', { data: 1000, rp: 5 }) },
+  { id: 'ne_comp3',  type: 'compute',  position: { x: 1200, y: -100 },  data: C('Compute C3', 'medium', { data: 1200, rp: 8 }) },
+  { id: 'ne_empty1', type: 'empty',    position: { x: 950,  y: -550 },  data: E('Open Slot', { data: 1500, rp: 5 }) },
+  { id: 'ne_comp4',  type: 'compute',  position: { x: 1500, y: -250 },  data: C('Compute C4', 'hard', { data: 3000, rp: 15 }) },
 
-  // ── East branch (Data + Compute) ──
-  { id: 'r3', type: 'resource', position: { x: 400, y: 180 }, data: { label: 'Data Mine Gamma', resource: 'data', rate: 20, unlocked: false, unlockCost: { data: 300 }, mineable: true, drops: [], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
-  { id: 'c2', type: 'compute', position: { x: 700, y: 100 }, data: { label: 'Compute Beta', unlocked: false, unlockCost: { data: 2000, rp: 5 }, difficulty: 'medium', rewardResource: 'rp', solveCount: 0, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EAST — Trade Route (mid-game expansion)
+  // ═══════════════════════════════════════════════════════════════════════════
+  { id: 'e_relay1', type: 'relay',    position: { x: 450,  y: 100 },   data: Y('Relay E1', { data: 180 }) },
+  { id: 'e_mine1',  type: 'resource', position: { x: 700,  y: 200 },   data: R('Data Mine Echo', 45, { data: 350 }) },
+  { id: 'e_mine2',  type: 'resource', position: { x: 700,  y: -50 },   data: R('Data Vein East', 30, { data: 300 }) },
+  { id: 'e_relay2', type: 'relay',    position: { x: 1000, y: 100 },   data: Y('Relay E2', { data: 800 }) },
+  { id: 'e_empty1', type: 'empty',    position: { x: 1000, y: 350 },   data: E('Open Slot', { data: 2000, rp: 8 }) },
+  { id: 'e_mine3',  type: 'resource', position: { x: 1300, y: 0 },     data: R('Data Mine Foxtrot', 70, { data: 1200 }) },
+  { id: 'e_mine4',  type: 'resource', position: { x: 1300, y: 250 },   data: R('Data Mine Golf', 65, { data: 1000 }) },
+  { id: 'e_empty2', type: 'empty',    position: { x: 1550, y: 120 },   data: E('Open Slot', { data: 3000, rp: 12 }) },
 
-  // ── West branch (Relay network) ──
-  { id: 'relay2', type: 'relay', position: { x: -350, y: -80 }, data: { label: 'Relay Beta', unlocked: false, unlockCost: { data: 150 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SOUTHEAST — Deep Territory (late game, high yield)
+  // ═══════════════════════════════════════════════════════════════════════════
+  { id: 'se_relay1', type: 'relay',    position: { x: 350,  y: 400 },   data: Y('Relay SE1', { data: 250 }) },
+  { id: 'se_mine1',  type: 'resource', position: { x: 600,  y: 550 },   data: R('Data Mine Hotel', 50, { data: 500 }) },
+  { id: 'se_comp1',  type: 'compute',  position: { x: 350,  y: 700 },   data: C('Compute C5', 'easy', { data: 600 }) },
+  { id: 'se_relay2', type: 'relay',    position: { x: 650,  y: 850 },   data: Y('Relay SE2', { data: 1200 }) },
+  { id: 'se_mine2',  type: 'resource', position: { x: 900,  y: 700 },   data: R('Data Mine India', 85, { data: 1800 }) },
+  { id: 'se_empty1', type: 'empty',    position: { x: 900,  y: 1000 },  data: E('Open Slot', { data: 2500, rp: 10 }) },
+  { id: 'se_locked1',type: 'locked',   position: { x: 400,  y: 1050 },  data: Y('Encrypted Vault', { data: 5000, rp: 20 }) },
 
-  // ── South branch (Relay + Compute) ──
-  { id: 'relay1', type: 'relay', position: { x: -200, y: 300 }, data: { label: 'Relay Alpha', unlocked: false, unlockCost: { data: 80 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
-  { id: 'c1', type: 'compute', position: { x: -50, y: 500 }, data: { label: 'Compute Alpha', unlocked: false, unlockCost: { data: 500 }, difficulty: 'easy', rewardResource: 'rp', solveCount: 0, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SOUTH — Relay Backbone (connects west and east)
+  // ═══════════════════════════════════════════════════════════════════════════
+  { id: 's_relay1', type: 'relay',    position: { x: -100, y: 350 },    data: Y('Relay S1', { data: 80 }) },
+  { id: 's_comp1',  type: 'compute',  position: { x: 100,  y: 550 },    data: C('Compute Alpha', 'easy', { data: 400 }) },
+  { id: 's_mine1',  type: 'resource', position: { x: -200, y: 600 },    data: R('Data Mine Juliet', 40, { data: 350 }) },
+  { id: 's_relay2', type: 'relay',    position: { x: 0,    y: 800 },    data: Y('Relay S2', { data: 700 }) },
+  { id: 's_mine2',  type: 'resource', position: { x: -250, y: 950 },    data: R('Data Mine Kilo', 75, { data: 1500 }) },
+  { id: 's_mine3',  type: 'resource', position: { x: 250,  y: 950 },    data: R('Data Mine Lima', 70, { data: 1400 }) },
+  { id: 's_empty1', type: 'empty',    position: { x: 0,    y: 1100 },   data: E('Open Slot', { data: 2000, rp: 8 }) },
 
-  // ── Empty nodes (buildable) ──
-  { id: 'empty1', type: 'empty', position: { x: -500, y: 150 }, data: { label: 'Open Slot', unlocked: false, unlockCost: { data: 1000, rp: 5 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
-  { id: 'empty2', type: 'empty', position: { x: 500, y: -50 }, data: { label: 'Open Slot', unlocked: false, unlockCost: { data: 2000, rp: 10 }, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] } },
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SOUTHWEST — Defense Perimeter (infected zone nearby)
+  // ═══════════════════════════════════════════════════════════════════════════
+  { id: 'sw_relay1', type: 'relay',    position: { x: -400, y: 300 },   data: Y('Relay SW1', { data: 150 }) },
+  { id: 'sw_mine1',  type: 'resource', position: { x: -600, y: 200 },   data: R('Data Mine Mike', 45, { data: 400 }) },
+  { id: 'sw_mine2',  type: 'resource', position: { x: -650, y: 450 },   data: R('Data Mine November', 55, { data: 600 }) },
+  { id: 'sw_relay2', type: 'relay',    position: { x: -400, y: 600 },   data: Y('Relay SW2', { data: 900 }) },
+  { id: 'sw_comp1',  type: 'compute',  position: { x: -650, y: 700 },   data: C('Compute C6', 'medium', { data: 1200, rp: 5 }) },
+  { id: 'sw_empty1', type: 'empty',    position: { x: -900, y: 500 },   data: E('Open Slot', { data: 1800, rp: 7 }) },
+  { id: 'sw_locked1',type: 'locked',   position: { x: -900, y: 300 },   data: Y('Quarantine Zone', { data: 4000, rp: 15 }) },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WEST — Relay Network (connectivity backbone)
+  // ═══════════════════════════════════════════════════════════════════════════
+  { id: 'w_relay1', type: 'relay',    position: { x: -400, y: -100 },   data: Y('Relay W1', { data: 100 }) },
+  { id: 'w_mine1',  type: 'resource', position: { x: -650, y: -200 },   data: R('Data Mine Oscar', 35, { data: 250 }) },
+  { id: 'w_relay2', type: 'relay',    position: { x: -650, y: 50 },     data: Y('Relay W2', { data: 500 }) },
+  { id: 'w_empty1', type: 'empty',    position: { x: -900, y: -100 },   data: E('Open Slot', { data: 1000, rp: 5 }) },
+  { id: 'w_mine2',  type: 'resource', position: { x: -900, y: 100 },    data: R('Data Mine Papa', 60, { data: 800 }) },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // NORTHWEST — Research Outpost (high RP, hard compute)
+  // ═══════════════════════════════════════════════════════════════════════════
+  { id: 'nw_relay1', type: 'relay',    position: { x: -350, y: -400 },  data: Y('Relay NW1', { data: 200 }) },
+  { id: 'nw_mine1',  type: 'resource', position: { x: -600, y: -500 },  data: R('Data Mine Quebec', 45, { data: 500 }) },
+  { id: 'nw_comp1',  type: 'compute',  position: { x: -350, y: -700 },  data: C('Research Lab', 'hard', { data: 2000, rp: 10 }) },
+  { id: 'nw_relay2', type: 'relay',    position: { x: -600, y: -800 },  data: Y('Relay NW2', { data: 1500 }) },
+  { id: 'nw_comp2',  type: 'compute',  position: { x: -850, y: -650 },  data: C('Deep Research Lab', 'hard', { data: 4000, rp: 20 }) },
+  { id: 'nw_empty1', type: 'empty',    position: { x: -850, y: -900 },  data: E('Open Slot', { data: 3000, rp: 15 }) },
+  { id: 'nw_locked1',type: 'locked',   position: { x: -600, y: -1100 }, data: Y('Observatory', { data: 8000, rp: 30 }) },
 ];
 
 export const INITIAL_EDGES = [
-  // Hub connections (star topology from center)
-  { id: 'e1', source: 'hub', target: 'r1' },
-  { id: 'e2', source: 'hub', target: 'r2' },
-  { id: 'e3', source: 'hub', target: 'r3' },
-  { id: 'e4', source: 'hub', target: 'relay1' },
-  { id: 'e6', source: 'hub', target: 'relay2' },
-  // Branches outward
-  { id: 'e5', source: 'r2', target: 'locked1' },
-  { id: 'e7', source: 'relay1', target: 'relay2' },
-  { id: 'e8', source: 'relay1', target: 'c1' },
-  { id: 'e9', source: 'r3', target: 'c2' },
-  { id: 'e10', source: 'locked1', target: 'c2' },
-  // Empty node connections
-  { id: 'e11', source: 'relay2', target: 'empty1' },
-  { id: 'e12', source: 'r3', target: 'empty2' },
+  // ── Hub spokes ──
+  { id: 'e1',  source: 'hub',       target: 'n_relay1' },
+  { id: 'e2',  source: 'hub',       target: 'ne_relay1' },
+  { id: 'e3',  source: 'hub',       target: 'e_relay1' },
+  { id: 'e4',  source: 'hub',       target: 'se_relay1' },
+  { id: 'e5',  source: 'hub',       target: 's_relay1' },
+  { id: 'e6',  source: 'hub',       target: 'sw_relay1' },
+  { id: 'e7',  source: 'hub',       target: 'w_relay1' },
+  { id: 'e8',  source: 'hub',       target: 'nw_relay1' },
+
+  // ── North Mining District ──
+  { id: 'e10', source: 'n_relay1',  target: 'n_mine1' },
+  { id: 'e11', source: 'n_relay1',  target: 'n_mine2' },
+  { id: 'e12', source: 'n_relay1',  target: 'n_relay2' },
+  { id: 'e13', source: 'n_relay2',  target: 'n_mine3' },
+  { id: 'e14', source: 'n_relay2',  target: 'n_mine4' },
+  { id: 'e15', source: 'n_relay2',  target: 'n_empty1' },
+  { id: 'e16', source: 'n_empty1',  target: 'n_deep1' },
+  { id: 'e17', source: 'n_mine3',   target: 'n_deep2' },
+
+  // ── Northeast Compute Cluster ──
+  { id: 'e20', source: 'ne_relay1', target: 'ne_comp1' },
+  { id: 'e21', source: 'ne_relay1', target: 'ne_mine1' },
+  { id: 'e22', source: 'ne_comp1',  target: 'ne_relay2' },
+  { id: 'e23', source: 'ne_relay2', target: 'ne_comp2' },
+  { id: 'e24', source: 'ne_relay2', target: 'ne_comp3' },
+  { id: 'e25', source: 'ne_relay2', target: 'ne_empty1' },
+  { id: 'e26', source: 'ne_comp2',  target: 'ne_comp4' },
+  { id: 'e27', source: 'ne_comp3',  target: 'ne_comp4' },
+
+  // ── East Trade Route ──
+  { id: 'e30', source: 'e_relay1',  target: 'e_mine1' },
+  { id: 'e31', source: 'e_relay1',  target: 'e_mine2' },
+  { id: 'e32', source: 'e_mine1',   target: 'e_relay2' },
+  { id: 'e33', source: 'e_relay2',  target: 'e_empty1' },
+  { id: 'e34', source: 'e_relay2',  target: 'e_mine3' },
+  { id: 'e35', source: 'e_relay2',  target: 'e_mine4' },
+  { id: 'e36', source: 'e_mine3',   target: 'e_empty2' },
+
+  // ── Southeast Deep Territory ──
+  { id: 'e40', source: 'se_relay1', target: 'se_mine1' },
+  { id: 'e41', source: 'se_relay1', target: 'se_comp1' },
+  { id: 'e42', source: 'se_mine1',  target: 'se_relay2' },
+  { id: 'e43', source: 'se_relay2', target: 'se_mine2' },
+  { id: 'e44', source: 'se_relay2', target: 'se_empty1' },
+  { id: 'e45', source: 'se_comp1',  target: 'se_locked1' },
+
+  // ── South Backbone ──
+  { id: 'e50', source: 's_relay1',  target: 's_comp1' },
+  { id: 'e51', source: 's_relay1',  target: 's_mine1' },
+  { id: 'e52', source: 's_comp1',   target: 's_relay2' },
+  { id: 'e53', source: 's_relay2',  target: 's_mine2' },
+  { id: 'e54', source: 's_relay2',  target: 's_mine3' },
+  { id: 'e55', source: 's_relay2',  target: 's_empty1' },
+
+  // ── Southwest Defense ──
+  { id: 'e60', source: 'sw_relay1', target: 'sw_mine1' },
+  { id: 'e61', source: 'sw_relay1', target: 'sw_mine2' },
+  { id: 'e62', source: 'sw_mine2',  target: 'sw_relay2' },
+  { id: 'e63', source: 'sw_relay2', target: 'sw_comp1' },
+  { id: 'e64', source: 'sw_mine1',  target: 'sw_empty1' },
+  { id: 'e65', source: 'sw_mine1',  target: 'sw_locked1' },
+
+  // ── West Relay Network ──
+  { id: 'e70', source: 'w_relay1',  target: 'w_mine1' },
+  { id: 'e71', source: 'w_relay1',  target: 'w_relay2' },
+  { id: 'e72', source: 'w_relay2',  target: 'w_empty1' },
+  { id: 'e73', source: 'w_relay2',  target: 'w_mine2' },
+
+  // ── Northwest Research ──
+  { id: 'e80', source: 'nw_relay1', target: 'nw_mine1' },
+  { id: 'e81', source: 'nw_relay1', target: 'nw_comp1' },
+  { id: 'e82', source: 'nw_comp1',  target: 'nw_relay2' },
+  { id: 'e83', source: 'nw_relay2', target: 'nw_comp2' },
+  { id: 'e84', source: 'nw_relay2', target: 'nw_empty1' },
+  { id: 'e85', source: 'nw_relay2', target: 'nw_locked1' },
+
+  // ── Cross-region links (redundant paths) ──
+  { id: 'e90', source: 's_relay1',  target: 'sw_relay1' },   // South ↔ Southwest
+  { id: 'e91', source: 's_relay1',  target: 'se_relay1' },   // South ↔ Southeast
+  { id: 'e92', source: 'w_relay1',  target: 'nw_relay1' },   // West ↔ Northwest
+  { id: 'e93', source: 'n_relay1',  target: 'nw_relay1' },   // North ↔ Northwest
+  { id: 'e94', source: 'ne_relay1', target: 'e_relay1' },    // Northeast ↔ East
+  { id: 'e95', source: 'e_relay1',  target: 'se_relay1' },   // East ↔ Southeast
+  { id: 'e96', source: 'w_relay1',  target: 'sw_relay1' },   // West ↔ Southwest
 ];
 
 export const INITIAL_RESOURCES: Resources = { data: 500, rp: 0, credits: 0 };
@@ -241,6 +393,7 @@ const INITIAL_STORE: Store = {
   next_log_id: 1,
   achievement_state: { unlocked: {}, stats: {}, statArrays: {} },
   quest_state: { questStatus: {}, activePassives: {}, unlockedRecipes: [], claimedAt: {} },
+  level_state: { ...INITIAL_LEVEL_STATE },
 };
 
 // ── Store management ──────────────────────────────────────────────────────────
@@ -300,6 +453,10 @@ export function initDb() {
       // Migrate: add quest_state
       if (!store.quest_state) {
         store.quest_state = { questStatus: {}, activePassives: {}, unlockedRecipes: [], claimedAt: {} };
+      }
+      // Migrate: add level_state
+      if (!store.level_state) {
+        store.level_state = { ...INITIAL_LEVEL_STATE };
       }
     } catch {
       console.warn('[DB] Could not parse state file, starting fresh');

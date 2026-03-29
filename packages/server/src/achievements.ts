@@ -73,8 +73,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'first_unlock', name: 'Expanding Horizons', description: 'Unlock a node', category: 'nodes', secret: false,
     check: () => getStat('total_nodes_unlocked') >= 1 },
   { id: 'unlock_all', name: 'Full Map', description: 'Unlock all nodes', category: 'nodes', secret: false,
-    check: () => getStat('total_nodes_unlocked') >= 6, // 6 lockable nodes
-    progress: () => ({ current: getStat('total_nodes_unlocked'), target: 6 }) },
+    check: () => getStat('total_nodes_unlocked') >= 40,
+    progress: () => ({ current: getStat('total_nodes_unlocked'), target: 40 }) },
   { id: 'first_upgrade', name: 'Level Up', description: 'Upgrade a node', category: 'nodes', secret: false,
     check: () => getStat('total_upgrades') >= 1 },
   { id: 'max_upgrade', name: 'Overclocked', description: 'Max out a node upgrade', category: 'nodes', secret: false,

@@ -392,7 +392,7 @@ export const QUESTS: QuestDef[] = [
     description: 'Master the full stack. Unlock everything, craft everything.',
     mainline: true, prerequisites: ['q_load_balance'],
     objectives: [
-      { id: 'o1', description: 'Unlock all nodes', statKey: 'total_nodes_unlocked', target: 6, type: 'stat_gte' },
+      { id: 'o1', description: 'Unlock 30 nodes', statKey: 'total_nodes_unlocked', target: 30, type: 'stat_gte' },
       { id: 'o2', description: 'Craft all base recipes', statKey: 'crafted_recipes', target: 5, type: 'stat_array_length' },
     ],
     rewards: [

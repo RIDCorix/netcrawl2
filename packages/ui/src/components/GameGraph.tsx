@@ -691,7 +691,11 @@ export function GameGraph() {
         nodeTypes={NODE_TYPES}
         edgeTypes={EDGE_TYPES}
         fitView
-        fitViewOptions={{ padding: 0.15 }}
+        fitViewOptions={{
+          padding: 0.3,
+          nodes: nodes.filter(n => n.id === 'hub' || n.data?.unlocked),
+          maxZoom: 1.2,
+        }}
         style={{ background: 'transparent' }}
         proOptions={{ hideAttribution: true }}
         minZoom={0.4}
