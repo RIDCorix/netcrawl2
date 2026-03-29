@@ -112,7 +112,7 @@ class Beacon(ItemField):
 class SensorGadget(GadgetField):
     """
     Advanced graph navigation gadget. Provides pathfinding and exploration
-    methods at runtime. No deploy-time cost — just declare on your worker.
+    methods at runtime. No deploy-time cost — just declare on your unit.
 
     Usage:
         class Scout(UnitClass):
@@ -128,10 +128,10 @@ class SensorGadget(GadgetField):
         super().__init__(description="Sensor Gadget — pathfinding & exploration")
 
     def travel_to(self, node_id: str) -> None:
-        raise RuntimeError("sensor.travel_to() called on descriptor — worker not initialized")
+        raise RuntimeError("sensor.travel_to() called on descriptor — unit not initialized")
 
     def find_nearest(self, node_type: str) -> str | None:
-        raise RuntimeError("sensor.find_nearest() called on descriptor — worker not initialized")
+        raise RuntimeError("sensor.find_nearest() called on descriptor — unit not initialized")
 
     def explore(self) -> list[dict]:
-        raise RuntimeError("sensor.explore() called on descriptor — worker not initialized")
+        raise RuntimeError("sensor.explore() called on descriptor — unit not initialized")
