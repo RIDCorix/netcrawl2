@@ -6,6 +6,7 @@ import axios from 'axios';
 import { ChipSlotManager } from './ChipSlotManager';
 import { NODE_DIALOG_REGISTRY, NodeDialogConfig, NodeInfoDialog } from './NodeInfoDialog';
 import { DeployDialog } from './DeployDialog';
+import { useT } from '../hooks/useT';
 
 function CostBadge({ cost }: { cost: Partial<Resources> }) {
   const icons: any = { data: Database, rp: Cpu, credits: Star };
@@ -208,6 +209,7 @@ export function NodeDetailPanel() {
   const [msg, setMsg] = useState('');
   const [deployOpen, setDeployOpen] = useState(false);
   const [activeDialog, setActiveDialog] = useState<NodeDialogConfig | null>(null);
+  const t = useT();
 
   const node = nodes.find((n: any) => n.id === selectedNodeId);
 
@@ -451,7 +453,7 @@ export function NodeDetailPanel() {
               }}>
                 <AlertTriangle size={14} color="var(--danger)" />
                 <span style={{ fontSize: 11, color: 'var(--danger)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-                  INFECTED — Deploy a Guardian to repair
+                  {t('node.type.infected')} — Deploy a Guardian to repair
                 </span>
               </div>
             )}
@@ -470,7 +472,7 @@ export function NodeDetailPanel() {
                 border: '1px solid rgba(255, 71, 87, 0.25)',
               }}>
                 <span style={{ fontSize: 11, color: 'var(--danger)', fontFamily: 'var(--font-mono)' }}>
-                  DEPLETED — recovers in {node.data.depletedUntil ? Math.max(0, Math.ceil((node.data.depletedUntil - Date.now()) / 1000)) : '?'}s
+                  {t('node.depleted')} — {t('node.recover.in', { s: node.data.depletedUntil ? Math.max(0, Math.ceil((node.data.depletedUntil - Date.now()) / 1000)) : '?' })}
                 </span>
               </div>
             )}
@@ -688,7 +690,7 @@ export function NodeDetailPanel() {
                   <ActionButton onClick={handleGather} disabled={gathering}>
                     <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                       <MousePointer size={12} />
-                      {gathering ? 'GATHERING...' : 'GATHER (+10)'}
+                      {gathering ? 'GATHERING...' : `${t('node.gather')} (+10)`}
                     </span>
                   </ActionButton>
                 </>
@@ -704,7 +706,7 @@ export function NodeDetailPanel() {
                   >
                     <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                       <Lock size={12} />
-                      {unlocking ? 'UNLOCKING...' : canAffordUnlock(node.data.unlockCost) ? 'UNLOCK NODE' : 'INSUFFICIENT RESOURCES'}
+                      {unlocking ? 'UNLOCKING...' : canAffordUnlock(node.data.unlockCost) ? t('node.unlock') : 'INSUFFICIENT RESOURCES'}
                     </span>
                   </ActionButton>
                 </>
@@ -748,7 +750,7 @@ export function NodeDetailPanel() {
                 <ActionButton onClick={() => setDeployOpen(true)}>
                   <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                     <Upload size={12} />
-                    DEPLOY WORKER
+                    {t('worker.deploy')}
                   </span>
                 </ActionButton>
               </>

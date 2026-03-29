@@ -2,18 +2,28 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Settings, Keyboard, Sliders } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useState } from 'react';
+import { LANGUAGES } from '../i18n/index';
+import { useT } from '../hooks/useT';
 
 const EDGE_STYLES = [
-  { value: 'straight', label: 'Straight', desc: 'Direct lines' },
-  { value: 'smoothstep', label: 'Smooth', desc: 'Right-angle paths' },
-  { value: 'bezier', label: 'Bezier', desc: 'Curved lines' },
+  { value: 'straight',   labelKey: 'settings.edge.straight',   descKey: 'settings.edge.straight.desc' },
+  { value: 'smoothstep', labelKey: 'settings.edge.smooth',     descKey: 'settings.edge.smooth.desc' },
+  { value: 'bezier',     labelKey: 'settings.edge.bezier',     descKey: 'settings.edge.bezier.desc' },
+] as const;
+
+const THEMES = [
+  { value: 'deep-space', emoji: '🌌' },
+  { value: 'synthwave',  emoji: '🌆' },
+  { value: 'matrix',     emoji: '💚' },
+  { value: 'amber',      emoji: '🟠' },
+  { value: 'ice',        emoji: '🧊' },
 ] as const;
 
 const KEYBINDING_ACTIONS = [
-  { key: 'inventory', label: 'Inventory' },
-  { key: 'achievements', label: 'Achievements' },
-  { key: 'quests', label: 'Quest Tree' },
-  { key: 'settings', label: 'Settings' },
+  { key: 'inventory',     labelKey: 'hud.inventory' },
+  { key: 'achievements',  labelKey: 'hud.achievements' },
+  { key: 'quests',        labelKey: 'hud.quests' },
+  { key: 'settings',      labelKey: 'hud.settings' },
 ];
 
 function ToggleSwitch({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
@@ -97,14 +107,15 @@ function KeyCapture({ value, onChange, allBindings, actionKey }: {
   );
 }
 
-const TABS = [
-  { key: 'preferences', label: 'Preferences', icon: Sliders },
-  { key: 'keybindings', label: 'Keybindings', icon: Keyboard },
-];
-
 export function SettingsPanel() {
   const { settingsOpen, toggleSettings, settings, updateSettings } = useGameStore();
   const [tab, setTab] = useState('preferences');
+  const t = useT();
+
+  const TABS = [
+    { key: 'preferences', label: t('settings.tab.preferences'), icon: Sliders },
+    { key: 'keybindings', label: t('settings.tab.keybindings'), icon: Keyboard },
+  ];
 
   const updateKeybinding = (action: string, key: string) => {
     updateSettings({ keybindings: { ...settings.keybindings, [action]: key } });
@@ -132,7 +143,7 @@ export function SettingsPanel() {
             style={{
               background: 'var(--bg-glass-heavy)', backdropFilter: 'blur(24px)',
               border: '1px solid var(--border-bright)', borderRadius: 'var(--radius-lg)',
-              width: 460, maxWidth: 'calc(100vw - 48px)', height: 420,
+              width: 500, maxWidth: 'calc(100vw - 48px)', height: 520,
               display: 'flex', flexDirection: 'column', overflow: 'hidden',
             }}
           >
@@ -140,7 +151,7 @@ export function SettingsPanel() {
             <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Settings size={16} style={{ color: 'var(--text-muted)' }} />
-                <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>SETTINGS</span>
+                <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>{t('settings.title')}</span>
               </div>
               <button onClick={toggleSettings} style={{ color: 'var(--text-muted)', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: 4, display: 'flex' }}>
                 <X size={14} />
@@ -149,11 +160,11 @@ export function SettingsPanel() {
 
             {/* Tabs */}
             <div style={{ padding: '8px 20px 0', display: 'flex', gap: 2, borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-              {TABS.map(t => {
-                const isActive = t.key === tab;
-                const Icon = t.icon;
+              {TABS.map(tb => {
+                const isActive = tb.key === tab;
+                const Icon = tb.icon;
                 return (
-                  <button key={t.key} onClick={() => setTab(t.key)} style={{
+                  <button key={tb.key} onClick={() => setTab(tb.key)} style={{
                     display: 'flex', alignItems: 'center', gap: 5,
                     padding: '8px 14px', borderRadius: '8px 8px 0 0',
                     background: isActive ? 'var(--bg-elevated)' : 'transparent',
@@ -162,7 +173,7 @@ export function SettingsPanel() {
                     fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: isActive ? 700 : 500,
                     cursor: 'pointer', transition: 'all 0.1s',
                   }}>
-                    <Icon size={12} /> {t.label}
+                    <Icon size={12} /> {tb.label}
                   </button>
                 );
               })}
@@ -174,7 +185,7 @@ export function SettingsPanel() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   {/* Edge Style */}
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginBottom: 8 }}>Edge Style</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginBottom: 8 }}>{t('settings.edge_style')}</div>
                     <div style={{ display: 'flex', gap: 4 }}>
                       {EDGE_STYLES.map(es => (
                         <button key={es.value} onClick={() => updateSettings({ edgeStyle: es.value })} style={{
@@ -186,8 +197,8 @@ export function SettingsPanel() {
                           cursor: 'pointer', transition: 'all 0.15s',
                           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
                         }}>
-                          <span>{es.label}</span>
-                          <span style={{ fontSize: 8, opacity: 0.6 }}>{es.desc}</span>
+                          <span>{t(es.labelKey)}</span>
+                          <span style={{ fontSize: 8, opacity: 0.6 }}>{t(es.descKey)}</span>
                         </button>
                       ))}
                     </div>
@@ -196,18 +207,67 @@ export function SettingsPanel() {
                   {/* Toggles */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
                     <div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>Traffic Dots</div>
-                      <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Moving dots on edges</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{t('settings.traffic_dots')}</div>
+                      <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{t('settings.traffic_dots.desc')}</div>
                     </div>
                     <ToggleSwitch value={settings.showTrafficDots} onChange={v => updateSettings({ showTrafficDots: v })} />
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
                     <div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>Worker Dots</div>
-                      <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Worker positions on nodes</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{t('settings.worker_dots')}</div>
+                      <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{t('settings.worker_dots.desc')}</div>
                     </div>
                     <ToggleSwitch value={settings.showWorkerDots} onChange={v => updateSettings({ showWorkerDots: v })} />
+                  </div>
+
+                  {/* Theme Selector */}
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginBottom: 8 }}>
+                      {t('settings.theme')}
+                    </div>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {THEMES.map(th => (
+                        <button key={th.value} onClick={() => {
+                          updateSettings({ theme: th.value })
+                          document.documentElement.setAttribute('data-theme', th.value)
+                        }} style={{
+                          flex: '1 1 auto', minWidth: 72, padding: '8px 6px', borderRadius: 'var(--radius-sm)',
+                          background: settings.theme === th.value ? 'var(--accent-dim)' : 'var(--bg-primary)',
+                          border: `1px solid ${settings.theme === th.value ? 'var(--accent)' : 'var(--border)'}`,
+                          color: settings.theme === th.value ? 'var(--accent)' : 'var(--text-muted)',
+                          fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: settings.theme === th.value ? 700 : 400,
+                          cursor: 'pointer', transition: 'all 0.15s',
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                        }}>
+                          <span style={{ fontSize: 16 }}>{th.emoji}</span>
+                          <span>{t(`theme.${th.value}`)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Language Selector */}
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginBottom: 8 }}>
+                      {t('settings.language')}
+                    </div>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {LANGUAGES.map(lang => (
+                        <button key={lang.code} onClick={() => updateSettings({ language: lang.code })} style={{
+                          flex: 1, padding: '8px 6px', borderRadius: 'var(--radius-sm)',
+                          background: settings.language === lang.code ? 'var(--accent-dim)' : 'var(--bg-primary)',
+                          border: `1px solid ${settings.language === lang.code ? 'var(--accent)' : 'var(--border)'}`,
+                          color: settings.language === lang.code ? 'var(--accent)' : 'var(--text-muted)',
+                          fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: settings.language === lang.code ? 700 : 400,
+                          cursor: 'pointer', transition: 'all 0.15s',
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                        }}>
+                          <span style={{ fontSize: 14 }}>{lang.flag}</span>
+                          <span>{lang.label}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* About */}
@@ -220,7 +280,7 @@ export function SettingsPanel() {
               {tab === 'keybindings' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>
-                    Click a key to rebind, then press the new key.
+                    {t('settings.keybindings.hint')}
                   </div>
 
                   {KEYBINDING_ACTIONS.map(kb => (
@@ -229,7 +289,7 @@ export function SettingsPanel() {
                       padding: '8px 12px', borderRadius: 'var(--radius-sm)',
                       background: 'var(--bg-primary)', border: '1px solid var(--border)',
                     }}>
-                      <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{kb.label}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{t(kb.labelKey)}</span>
                       {kb.key === 'settings' ? (
                         // Settings key is locked to Esc
                         <span style={{
@@ -258,7 +318,7 @@ export function SettingsPanel() {
                     color: 'var(--text-muted)', fontSize: 10, fontFamily: 'var(--font-mono)',
                     cursor: 'pointer',
                   }}>
-                    Reset to defaults
+                    {t('settings.keybindings.reset')}
                   </button>
                 </div>
               )}

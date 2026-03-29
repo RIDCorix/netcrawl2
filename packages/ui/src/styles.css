@@ -53,6 +53,114 @@
   --radius-lg: 14px;
 }
 
+/* ── Themes ─────────────────────────────────────────────────────────── */
+
+/* Theme: Deep Space (default — already in :root, no override needed) */
+[data-theme="deep-space"] {
+  /* same as :root defaults — no override needed */
+}
+
+/* Theme: Synthwave — neon purple/pink */
+[data-theme="synthwave"] {
+  --bg-primary:        #0d0221;
+  --bg-secondary:      #140330;
+  --bg-elevated:       #1e0545;
+  --bg-glass:          rgba(20, 3, 48, 0.80);
+  --bg-glass-heavy:    rgba(13, 2, 33, 0.94);
+
+  --border:            rgba(240, 80, 250, 0.10);
+  --border-bright:     rgba(240, 80, 250, 0.22);
+  --border-glow:       rgba(240, 80, 250, 0.40);
+
+  --accent:            #f050fa;
+  --accent-dim:        rgba(240, 80, 250, 0.15);
+  --accent-glow:       rgba(240, 80, 250, 0.40);
+  --accent-secondary:  #00f0ff;
+  --accent-secondary-dim: rgba(0, 240, 255, 0.15);
+
+  --text-primary:      #f0e0ff;
+  --text-secondary:    rgba(240, 224, 255, 0.65);
+  --text-muted:        rgba(240, 224, 255, 0.35);
+}
+
+/* Theme: Matrix — classic green terminal */
+[data-theme="matrix"] {
+  --bg-primary:        #000a00;
+  --bg-secondary:      #001200;
+  --bg-elevated:       #001f00;
+  --bg-glass:          rgba(0, 18, 0, 0.80);
+  --bg-glass-heavy:    rgba(0, 10, 0, 0.94);
+
+  --border:            rgba(0, 255, 65, 0.10);
+  --border-bright:     rgba(0, 255, 65, 0.22);
+  --border-glow:       rgba(0, 255, 65, 0.40);
+
+  --accent:            #00ff41;
+  --accent-dim:        rgba(0, 255, 65, 0.12);
+  --accent-glow:       rgba(0, 255, 65, 0.40);
+  --accent-secondary:  #39ff14;
+  --accent-secondary-dim: rgba(57, 255, 20, 0.12);
+
+  --text-primary:      #ccffcc;
+  --text-secondary:    rgba(200, 255, 200, 0.65);
+  --text-muted:        rgba(200, 255, 200, 0.35);
+
+  --success:           #00ff41;
+  --warning:           #ccff00;
+}
+
+/* Theme: Amber — retro orange terminal */
+[data-theme="amber"] {
+  --bg-primary:        #100800;
+  --bg-secondary:      #1a0e00;
+  --bg-elevated:       #261500;
+  --bg-glass:          rgba(26, 14, 0, 0.80);
+  --bg-glass-heavy:    rgba(16, 8, 0, 0.94);
+
+  --border:            rgba(255, 165, 0, 0.10);
+  --border-bright:     rgba(255, 165, 0, 0.22);
+  --border-glow:       rgba(255, 165, 0, 0.40);
+
+  --accent:            #ffa500;
+  --accent-dim:        rgba(255, 165, 0, 0.15);
+  --accent-glow:       rgba(255, 165, 0, 0.40);
+  --accent-secondary:  #ffcc00;
+  --accent-secondary-dim: rgba(255, 204, 0, 0.15);
+
+  --text-primary:      #ffe4b5;
+  --text-secondary:    rgba(255, 228, 181, 0.65);
+  --text-muted:        rgba(255, 228, 181, 0.35);
+
+  --success:           #a8ff00;
+  --warning:           #ff6600;
+}
+
+/* Theme: Ice — cool blue/white */
+[data-theme="ice"] {
+  --bg-primary:        #050d1a;
+  --bg-secondary:      #071524;
+  --bg-elevated:       #0a1e33;
+  --bg-glass:          rgba(7, 21, 36, 0.80);
+  --bg-glass-heavy:    rgba(5, 13, 26, 0.94);
+
+  --border:            rgba(100, 180, 255, 0.10);
+  --border-bright:     rgba(100, 180, 255, 0.22);
+  --border-glow:       rgba(100, 180, 255, 0.40);
+
+  --accent:            #64b4ff;
+  --accent-dim:        rgba(100, 180, 255, 0.15);
+  --accent-glow:       rgba(100, 180, 255, 0.40);
+  --accent-secondary:  #a0e0ff;
+  --accent-secondary-dim: rgba(160, 224, 255, 0.15);
+
+  --text-primary:      #ddf0ff;
+  --text-secondary:    rgba(221, 240, 255, 0.65);
+  --text-muted:        rgba(221, 240, 255, 0.35);
+
+  --success:           #00e5ff;
+  --warning:           #ffcc44;
+}
+
 /* ── Reset ─────────────────────────────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;

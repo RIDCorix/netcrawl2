@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Database, Cpu, Star, Wifi, WifiOff, ShieldAlert, Activity, Package, Trophy, BookOpen, Settings, Zap } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useRef, useEffect, useState } from 'react';
+import { useT } from '../hooks/useT';
 
 function formatBytes(n: number): string {
   if (n < 1000) return `${n} B`;
@@ -83,6 +84,7 @@ export function ResourceBar() {
   const totalItems = playerInventory.reduce((sum, i) => sum + i.count, 0);
   const prevRef = useRef(resources);
   const [prev, setPrev] = useState(resources);
+  const t = useT();
 
   useEffect(() => {
     setPrev(prevRef.current);
@@ -246,6 +248,7 @@ export function ResourceBar() {
       <motion.button
         onClick={toggleInventory}
         whileTap={{ scale: 0.96 }}
+        title={t('hud.inventory')}
         style={{
           display: 'flex',
           alignItems: 'center',

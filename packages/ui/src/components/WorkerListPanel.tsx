@@ -7,6 +7,7 @@ import { useState } from 'react';
 import axios from 'axios';
 import { getStatusConfig } from '../constants/status';
 import { getWorkerIcon } from '../constants/workerIcons';
+import { useT } from '../hooks/useT';
 
 // ── Class Group ──────────────────────────────────────────────────────────────
 
@@ -233,6 +234,7 @@ function WorkerRow({ worker, onSuspend, onDismiss }: {
 export function WorkerListPanel() {
   const { workers } = useGameStore();
   const [collapsed, setCollapsed] = useState(false);
+  const t = useT();
 
   const errorCount = workers.filter(w => w.status === 'error' || w.status === 'crashed').length;
 
@@ -328,7 +330,7 @@ export function WorkerListPanel() {
             <div style={{ padding: '6px 4px', maxHeight: 400, overflowY: 'auto' }}>
               {workers.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '14px 0', fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.6 }}>
-                  No workers deployed.<br />
+                  {t('worker.no_workers')}<br />
                   <span style={{ color: 'var(--text-secondary)' }}>Click a node to deploy.</span>
                 </div>
               ) : (

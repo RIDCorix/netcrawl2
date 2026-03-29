@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { Language } from '../i18n/index';
 
 export interface Resources {
   data: number;
@@ -97,6 +98,31 @@ export interface LevelSummary {
   }>;
 }
 
+export interface Settings {
+  edgeStyle: 'straight' | 'smoothstep' | 'bezier'
+  showTrafficDots: boolean
+  showWorkerDots: boolean
+  keybindings: Record<string, string>
+  theme: 'deep-space' | 'synthwave' | 'matrix' | 'amber' | 'ice'
+  language: Language
+}
+
+const DEFAULT_SETTINGS: Settings = {
+  edgeStyle: 'straight',
+  showTrafficDots: true,
+  showWorkerDots: true,
+  keybindings: { inventory: 'e', achievements: 'a', quests: 'q', level: 'l', settings: 'Escape' },
+  theme: 'deep-space',
+  language: 'en',
+}
+
+const savedSettings = (() => {
+  try {
+    const raw = localStorage.getItem('netcrawl-settings')
+    return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS
+  } catch { return DEFAULT_SETTINGS }
+})()
+
 export interface GameState {
   nodes: GameNode[];
   edges: GameEdge[];
@@ -128,12 +154,7 @@ export interface GameState {
   levelUpToasts: Array<{ level: number; title: string; titleZh: string; timestamp: number }>;
   // Settings
   settingsOpen: boolean;
-  settings: {
-    edgeStyle: 'straight' | 'smoothstep' | 'bezier';
-    showTrafficDots: boolean;
-    showWorkerDots: boolean;
-    keybindings: Record<string, string>; // action -> key
-  };
+  settings: Settings;
   // Deploy wizard — edge selection mode
   edgeSelectMode: {
     fieldName: string;
@@ -150,7 +171,7 @@ interface GameActions {
   toggleInventory: () => void;
   toggleAchievements: () => void;
   toggleSettings: () => void;
-  updateSettings: (patch: Partial<GameState['settings']>) => void;
+  updateSettings: (patch: Partial<Settings>) => void;
   toggleQuests: () => void;
   selectQuest: (questId: string | null) => void;
   addQuestToast: (toast: { id: string; name: string; type: 'available' | 'completed' }) => void;
@@ -181,18 +202,7 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   achievementToasts: [],
   achievementsOpen: false,
   settingsOpen: false,
-  settings: {
-    edgeStyle: 'straight' as const,
-    showTrafficDots: true,
-    showWorkerDots: true,
-    keybindings: {
-      inventory: 'e',
-      achievements: 'a',
-      quests: 'q',
-      level: 'l',
-      settings: 'Escape',
-    },
-  },
+  settings: savedSettings,
   questSummary: { total: 0, claimed: 0, completed: 0, available: 0 },
   questsOpen: false,
   selectedQuestId: null,
@@ -210,9 +220,14 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   toggleInventory: () => set((state) => ({ inventoryOpen: !state.inventoryOpen })),
   toggleAchievements: () => set((state) => ({ achievementsOpen: !state.achievementsOpen })),
   toggleSettings: () => set((state) => ({ settingsOpen: !state.settingsOpen })),
-  updateSettings: (patch) => set((state) => ({
-    settings: { ...state.settings, ...patch },
-  })),
+  updateSettings: (patch) => set((state) => {
+    const newSettings = { ...state.settings, ...patch }
+    localStorage.setItem('netcrawl-settings', JSON.stringify(newSettings))
+    if (patch.theme) {
+      document.documentElement.setAttribute('data-theme', newSettings.theme)
+    }
+    return { settings: newSettings }
+  }),
   toggleQuests: () => set((state) => ({ questsOpen: !state.questsOpen })),
   selectQuest: (questId) => set({ selectedQuestId: questId }),
   addQuestToast: (toast) => set((state) => ({

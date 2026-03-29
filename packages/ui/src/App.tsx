@@ -23,6 +23,12 @@ const queryClient = new QueryClient({
   },
 });
 
+// Apply saved theme on startup
+const _savedSettings = (() => {
+  try { return JSON.parse(localStorage.getItem('netcrawl-settings') || '{}') } catch { return {} }
+})()
+document.documentElement.setAttribute('data-theme', _savedSettings.theme || 'deep-space')
+
 function GameView() {
   useGameState();
 
