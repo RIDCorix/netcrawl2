@@ -7,8 +7,9 @@ import {
   getQuestStatus, setQuestStatus, getQuestState,
   addActivePassive, addUnlockedRecipe, getActivePassives,
   addToPlayerInventory, addPlayerChip,
-  Chip,
+  Chip, awardXp,
 } from './db.js';
+import { XP_REWARDS } from './levelSystem.js';
 import { broadcast } from './websocket.js';
 import { QUESTS, QuestDef, QuestObjective } from './questDefinitions.js';
 import { CHIP_DEFS } from './upgradeDefinitions.js';
@@ -157,6 +158,10 @@ export function claimQuestReward(questId: string): { ok: boolean; error?: string
   }
 
   setQuestStatus(questId, 'claimed');
+
+  // Award XP based on quest chapter
+  const xpKey = `claim_quest_ch${quest.chapter}` as keyof typeof XP_REWARDS;
+  awardXp(XP_REWARDS[xpKey] || 100);
 
   // Cascade: claiming may unlock new quests
   checkAvailability();

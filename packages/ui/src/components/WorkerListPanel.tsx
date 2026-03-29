@@ -6,6 +6,7 @@ import { useGameStore, Worker } from '../store/gameStore';
 import { useState } from 'react';
 import axios from 'axios';
 import { getStatusConfig } from '../constants/status';
+import { getWorkerIcon } from '../constants/workerIcons';
 
 // ── Class Group ──────────────────────────────────────────────────────────────
 
@@ -16,6 +17,7 @@ function ClassGroup({ className, workers, onSuspend, onDismiss }: {
   onDismiss: (id: string) => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(true);
+  const ClassIcon = getWorkerIcon(workers[0]?.class_icon);
   const running = workers.filter(w => w.status === 'running' || w.status === 'moving' || w.status === 'harvesting').length;
   const pending = workers.filter(w => w.status === 'deploying').length;
   const errored = workers.filter(w => w.status === 'error' || w.status === 'crashed').length;
@@ -39,6 +41,7 @@ function ClassGroup({ className, workers, onSuspend, onDismiss }: {
         }}
       >
         {expanded ? <ChevronDown size={10} style={{ color: 'var(--text-muted)' }} /> : <ChevronRight size={10} style={{ color: 'var(--text-muted)' }} />}
+        <ClassIcon size={12} style={{ color: 'var(--accent)', flexShrink: 0 }} />
         <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', flex: 1, textAlign: 'left' }}>
           {className}
         </span>

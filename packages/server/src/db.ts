@@ -6,7 +6,7 @@
 
 import path from 'path';
 import fs from 'fs';
-import { INITIAL_LEVEL_STATE, type LevelState, grantXp, getLevelSummary, type LevelSummary, type LevelUpResult } from './levelSystem.js';
+import { INITIAL_LEVEL_STATE, type LevelState, grantXp, getLevelSummary, getTitleForLevel, type LevelSummary, type LevelUpResult } from './levelSystem.js';
 
 const DATA_PATH = path.join(process.cwd(), 'data', 'netcrawl-state.json');
 
@@ -79,6 +79,7 @@ export interface WorkerRow {
   id: string;
   node_id: string;
   class_name: string;
+  class_icon: string;
   commit_hash: string;
   status: 'deploying' | 'running' | 'suspending' | 'suspended' | 'crashed' | 'error' | 'idle' | 'moving' | 'harvesting' | 'dead';
   current_node: string;
@@ -701,6 +702,71 @@ export function addUnlockedRecipe(recipeId: string) {
   if (!store.quest_state.unlockedRecipes.includes(recipeId)) {
     store.quest_state.unlockedRecipes.push(recipeId);
   }
+}
+
+// ── Level System ────────────────────────────────────────────────────────────
+
+export function getLevelState(): LevelState {
+  return store.level_state;
+}
+
+export function saveLevelState(state: LevelState) {
+  store.level_state = state;
+}
+
+/**
+ * Grant XP to the player. Returns level-up info.
+ * Automatically applies milestone rewards (passives, recipes, items).
+ */
+// Lazy-loaded broadcast to avoid circular dependency
+let _broadcast: ((data: any) => void) | null = null;
+export function setLevelBroadcast(fn: (data: any) => void) {
+  _broadcast = fn;
+}
+
+export function awardXp(amount: number): LevelUpResult {
+  const result = grantXp(store.level_state, amount);
+  store.level_state = result.newState;
+
+  // Apply milestone rewards
+  for (const milestone of result.newMilestones) {
+    for (const reward of milestone.rewards) {
+      switch (reward.kind) {
+        case 'passive':
+          addActivePassive(reward.effectId, reward.description, reward.effect);
+          break;
+        case 'recipe_unlock':
+          addUnlockedRecipe(reward.recipeId);
+          break;
+        case 'items':
+          for (const item of reward.items) {
+            addToPlayerInventory(item.itemType, item.count);
+          }
+          break;
+        // flop_bonus and max_workers_bonus are handled in grantXp itself
+      }
+    }
+  }
+
+  // Broadcast level-up notification
+  if (result.levelsGained > 0 && _broadcast) {
+    const title = getTitleForLevel(result.newState.level);
+    _broadcast({
+      type: 'LEVEL_UP',
+      payload: {
+        level: result.newState.level,
+        title: title.title,
+        titleZh: title.titleZh,
+        milestones: result.newMilestones,
+      },
+    });
+  }
+
+  return result;
+}
+
+export function getPlayerLevelSummary(): LevelSummary {
+  return getLevelSummary(store.level_state);
 }
 
 export function getUnlockedRecipes(): string[] {

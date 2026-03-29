@@ -2,9 +2,10 @@ import {
   getGameState, saveGameState, getWorker, upsertWorker,
   addWorkerLog, Resources, Drop,
   getNodeChipEffects, incrementStat, setStatMax,
-  addToPlayerInventory,
+  addToPlayerInventory, awardXp,
   cacheGet, cacheSet, cacheKeys, getCacheRange, getCacheCapacity,
 } from './db.js';
+import { XP_REWARDS } from './levelSystem.js';
 import { checkAchievements } from './achievements.js';
 import { checkQuests } from './quests.js';
 import { getActivePassives } from './db.js';
@@ -271,6 +272,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       saveGameState({ ...freshState, nodes: newNodes });
       broadcastFullState();
       incrementStat('total_mines', 1);
+      awardXp(XP_REWARDS.mine_node);
       checkAchievements();
       checkQuests();
       return { ok: true, drop: { type: dropType, amount } };
@@ -342,6 +344,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         if (resourceKey) {
           incrementStat(`total_${resourceKey}_deposited`, held.amount);
           incrementStat('total_deposits', 1);
+          awardXp(XP_REWARDS.deposit_resources);
         }
         checkAchievements();
       checkQuests();
@@ -362,6 +365,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         if (v > 0) incrementStat(`total_${k}_deposited`, v);
       }
       incrementStat('total_deposits', 1);
+      awardXp(XP_REWARDS.deposit_resources);
       checkAchievements();
       checkQuests();
       return { ok: true, deposited: carrying };
@@ -401,6 +405,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       saveGameState({ ...freshState4, nodes: newNodes3, resources: newResources2 });
       broadcastFullState();
       incrementStat('total_repairs', 1);
+      awardXp(XP_REWARDS.repair_infection);
       checkAchievements();
       checkQuests();
       return { ok: true };
@@ -541,6 +546,8 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         broadcastFullState();
         totalSolves++;
         incrementStat('total_puzzles_solved', 1);
+        const puzzleDiff = sNode.data.difficulty || 'easy';
+        awardXp(XP_REWARDS[`solve_puzzle_${puzzleDiff}`] || XP_REWARDS.solve_puzzle_easy);
         checkAchievements();
         checkQuests();
 

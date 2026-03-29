@@ -36,6 +36,8 @@ export function useGameState() {
             ...msg.payload,
             type: msg.type === 'QUEST_AVAILABLE' ? 'available' : 'completed',
           });
+        } else if (msg.type === 'LEVEL_UP') {
+          useGameStore.getState().addLevelUpToast(msg.payload);
         }
       } catch (err) {
         console.error('[WS] Parse error:', err);

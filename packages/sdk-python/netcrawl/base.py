@@ -51,6 +51,15 @@ class WorkerMeta(type):
             else:
                 namespace['class_id'] = name.lower()
 
+        # class_icon: lucide icon name (defaults to 'Bot')
+        if 'class_icon' not in namespace:
+            for base in bases:
+                if hasattr(base, 'class_icon') and base.class_icon != 'Bot':
+                    namespace['class_icon'] = base.class_icon
+                    break
+            else:
+                namespace['class_icon'] = 'Bot'
+
         return super().__new__(mcs, name, bases, namespace)
 
 
@@ -333,6 +342,7 @@ class WorkerClass(metaclass=WorkerMeta):
         return {
             "class_id": cls.class_id,
             "class_name": cls.class_name,
+            "class_icon": cls.class_icon,
             "fields": {
                 name: field.schema()
                 for name, field in cls._fields.items()

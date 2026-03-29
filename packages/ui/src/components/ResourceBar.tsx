@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Database, Cpu, Star, Wifi, WifiOff, ShieldAlert, Activity, Package, Trophy, BookOpen, Settings } from 'lucide-react';
+import { Database, Cpu, Star, Wifi, WifiOff, ShieldAlert, Activity, Package, Trophy, BookOpen, Settings, Zap } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useRef, useEffect, useState } from 'react';
 

@@ -4,6 +4,7 @@ import { useGameStore, InventoryItem } from '../store/gameStore';
 import { useState, useEffect, useCallback, DragEvent } from 'react';
 import axios from 'axios';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { getWorkerIcon } from '../constants/workerIcons';
 
 import { ITEM_LABELS, ITEM_COLORS } from '../constants/colors';
 
@@ -22,6 +23,7 @@ const SLOT_ACCEPTS: Record<string, string[]> = {
 interface WorkerClassEntry {
   class_id: string;
   class_name: string;
+  class_icon?: string;
   fields: Record<string, { type: string; field: string; description: string; item_type?: string }>;
   docstring: string;
   file: string;
@@ -384,7 +386,10 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                     <Select value={selectedClass} onValueChange={setSelectedClass}>
                       <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
                       <SelectContent>
-                        {workerClasses.map(c => <SelectItem key={c.class_id} value={c.class_id}>{c.class_name}</SelectItem>)}
+                        {workerClasses.map(c => {
+                          const Icon = getWorkerIcon(c.class_icon);
+                          return <SelectItem key={c.class_id} value={c.class_id}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon size={14} /> {c.class_name}</span></SelectItem>;
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
@@ -393,7 +398,8 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                   {selectedClassEntry && (
                     <div style={{ padding: '14px 16px', borderRadius: 'var(--radius-md)', background: 'var(--bg-elevated)', border: `1px solid ${!reqsMet && itemSlots.length > 0 ? 'rgba(255,71,87,0.3)' : 'var(--border)'}`, display: 'flex', flexDirection: 'column', gap: 10 }}>
                       {/* Title */}
-                      <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {(() => { const Icon = getWorkerIcon(selectedClassEntry.class_icon); return <Icon size={18} style={{ color: 'var(--accent)' }} />; })()}
                         <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
                           {selectedClassEntry.class_name}
                         </span>

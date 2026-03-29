@@ -68,6 +68,7 @@ export interface Worker {
   id: string;
   node_id: string;
   class_name: string;
+  class_icon?: string;
   commit_hash: string;
   status: 'deploying' | 'running' | 'suspending' | 'suspended' | 'crashed' | 'error' | 'idle' | 'moving' | 'harvesting' | 'dead';
   current_node: string;
@@ -77,6 +78,23 @@ export interface Worker {
   deployed_at?: string;
   holding?: Drop | null;
   equippedPickaxe?: { itemType: string; efficiency: number } | null;
+}
+
+export interface LevelSummary {
+  level: number;
+  xp: number;
+  xpToNext: number;
+  totalXp: number;
+  title: string;
+  titleZh: string;
+  maxLevel: number;
+  maxWorkersBonus: number;
+  flopBonus: number;
+  milestones: Array<{
+    level: number;
+    rewards: Array<{ kind: string; [key: string]: any }>;
+    claimed: boolean;
+  }>;
 }
 
 export interface GameState {
@@ -104,6 +122,10 @@ export interface GameState {
   questsOpen: boolean;
   selectedQuestId: string | null;
   questToasts: Array<{ id: string; name: string; type: 'available' | 'completed'; timestamp: number }>;
+  // Level system
+  levelSummary: LevelSummary;
+  levelOpen: boolean;
+  levelUpToasts: Array<{ level: number; title: string; titleZh: string; timestamp: number }>;
   // Settings
   settingsOpen: boolean;
   settings: {
@@ -137,6 +159,9 @@ interface GameActions {
   removeAchievementToast: (id: string) => void;
   setEdgeSelectMode: (mode: GameState['edgeSelectMode']) => void;
   setInventory: (inventory: InventoryItem[]) => void;
+  toggleLevel: () => void;
+  addLevelUpToast: (toast: { level: number; title: string; titleZh: string }) => void;
+  removeLevelUpToast: (level: number) => void;
 }
 
 export const useGameStore = create<GameState & GameActions>((set) => ({
@@ -171,6 +196,9 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   questsOpen: false,
   selectedQuestId: null,
   questToasts: [],
+  levelSummary: { level: 1, xp: 0, xpToNext: 100, totalXp: 0, title: 'Script Kiddie', titleZh: '腳本小子', maxLevel: 30, maxWorkersBonus: 0, flopBonus: 0, milestones: [] },
+  levelOpen: false,
+  levelUpToasts: [],
   edgeSelectMode: null,
 
   setState: (partial) => set((state) => ({ ...state, ...partial })),
@@ -199,6 +227,13 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
     achievementToasts: state.achievementToasts.filter(t => t.id !== id),
   })),
   setInventory: (inventory) => set({ playerInventory: inventory }),
+  toggleLevel: () => set((state) => ({ levelOpen: !state.levelOpen })),
+  addLevelUpToast: (toast) => set((state) => ({
+    levelUpToasts: [...state.levelUpToasts.slice(-2), { ...toast, timestamp: Date.now() }],
+  })),
+  removeLevelUpToast: (level) => set((state) => ({
+    levelUpToasts: state.levelUpToasts.filter(t => t.level !== level),
+  })),
 
   updateFromServer: (data) => {
     set((state) => ({
@@ -212,6 +247,7 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
       playerChips: data.playerChips ?? state.playerChips,
       achievements: data.achievements ?? state.achievements,
       questSummary: data.questSummary ?? state.questSummary,
+      levelSummary: data.levelSummary ?? state.levelSummary,
     }));
   },
 }));

@@ -4,6 +4,7 @@ import { useGameStore } from '../store/gameStore';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { CLASS_COLORS } from '../constants/colors';
+import { getWorkerIcon } from '../constants/workerIcons';
 import { getStatusConfig } from '../constants/status';
 
 export function WorkerDetailPanel() {
@@ -84,7 +85,8 @@ export function WorkerDetailPanel() {
               <div style={{ fontSize: 11, fontWeight: 700, color: classColor, fontFamily: 'var(--font-mono)', letterSpacing: '0.12em' }}>
                 WORKER UNIT
               </div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
+                {(() => { const Icon = getWorkerIcon(worker.class_icon); return <Icon size={20} style={{ color: classColor }} />; })()}
                 {worker.class_name}
               </div>
             </div>

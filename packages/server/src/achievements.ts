@@ -4,9 +4,10 @@
 
 import {
   getAchievementState, getStat, getStatArray, getGameState,
-  isAchievementUnlocked, markAchievementUnlocked,
+  isAchievementUnlocked, markAchievementUnlocked, awardXp,
 } from './db.js';
 import { broadcast } from './websocket.js';
+import { XP_REWARDS } from './levelSystem.js';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -130,6 +131,7 @@ export function checkAchievements(): AchievementDef[] {
     try {
       if (ach.check()) {
         markAchievementUnlocked(ach.id);
+        awardXp(XP_REWARDS.unlock_achievement);
         newlyUnlocked.push(ach);
         broadcast({
           type: 'ACHIEVEMENT_UNLOCKED',

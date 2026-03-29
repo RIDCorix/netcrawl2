@@ -25,7 +25,8 @@ import {
 import { checkAchievements, getAchievementList, RARITY_ORDINAL } from './achievements.js';
 import { checkQuests, claimQuestReward, getQuestList, getQuestEdges } from './quests.js';
 import { getActivePassives, getUnlockedRecipes } from './db.js';
-import { incrementStat, addToStatArray, setStatMax } from './db.js';
+import { incrementStat, addToStatArray, setStatMax, awardXp, getPlayerLevelSummary } from './db.js';
+import { XP_REWARDS } from './levelSystem.js';
 
 export const router: Router = Router();
 
@@ -92,6 +93,7 @@ router.post('/unlock', (req: Request, res: Response) => {
   saveGameState({ ...state, nodes: newNodes, resources: newResources as any });
   broadcastFullState();
   incrementStat('total_nodes_unlocked', 1);
+  awardXp(XP_REWARDS.unlock_node);
   checkAchievements();
   checkQuests();
   res.json({ ok: true, resources: newResources });
@@ -139,6 +141,7 @@ router.post('/craft', (req: Request, res: Response) => {
 
   incrementStat('total_crafts', 1);
   addToStatArray('crafted_recipes', recipe.id);
+  awardXp(XP_REWARDS.craft_item);
   checkAchievements();
   checkQuests();
 
@@ -203,6 +206,7 @@ router.post('/deploy', async (req: Request, res: Response) => {
     id: workerId,
     node_id: nodeId,
     class_name: workerClass.class_name,
+    class_icon: workerClass.class_icon || 'Bot',
     commit_hash: 'HEAD',
     status: 'deploying',
     current_node: nodeId,
@@ -226,6 +230,7 @@ router.post('/deploy', async (req: Request, res: Response) => {
 
   broadcastFullState();
   incrementStat('total_workers_deployed', 1);
+  awardXp(XP_REWARDS.deploy_worker);
   checkAchievements();
   checkQuests();
   res.json({ ok: true, workerId, status: 'queued' });
@@ -495,6 +500,7 @@ router.post('/node/build', (req: Request, res: Response) => {
   saveGameState({ ...state, nodes: newNodes, resources: newResources as any });
   broadcastFullState();
   incrementStat('total_structures_built', 1);
+  awardXp(XP_REWARDS.build_structure);
   checkAchievements();
   checkQuests();
   res.json({ ok: true, nodeId, structureType });
@@ -584,6 +590,7 @@ router.post('/node/upgrade', (req: Request, res: Response) => {
   broadcastFullState();
   incrementStat('total_upgrades', 1);
   setStatMax('max_node_level', nextUpgrade.level);
+  awardXp(XP_REWARDS.upgrade_node);
   checkAchievements();
   checkQuests();
   res.json({ ok: true, level: nextUpgrade.level, name: nextUpgrade.name });
@@ -615,6 +622,7 @@ router.post('/node/chip/insert', (req: Request, res: Response) => {
   saveGameState({ ...state, nodes: newNodes });
   broadcastFullState();
   incrementStat('total_chips_installed', 1);
+  awardXp(XP_REWARDS.install_chip);
   checkAchievements();
   checkQuests();
   res.json({ ok: true });
@@ -693,6 +701,7 @@ router.post('/chip-pack/open', (req: Request, res: Response) => {
 
   broadcastFullState();
   incrementStat('total_packs_opened', 1);
+  awardXp(XP_REWARDS.open_chip_pack);
   for (const c of newChips) {
     setStatMax('highest_rarity', RARITY_ORDINAL[c.rarity] ?? 0);
   }
@@ -739,6 +748,13 @@ router.post('/quests/:questId/claim', (req: Request, res: Response) => {
 // GET /api/passives — active passive effects
 router.get('/passives', (req: Request, res: Response) => {
   res.json({ passives: getActivePassives() });
+});
+
+// ── Level System ─────────────────────────────────────────────────────────────
+
+// GET /api/level — player level summary
+router.get('/level', (req: Request, res: Response) => {
+  res.json(getPlayerLevelSummary());
 });
 
 // POST /api/worker/action (called by worker subprocesses)

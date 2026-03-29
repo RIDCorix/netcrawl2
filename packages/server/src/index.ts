@@ -1,7 +1,7 @@
 import express, { Express } from 'express';
 import cors from 'cors';
 import http from 'http';
-import { initDb, getGameState, getWorkers } from './db.js';
+import { initDb, getGameState, getWorkers, setLevelBroadcast, getPlayerLevelSummary } from './db.js';
 import { initWebSocket, broadcast } from './websocket.js';
 import { router } from './routes.js';
 import { startGameTick } from './gameTick.js';
@@ -24,6 +24,7 @@ app.get('/health', (_req, res) => {
 async function main() {
   // Initialize DB first (sync)
   initDb();
+  setLevelBroadcast(broadcast);
   console.log('[NetCrawl Server] Database initialized');
 
   // Create HTTP server for WebSocket
@@ -34,7 +35,7 @@ async function main() {
   wss.on('connection', (ws: any) => {
     const state = getGameState();
     const workers = getWorkers();
-    ws.send(JSON.stringify({ type: 'STATE_UPDATE', payload: { ...state, workers } }));
+    ws.send(JSON.stringify({ type: 'STATE_UPDATE', payload: { ...state, workers, levelSummary: getPlayerLevelSummary() } }));
   });
 
   // Start game tick
