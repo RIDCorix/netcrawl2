@@ -4,11 +4,12 @@
  */
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronLeft, ChevronRight, BookOpen, Check, Gift, Zap, Mountain, Database } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, BookOpen, Check, Gift, Zap, Mountain, Database, Lock } from 'lucide-react';
 import { useState } from 'react';
 import axios from 'axios';
 import { Markdown } from './ui/markdown';
 import { CHAPTER_COLORS } from '../constants/colors';
+import { useT } from '../hooks/useT';
 
 function RewardBadge({ reward, color }: { reward: any; color: string }) {
   const text = (() => {
@@ -41,6 +42,7 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
   const [claimed, setClaimed] = useState(false);
   const [msg, setMsg] = useState('');
 
+  const t = useT();
   const guide = quest.guide || [];
   const totalPages = guide.length;
   const isLastPage = page === totalPages - 1;
@@ -125,6 +127,20 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
           </div>
         </div>
 
+        {/* ── Locked banner ── */}
+        {quest.status === 'locked' && (
+          <div style={{
+            padding: '8px 20px', borderBottom: '1px solid var(--border)',
+            background: 'var(--danger-dim)',
+            display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
+          }}>
+            <Lock size={12} style={{ color: 'var(--text-muted)' }} />
+            <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
+              {t('ui.locked')}
+            </span>
+          </div>
+        )}
+
         {/* ── Objectives bar (always visible) ── */}
         <div style={{
           padding: '10px 20px', borderBottom: '1px solid var(--border)',
@@ -166,7 +182,7 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
               cursor: claiming ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', gap: 4,
             }}>
-              <Gift size={10} /> {claiming ? '...' : 'Claim'}
+              <Gift size={10} /> {claiming ? '...' : t('ui.claim')}
             </button>
           )}
           {claimed && (
@@ -183,7 +199,7 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
               <motion.div animate={{ rotate: [0, 360] }} transition={{ duration: 0.5 }}>
                 <Check size={12} />
               </motion.div>
-              Claimed!
+              {t('ui.claimed')}
             </motion.div>
           )}
           {msg && !claimed && <span style={{ fontSize: 9, color: 'var(--danger)', fontFamily: 'var(--font-mono)' }}>{msg}</span>}
@@ -201,7 +217,7 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
                 transition={{ duration: 0.15 }}
               >
                 <div style={{ fontSize: 10, fontWeight: 700, color, fontFamily: 'var(--font-mono)', marginBottom: 8, letterSpacing: '0.08em' }}>
-                  STEP {page + 1} OF {totalPages}
+                  {t('ui.step_of').replace('{current}', String(page + 1)).replace('{total}', String(totalPages))}
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginBottom: 12 }}>
                   {guide[page].title}
@@ -213,7 +229,7 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
             </AnimatePresence>
           ) : (
             <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'center', padding: '40px 0' }}>
-              No guide steps available for this quest.
+              {t('ui.no_guide')}
             </div>
           )}
         </div>
@@ -250,7 +266,7 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
                   cursor: isFirstPage ? 'not-allowed' : 'pointer', opacity: isFirstPage ? 0.4 : 1,
                 }}
               >
-                <ChevronLeft size={12} /> Prev
+                <ChevronLeft size={12} /> {t('ui.prev')}
               </button>
               <button
                 onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
@@ -265,7 +281,7 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
                   cursor: isLastPage ? 'not-allowed' : 'pointer', opacity: isLastPage ? 0.4 : 1,
                 }}
               >
-                Next <ChevronRight size={12} />
+                {t('ui.next')} <ChevronRight size={12} />
               </button>
             </div>
           </div>

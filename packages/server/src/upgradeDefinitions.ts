@@ -21,18 +21,54 @@ export interface UpgradeLevel {
   description: string;
   cost: RecipeCost;
   effects: UpgradeEffect;
+  /** Enhancement points granted on auto-upgrade to this level */
+  enhancementPoints?: number;
 }
 
 // Keyed by node type, then by resource subtype for resource nodes
 export const NODE_UPGRADE_DEFS: Record<string, UpgradeLevel[]> = {
   'resource:data': [
-    { level: 1, name: 'Cache Expander', description: '+1 data production rate', cost: { data: 300, rp: 2 }, effects: { rateBonus: 1 } },
-    { level: 2, name: 'Data Cluster', description: '+1 chip slot', cost: { data: 1000, rp: 8 }, effects: { chipSlots: 2 } },
-    { level: 3, name: 'Auto Sync', description: 'Drops auto-deposit to hub', cost: { data: 5000, rp: 25 }, effects: { autoCollect: true } },
+    { level: 1, name: 'Cache Expander', description: '+1 data production rate', cost: {}, effects: { rateBonus: 1 }, enhancementPoints: 2 },
+    { level: 2, name: 'Data Cluster', description: '+1 chip slot', cost: {}, effects: { chipSlots: 2 }, enhancementPoints: 3 },
+    { level: 3, name: 'Auto Sync', description: 'Drops auto-deposit to hub', cost: {}, effects: { autoCollect: true }, enhancementPoints: 4 },
   ],
   'hub': [
-    { level: 1, name: 'Expansion Bay', description: '+1 chip slot (total 2)', cost: { data: 2000, rp: 10 }, effects: { chipSlots: 2 } },
-    { level: 2, name: 'Command Center', description: '+2 chip slots (total 4), +1 defense', cost: { data: 8000, rp: 30 }, effects: { chipSlots: 4, defenseBonus: 1 } },
+    { level: 1, name: 'Expansion Bay', description: '+1 chip slot (total 2)', cost: {}, effects: { chipSlots: 2 }, enhancementPoints: 3 },
+    { level: 2, name: 'Command Center', description: '+2 chip slots (total 4), +1 defense', cost: {}, effects: { chipSlots: 4, defenseBonus: 1 }, enhancementPoints: 4 },
+  ],
+};
+
+// ── Node Stat Allocation (Enhancement Points) ─────────────────────────────
+
+export interface NodeStatDef {
+  key: string;         // stat identifier
+  name: string;        // display name (i18n key: stat.<key>.name)
+  maxPoints: number;   // max points allocatable to this stat
+  perPoint: number;    // value per point (e.g. +1 rate per point)
+}
+
+/** Allocatable stats per node upgrade key */
+export const NODE_STAT_DEFS: Record<string, NodeStatDef[]> = {
+  'resource:data': [
+    { key: 'rate',      name: 'Production Rate', maxPoints: 5, perPoint: 1 },
+    { key: 'defense',   name: 'Defense',         maxPoints: 3, perPoint: 1 },
+    { key: 'chipSlots', name: 'Chip Slots',      maxPoints: 2, perPoint: 1 },
+  ],
+  'hub': [
+    { key: 'defense',   name: 'Defense',         maxPoints: 5, perPoint: 1 },
+    { key: 'chipSlots', name: 'Chip Slots',      maxPoints: 3, perPoint: 1 },
+  ],
+  'compute': [
+    { key: 'defense',   name: 'Defense',         maxPoints: 3, perPoint: 1 },
+    { key: 'chipSlots', name: 'Chip Slots',      maxPoints: 2, perPoint: 1 },
+  ],
+  'cache': [
+    { key: 'defense',   name: 'Defense',         maxPoints: 3, perPoint: 1 },
+    { key: 'chipSlots', name: 'Chip Slots',      maxPoints: 2, perPoint: 1 },
+  ],
+  'api': [
+    { key: 'defense',   name: 'Defense',         maxPoints: 3, perPoint: 1 },
+    { key: 'chipSlots', name: 'Chip Slots',      maxPoints: 2, perPoint: 1 },
   ],
 };
 

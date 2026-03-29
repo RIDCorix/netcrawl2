@@ -2,7 +2,7 @@
 netcrawl/services.py
 
 Service proxies for structure nodes (Cache, etc.)
-Obtained via unit.get_service("node-id").
+Obtained via worker.get_service("node-id").
 """
 
 
@@ -22,9 +22,9 @@ class CacheService:
         cache.set("my-key", 42, ttl=30000)  # expires in 30s
     """
 
-    def __init__(self, client, unit_id: str, cache_node_id: str, info: dict):
+    def __init__(self, client, worker_id: str, cache_node_id: str, info: dict):
         self._client = client
-        self._unit_id = unit_id
+        self._worker_id = worker_id
         self._node_id = cache_node_id
         self.range = info.get("range", 1)
         self.capacity = info.get("capacity", 10)

@@ -2,7 +2,7 @@
 netcrawl/network/route.py
 
 Route declarative field. At deploy time the user specifies a sequence of
-connected edges forming a path. This is an advanced feature — the unit class
+connected edges forming a path. This is an advanced feature — the worker class
 must be equipped with a route chip.
 
 At runtime the field value becomes a list of edge IDs.
@@ -18,7 +18,7 @@ class Route(RouteField):
     At runtime, becomes a list of edge IDs: ['e1', 'e3', 'e5']
 
     Usage:
-        class Collector(UnitClass):
+        class Collector(WorkerClass):
             to_mine = Route("Path from Hub to resource node")
 
     In on_loop:

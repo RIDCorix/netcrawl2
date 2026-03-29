@@ -4,21 +4,21 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
 
-// Custom dark theme matching NetCrawl
+// Code theme using CSS variables so it works in both dark and light modes
 const codeTheme: Record<string, React.CSSProperties> = {
-  'code[class*="language-"]': { color: '#e0ecf5', fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: '1.6' },
-  'pre[class*="language-"]': { color: '#e0ecf5', fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: '1.6', background: 'var(--bg-primary)', padding: '12px 14px', borderRadius: '8px', overflow: 'auto' },
-  comment: { color: '#6b7280' },
-  string: { color: '#4ade80' },
-  keyword: { color: '#60a5fa' },
-  function: { color: '#fbbf24' },
-  number: { color: '#f59e0b' },
-  operator: { color: '#9ca3af' },
-  'class-name': { color: '#a78bfa' },
-  builtin: { color: '#00d4aa' },
-  punctuation: { color: '#9ca3af' },
-  decorator: { color: '#f59e0b' },
-  boolean: { color: '#f59e0b' },
+  'code[class*="language-"]': { color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: '1.6' },
+  'pre[class*="language-"]': { color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: '1.6', background: 'var(--bg-primary)', padding: '12px 14px', borderRadius: '8px', overflow: 'auto' },
+  comment: { color: 'var(--text-muted)' },
+  string: { color: 'var(--color-positive, #4ade80)' },
+  keyword: { color: 'var(--accent)' },
+  function: { color: 'var(--color-warning, #fbbf24)' },
+  number: { color: 'var(--color-warning, #f59e0b)' },
+  operator: { color: 'var(--text-secondary)' },
+  'class-name': { color: 'var(--accent)' },
+  builtin: { color: 'var(--accent)' },
+  punctuation: { color: 'var(--text-secondary)' },
+  decorator: { color: 'var(--color-warning, #f59e0b)' },
+  boolean: { color: 'var(--color-warning, #f59e0b)' },
 };
 
 function CopyButton({ text }: { text: string }) {
@@ -37,9 +37,9 @@ function CopyButton({ text }: { text: string }) {
         position: 'absolute', top: 6, right: 6,
         display: 'flex', alignItems: 'center', gap: 4,
         padding: '3px 8px', borderRadius: '4px',
-        background: copied ? 'rgba(74,222,128,0.15)' : 'rgba(255,255,255,0.06)',
-        border: `1px solid ${copied ? 'rgba(74,222,128,0.3)' : 'rgba(255,255,255,0.1)'}`,
-        color: copied ? '#4ade80' : 'var(--text-muted)',
+        background: copied ? 'var(--bg-positive, rgba(74,222,128,0.15))' : 'var(--bg-secondary)',
+        border: `1px solid ${copied ? 'var(--border-bright)' : 'var(--border)'}`,
+        color: copied ? 'var(--color-positive, #4ade80)' : 'var(--text-muted)',
         fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 600,
         cursor: 'pointer', transition: 'all 0.15s',
       }}
@@ -148,6 +148,20 @@ export function Markdown({ content }: { content: string }) {
         h1({ children }) { return <h1 style={{ fontSize: '18px', fontWeight: 800, margin: '12px 0 6px', color: 'var(--text-primary)' }}>{children}</h1>; },
         h2({ children }) { return <h2 style={{ fontSize: '15px', fontWeight: 700, margin: '10px 0 4px', color: 'var(--text-primary)' }}>{children}</h2>; },
         h3({ children }) { return <h3 style={{ fontSize: '13px', fontWeight: 700, margin: '8px 0 4px', color: 'var(--text-primary)' }}>{children}</h3>; },
+
+        // Links — external URLs open in new tab
+        a({ href, children }) {
+          const isExternal = href && /^https?:\/\//.test(href);
+          return (
+            <a
+              href={href}
+              {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+              style={{ color: 'var(--accent)', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+            >
+              {children}
+            </a>
+          );
+        },
 
         // Horizontal rule
         hr() { return <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, var(--border-bright), transparent)', margin: '12px 0' }} />; },

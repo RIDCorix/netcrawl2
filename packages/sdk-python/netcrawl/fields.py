@@ -1,14 +1,14 @@
 """
 netcrawl/fields.py
 
-Declarative field descriptors for UnitClass.
+Declarative field descriptors for WorkerClass.
 These are used at class definition time to describe deploy-time requirements.
 At runtime the actual values are injected as instance attributes.
 """
 
 
-class UnitField:
-    """Base class for all declarative unit fields."""
+class WorkerField:
+    """Base class for all declarative worker fields."""
     _field_name: str = ""
 
     def __set_name__(self, owner, name):
@@ -19,12 +19,12 @@ class UnitField:
         raise NotImplementedError
 
 
-class ItemField(UnitField):
+class ItemField(WorkerField):
     """
-    Declares that deploying this unit consumes one of this item from inventory.
+    Declares that deploying this worker consumes one of this item from inventory.
 
     Usage:
-        class Collector(UnitClass):
+        class Collector(WorkerClass):
             pickaxe = Pickaxe()   # Consumes 1 pickaxe from inventory at deploy time
 
     At runtime, self.pickaxe is an ItemInstance with stats (e.g. pickaxe.efficiency)
@@ -43,14 +43,14 @@ class ItemField(UnitField):
         }
 
 
-class GadgetField(UnitField):
+class GadgetField(WorkerField):
     """
     Declares a gadget that provides runtime methods but requires no deploy-time input.
     Unlike ItemField, no item is consumed from inventory.
-    At runtime, the field is replaced with a runtime proxy that has a _unit reference.
+    At runtime, the field is replaced with a runtime proxy that has a _worker reference.
 
     Usage:
-        class Scout(UnitClass):
+        class Scout(WorkerClass):
             sensor = SensorGadget()   # No deploy-time cost
             # At runtime: self.sensor.travel_to('r3')
     """
@@ -66,17 +66,17 @@ class GadgetField(UnitField):
         }
 
 
-class EdgeField(UnitField):
+class EdgeField(WorkerField):
     """
-    Declares that deploying this unit requires specifying an edge (a single connection
+    Declares that deploying this worker requires specifying an edge (a single connection
     between two nodes).
 
     Usage:
-        class Collector(UnitClass):
+        class Collector(WorkerClass):
             path = Edge("Mining edge")   # User picks a single edge in the UI at deploy time
 
     At runtime, self.path is an edge ID string: 'e5'
-    The unit can then call self.move(self.path) to traverse that edge.
+    The worker can then call self.move(self.path) to traverse that edge.
     """
 
     def __init__(self, description: str = ""):
@@ -90,18 +90,18 @@ class EdgeField(UnitField):
         }
 
 
-class RouteField(UnitField):
+class RouteField(WorkerField):
     """
-    Declares that deploying this unit requires specifying a route (a sequence of
-    connected edges forming a path). This is an advanced feature — the unit class
+    Declares that deploying this worker requires specifying a route (a sequence of
+    connected edges forming a path). This is an advanced feature — the worker class
     must be equipped with a route chip.
 
     Usage:
-        class Collector(UnitClass):
+        class Collector(WorkerClass):
             to_mine = Route("Path from Hub to resource node")
 
     At runtime, self.to_mine is a list of edge IDs: ['e1', 'e3', 'e5']
-    The unit can then call self.move(self.to_mine) to traverse the entire route.
+    The worker can then call self.move(self.to_mine) to traverse the entire route.
     """
 
     def __init__(self, description: str = ""):

@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Zap, Star, Shield, Pickaxe, ChevronRight, Lock, Check, Gift } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
+import { useT } from '../hooks/useT';
 
 const MILESTONE_COLORS: Record<string, string> = {
   flop_bonus: '#00d4aa',
@@ -21,10 +22,10 @@ function rewardIcon(kind: string) {
   }
 }
 
-function rewardLabel(reward: any): string {
+function rewardLabel(reward: any, t: (key: string) => string): string {
   switch (reward.kind) {
     case 'flop_bonus': return `+${reward.value} FLOP`;
-    case 'max_workers_bonus': return `+${reward.value} Worker Slot`;
+    case 'max_workers_bonus': return t('ui.worker_slot').replace('{value}', reward.value);
     case 'passive': return reward.description;
     case 'recipe_unlock': return `Unlock: ${reward.name}`;
     case 'items': return reward.items.map((i: any) => `${i.count}x ${i.itemType}`).join(', ');
@@ -33,6 +34,7 @@ function rewardLabel(reward: any): string {
 }
 
 export function LevelPanel() {
+  const t = useT();
   const { levelOpen, toggleLevel, levelSummary } = useGameStore();
   const { level, xp, xpToNext, totalXp, title, titleZh, maxLevel, maxWorkersBonus, flopBonus, milestones } = levelSummary;
   const isMaxLevel = level >= maxLevel;
@@ -65,7 +67,7 @@ export function LevelPanel() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <Zap size={16} style={{ color: '#00d4aa' }} />
                 <span style={{ fontSize: 15, fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
-                  LEVEL {level}
+                  {t('ui.level').replace('{level}', String(level))}
                 </span>
                 <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
                   {title}
@@ -85,12 +87,12 @@ export function LevelPanel() {
                     {titleZh}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
-                    Total XP: {totalXp.toLocaleString()}
+                    {t('ui.total_xp').replace('{value}', totalXp.toLocaleString())}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                    +{flopBonus} FLOP | +{maxWorkersBonus} Workers
+                    {t('ui.flop_workers').replace('{flop}', String(flopBonus)).replace('{workers}', String(maxWorkersBonus))}
                   </div>
                 </div>
               </div>
@@ -114,7 +116,7 @@ export function LevelPanel() {
                   fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)',
                   textShadow: '0 1px 2px rgba(0,0,0,0.5)',
                 }}>
-                  {isMaxLevel ? 'MAX LEVEL' : `${xp.toLocaleString()} / ${xpToNext.toLocaleString()} XP`}
+                  {isMaxLevel ? t('ui.max_level') : t('ui.xp_progress').replace('{xp}', xp.toLocaleString()).replace('{next}', xpToNext.toLocaleString())}
                 </div>
               </div>
             </div>
@@ -122,7 +124,7 @@ export function LevelPanel() {
             {/* Milestones */}
             <div style={{ flex: 1, overflow: 'auto', padding: '12px 20px' }}>
               <div style={{ fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginBottom: 10, letterSpacing: '0.08em' }}>
-                MILESTONES
+                {t('ui.milestones')}
               </div>
 
               {/* Per-level base reward note */}
@@ -133,7 +135,7 @@ export function LevelPanel() {
                 marginBottom: 10,
               }}>
                 <Zap size={10} style={{ color: '#00d4aa', marginRight: 4, verticalAlign: 'middle' }} />
-                Every level: +3 FLOP capacity
+                {t('ui.every_level')}
               </div>
 
               {milestones.map((m) => {
@@ -163,7 +165,7 @@ export function LevelPanel() {
                         fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)',
                         color: isReached ? '#00d4aa' : 'var(--text-secondary)',
                       }}>
-                        Level {m.level}
+                        {t('ui.level_n').replace('{level}', String(m.level))}
                       </span>
                     </div>
 
@@ -172,7 +174,7 @@ export function LevelPanel() {
                       {m.rewards.map((r, i) => (
                         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
                           {rewardIcon(r.kind)}
-                          <span>{rewardLabel(r)}</span>
+                          <span>{rewardLabel(r, t)}</span>
                         </div>
                       ))}
                     </div>

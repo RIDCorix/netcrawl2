@@ -1,5 +1,5 @@
 import ReactFlow, {
-  Node, Edge, NodeTypes, Background, BackgroundVariant, Controls,
+  Node, Edge, NodeTypes, Background, BackgroundVariant,
   useNodesState, useEdgesState, Handle, Position,
   ReactFlowProvider, useReactFlow,
 } from 'reactflow';
@@ -42,8 +42,8 @@ function QuestNode({ data }: any) {
         background: bg,
         border: `${isSelected ? '2px' : '1.5px'} ${status === 'locked' ? 'dashed' : 'solid'} ${isSelected ? 'var(--accent)' : borderColor}`,
         boxShadow: isSelected ? `0 0 16px var(--accent-dim)` : status === 'completed' ? `0 0 12px ${color}20` : 'none',
-        opacity: status === 'locked' ? 0.35 : 1,
-        cursor: status === 'locked' ? 'default' : 'pointer',
+        opacity: status === 'locked' ? 0.55 : 1,
+        cursor: 'pointer',
         boxSizing: 'border-box' as const,
         textAlign: 'center' as const,
         transition: 'all 0.2s',
@@ -337,7 +337,7 @@ export function QuestTree() {
             stroke: bothUnlocked ? color : 'var(--border)',
             strokeWidth: bothUnlocked ? 2 : 1,
             strokeDasharray: targetStatus === 'locked' ? '4 4' : undefined,
-            opacity: targetStatus === 'locked' ? 0.3 : 0.7,
+            opacity: targetStatus === 'locked' ? 0.5 : 0.7,
           },
           animated: targetStatus === 'available',
         };
@@ -495,13 +495,12 @@ export function QuestTree() {
               key={activeChapter}
             >
               <Background variant={BackgroundVariant.Dots} gap={24} size={1} color={`color-mix(in srgb, ${CHAPTER_COLORS[activeChapter] || '#666'} 5%, transparent)`} />
-              <Controls showInteractive={false} style={{ background: 'var(--bg-glass-heavy)', border: '1px solid var(--border-bright)', borderRadius: 'var(--radius-md)' }} />
             </ReactFlow>
           </div>
 
           {/* Quest detail / guide dialog */}
           <AnimatePresence>
-            {selectedQuest && selectedQuest.status !== 'locked' && (
+            {selectedQuest && (
               <QuestGuideDialog quest={selectedQuest} onClose={() => selectQuest(null)} />
             )}
           </AnimatePresence>

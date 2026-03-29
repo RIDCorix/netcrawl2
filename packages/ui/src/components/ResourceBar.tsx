@@ -11,15 +11,18 @@ function formatBytes(n: number): string {
   return `${(n / 1000000000).toFixed(1)} GB`;
 }
 
-function ResourceItem({ icon: Icon, value, label, color, prevValue, formatFn }: {
+function ResourceItem({ icon: Icon, value, label, color, prevValue, formatFn, tooltip }: {
   icon: any;
   value: number;
   label: string;
   color: string;
   prevValue: number;
   formatFn?: (n: number) => string;
+  tooltip?: string;
 }) {
   const [pulse, setPulse] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
   const diff = (value ?? 0) - (prevValue ?? 0);
 
   useEffect(() => {
@@ -30,10 +33,22 @@ function ResourceItem({ icon: Icon, value, label, color, prevValue, formatFn }: 
     }
   }, [value]);
 
+  // Close tooltip on outside click
+  useEffect(() => {
+    if (!showTooltip) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setShowTooltip(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showTooltip]);
+
   return (
     <motion.div
+      ref={ref}
       animate={pulse ? { scale: [1, 1.06, 1] } : {}}
       transition={{ duration: 0.3 }}
+      onClick={() => setShowTooltip(v => !v)}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -44,6 +59,7 @@ function ResourceItem({ icon: Icon, value, label, color, prevValue, formatFn }: 
         border: `1px solid ${pulse ? color : 'var(--border)'}`,
         transition: 'border-color 0.3s',
         position: 'relative',
+        cursor: 'pointer',
       }}
     >
       <Icon size={14} style={{ color }} />
@@ -57,21 +73,60 @@ function ResourceItem({ icon: Icon, value, label, color, prevValue, formatFn }: 
         {formatFn ? formatFn(value ?? 0) : (value ?? 0).toLocaleString()}
       </span>
 
-      {/* Delta indicator */}
+      {/* Delta indicator — absolute floating upward */}
       <AnimatePresence>
         {pulse && diff !== 0 && (
           <motion.div
-            initial={{ opacity: 0, x: 4 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -4 }}
+            initial={{ opacity: 1, y: 0 }}
+            animate={{ opacity: 0, y: -20 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8, ease: 'easeOut' }}
             style={{
+              position: 'absolute',
+              top: -4,
+              right: 8,
               fontSize: 11,
               fontFamily: 'var(--font-mono)',
               fontWeight: 700,
               color: diff > 0 ? 'var(--success)' : 'var(--danger)',
+              pointerEvents: 'none',
             }}
           >
-            {diff > 0 ? `+${diff}` : diff}
+            {diff > 0 ? `+${formatFn ? formatFn(diff) : diff}` : (formatFn ? `-${formatFn(Math.abs(diff))}` : diff)}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Tooltip on click */}
+      <AnimatePresence>
+        {showTooltip && tooltip && (
+          <motion.div
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 4 }}
+            transition={{ duration: 0.15 }}
+            style={{
+              position: 'absolute',
+              top: 'calc(100% + 8px)',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              padding: '8px 12px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--bg-glass-heavy)',
+              backdropFilter: 'blur(16px)',
+              border: '1px solid var(--border-bright)',
+              fontSize: 10,
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--text-secondary)',
+              lineHeight: 1.6,
+              whiteSpace: 'pre-line',
+              width: 200,
+              zIndex: 100,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            }}
+          >
+            <div style={{ fontWeight: 700, color, marginBottom: 4, fontSize: 11 }}>{label}</div>
+            {tooltip}
           </motion.div>
         )}
       </AnimatePresence>
@@ -154,9 +209,9 @@ export function ResourceBar() {
       <div style={{ width: 1, height: 20, background: 'var(--border-bright)', flexShrink: 0 }} />
 
       {/* Resources — inline */}
-      <ResourceItem icon={Database} value={resources.data} label="Data" color="var(--data-color)" prevValue={prev.data} formatFn={formatBytes} />
-      <ResourceItem icon={Cpu} value={resources.rp} label="RP" color="var(--rp-color)" prevValue={prev.rp} />
-      <ResourceItem icon={Star} value={resources.credits} label="Credits" color="var(--credits-color)" prevValue={prev.credits} />
+      <ResourceItem icon={Database} value={resources.data} label="Data" color="var(--data-color)" prevValue={prev.data} formatFn={formatBytes} tooltip={t('res.data.desc')} />
+      <ResourceItem icon={Cpu} value={resources.rp} label={t('ui.research_points')} color="var(--rp-color)" prevValue={prev.rp} tooltip={t('res.rp.desc')} />
+      <ResourceItem icon={Star} value={resources.credits} label={t('ui.credits')} color="var(--credits-color)" prevValue={prev.credits} tooltip={t('res.credits.desc')} />
 
       {/* Level + XP bar */}
       <motion.button

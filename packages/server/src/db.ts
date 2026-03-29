@@ -190,24 +190,24 @@ interface Store {
 
 // Helper to create typed node data
 const R = (label: string, rate: number, cost: Record<string, number>) =>
-  ({ label, resource: 'data' as const, rate, unlocked: false, unlockCost: cost, mineable: true, drops: [] as any[], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] });
+  ({ label, resource: 'data' as const, rate, baseRate: rate, unlocked: false, unlockCost: cost, mineable: true, drops: [] as any[], mineCount: 0, upgradeLevel: 0, chipSlots: 1, baseChipSlots: 1, installedChips: [] as string[], enhancementPoints: 0, statAlloc: {} as Record<string, number>, baseDefense: 0 });
 const C = (label: string, diff: 'easy' | 'medium' | 'hard', cost: Record<string, number>) =>
-  ({ label, unlocked: false, unlockCost: cost, difficulty: diff, rewardResource: 'rp' as const, solveCount: 0, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] });
+  ({ label, unlocked: false, unlockCost: cost, difficulty: diff, rewardResource: 'rp' as const, solveCount: 0, upgradeLevel: 0, chipSlots: 0, baseChipSlots: 0, installedChips: [] as string[], enhancementPoints: 0, statAlloc: {} as Record<string, number>, baseDefense: 0 });
 const Y = (label: string, cost: Record<string, number>) =>
-  ({ label, unlocked: false, unlockCost: cost, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] });
+  ({ label, unlocked: false, unlockCost: cost, upgradeLevel: 0, chipSlots: 0, baseChipSlots: 0, installedChips: [] as string[], enhancementPoints: 0, statAlloc: {} as Record<string, number>, baseDefense: 0 });
 const E = (label: string, cost: Record<string, number>) =>
-  ({ label, unlocked: false, unlockCost: cost, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] });
+  ({ label, unlocked: false, unlockCost: cost, upgradeLevel: 0, chipSlots: 0, baseChipSlots: 0, installedChips: [] as string[], enhancementPoints: 0, statAlloc: {} as Record<string, number>, baseDefense: 0 });
 const P = (label: string, tier: number, cost: Record<string, number>) =>
-  ({ label, unlocked: false, unlockCost: cost, tier, infectionValue: 0, pendingRequests: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] });
+  ({ label, unlocked: false, unlockCost: cost, tier, infectionValue: 0, pendingRequests: 0, upgradeLevel: 0, chipSlots: 1, baseChipSlots: 1, installedChips: [] as string[], enhancementPoints: 0, statAlloc: {} as Record<string, number>, baseDefense: 0 });
 const AU = (label: string, cost: Record<string, number>) =>
-  ({ label, unlocked: false, unlockCost: cost, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] });
+  ({ label, unlocked: false, unlockCost: cost, upgradeLevel: 0, chipSlots: 1, baseChipSlots: 1, installedChips: [] as string[], enhancementPoints: 0, statAlloc: {} as Record<string, number>, baseDefense: 0 });
 
 export const INITIAL_NODES = [
   // ═══════════════════════════════════════════════════════════════════════════
   // Core
   // ═══════════════════════════════════════════════════════════════════════════
   // Hub is ~90×72px; offset so its visual center aligns with (0,0)
-  { id: 'hub', type: 'hub', position: { x: -45, y: -36 }, data: { label: 'Hub', unlocked: true, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] } },
+  { id: 'hub', type: 'hub', position: { x: -45, y: -36 }, data: { label: 'Hub', unlocked: true, upgradeLevel: 0, chipSlots: 1, baseChipSlots: 1, installedChips: [] as string[], enhancementPoints: 0, statAlloc: {} as Record<string, number>, baseDefense: 0 } },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // NORTH — Mining District (easy start, main data income)
@@ -460,10 +460,36 @@ export function initDb() {
         }
         return n;
       });
+      // Migrate: convert legacy 'relay' type to 'empty'
+      store.game_state.nodes = store.game_state.nodes.map((n: any) =>
+        n.type === 'relay' ? { ...n, type: 'empty' } : n
+      );
       // Migrate workers to add holding/equippedPickaxe
       for (const w of Object.values(store.workers)) {
         if (w.holding === undefined) (w as any).holding = null;
         if (w.equippedPickaxe === undefined) (w as any).equippedPickaxe = null;
+      }
+      // Clean up stale workers from previous session — processes are gone after restart
+      for (const w of Object.values(store.workers)) {
+        if (['running', 'moving', 'harvesting', 'deploying', 'suspending'].includes(w.status)) {
+          // Return equipped items to inventory
+          if (w.equippedPickaxe) {
+            const inv = store.game_state.playerInventory || [];
+            const existing = inv.find((i: any) => i.itemType === w.equippedPickaxe!.itemType);
+            if (existing) existing.count += 1;
+            else inv.push({ id: `item_${Date.now()}`, itemType: w.equippedPickaxe.itemType as any, count: 1, metadata: { efficiency: w.equippedPickaxe.efficiency } });
+          }
+          if (w.holding) {
+            const inv = store.game_state.playerInventory || [];
+            const existing = inv.find((i: any) => i.itemType === w.holding!.type);
+            if (existing) existing.count += (w.holding as any).amount || 1;
+          }
+          w.status = 'suspended';
+          w.pid = null;
+          (w as any).equippedPickaxe = null;
+          (w as any).holding = null;
+          console.log(`[initDb] Cleaned up stale worker ${w.id} (was ${w.status})`);
+        }
       }
       // Migrate: add chip/upgrade fields to nodes
       store.game_state.nodes = store.game_state.nodes.map((n: any) => ({
@@ -523,6 +549,22 @@ export function initDb() {
             },
           },
         };
+      }
+      // Migrate: add base fields + auto-upgrade nodes with full XP
+      store.game_state.nodes = store.game_state.nodes.map((n: any) => ({
+        ...n,
+        data: {
+          ...n.data,
+          enhancementPoints: n.data.enhancementPoints ?? 0,
+          statAlloc: n.data.statAlloc ?? {},
+          baseRate: n.data.baseRate ?? n.data.rate ?? 0,
+          baseChipSlots: n.data.baseChipSlots ?? n.data.chipSlots ?? 0,
+          baseDefense: n.data.baseDefense ?? 0,
+        },
+      }));
+      // Auto-upgrade any nodes that already have full XP
+      if (sweepNodeAutoUpgrades()) {
+        console.log('[initDb] Auto-upgraded nodes with full XP');
       }
     } catch {
       console.warn('[DB] Could not parse state file, starting fresh');
@@ -892,10 +934,9 @@ export function getPlayerLevelSummary(): LevelSummary {
 
 /**
  * Grant XP to a specific node. Nodes gain XP through usage interactions.
- * When nodeXp >= nodeXpToNext, the node is "ready" and can be upgraded
- * (upgrade still costs resources).
+ * When nodeXp >= threshold, auto-upgrades and grants enhancement points.
  *
- * Returns true if XP was granted.
+ * Returns true if XP was granted (or auto-upgrade triggered).
  */
 export function grantNodeXp(nodeId: string, action: string): boolean {
   const state = store.game_state;
@@ -919,7 +960,30 @@ export function grantNodeXp(nodeId: string, action: string): boolean {
   if (threshold <= 0) return false;
 
   const currentXp = node.data.nodeXp || 0;
-  const newXp = Math.min(currentXp + xpAmount, threshold); // cap at threshold
+  const newXp = Math.min(currentXp + xpAmount, threshold);
+
+  // Auto-upgrade when XP reaches threshold
+  if (newXp >= threshold) {
+    const nextUpgrade = upgrades.find(u => u.level === currentLevel + 1);
+    if (nextUpgrade) {
+      const data = {
+        ...node.data,
+        upgradeLevel: nextUpgrade.level,
+        nodeXp: 0,
+        nodeXpToNext: 0,
+        enhancementPoints: (node.data.enhancementPoints || 0) + (nextUpgrade.enhancementPoints || 2),
+        statAlloc: node.data.statAlloc || {},
+      };
+      // Apply built-in effects (chipSlots, autoCollect, etc.)
+      if (nextUpgrade.effects.rateBonus) data.rate = (data.rate || 0) + nextUpgrade.effects.rateBonus;
+      if (nextUpgrade.effects.chipSlots !== undefined) data.chipSlots = nextUpgrade.effects.chipSlots;
+      if (nextUpgrade.effects.autoCollect) data.autoCollect = true;
+      if (nextUpgrade.effects.defenseBonus) data.defense = (data.defense || 0) + nextUpgrade.effects.defenseBonus;
+
+      state.nodes[nodeIdx] = { ...node, data };
+      return true;
+    }
+  }
 
   state.nodes[nodeIdx] = {
     ...node,
@@ -931,6 +995,54 @@ export function grantNodeXp(nodeId: string, action: string): boolean {
   };
 
   return true;
+}
+
+/**
+ * Sweep all nodes and auto-upgrade any that have full XP.
+ * Call on game load to handle saves from before auto-upgrade existed.
+ */
+export function sweepNodeAutoUpgrades(): boolean {
+  const state = store.game_state;
+  let changed = false;
+
+  for (let i = 0; i < state.nodes.length; i++) {
+    const node = state.nodes[i];
+    const key = getUpgradeKey(node.type, node.data.resource);
+    const upgrades = NODE_UPGRADE_DEFS[key];
+    if (!upgrades) continue;
+
+    const currentLevel = node.data.upgradeLevel || 0;
+    const maxLevel = upgrades.length;
+    if (currentLevel >= maxLevel) continue;
+
+    const threshold = getNodeXpThreshold(key, currentLevel + 1);
+    if (threshold <= 0) continue;
+
+    const nodeXp = node.data.nodeXp || 0;
+    if (nodeXp < threshold) continue;
+
+    // Auto-upgrade
+    const nextUpgrade = upgrades.find(u => u.level === currentLevel + 1);
+    if (!nextUpgrade) continue;
+
+    const data = {
+      ...node.data,
+      upgradeLevel: nextUpgrade.level,
+      nodeXp: 0,
+      nodeXpToNext: 0,
+      enhancementPoints: (node.data.enhancementPoints || 0) + (nextUpgrade.enhancementPoints || 2),
+      statAlloc: node.data.statAlloc || {},
+    };
+    if (nextUpgrade.effects.rateBonus) data.rate = (data.rate || 0) + nextUpgrade.effects.rateBonus;
+    if (nextUpgrade.effects.chipSlots !== undefined) data.chipSlots = nextUpgrade.effects.chipSlots;
+    if (nextUpgrade.effects.autoCollect) data.autoCollect = true;
+    if (nextUpgrade.effects.defenseBonus) data.defense = (data.defense || 0) + nextUpgrade.effects.defenseBonus;
+
+    state.nodes[i] = { ...node, data };
+    changed = true;
+  }
+
+  return changed;
 }
 
 export function getUnlockedRecipes(): string[] {

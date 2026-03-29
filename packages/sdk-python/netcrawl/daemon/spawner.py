@@ -1,7 +1,7 @@
 """
 netcrawl/daemon/spawner.py
 
-Spawns and manages unit subprocesses.
+Spawns and manages worker subprocesses.
 """
 
 import os
@@ -13,20 +13,20 @@ import subprocess
 _active_processes: dict[str, subprocess.Popen] = {}
 
 
-def spawn_unit(
-    unit_id: str,
+def spawn_worker(
+    worker_id: str,
     script_path: str,
     class_name: str,
     api_url: str,
     injected_fields: dict,
 ) -> int:
     """
-    Spawn a Python unit subprocess.
+    Spawn a Python worker subprocess.
     Returns the PID.
     """
     env = os.environ.copy()
     env.update({
-        "NETCRAWL_UNIT_ID": unit_id,
+        "NETCRAWL_WORKER_ID": worker_id,
         "NETCRAWL_API_URL": api_url,
         "NETCRAWL_SCRIPT_PATH": script_path,
         "NETCRAWL_CLASS_NAME": class_name,
@@ -41,14 +41,14 @@ def spawn_unit(
         text=True,
     )
 
-    _active_processes[unit_id] = process
-    print(f"[spawner] Spawned unit {unit_id} (PID {process.pid})")
+    _active_processes[worker_id] = process
+    print(f"[spawner] Spawned worker {worker_id} (PID {process.pid})")
     return process.pid
 
 
-def kill_unit(unit_id: str) -> bool:
-    """Terminate a running unit process."""
-    proc = _active_processes.get(unit_id)
+def kill_worker(worker_id: str) -> bool:
+    """Terminate a running worker process."""
+    proc = _active_processes.get(worker_id)
     if proc is None:
         return False
 
@@ -58,14 +58,14 @@ def kill_unit(unit_id: str) -> bool:
     except subprocess.TimeoutExpired:
         proc.kill()
 
-    del _active_processes[unit_id]
-    print(f"[spawner] Killed unit {unit_id}")
+    del _active_processes[worker_id]
+    print(f"[spawner] Killed worker {worker_id}")
     return True
 
 
-def get_unit_status(unit_id: str) -> str:
+def get_worker_status(worker_id: str) -> str:
     """Returns 'running', 'stopped', 'crashed', or 'unknown'."""
-    proc = _active_processes.get(unit_id)
+    proc = _active_processes.get(worker_id)
     if proc is None:
         return "unknown"
 
@@ -80,6 +80,6 @@ def get_unit_status(unit_id: str) -> str:
 
 def list_active() -> list[dict]:
     return [
-        {"unit_id": uid, "pid": proc.pid, "status": get_unit_status(uid)}
+        {"worker_id": uid, "pid": proc.pid, "status": get_worker_status(uid)}
         for uid, proc in _active_processes.items()
     ]

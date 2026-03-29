@@ -7,6 +7,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { getWorkerIcon } from '../constants/workerIcons';
 
 import { ITEM_LABELS, ITEM_COLORS } from '../constants/colors';
+import { useT } from '../hooks/useT';
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
@@ -152,6 +153,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
   nodeId: string; nodeName: string; onClose: () => void;
 }) {
   const { workers, playerInventory, nodes: gameNodes, setEdgeSelectMode } = useGameStore();
+  const t = useT();
   const [workerClasses, setWorkerClasses] = useState<WorkerClassEntry[]>([]);
   const [selectedClass, setSelectedClass] = useState('');
   const [deploying, setDeploying] = useState(false);
@@ -324,7 +326,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
           background: 'var(--bg-elevated)', border: '1px solid var(--border)',
           color: 'var(--text-muted)', fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 700, cursor: 'pointer',
         }}>
-          Cancel
+          {t('common.cancel')}
         </button>
       </motion.div>
     );
@@ -351,7 +353,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.12em' }}>DEPLOY TO</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.12em' }}>{t('ui.deploy_to')}</div>
             <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>{nodeName}</div>
           </div>
           <button onClick={handleClose} style={{ color: 'var(--text-muted)', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: 4, display: 'flex' }}>
@@ -363,10 +365,10 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
         {steps.length > 2 && <StepBar steps={steps} currentStep={step} />}
 
         {loading ? (
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', padding: '24px 0', textAlign: 'center' }}>Loading...</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', padding: '24px 0', textAlign: 'center' }}>{t('ui.loading')}</div>
         ) : workerClasses.length === 0 ? (
           <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', padding: '24px 0', textAlign: 'center', lineHeight: 1.6 }}>
-            No worker classes found.<br />Run <span style={{ color: 'var(--accent)' }}>uv run main.py</span> in workspace/.
+            {t('ui.no_worker_classes')}<br />{t('ui.run_code_server')}
           </div>
         ) : (
           <>
@@ -382,7 +384,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', marginBottom: 6 }}>WORKER CLASS</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', marginBottom: 6 }}>{t('ui.worker_class')}</div>
                     <Select value={selectedClass} onValueChange={setSelectedClass}>
                       <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
                       <SelectContent>
@@ -419,7 +421,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                       {itemSlots.length > 0 && (
                         <div>
                           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', marginBottom: 6 }}>
-                            REQUIRES
+                            {t('ui.requires')}
                           </div>
                           {itemSlots.map(slot => {
                             const accepts = SLOT_ACCEPTS[slot.itemType] || [];
@@ -449,7 +451,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                       {routeSlots.length > 0 && (
                         <div>
                           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', marginBottom: 6 }}>
-                            SPEC
+                            {t('ui.spec')}
                           </div>
                           {routeSlots.map(slot => (
                             <div key={slot.name} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
@@ -477,7 +479,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                           padding: '6px 10px', borderRadius: 'var(--radius-sm)',
                           background: 'var(--danger-dim)', border: '1px solid rgba(255,71,87,0.2)',
                         }}>
-                          Not enough items for {unitCount} unit{unitCount > 1 ? 's' : ''} — craft more in Inventory
+                          {t('ui.not_enough_items')}
                         </div>
                       )}
                     </div>
@@ -486,7 +488,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                   {/* Unit count selector */}
                   <div>
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', marginBottom: 8 }}>
-                      DEPLOY COUNT
+                      {t('ui.deploy_count')}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <button onClick={() => { const n = Math.max(1, unitCount - 1); setUnitCount(n); setEquippedPerUnit(prev => prev.slice(0, n)); setCurrentUnitIdx(i => Math.min(i, n - 1)); }}
@@ -509,7 +511,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
             {/* STEP: Routes */}
             {currentStepKey === 'routes' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>CONFIGURE ROUTES</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>{t('ui.configure_routes')}</div>
                 {routeSlots.map(slot => {
                   const selected = routes[slot.name];
                   return (
@@ -539,7 +541,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                           fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)', cursor: 'pointer',
                         }}
                       >
-                        {selected ? 'Change' : 'Select on map'}
+                        {selected ? t('ui.change') : t('ui.select_on_map')}
                       </button>
                     </div>
                   );
@@ -573,7 +575,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                 )}
 
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>
-                  {unitCount > 1 ? `UNIT ${currentUnitIdx + 1} EQUIPMENT` : 'EQUIPMENT'}
+                  {t('ui.equipment')}
                 </div>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   {itemSlots.map(slot => (
@@ -601,9 +603,9 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                   {unitCount > 1 ? `Fill equipment for all ${unitCount} units` : 'Drag items from below to fill slots'}
                 </div>}
                 <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, var(--border-bright), transparent)' }} />
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>INVENTORY</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>{t('ui.inventory')}</div>
                 {availableInventory.length === 0 ? (
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'center', padding: '12px 0' }}>No items. Craft some in Inventory.</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'center', padding: '12px 0' }}>{t('ui.no_items_craft')}</div>
                 ) : (
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {availableInventory.map(item => (
@@ -618,7 +620,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
             {/* STEP: Deploy (confirm) */}
             {currentStepKey === 'deploy' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>CONFIRM DEPLOYMENT</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>{t('ui.confirm_deploy')}</div>
                 <div style={{ padding: '12px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-elevated)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)' }}>
                     <span style={{ color: 'var(--text-muted)' }}>Class: </span>
@@ -652,14 +654,14 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                   flex: 1, background: 'var(--bg-elevated)', color: 'var(--text-muted)',
                   border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
                   padding: '12px', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)', cursor: 'pointer',
-                }}>Back</button>
+                }}>{t('ui.back')}</button>
               )}
               {step === 0 && (
                 <button onClick={handleClose} style={{
                   flex: 1, background: 'var(--bg-elevated)', color: 'var(--text-muted)',
                   border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
                   padding: '12px', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)', cursor: 'pointer',
-                }}>Cancel</button>
+                }}>{t('common.cancel')}</button>
               )}
               {isLastStep ? (
                 <button onClick={handleDeploy} disabled={deploying || deployed} style={{
@@ -669,7 +671,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                   cursor: deploying || deployed ? 'not-allowed' : 'pointer', opacity: deploying || deployed ? 0.5 : 1,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 }}>
-                  <Upload size={14} /> {deploying ? `DEPLOYING ${unitCount}...` : `DEPLOY ${unitCount} WORKER${unitCount > 1 ? 'S' : ''}`}
+                  <Upload size={14} /> {deploying ? t('ui.deploying') : t('ui.deploy_n', { count: unitCount })}
                 </button>
               ) : (
                 <button onClick={() => setStep(s => s + 1)} disabled={!canGoNext()} style={{
@@ -681,7 +683,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                   opacity: canGoNext() ? 1 : 0.5,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 }}>
-                  Next <ChevronRight size={14} />
+                  {t('ui.next')} <ChevronRight size={14} />
                 </button>
               )}
             </div>

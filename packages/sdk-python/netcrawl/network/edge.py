@@ -14,7 +14,7 @@ class Edge(EdgeField):
     At runtime, becomes an edge ID string: 'e5'
 
     Usage:
-        class Collector(UnitClass):
+        class Collector(WorkerClass):
             mining_edge = Edge("Edge to resource node")
 
     In on_loop:

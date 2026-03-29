@@ -120,19 +120,19 @@ function GridSlot({ chip, onRemove, onInsert, disabled }: {
       style={{
         aspectRatio: '1',
         borderRadius: 'var(--radius-sm)',
-        border: '1px dashed var(--border-bright)',
-        background: 'transparent',
+        border: '2px dashed var(--text-muted)',
+        background: 'color-mix(in srgb, var(--text-muted) 5%, transparent)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.3 : 0.5,
-        transition: 'opacity 0.15s',
+        opacity: disabled ? 0.35 : 0.55,
+        transition: 'opacity 0.15s, border-color 0.15s',
       }}
-      onMouseEnter={e => { if (!disabled) e.currentTarget.style.opacity = '0.8'; }}
-      onMouseLeave={e => { if (!disabled) e.currentTarget.style.opacity = '0.5'; }}
+      onMouseEnter={e => { if (!disabled) { e.currentTarget.style.opacity = '0.85'; e.currentTarget.style.borderColor = 'var(--accent)'; } }}
+      onMouseLeave={e => { if (!disabled) { e.currentTarget.style.opacity = '0.55'; e.currentTarget.style.borderColor = 'var(--text-muted)'; } }}
     >
-      <Plus size={10} style={{ color: 'var(--text-muted)' }} />
+      <Plus size={12} style={{ color: 'var(--text-muted)' }} />
     </button>
   );
 }
@@ -205,7 +205,6 @@ export function ChipSlotManager({ nodeId, chipSlots, installedChips }: {
             <GridSlot
               key={`empty-${i}`}
               onInsert={() => setShowPicker(true)}
-              disabled={playerChips.length === 0}
             />
           )
         )}
@@ -230,7 +229,11 @@ export function ChipSlotManager({ nodeId, chipSlots, installedChips }: {
                   <X size={10} />
                 </button>
               </div>
-              {playerChips.map(chip => (
+              {playerChips.length === 0 ? (
+                <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', padding: '6px 0', textAlign: 'center' }}>
+                  No chips available. Open chip packs from the inventory.
+                </div>
+              ) : playerChips.map(chip => (
                 <ChipCard key={chip.id} chip={chip} small onAction={() => handleInsert(chip.id)} actionIcon={<Plus size={10} />} />
               ))}
             </div>

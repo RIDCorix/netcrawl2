@@ -12,11 +12,14 @@ const EDGE_STYLES = [
 ] as const;
 
 const THEMES = [
-  { value: 'deep-space', emoji: '🌌' },
-  { value: 'synthwave',  emoji: '🌆' },
-  { value: 'matrix',     emoji: '💚' },
-  { value: 'amber',      emoji: '🟠' },
-  { value: 'ice',        emoji: '🧊' },
+  { value: 'deep-space', color: '#00d4aa' },
+  { value: 'synthwave',  color: '#f050fa' },
+  { value: 'matrix',     color: '#00ff41' },
+  { value: 'amber',      color: '#ffa500' },
+  { value: 'ice',        color: '#64b4ff' },
+  { value: 'cloud',      color: '#d97706', light: true },
+  { value: 'sakura',     color: '#db2777', light: true },
+  { value: 'arctic',     color: '#2563eb', light: true },
 ] as const;
 
 const KEYBINDING_ACTIONS = [
@@ -240,7 +243,12 @@ export function SettingsPanel() {
                           cursor: 'pointer', transition: 'all 0.15s',
                           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
                         }}>
-                          <span style={{ fontSize: 16 }}>{th.emoji}</span>
+                          <span style={{
+                            display: 'inline-block', width: 14, height: 14, borderRadius: '50%',
+                            background: th.color,
+                            border: `2px solid ${'light' in th && th.light ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.15)'}`,
+                            boxShadow: `0 0 6px ${th.color}66`,
+                          }} />
                           <span>{t(`theme.${th.value}`)}</span>
                         </button>
                       ))}

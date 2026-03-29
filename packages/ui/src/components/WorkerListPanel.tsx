@@ -291,7 +291,7 @@ export function WorkerListPanel() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Users size={12} style={{ color: 'var(--accent)' }} />
           <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>
-            WORKERS
+            {t('ui.workers')}
           </span>
           {workers.length > 0 && (
             <span style={{
@@ -311,7 +311,7 @@ export function WorkerListPanel() {
               border: '1px solid rgba(248,113,113,0.25)',
               fontFamily: 'var(--font-mono)',
             }}>
-              {errorCount} err
+              {errorCount} {t('ui.err')}
             </span>
           )}
         </div>
@@ -331,7 +331,7 @@ export function WorkerListPanel() {
               {workers.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '14px 0', fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.6 }}>
                   {t('worker.no_workers')}<br />
-                  <span style={{ color: 'var(--text-secondary)' }}>Click a node to deploy.</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>{t('ui.click_node_deploy')}</span>
                 </div>
               ) : (
                 Object.entries(groups).map(([className, classWorkers]) => (

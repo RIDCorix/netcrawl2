@@ -1,12 +1,12 @@
 """
 netcrawl/base.py
 
-UnitMeta metaclass and UnitClass base class.
+WorkerMeta metaclass and WorkerClass base class.
 """
 
 import inspect
 import time
-from netcrawl.fields import UnitField, ItemField
+from netcrawl.fields import WorkerField, ItemField
 
 
 class APIRequest:
@@ -26,9 +26,9 @@ class APIRequest:
         return f"<APIRequest id={self.id[:8]} type={self.type} {auth}>"
 
 
-class UnitMeta(type):
+class WorkerMeta(type):
     """
-    Metaclass that discovers UnitField declarations on class definition.
+    Metaclass that discovers WorkerField declarations on class definition.
     Builds _fields dict: { field_name: field_instance }
     Used by daemon scanner to know deploy-time requirements.
     """
@@ -43,7 +43,7 @@ class UnitMeta(type):
 
         # Discover new fields declared directly in this class
         for key, value in namespace.items():
-            if isinstance(value, UnitField):
+            if isinstance(value, WorkerField):
                 value._field_name = key
                 fields[key] = value
 
@@ -80,9 +80,9 @@ class UnitMeta(type):
         return super().__new__(mcs, name, bases, namespace)
 
 
-class UnitClass(metaclass=UnitMeta):
+class WorkerClass(metaclass=WorkerMeta):
     """
-    Base class for all NetCrawl units.
+    Base class for all NetCrawl workers.
 
     Lifecycle:
     1. Daemon discovers class, reads _fields for requirements schema
@@ -96,7 +96,7 @@ class UnitClass(metaclass=UnitMeta):
     - State persists between on_loop() calls (instance stays alive)
 
     Example:
-        class Collector(UnitClass):
+        class Collector(WorkerClass):
             pickaxe = Pickaxe()
             to_mine = Edge("Edge to ore mine")
             to_hub = Edge("Return edge")
@@ -115,15 +115,15 @@ class UnitClass(metaclass=UnitMeta):
     """
 
     # Set by runner at instantiation time
-    _unit_id: str = ""
+    _worker_id: str = ""
     _api_url: str = ""
     _current_node: str = "hub"
     _inventory: dict = {}
     _holding = None   # Drop | None — the 1-slot internal inventory
     _client = None  # ApiClient instance
 
-    def __init__(self, unit_id: str, api_url: str, injected_fields: dict):
-        self._unit_id = unit_id
+    def __init__(self, worker_id: str, api_url: str, injected_fields: dict):
+        self._worker_id = worker_id
         self._api_url = api_url
         self._current_node = "hub"
         self._inventory = {}
@@ -131,7 +131,7 @@ class UnitClass(metaclass=UnitMeta):
 
         # Import here to avoid circular imports at module load time
         from netcrawl.client import ApiClient
-        self._client = ApiClient(api_url=api_url, unit_id=unit_id)
+        self._client = ApiClient(api_url=api_url, worker_id=worker_id)
 
         # Inject field values (replace descriptor instances with actual values)
         for field_name, value in injected_fields.items():
@@ -140,24 +140,24 @@ class UnitClass(metaclass=UnitMeta):
         # Give RuntimeItem instances a back-reference to self
         for field_name in self.__class__._fields:
             instance = getattr(self, field_name, None)
-            if instance is not None and hasattr(instance, '_unit'):
-                instance._unit = self
+            if instance is not None and hasattr(instance, '_worker'):
+                instance._worker = self
 
     # ── Lifecycle hooks (override these) ────────────────────────────────────
 
     def on_startup(self):
-        """Called once when the unit is first deployed. Override to initialize state."""
+        """Called once when the worker is first deployed. Override to initialize state."""
         pass
 
     def on_loop(self):
-        """Called repeatedly in a loop. Override with your unit logic."""
+        """Called repeatedly in a loop. Override with your worker logic."""
         pass
 
     # ── Node access ─────────────────────────────────────────────────────────
 
     def get_current_node(self):
         """
-        Get a typed node object for the unit's current position.
+        Get a typed node object for the worker's current position.
 
         Returns a subclass of BaseNode based on node type:
         - HubNode, ResourceNode, RelayNode, ComputeNode, LockedNode, InfectedNode
@@ -173,7 +173,7 @@ class UnitClass(metaclass=UnitMeta):
         result = self._client.action("get_node_info", {})
         if not result.get("ok"):
             raise ValueError(f"get_current_node() failed: {result.get('error')}")
-        return create_node(result, self._client, self._unit_id)
+        return create_node(result, self._client, self._worker_id)
 
     # ── Services ────────────────────────────────────────────────────────────
 
@@ -199,7 +199,7 @@ class UnitClass(metaclass=UnitMeta):
 
         service_type = result.get("serviceType")
         if service_type == "cache":
-            return CacheService(self._client, self._unit_id, node_id, result)
+            return CacheService(self._client, self._worker_id, node_id, result)
 
         raise ServiceNotReachable(f"Unknown service type: {service_type}")
 
@@ -229,7 +229,7 @@ class UnitClass(metaclass=UnitMeta):
 
     def move_edge(self, edge_id: str) -> dict:
         """
-        Move along a specific edge. The unit travels to the other end
+        Move along a specific edge. The worker travels to the other end
         of the edge from their current position.
 
         Raises ValueError if the edge doesn't connect to the current node.
@@ -403,10 +403,10 @@ class UnitClass(metaclass=UnitMeta):
     def _log(self, level: str, msg: str) -> None:
         tag = level.upper()
         self._client.action("log", {"message": f"[{tag}] {msg}", "level": level})
-        print(f"[{self._unit_id}] {tag}: {msg}")
+        print(f"[{self._worker_id}] {tag}: {msg}")
 
     def info(self, msg: str) -> None:
-        """Log an info message. Visible in the UI's unit log panel."""
+        """Log an info message. Visible in the UI's worker log panel."""
         self._log("info", msg)
 
     def warn(self, msg: str) -> None:

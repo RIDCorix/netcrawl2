@@ -6,9 +6,12 @@ import axios from 'axios';
 import { CLASS_COLORS } from '../constants/colors';
 import { getWorkerIcon } from '../constants/workerIcons';
 import { getStatusConfig } from '../constants/status';
+import { useT } from '../hooks/useT';
 
 export function WorkerDetailPanel() {
   const { selectedWorkerId, selectWorker, workers, nodes } = useGameStore();
+  const t = useT();
+  const tn = (label: string) => { const k = `n.${label}`; const v = t(k); return v === k ? label : v; };
   const [logs, setLogs] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -83,7 +86,7 @@ export function WorkerDetailPanel() {
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 700, color: classColor, fontFamily: 'var(--font-mono)', letterSpacing: '0.12em' }}>
-                WORKER UNIT
+                {t('ui.worker_unit')}
               </div>
               <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
                 {(() => { const Icon = getWorkerIcon(worker.class_icon); return <Icon size={20} style={{ color: classColor }} />; })()}
@@ -135,14 +138,14 @@ export function WorkerDetailPanel() {
               <MapPin size={12} style={{ color: 'var(--text-muted)' }} />
               <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Node:</span>
               <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                {workerNode?.data?.label || worker.current_node}
+                {workerNode?.data?.label ? tn(workerNode.data.label) : worker.current_node}
               </span>
             </div>
 
             {worker.deployed_at && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Clock size={12} style={{ color: 'var(--text-muted)' }} />
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Deployed:</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{t('ui.deployed')}</span>
                 <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
                   {new Date(worker.deployed_at).toLocaleTimeString()}
                 </span>
@@ -152,7 +155,7 @@ export function WorkerDetailPanel() {
             {worker.equippedPickaxe && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Pickaxe size={12} style={{ color: 'var(--text-muted)' }} />
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Pickaxe:</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{t('ui.pickaxe')}</span>
                 <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
                   {worker.equippedPickaxe.itemType} ({worker.equippedPickaxe.efficiency}×)
                 </span>
@@ -162,7 +165,7 @@ export function WorkerDetailPanel() {
             {worker.holding && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Package size={12} style={{ color: 'var(--accent)' }} />
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Holding:</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{t('ui.holding')}</span>
                 <span style={{ fontSize: 11, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>
                   {worker.holding.amount}× {worker.holding.type}
                 </span>
@@ -176,7 +179,7 @@ export function WorkerDetailPanel() {
           {/* Logs */}
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', marginBottom: 8 }}>
-              LOGS
+              {t('ui.logs')}
             </div>
             <div style={{
               background: 'var(--bg-primary)', border: '1px solid var(--border)',
@@ -184,7 +187,7 @@ export function WorkerDetailPanel() {
               maxHeight: 200, overflowY: 'auto', minHeight: 60,
             }}>
               {logs.length === 0 ? (
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>No logs yet</div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{t('ui.no_logs')}</div>
               ) : logs.map((log, i) => (
                 <div key={i} style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 2 }}>
                   <span style={{ color: 'rgba(255,255,255,0.12)' }}>{new Date(log.created_at).toLocaleTimeString()} </span>
@@ -210,7 +213,7 @@ export function WorkerDetailPanel() {
                 color: '#facc15', fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)',
                 cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.5 : 1,
               }}>
-                <PauseCircle size={14} /> Suspend
+                <PauseCircle size={14} /> {t('ui.suspend')}
               </button>
             )}
 
@@ -221,7 +224,7 @@ export function WorkerDetailPanel() {
                 background: 'rgba(250,204,21,0.05)', border: '1px solid rgba(250,204,21,0.15)',
                 color: '#facc15', fontSize: 12, fontFamily: 'var(--font-mono)',
               }}>
-                <Square size={14} className="animate-pulse" /> Suspending...
+                <Square size={14} className="animate-pulse" /> {t('ui.suspending')}
               </div>
             )}
 
@@ -233,7 +236,7 @@ export function WorkerDetailPanel() {
                 color: 'var(--danger)', fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)',
                 cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.5 : 1,
               }}>
-                <X size={14} /> Dismiss
+                <X size={14} /> {t('ui.dismiss')}
               </button>
             )}
           </div>

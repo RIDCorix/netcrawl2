@@ -17,17 +17,17 @@ const ITEM_ICONS: Record<string, any> = {
 
 // ── Categories ──────────────────────────────────────────────────────────────
 
-const INV_TABS = [
-  { key: 'all', label: 'All' },
-  { key: 'equipment', label: 'Equipment', types: ['pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond', 'shield', 'beacon'] },
-  { key: 'materials', label: 'Materials', types: ['data_fragment', 'rp_shard'] },
-  { key: 'packs', label: 'Packs', types: ['chip_pack_basic', 'chip_pack_premium'] },
+const INV_TABS_DEF = [
+  { key: 'all', labelKey: 'ui.tab_all' },
+  { key: 'equipment', labelKey: 'ui.tab_equipment', types: ['pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond', 'shield', 'beacon'] },
+  { key: 'materials', labelKey: 'ui.tab_materials', types: ['data_fragment', 'rp_shard'] },
+  { key: 'packs', labelKey: 'ui.tab_packs', types: ['chip_pack_basic', 'chip_pack_premium'] },
 ];
 
-const CRAFT_TABS = [
-  { key: 'all', label: 'All' },
-  { key: 'tools', label: 'Tools', ids: ['pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond'] },
-  { key: 'gear', label: 'Gear', ids: ['shield', 'beacon'] },
+const CRAFT_TABS_DEF = [
+  { key: 'all', labelKey: 'ui.tab_all' },
+  { key: 'tools', labelKey: 'ui.tab_tools', ids: ['pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond'] },
+  { key: 'gear', labelKey: 'ui.tab_gear', ids: ['shield', 'beacon'] },
 ];
 
 // ── Recipe type ─────────────────────────────────────────────────────────────
@@ -191,7 +191,7 @@ function CraftConfirm({ recipe, onConfirm, onCancel, crafting }: {
             <Icon size={20} style={{ color }} />
           </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>Craft {displayName}?</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{t('ui.craft_confirm').replace('{name}', displayName)}</div>
             <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>{displayDesc}</div>
           </div>
         </div>
@@ -201,9 +201,9 @@ function CraftConfirm({ recipe, onConfirm, onCancel, crafting }: {
           {recipe.cost.credits !== undefined && <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--credits-color)', background: 'rgba(245,158,11,0.08)', padding: '2px 8px', borderRadius: 'var(--radius-sm)' }}>-{recipe.cost.credits} credits</span>}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={onCancel} style={{ flex: 1, padding: '8px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer' }}>Cancel</button>
+          <button onClick={onCancel} style={{ flex: 1, padding: '8px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer' }}>{t('common.cancel')}</button>
           <button onClick={onConfirm} disabled={crafting} style={{ flex: 1, padding: '8px', borderRadius: 'var(--radius-sm)', background: 'var(--accent)', border: 'none', color: '#000', fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)', cursor: crafting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-            {crafting ? '...' : <><Check size={11} /> Craft</>}
+            {crafting ? '...' : <><Check size={11} /> {t('craft.craft')}</>}
           </button>
         </div>
       </motion.div>
@@ -248,7 +248,7 @@ function ChipPackSection() {
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
           <Gift size={12} style={{ color: 'var(--text-muted)' }} />
-          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>CHIP PACKS</span>
+          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>{t('ui.chip_packs')}</span>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {packs.map(p => (
@@ -274,7 +274,7 @@ function ChipPackSection() {
                   border: 'none', fontSize: 9, fontWeight: 700, fontFamily: 'var(--font-mono)',
                   cursor: p.affordable ? 'pointer' : 'not-allowed', opacity: p.affordable ? 1 : 0.5,
                 }}>
-                  Buy
+                  {t('ui.buy')}
                 </button>
                 {p.owned > 0 && (
                   <button onClick={() => handleOpen(p.packType)} disabled={opening} style={{
@@ -283,7 +283,7 @@ function ChipPackSection() {
                     color: '#f59e0b', fontSize: 9, fontWeight: 700, fontFamily: 'var(--font-mono)',
                     cursor: 'pointer',
                   }}>
-                    Open ({p.owned})
+                    {t('ui.open').replace('{count}', String(p.owned))}
                   </button>
                 )}
               </div>
@@ -303,7 +303,7 @@ function ChipPackSection() {
               onClick={e => e.stopPropagation()}
               style={{ background: 'var(--bg-glass-heavy)', border: '1px solid var(--border-bright)', borderRadius: 'var(--radius-lg)', padding: 24, display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center', minWidth: 300 }}
             >
-              <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>Chips Obtained!</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{t('ui.chips_obtained')}</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
                 {revealed.map((chip, i) => (
                   <motion.div
@@ -330,7 +330,7 @@ function ChipPackSection() {
                 background: 'var(--accent)', color: '#000', border: 'none',
                 fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)', cursor: 'pointer',
               }}>
-                Nice!
+                {t('ui.nice')}
               </button>
             </motion.div>
           </motion.div>
@@ -358,7 +358,7 @@ function OwnedChipsSection({ search }: { search: string }) {
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
           <Cpu size={12} style={{ color: 'var(--text-muted)' }} />
-          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>CHIPS</span>
+          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>{t('ui.chips')}</span>
           <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>({playerChips.length})</span>
         </div>
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
@@ -388,6 +388,7 @@ function OwnedChipsSection({ search }: { search: string }) {
 }
 
 export function InventoryPanel() {
+  const t = useT();
   const { inventoryOpen, toggleInventory, playerInventory, resources } = useGameStore();
   const [search, setSearch] = useState('');
   const [invTab, setInvTab] = useState('all');
@@ -396,6 +397,9 @@ export function InventoryPanel() {
   const [confirmRecipe, setConfirmRecipe] = useState<Recipe | null>(null);
   const [crafting, setCrafting] = useState(false);
   const [craftMsg, setCraftMsg] = useState('');
+
+  const INV_TABS = useMemo(() => INV_TABS_DEF.map(tab => ({ ...tab, label: t(tab.labelKey) })), [t]);
+  const CRAFT_TABS = useMemo(() => CRAFT_TABS_DEF.map(tab => ({ ...tab, label: t(tab.labelKey) })), [t]);
 
   useEffect(() => {
     if (!inventoryOpen) return;
@@ -412,7 +416,7 @@ export function InventoryPanel() {
       items = items.filter(i => (ITEM_LABELS[i.itemType] || i.itemType).toLowerCase().includes(q));
     }
     return items;
-  }, [playerInventory, invTab, search]);
+  }, [playerInventory, invTab, search, INV_TABS]);
 
   // Filter recipes
   const filteredRecipes = useMemo(() => {
@@ -424,7 +428,7 @@ export function InventoryPanel() {
       r = r.filter(rec => rec.name.toLowerCase().includes(q) || rec.description.toLowerCase().includes(q));
     }
     return r;
-  }, [recipes, craftTab, search]);
+  }, [recipes, craftTab, search, CRAFT_TABS]);
 
   // Tab result availability (for dimming)
   const invTabResults = useMemo(() => {
@@ -437,7 +441,7 @@ export function InventoryPanel() {
       result[tab.key] = items.length > 0;
     }
     return result;
-  }, [playerInventory, search]);
+  }, [playerInventory, search, INV_TABS]);
 
   const craftTabResults = useMemo(() => {
     const q = search.toLowerCase();
@@ -449,7 +453,7 @@ export function InventoryPanel() {
       result[tab.key] = r.length > 0;
     }
     return result;
-  }, [recipes, search]);
+  }, [recipes, search, CRAFT_TABS]);
 
   // Is a specific item dimmed by search?
   const isItemDimmed = (itemType: string) => {
@@ -511,7 +515,7 @@ export function InventoryPanel() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Package size={16} style={{ color: 'var(--accent)' }} />
-                  <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>INVENTORY</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>{t('ui.inventory')}</span>
                   <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>[E]</span>
                 </div>
                 <button onClick={toggleInventory} style={{ color: 'var(--text-muted)', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: 4, display: 'flex' }}>
@@ -541,7 +545,7 @@ export function InventoryPanel() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Hammer size={12} style={{ color: 'var(--text-muted)' }} />
-                    <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>CRAFTING</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>{t('ui.crafting')}</span>
                   </div>
                   <TabBar tabs={CRAFT_TABS} active={craftTab} onChange={setCraftTab} hasResults={craftTabResults} />
                 </div>
@@ -566,7 +570,7 @@ export function InventoryPanel() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Package size={12} style={{ color: 'var(--text-muted)' }} />
-                    <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>ITEMS</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>{t('ui.items')}</span>
                     <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>({playerInventory.reduce((s, i) => s + i.count, 0)})</span>
                   </div>
                   <TabBar tabs={INV_TABS} active={invTab} onChange={setInvTab} hasResults={invTabResults} />
@@ -574,7 +578,7 @@ export function InventoryPanel() {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                   {filteredItems.length === 0 ? (
                     <div style={{ width: '100%', textAlign: 'center', padding: '16px 0', fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                      {search ? 'No items match your search.' : 'No items yet.'}
+                      {search ? t('ui.no_items_match') : t('ui.no_items_yet')}
                     </div>
                   ) : (
                     <>
@@ -602,7 +606,7 @@ export function InventoryPanel() {
                 {[
                   { icon: Database, label: 'Data', value: resources.data, color: 'var(--data-color)' },
                   { icon: Cpu, label: 'RP', value: resources.rp, color: 'var(--rp-color)' },
-                  { icon: Star, label: 'Credits', value: resources.credits, color: 'var(--credits-color)' },
+                  { icon: Star, label: t('ui.credits'), value: resources.credits, color: 'var(--credits-color)' },
                 ].map(r => (
                   <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <r.icon size={11} style={{ color: r.color }} />

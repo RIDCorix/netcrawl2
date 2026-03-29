@@ -1,6 +1,5 @@
 import ReactFlow, {
   Background,
-  Controls,
   MiniMap,
   Node,
   Edge,
@@ -19,6 +18,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { useGameStore, GameNode, GameEdge, Worker } from '../store/gameStore';
 import React, { useEffect, useCallback, useMemo, useRef } from 'react';
+import { useT } from '../hooks/useT';
 import { Database, Shield, Lock, AlertTriangle, Pickaxe, Package, Cpu, Box, HardDrive, Globe, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -526,6 +526,7 @@ const NODE_TYPES: NodeTypes = {
   locked: LockedNode,
   compute: ComputeNode,
   empty: EmptyNode,
+  relay: EmptyNode,
   cache: CacheNode,
   api: APINodeComponent,
   auth: AuthNodeComponent,
@@ -668,7 +669,7 @@ import { CLASS_COLORS } from '../constants/colors';
 
 // ── Conversion helpers ──────────────────────────────────────────────────
 
-function toRFNodes(gameNodes: GameNode[], selectedId: string | null, workers: Worker[], showWorkerDots: boolean, edgeStyle: string, fadeInIds: Set<string>): Node[] {
+function toRFNodes(gameNodes: GameNode[], selectedId: string | null, workers: Worker[], showWorkerDots: boolean, edgeStyle: string, fadeInIds: Set<string>, tn: (label: string) => string): Node[] {
   // Pre-build worker lookup by node id to avoid O(nodes × workers) filtering
   const workersByNode = new Map<string, any[]>();
   for (const w of workers) {
@@ -692,7 +693,7 @@ function toRFNodes(gameNodes: GameNode[], selectedId: string | null, workers: Wo
       id: n.id,
       type: n.type,
       position: n.position,
-      data: { ...n.data, selected: n.id === selectedId, workers: nodeWorkers, showWorkerDots, edgeStyle, fadeIn: fadeInIds.has(n.id) },
+      data: { ...n.data, label: tn(n.data.label), selected: n.id === selectedId, workers: nodeWorkers, showWorkerDots, edgeStyle, fadeIn: fadeInIds.has(n.id) },
       selected: n.id === selectedId,
     };
   });
@@ -755,6 +756,8 @@ function toRFEdges(gameEdges: GameEdge[], edgeSelectMode: boolean, gameNodes: Ga
 
 export function GameGraph() {
   const { nodes: gameNodes, edges: gameEdges, selectedNodeId, selectNode, workers, edgeSelectMode, settings } = useGameStore();
+  const t = useT();
+  const tn = useCallback((label: string) => { const k = `n.${label}`; const v = t(k); return v === k ? label : v; }, [t]);
   const [nodes, setNodes] = useNodesState([]);
   const [edges, setEdges] = useEdgesState([]);
   const isEdgeSelecting = !!edgeSelectMode;
@@ -778,8 +781,8 @@ export function GameGraph() {
     // Merge new fade-in IDs (will be cleared after animation completes)
     for (const id of newIds) fadeInIdsRef.current.add(id);
 
-    return toRFNodes(gameNodes, selectedNodeId, workers, showWorkerDots, edgeStyle, fadeInIdsRef.current);
-  }, [gameNodes, selectedNodeId, workers, showWorkerDots, edgeStyle]);
+    return toRFNodes(gameNodes, selectedNodeId, workers, showWorkerDots, edgeStyle, fadeInIdsRef.current, tn);
+  }, [gameNodes, selectedNodeId, workers, showWorkerDots, edgeStyle, tn]);
 
   const rfEdges = useMemo(
     () => toRFEdges(gameEdges, isEdgeSelecting, gameNodes, edgeStyle),
@@ -845,14 +848,6 @@ export function GameGraph() {
           gap={32}
           size={1}
           color="rgba(0, 212, 170, 0.06)"
-        />
-        <Controls
-          showInteractive={false}
-          style={{
-            background: 'var(--bg-glass-heavy)',
-            border: '1px solid var(--border-bright)',
-            borderRadius: 'var(--radius-md)',
-          }}
         />
         <MiniMap
           style={{

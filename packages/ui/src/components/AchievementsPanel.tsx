@@ -6,14 +6,14 @@ import axios from 'axios';
 import { CATEGORY_COLORS } from '../constants/colors';
 import { useT } from '../hooks/useT';
 
-const CATEGORY_LABELS: Record<string, string> = {
-  all: 'All',
-  resources: 'Resources',
-  workers: 'Workers',
-  crafting: 'Crafting',
-  nodes: 'Nodes',
-  chips: 'Chips',
-  secret: 'Secret',
+const CATEGORY_LABEL_KEYS: Record<string, string> = {
+  all: 'ui.cat.all',
+  resources: 'ui.cat.resources',
+  workers: 'ui.cat.workers',
+  crafting: 'ui.cat.crafting',
+  nodes: 'ui.cat.nodes',
+  chips: 'ui.cat.chips',
+  secret: 'ui.cat.secret',
 };
 
 const CATEGORY_ORDER = ['all', 'resources', 'workers', 'crafting', 'nodes', 'chips', 'secret'];
@@ -82,7 +82,7 @@ export function AchievementsPanel() {
             <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Trophy size={16} style={{ color: '#f59e0b' }} />
-                <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>ACHIEVEMENTS</span>
+                <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>{t('ui.achievements')}</span>
                 <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>[A]</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -125,7 +125,7 @@ export function AchievementsPanel() {
                       whiteSpace: 'nowrap',
                     }}
                   >
-                    {CATEGORY_LABELS[cat]}
+                    {t(CATEGORY_LABEL_KEYS[cat])}
                     <span style={{ fontSize: 8, opacity: 0.7 }}>{counts.unlocked}/{counts.total}</span>
                   </button>
                 );
@@ -172,7 +172,7 @@ export function AchievementsPanel() {
                 })}
                 {filtered.length === 0 && (
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'center', padding: '20px 0' }}>
-                    No achievements in this category.
+                    {t('ui.no_achievements')}
                   </div>
                 )}
               </div>

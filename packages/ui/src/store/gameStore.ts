@@ -103,7 +103,7 @@ export interface Settings {
   showTrafficDots: boolean
   showWorkerDots: boolean
   keybindings: Record<string, string>
-  theme: 'deep-space' | 'synthwave' | 'matrix' | 'amber' | 'ice'
+  theme: 'deep-space' | 'synthwave' | 'matrix' | 'amber' | 'ice' | 'cloud' | 'sakura' | 'arctic'
   language: Language
 }
 

@@ -96,20 +96,32 @@ You'll see your worker with:
 
 Click the worker row to select it and see detailed logs in the right panel.` },
 
-    { title: 'Your Worker is a Loop', content: `Every worker runs an infinite loop:
+    { title: 'Your Worker is a Loop', content: `Every worker runs an infinite loop. Here's what the Miner looks like:
 
 \`\`\`python
-def on_loop(self):
-    # This is called repeatedly, forever
-    self.move("n_relay1")
-    self.pickaxe.mine()
-    self.collect()
-    self.move("hub")
-    self.deposit()
+class Miner(WorkerClass):
+    class_name = "Miner"
+    class_id = "miner"
+
+    pickaxe = Pickaxe()
+    route = Route("mining route")
+
+    def on_startup(self):
+        self.edge_id = self.route
+        self.info(f"Miner online! Edge: {self.edge_id}")
+
+    def on_loop(self):
+        self.move_edge(self.edge_id)   # hub → mine
+        self.pickaxe.mine()
+        self.collect()
+        self.move_edge(self.edge_id)   # mine → hub
+        self.deposit()
 \`\`\`
 
-\`on_startup()\` runs once when deployed.
-\`on_loop()\` runs forever until suspended.
+- **Route** is a deploy-time field — you pick which edge to mine when deploying
+- \`on_startup()\` runs once when deployed
+- \`on_loop()\` runs forever until suspended
+- \`move_edge()\` travels along an edge to the other end
 
 Watch the logs to confirm your worker is alive. Then move on to the next quest!` },
   ],

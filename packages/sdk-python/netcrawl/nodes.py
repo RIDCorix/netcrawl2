@@ -1,7 +1,7 @@
 """
 netcrawl/nodes.py
 
-Typed node objects returned by UnitClass.get_current_node().
+Typed node objects returned by WorkerClass.get_current_node().
 Each node type exposes type-specific methods.
 """
 
@@ -25,10 +25,10 @@ class NodeEdge:
 class BaseNode:
     """Base class for all node types. Provides common properties."""
 
-    def __init__(self, info: dict, client: 'ApiClient', unit_id: str):
+    def __init__(self, info: dict, client: 'ApiClient', worker_id: str):
         self._info = info
         self._client = client
-        self._unit_id = unit_id
+        self._worker_id = worker_id
         self.id: str = info['id']
         self.type: str = info['type']
         self.label: str = info.get('label', '')
@@ -72,7 +72,7 @@ class ResourceNode(BaseNode):
         return bool(self.data.get('mineable'))
 
     def mine(self) -> dict:
-        """Mine this resource node. Requires a pickaxe equipped on the unit.
+        """Mine this resource node. Requires a pickaxe equipped on the worker.
         Creates a drop on the ground that can be collected.
 
         Returns: { ok, drop: { type: 'data_fragment', amount } }
@@ -250,8 +250,8 @@ NODE_TYPE_MAP = {
 }
 
 
-def create_node(info: dict, client: 'ApiClient', unit_id: str) -> BaseNode:
+def create_node(info: dict, client: 'ApiClient', worker_id: str) -> BaseNode:
     """Factory: create the appropriate typed node from server info."""
     node_type = info.get('type', '')
     cls = NODE_TYPE_MAP.get(node_type, BaseNode)
-    return cls(info, client, unit_id)
+    return cls(info, client, worker_id)

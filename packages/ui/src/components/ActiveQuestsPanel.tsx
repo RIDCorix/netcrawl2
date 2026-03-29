@@ -10,8 +10,10 @@ import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { QuestGuideDialog } from './QuestGuideDialog';
 import { CHAPTER_COLORS } from '../constants/colors';
+import { useT } from '../hooks/useT';
 
 export function ActiveQuestsPanel() {
+  const t = useT();
   const [quests, setQuests] = useState<any[]>([]);
   const [collapsed, setCollapsed] = useState(false);
   const [selectedQuest, setSelectedQuest] = useState<any>(null);
@@ -72,7 +74,7 @@ export function ActiveQuestsPanel() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <BookOpen size={12} style={{ color: '#60a5fa' }} />
             <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>
-              ACTIVE QUESTS
+              {t('ui.active_quests')}
             </span>
             <span style={{
               fontSize: 9, fontWeight: 800, padding: '1px 5px',
@@ -161,21 +163,22 @@ export function ActiveQuestsPanel() {
                             initial={{ scale: 0 }} animate={{ scale: 1 }}
                             style={{ fontSize: 9, fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#4ade80', flexShrink: 0 }}
                           >
-                            Done!
+                            {t('ui.claimed')}
                           </motion.span>
                         ) : allMet && q.status === 'completed' ? (
-                          <button
+                          <span
+                            role="button"
                             onClick={(e) => handleClaim(q.id, e)}
                             style={{
                               padding: '3px 8px', borderRadius: 'var(--radius-sm)',
-                              background: 'var(--accent)', color: '#000', border: 'none',
+                              background: 'var(--accent)', color: '#000',
                               fontSize: 9, fontWeight: 800, fontFamily: 'var(--font-mono)',
                               cursor: 'pointer', flexShrink: 0,
                               display: 'flex', alignItems: 'center', gap: 3,
                             }}
                           >
-                            <Gift size={8} /> Claim
-                          </button>
+                            <Gift size={8} /> {t('ui.claim')}
+                          </span>
                         ) : (
                           <span style={{ fontSize: 8, color, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
                             Ch.{q.chapter}

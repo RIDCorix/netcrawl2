@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Lock, CheckCircle, ArrowRight, AlertTriangle, Globe } from 'lucide-react';
 import { useGameStore, type LayerMeta } from '../store/gameStore';
 import { useState } from 'react';
+import { useT } from '../hooks/useT';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -60,13 +61,14 @@ function LayerCard({
   onEnter: () => void;
   switching: boolean;
 }) {
+  const t = useT();
   const hasThresholds = Object.keys(layer.thresholds).length > 0;
   const thresholdEntries = Object.entries(layer.thresholds) as Array<[string, number]>;
 
   const THRESHOLD_LABELS: Record<string, string> = {
-    total_data_deposited: 'Data Deposited',
-    rp: 'Research Points',
-    credits: 'Credits',
+    total_data_deposited: t('ui.data_deposited'),
+    rp: t('ui.research_points'),
+    credits: t('ui.credits'),
   };
 
   return (
@@ -125,7 +127,7 @@ function LayerCard({
               color: layer.unlocked ? layer.color : 'var(--text-muted)',
               letterSpacing: '0.05em',
             }}>
-              LAYER {layer.id}
+              {t('ui.layer').replace('{id}', String(layer.id))}
             </span>
             {isActive && (
               <span style={{
@@ -139,7 +141,7 @@ function LayerCard({
                 padding: '1px 5px',
                 letterSpacing: '0.08em',
               }}>
-                ACTIVE
+                {t('ui.active')}
               </span>
             )}
           </div>
@@ -186,7 +188,7 @@ function LayerCard({
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
             <Lock size={11} style={{ color: 'var(--text-muted)' }} />
             <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
-              UNLOCK REQUIREMENTS
+              {t('ui.unlock_requirements')}
             </span>
           </div>
           {thresholdEntries.map(([key, required]) => (
@@ -206,7 +208,7 @@ function LayerCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <CheckCircle size={12} style={{ color: '#4ade80' }} />
           <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#4ade80' }}>
-            Unlocked
+            {t('ui.unlocked')}
           </span>
         </div>
       )}
@@ -233,7 +235,7 @@ function LayerCard({
             letterSpacing: '0.05em',
           }}
         >
-          {switching ? 'Switching...' : 'Enter Layer'}
+          {switching ? t('ui.switching') : t('ui.enter_layer')}
           {!switching && <ArrowRight size={14} />}
         </motion.button>
       )}
@@ -245,6 +247,7 @@ function LayerCard({
 
 export function LayerSelectScreen() {
   const { layerSelectOpen, layerMeta, activeLayer, workers, closeLayerSelect } = useGameStore();
+  const t = useT();
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState<string | null>(null);
 
@@ -323,10 +326,10 @@ export function LayerSelectScreen() {
                     margin: 0,
                     letterSpacing: '0.08em',
                   }}>
-                    NETWORK LAYERS
+                    {t('ui.network_layers')}
                   </h1>
                   <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                    Select a network depth to infiltrate
+                    {t('ui.select_layer')}
                   </p>
                 </div>
               </div>
@@ -364,7 +367,7 @@ export function LayerSelectScreen() {
                 }}
               >
                 <AlertTriangle size={14} />
-                Active workers detected. Suspend all workers before switching layers.
+                {t('ui.workers_warning')}
               </motion.div>
             )}
 
@@ -416,7 +419,7 @@ export function LayerSelectScreen() {
               margin: 0,
               opacity: 0.6,
             }}>
-              Resources are shared across all layers. Worker progress is saved per-layer.
+              {t('ui.layer_footer')}
             </p>
           </motion.div>
         </motion.div>

@@ -1,13 +1,13 @@
 """
 netcrawl/icons.py
 
-Available icons for unit classes.
+Available icons for worker classes.
 These map to lucide-react icon components in the UI.
 
 Usage:
     from netcrawl.icons import Icon
 
-    class MyUnit(UnitClass):
+    class MyUnit(WorkerClass):
         class_icon = Icon.PICKAXE
 """
 

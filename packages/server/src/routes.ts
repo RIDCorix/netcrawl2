@@ -22,7 +22,7 @@ import {
 } from './workerRegistry.js';
 import { broadcastFullState } from './broadcastHelper.js';
 import {
-  NODE_UPGRADE_DEFS, getUpgradeKey, CHIP_PACK_DEFS, rollChip, getNodeXpThreshold,
+  NODE_UPGRADE_DEFS, getUpgradeKey, CHIP_PACK_DEFS, rollChip, getNodeXpThreshold, NODE_STAT_DEFS,
 } from './upgradeDefinitions.js';
 import { checkAchievements, getAchievementList, RARITY_ORDINAL } from './achievements.js';
 import { checkQuests, claimQuestReward, getQuestList, getQuestEdges } from './quests.js';
@@ -542,40 +542,42 @@ router.get('/node/upgrades', (req: Request, res: Response) => {
   const key = getUpgradeKey(node.type, node.data.resource);
   const upgrades = NODE_UPGRADE_DEFS[key] || [];
   const currentLevel = node.data.upgradeLevel || 0;
-  const resources = state.resources as unknown as Record<string, number>;
 
   // Node XP info
   const nodeXp = node.data.nodeXp || 0;
   const nextLevel = currentLevel + 1;
   const nodeXpToNext = getNodeXpThreshold(key, nextLevel);
-  const xpReady = nodeXpToNext > 0 ? nodeXp >= nodeXpToNext : true; // no threshold = always ready
+  const maxLevel = upgrades.length;
 
-  const levels = upgrades.map(u => ({
-    ...u,
-    unlocked: u.level <= currentLevel,
-    affordable: Object.entries(u.cost).every(([k, v]) => (resources[k] || 0) >= (v as number)),
-    xpReady: u.level <= currentLevel || (u.level === nextLevel && xpReady),
-  }));
+  // Stat allocation info
+  const statDefs = NODE_STAT_DEFS[key] || NODE_STAT_DEFS[node.type] || [];
+  const statAlloc: Record<string, number> = node.data.statAlloc || {};
+  const enhancementPoints: number = node.data.enhancementPoints || 0;
+  const spentPoints = Object.values(statAlloc).reduce((s: number, v: number) => s + v, 0);
+  const availablePoints = enhancementPoints - spentPoints;
 
   res.json({
     nodeId,
     nodeType: node.type,
     resource: node.data.resource,
     currentLevel,
-    maxLevel: upgrades.length,
-    levels,
+    maxLevel,
     chipSlots: node.data.chipSlots || 0,
     installedChips: node.data.installedChips || [],
     nodeXp,
     nodeXpToNext: nodeXpToNext || 0,
-    xpReady,
+    // Stat allocation
+    enhancementPoints,
+    availablePoints,
+    statAlloc,
+    statDefs,
   });
 });
 
-// POST /api/node/upgrade — upgrade a node to next level
-router.post('/node/upgrade', (req: Request, res: Response) => {
-  const { nodeId } = req.body;
-  if (!nodeId) return res.status(400).json({ error: 'nodeId required' });
+// POST /api/node/stat/allocate — spend enhancement points on a node stat
+router.post('/node/stat/allocate', (req: Request, res: Response) => {
+  const { nodeId, statKey, delta } = req.body; // delta: +1 or -1
+  if (!nodeId || !statKey || delta === undefined) return res.status(400).json({ error: 'nodeId, statKey, delta required' });
 
   const state = getGameState();
   const node = state.nodes.find((n: any) => n.id === nodeId);
@@ -583,44 +585,45 @@ router.post('/node/upgrade', (req: Request, res: Response) => {
   if (!node.data.unlocked && node.type !== 'hub') return res.status(400).json({ error: 'Node is locked' });
 
   const key = getUpgradeKey(node.type, node.data.resource);
-  const upgrades = NODE_UPGRADE_DEFS[key];
-  if (!upgrades) return res.status(400).json({ error: 'No upgrades for this node type' });
+  const statDefs = NODE_STAT_DEFS[key] || NODE_STAT_DEFS[node.type] || [];
+  const statDef = statDefs.find(s => s.key === statKey);
+  if (!statDef) return res.status(400).json({ error: 'Invalid stat for this node' });
 
-  const currentLevel = node.data.upgradeLevel || 0;
-  const nextUpgrade = upgrades.find(u => u.level === currentLevel + 1);
-  if (!nextUpgrade) return res.status(400).json({ error: 'Already at max level' });
+  const statAlloc: Record<string, number> = { ...(node.data.statAlloc || {}) };
+  const currentAlloc = statAlloc[statKey] || 0;
+  const enhancementPoints: number = node.data.enhancementPoints || 0;
+  const spentPoints = Object.values(statAlloc).reduce((s: number, v: number) => s + v, 0);
+  const available = enhancementPoints - spentPoints;
 
-  // Check node XP requirement
-  const xpThreshold = getNodeXpThreshold(key, currentLevel + 1);
-  const nodeXp = node.data.nodeXp || 0;
-  if (xpThreshold > 0 && nodeXp < xpThreshold) {
-    return res.status(400).json({ error: `Node needs more experience (${nodeXp}/${xpThreshold} XP)` });
+  const d = Number(delta);
+  if (d === 1) {
+    if (available <= 0) return res.status(400).json({ error: 'No enhancement points available' });
+    if (currentAlloc >= statDef.maxPoints) return res.status(400).json({ error: 'Stat is at max' });
+  } else if (d === -1) {
+    if (currentAlloc <= 0) return res.status(400).json({ error: 'Stat is already at 0' });
+  } else {
+    return res.status(400).json({ error: 'delta must be +1 or -1' });
   }
 
-  const resources = state.resources as unknown as Record<string, number>;
-  const costError = checkCost(resources, nextUpgrade.cost as Record<string, number>);
-  if (costError) return res.status(400).json({ error: costError });
-  const newResources = deductCost(resources, nextUpgrade.cost as Record<string, number>);
+  statAlloc[statKey] = currentAlloc + d;
 
-  // Apply effects
-  const newNodes = state.nodes.map((n: any) => {
-    if (n.id !== nodeId) return n;
-    const data = { ...n.data, upgradeLevel: nextUpgrade.level, nodeXp: 0, nodeXpToNext: 0 };
-    if (nextUpgrade.effects.rateBonus) data.rate = (data.rate || 0) + nextUpgrade.effects.rateBonus;
-    if (nextUpgrade.effects.chipSlots !== undefined) data.chipSlots = nextUpgrade.effects.chipSlots;
-    if (nextUpgrade.effects.autoCollect) data.autoCollect = true;
-    if (nextUpgrade.effects.defenseBonus) data.defense = (data.defense || 0) + nextUpgrade.effects.defenseBonus;
-    return { ...n, data };
-  });
+  // Recalculate effective node stats from base + allocation
+  const data = { ...node.data, statAlloc };
+  // Apply stat effect
+  if (statKey === 'rate') data.rate = (data.baseRate || data.rate || 0) + (statAlloc.rate || 0) * statDef.perPoint;
+  if (statKey === 'defense') data.defense = (data.baseDefense || 0) + (statAlloc.defense || 0) * statDef.perPoint;
+  if (statKey === 'chipSlots') data.chipSlots = (data.baseChipSlots || 1) + (statAlloc.chipSlots || 0) * statDef.perPoint;
 
-  saveGameState({ ...state, nodes: newNodes, resources: newResources as any });
+  const newNodes = state.nodes.map((n: any) => n.id === nodeId ? { ...n, data } : n);
+  saveGameState({ ...state, nodes: newNodes });
   broadcastFullState();
-  incrementStat('total_upgrades', 1);
-  setStatMax('max_node_level', nextUpgrade.level);
-  awardXp(XP_REWARDS.upgrade_node);
-  checkAchievements();
   checkQuests();
-  res.json({ ok: true, level: nextUpgrade.level, name: nextUpgrade.name });
+
+  res.json({
+    ok: true,
+    statAlloc,
+    availablePoints: enhancementPoints - Object.values(statAlloc).reduce((s: number, v: number) => s + v, 0),
+  });
 });
 
 // POST /api/node/chip/insert — install a chip into a node slot

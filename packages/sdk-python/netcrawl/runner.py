@@ -1,14 +1,14 @@
 """
 netcrawl/runner.py
 
-Entrypoint for unit subprocesses.
-Reads env vars set by the daemon, imports the unit class,
-injects field values, and runs the unit lifecycle.
+Entrypoint for worker subprocesses.
+Reads env vars set by the daemon, imports the worker class,
+injects field values, and runs the worker lifecycle.
 
 Called by daemon like:
   python -m netcrawl.runner
 With env vars:
-  NETCRAWL_UNIT_ID=unit-abc123
+  NETCRAWL_WORKER_ID=worker-abc123
   NETCRAWL_API_URL=http://localhost:4800
   NETCRAWL_SCRIPT_PATH=C:/path/to/units/collector.py
   NETCRAWL_CLASS_NAME=Collector
@@ -29,7 +29,7 @@ signal.signal(signal.SIGINT, _on_sigterm)  # also handle Ctrl+C
 
 
 def main():
-    unit_id = os.environ.get("NETCRAWL_UNIT_ID") or os.environ.get("NETCRAWL_WORKER_ID", "")
+    worker_id = os.environ.get("NETCRAWL_WORKER_ID") or os.environ.get("NETCRAWL_WORKER_ID", "")
     api_url = os.environ.get("NETCRAWL_API_URL", "http://localhost:4800")
     script_path = os.environ["NETCRAWL_SCRIPT_PATH"]
     class_name = os.environ["NETCRAWL_CLASS_NAME"]
@@ -47,9 +47,9 @@ def main():
 
     spec.loader.exec_module(module)
 
-    # Retrieve the unit class by name
-    UnitCls = getattr(module, class_name, None)
-    if UnitCls is None:
+    # Retrieve the worker class by name
+    WorkerCls = getattr(module, class_name, None)
+    if WorkerCls is None:
         print(f"ERROR: Class '{class_name}' not found in {script_path}", file=sys.stderr)
         sys.exit(1)
 
@@ -66,13 +66,13 @@ def main():
 
     # First: auto-create runtime proxies for gadget fields (not injected by server)
     injected_fields = {}
-    for field_name, cls_field in UnitCls._fields.items():
+    for field_name, cls_field in WorkerCls._fields.items():
         if isinstance(cls_field, SensorGadget):
             injected_fields[field_name] = RuntimeSensorGadget()
 
     # Then: process server-injected values
     for field_name, value in injected_fields_raw.items():
-        cls_field = UnitCls._fields.get(field_name)
+        cls_field = WorkerCls._fields.get(field_name)
         if isinstance(cls_field, ItemField) and isinstance(value, dict):
             item_proxy = RuntimeItem(value)
             injected_fields[field_name] = item_proxy
@@ -84,19 +84,19 @@ def main():
             injected_fields[field_name] = value
 
     # Instantiate with injected values
-    unit = UnitCls(
-        unit_id=unit_id,
+    worker = WorkerCls(
+        worker_id=worker_id,
         api_url=api_url,
         injected_fields=injected_fields,
     )
 
-    print(f"[{unit_id}] Starting {class_name}...")
+    print(f"[{worker_id}] Starting {class_name}...")
 
     # Run lifecycle
     try:
-        unit.on_startup()
+        worker.on_startup()
     except Exception as e:
-        print(f"[{unit_id}] on_startup() failed: {e}", file=sys.stderr)
+        print(f"[{worker_id}] on_startup() failed: {e}", file=sys.stderr)
         traceback.print_exc()
         sys.exit(1)
 
@@ -104,23 +104,23 @@ def main():
     loop_count = 0
     while not _shutdown:
         try:
-            unit.on_loop()
+            worker.on_loop()
             loop_count += 1
         except KeyboardInterrupt:
             break
         except Exception as e:
             msg = f"on_loop() error #{loop_count}: {e}"
-            print(f"[{unit_id}] {msg}", file=sys.stderr)
+            print(f"[{worker_id}] {msg}", file=sys.stderr)
             traceback.print_exc()
-            # Report fatal error to server — sets unit to 'error' status
+            # Report fatal error to server — sets worker to 'error' status
             try:
-                unit._client.action("report_error", {"message": msg})
+                worker._client.action("report_error", {"message": msg})
             except Exception:
                 pass
-            print(f"[{unit_id}] Stopped due to error after {loop_count} loops.")
+            print(f"[{worker_id}] Stopped due to error after {loop_count} loops.")
             sys.exit(1)
 
-    print(f"[{unit_id}] Suspended cleanly after {loop_count} loops.")
+    print(f"[{worker_id}] Suspended cleanly after {loop_count} loops.")
     sys.exit(0)
 
 

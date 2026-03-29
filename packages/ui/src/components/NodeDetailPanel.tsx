@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Database, Cpu, Star, Lock, AlertTriangle, MousePointer, Upload, Pickaxe, ArrowUp, Info, Shield, Box, Server, Globe, Zap, Bug } from 'lucide-react';
+import { X, Database, Cpu, Star, Lock, AlertTriangle, MousePointer, Upload, Pickaxe, Info, Shield, Box, Server, Globe, Zap, Bug, Plus, Minus } from 'lucide-react';
 import { useGameStore, GameNode, Resources } from '../store/gameStore';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -37,6 +37,7 @@ function CostBadge({ cost }: { cost: Partial<Resources> }) {
     </div>
   );
 }
+
 
 function ActionButton({ onClick, children, variant = 'primary', disabled = false }: {
   onClick: () => void;
@@ -114,93 +115,162 @@ function StatusMessage({ msg }: { msg: string }) {
   );
 }
 
-function NodeUpgradeSection({ nodeId, node }: { nodeId: string; node: GameNode }) {
-  const { resources } = useGameStore();
+/** Single stat row with - / bar / + controls */
+function StatRow({ statKey, name, current, max, canAdd, canSub, onAllocate }: {
+  statKey: string;
+  name: string;
+  current: number;
+  max: number;
+  canAdd: boolean;
+  canSub: boolean;
+  onAllocate: (delta: number) => void;
+}) {
+  const pct = max > 0 ? (current / max) * 100 : 0;
+  const STAT_COLORS: Record<string, string> = {
+    rate: 'var(--data-color)',
+    defense: 'var(--accent)',
+    chipSlots: 'var(--rp-color)',
+  };
+  const color = STAT_COLORS[statKey] || 'var(--accent)';
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      {/* Minus button */}
+      <button
+        onClick={() => onAllocate(-1)}
+        disabled={!canSub}
+        style={{
+          width: 22, height: 22, borderRadius: 'var(--radius-sm)',
+          background: canSub ? 'var(--bg-elevated)' : 'transparent',
+          border: `1px solid ${canSub ? 'var(--border-bright)' : 'var(--border)'}`,
+          color: canSub ? 'var(--text-secondary)' : 'var(--text-muted)',
+          cursor: canSub ? 'pointer' : 'not-allowed',
+          opacity: canSub ? 1 : 0.3,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0, padding: 0,
+        }}
+      >
+        <Minus size={10} />
+      </button>
+
+      {/* Stat label + bar */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
+            {name}
+          </span>
+          <span style={{ fontSize: 10, fontWeight: 800, fontFamily: 'var(--font-mono)', color }}>
+            {current}/{max}
+          </span>
+        </div>
+        <div style={{
+          display: 'flex', gap: 2, height: 6,
+        }}>
+          {Array.from({ length: max }).map((_, i) => (
+            <div key={i} style={{
+              flex: 1,
+              borderRadius: 2,
+              background: i < current
+                ? color
+                : 'var(--bg-primary)',
+              border: `1px solid ${i < current ? 'transparent' : 'var(--border)'}`,
+              transition: 'background 0.2s',
+            }} />
+          ))}
+        </div>
+      </div>
+
+      {/* Plus button */}
+      <button
+        onClick={() => onAllocate(1)}
+        disabled={!canAdd}
+        style={{
+          width: 22, height: 22, borderRadius: 'var(--radius-sm)',
+          background: canAdd ? `color-mix(in srgb, ${color} 15%, transparent)` : 'transparent',
+          border: `1px solid ${canAdd ? color : 'var(--border)'}`,
+          color: canAdd ? color : 'var(--text-muted)',
+          cursor: canAdd ? 'pointer' : 'not-allowed',
+          opacity: canAdd ? 1 : 0.3,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0, padding: 0,
+        }}
+      >
+        <Plus size={10} />
+      </button>
+    </div>
+  );
+}
+
+function NodeEnhanceSection({ nodeId, node }: { nodeId: string; node: GameNode }) {
   const t = useT();
-  const [upgradeData, setUpgradeData] = useState<any>(null);
-  const [upgrading, setUpgrading] = useState(false);
-  const [upgradeMsg, setUpgradeMsg] = useState('');
+  const [data, setData] = useState<any>(null);
+  const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
+  const fetchData = () => {
     axios.get(`/api/node/upgrades?nodeId=${nodeId}`)
-      .then(r => setUpgradeData(r.data))
+      .then(r => setData(r.data))
       .catch(() => {});
-  }, [nodeId, node.data.upgradeLevel, node.data.nodeXp]);
+  };
 
-  const handleUpgrade = async () => {
-    setUpgrading(true);
+  useEffect(() => { fetchData(); }, [nodeId, node.data.upgradeLevel, node.data.nodeXp, node.data.enhancementPoints, node.data.statAlloc]);
+
+  const handleAllocate = async (statKey: string, delta: number) => {
+    setBusy(true);
     try {
-      const res = await axios.post('/api/node/upgrade', { nodeId });
-      setUpgradeMsg(`Upgraded to ${res.data.name}!`);
-      setTimeout(() => setUpgradeMsg(''), 2000);
-    } catch (err: any) {
-      setUpgradeMsg(err.response?.data?.error || 'Upgrade failed');
-      setTimeout(() => setUpgradeMsg(''), 2000);
-    } finally {
-      setUpgrading(false);
+      await axios.post('/api/node/stat/allocate', { nodeId, statKey, delta });
+    } catch {} finally {
+      setBusy(false);
     }
   };
 
-  if (!upgradeData) return null;
-  const { currentLevel, maxLevel, levels } = upgradeData;
-  const nextLevel = levels?.find((l: any) => l.level === currentLevel + 1);
-  const chipSlots = node.data.chipSlots || 0;
-  const installedChips = node.data.installedChips || [];
+  if (!data) return null;
+  const { statDefs, statAlloc, availablePoints, enhancementPoints } = data;
+  if (!statDefs || statDefs.length === 0) return null;
 
   return (
     <>
       <Divider />
-
-      {/* Upgrade */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <SectionLabel>Upgrade</SectionLabel>
+          <SectionLabel>{t('ui.enhance')}</SectionLabel>
           <span style={{
             fontSize: 10, fontWeight: 800, fontFamily: 'var(--font-mono)',
             padding: '2px 8px', borderRadius: 'var(--radius-sm)',
-            background: currentLevel >= maxLevel ? 'rgba(245,158,11,0.15)' : 'var(--accent-dim)',
-            color: currentLevel >= maxLevel ? '#f59e0b' : 'var(--accent)',
-            border: `1px solid ${currentLevel >= maxLevel ? 'rgba(245,158,11,0.25)' : 'rgba(0,212,170,0.25)'}`,
+            background: availablePoints > 0 ? 'var(--accent-dim)' : 'var(--bg-elevated)',
+            color: availablePoints > 0 ? 'var(--accent)' : 'var(--text-muted)',
+            border: `1px solid ${availablePoints > 0 ? 'var(--accent)' : 'var(--border)'}`,
           }}>
-            {currentLevel >= maxLevel ? 'MAX' : `LV.${currentLevel}`}
+            {availablePoints} / {enhancementPoints} EP
           </span>
         </div>
 
-        {nextLevel && (
+        {availablePoints > 0 && (
           <div style={{
-            padding: '10px 12px', borderRadius: 'var(--radius-md)',
-            background: 'var(--bg-primary)', border: '1px solid var(--border)',
+            fontSize: 10, color: 'var(--accent)', fontFamily: 'var(--font-mono)',
+            padding: '4px 8px', borderRadius: 'var(--radius-sm)',
+            background: 'var(--accent-dim)', textAlign: 'center',
           }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-              {t('upgrade.' + toSnakeCase(nextLevel.name) + '.name') || nextLevel.name}
-            </div>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
-              {t('upgrade.' + toSnakeCase(nextLevel.name) + '.desc') || nextLevel.description}
-            </div>
-            <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-              <CostBadge cost={nextLevel.cost} />
-            </div>
+            {t('ui.ep_available').replace('{n}', String(availablePoints))}
           </div>
         )}
 
-        {nextLevel && (
-          <ActionButton onClick={handleUpgrade} disabled={upgrading || !nextLevel.affordable || !nextLevel.xpReady}>
-            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-              <ArrowUp size={12} />
-              {upgrading
-                ? 'UPGRADING...'
-                : !nextLevel.xpReady
-                  ? 'NODE EXP NOT READY'
-                  : nextLevel.affordable
-                    ? `UPGRADE TO LV.${nextLevel.level}`
-                    : 'INSUFFICIENT RESOURCES'}
-            </span>
-          </ActionButton>
-        )}
-
-        {upgradeMsg && <StatusMessage msg={upgradeMsg} />}
+        {statDefs.map((stat: any) => {
+          const current = statAlloc[stat.key] || 0;
+          const statName = t(`stat.${stat.key}.name`);
+          return (
+            <StatRow
+              key={stat.key}
+              statKey={stat.key}
+              name={statName === `stat.${stat.key}.name` ? stat.name : statName}
+              current={current}
+              max={stat.maxPoints}
+              canAdd={availablePoints > 0 && current < stat.maxPoints && !busy}
+              canSub={current > 0 && !busy}
+              onAllocate={(d) => handleAllocate(stat.key, d)}
+            />
+          );
+        })}
       </div>
-
     </>
   );
 }
@@ -214,6 +284,7 @@ export function NodeDetailPanel() {
   const [deployOpen, setDeployOpen] = useState(false);
   const [activeDialog, setActiveDialog] = useState<NodeDialogConfig | null>(null);
   const t = useT();
+  const tn = (label: string) => { const k = `n.${label}`; const v = t(k); return v === k ? label : v; };
 
   const node = nodes.find((n: any) => n.id === selectedNodeId);
 
@@ -323,65 +394,55 @@ if (n.type === 'cache') return '#a78bfa';
               background: `linear-gradient(90deg, transparent, ${getNodeColor(node)}, transparent)`,
             }} />
 
-            {/* Header */}
+            {/* Header: type label + name (id) + close */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                {/* Node type icon */}
-                {(() => {
-                  const NodeIcon = NODE_TYPE_ICONS[node.type] || Box;
-                  return (
-                    <div style={{
-                      width: 36, height: 36, borderRadius: 'var(--radius-sm)',
-                      background: `color-mix(in srgb, ${getNodeColor(node)} 12%, transparent)`,
-                      border: `1px solid color-mix(in srgb, ${getNodeColor(node)} 25%, transparent)`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0, marginTop: 2,
-                    }}>
-                      <NodeIcon size={18} style={{ color: getNodeColor(node) }} />
-                    </div>
-                  );
-                })()}
-                <div>
-                  <div style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: getNodeColor(node),
-                    fontFamily: 'var(--font-mono)',
-                    letterSpacing: '0.12em',
-                    textTransform: 'uppercase',
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+                {/* Type row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {(() => {
+                    const NodeIcon = NODE_TYPE_ICONS[node.type] || Box;
+                    return <NodeIcon size={12} style={{ color: getNodeColor(node), flexShrink: 0 }} />;
+                  })()}
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, color: getNodeColor(node),
+                    fontFamily: 'var(--font-mono)', letterSpacing: '0.12em', textTransform: 'uppercase',
                   }}>
                     {node.type}
-                  </div>
-                  <div style={{
-                    fontSize: 18,
-                    fontWeight: 800,
-                    color: 'var(--text-primary)',
+                  </span>
+                </div>
+                {/* Name (id) row */}
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  {(() => {
+                    const NodeIcon = NODE_TYPE_ICONS[node.type] || Box;
+                    return <NodeIcon size={16} style={{ color: getNodeColor(node), flexShrink: 0, position: 'relative', top: 2 }} />;
+                  })()}
+                  <span style={{
+                    fontSize: 18, fontWeight: 800, color: 'var(--text-primary)',
                     fontFamily: 'var(--font-mono)',
-                    marginTop: 2,
                   }}>
-                    {node.data.label}
-                  </div>
+                    {tn(node.data.label)}
+                  </span>
+                  <span style={{
+                    fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)',
+                  }}>
+                    ({node.id})
+                  </span>
                 </div>
               </div>
               <button
                 onClick={() => selectNode(null)}
                 style={{
-                  color: 'var(--text-muted)',
-                  background: 'var(--bg-elevated)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-sm)',
-                  cursor: 'pointer',
-                  padding: 4,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  color: 'var(--text-muted)', background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer', padding: 4, display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 }}
               >
                 <X size={14} />
               </button>
             </div>
 
-            {/* Node XP */}
+            {/* Level + XP bar */}
             {(() => {
               const nodeXp = node.data.nodeXp || 0;
               const nodeXpToNext = node.data.nodeXpToNext || 0;
@@ -391,57 +452,32 @@ if (n.type === 'cache') return '#a78bfa';
               const xpFull = hasXpSystem && nodeXp >= nodeXpToNext;
               const isMax = !hasXpSystem;
 
-              // Hide for locked nodes, and for unlocked nodes with no upgrade path
               if (!node.data.unlocked && node.id !== 'hub') return null;
               if (isMax && upgradeLevel === 0) return null;
 
               return (
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '6px 10px', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                }}>
-                  <Zap size={12} style={{ color: '#00d4aa', flexShrink: 0 }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ fontSize: 11, fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#00d4aa' }}>
-                        Lv.{upgradeLevel}
-                      </span>
-                      <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                        {isMax ? 'MAX' : xpFull ? 'READY' : `${Math.floor(xpPercent)}%`}
-                      </span>
-                    </div>
-                    <div style={{ width: '100%', height: 3, background: 'var(--bg-primary)', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{
-                        width: `${isMax ? 100 : xpPercent}%`,
-                        height: '100%',
-                        background: isMax ? '#f59e0b' : '#00d4aa',
-                        borderRadius: 2,
-                        transition: 'width 0.3s ease',
-                      }} />
-                    </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--accent)', flexShrink: 0 }}>
+                    {t('ui.lv').replace('{level}', String(upgradeLevel))}
+                  </span>
+                  <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', flexShrink: 0 }}>
+                    {isMax ? t('ui.max') : xpFull ? 'READY' : ''}
+                  </span>
+                  <div style={{ flex: 1, height: 4, background: 'var(--bg-primary)', borderRadius: 2, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                    <div style={{
+                      width: `${isMax ? 100 : xpPercent}%`,
+                      height: '100%',
+                      background: isMax ? '#f59e0b' : 'var(--accent)',
+                      borderRadius: 2,
+                      transition: 'width 0.3s ease',
+                    }} />
                   </div>
-                  {hasXpSystem && (
-                    <span style={{ fontSize: 8, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', flexShrink: 0 }}>
-                      {nodeXp}/{nodeXpToNext}
-                    </span>
-                  )}
+                  <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', flexShrink: 0 }}>
+                    {hasXpSystem ? `${nodeXp}/${nodeXpToNext}` : ''}
+                  </span>
                 </div>
               );
             })()}
-
-            {/* Node ID badge */}
-            <div style={{
-              fontSize: 12,
-              padding: '5px 10px',
-              borderRadius: 'var(--radius-sm)',
-              background: 'var(--bg-primary)',
-              border: '1px solid var(--border)',
-              color: 'var(--text-muted)',
-              fontFamily: 'var(--font-mono)',
-            }}>
-              id: <span style={{ color: 'var(--text-secondary)' }}>{node.id}</span>
-            </div>
 
             {/* Infected warning */}
             {(node.type === 'infected' || node.data.infected) && (
@@ -504,7 +540,7 @@ if (n.type === 'cache') return '#a78bfa';
             {/* Resource info */}
             {node.type === 'resource' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <SectionLabel>Resource</SectionLabel>
+                <SectionLabel>{t('ui.resource')}</SectionLabel>
                 <div style={{ display: 'flex', gap: 16 }}>
                   <div>
                     <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Type</div>
@@ -518,7 +554,7 @@ if (n.type === 'cache') return '#a78bfa';
                 {node.data.mineable && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
                     <Pickaxe size={11} style={{ color: 'var(--text-muted)' }} />
-                    <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>mineable</span>
+                    <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{t('ui.mineable')}</span>
                   </div>
                 )}
               </div>
@@ -689,7 +725,7 @@ if (n.type === 'cache') return '#a78bfa';
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {node.data.unlocked && node.type === 'resource' && (
                 <>
-                  <SectionLabel>Actions</SectionLabel>
+                  <SectionLabel>{t('ui.actions')}</SectionLabel>
                   <ActionButton onClick={handleGather} disabled={gathering}>
                     <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                       <MousePointer size={12} />
@@ -709,7 +745,7 @@ if (n.type === 'cache') return '#a78bfa';
                   >
                     <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                       <Lock size={12} />
-                      {unlocking ? 'UNLOCKING...' : canAffordUnlock(node.data.unlockCost) ? t('node.unlock') : 'INSUFFICIENT RESOURCES'}
+                      {unlocking ? 'UNLOCKING...' : canAffordUnlock(node.data.unlockCost) ? t('node.unlock') : t('ui.insufficient')}
                     </span>
                   </ActionButton>
                 </>
@@ -730,7 +766,7 @@ if (n.type === 'cache') return '#a78bfa';
                         disabled={building || !canAffordUnlock(cost)}
                       >
                         <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                          {building ? 'BUILDING...' : canAffordUnlock(cost) ? `BUILD ${type.toUpperCase()}` : 'INSUFFICIENT RESOURCES'}
+                          {building ? 'BUILDING...' : canAffordUnlock(cost) ? `BUILD ${type.toUpperCase()}` : t('ui.insufficient')}
                         </span>
                       </ActionButton>
                     </div>
@@ -743,7 +779,7 @@ if (n.type === 'cache') return '#a78bfa';
 
             {/* Upgrade + Chip section (unlocked nodes only) */}
             {(node.id === 'hub' || node.data.unlocked) && (
-              <NodeUpgradeSection nodeId={node.id} node={node} />
+              <NodeEnhanceSection nodeId={node.id} node={node} />
             )}
 
             {/* Deploy button */}
@@ -775,7 +811,7 @@ if (n.type === 'cache') return '#a78bfa';
         {deployOpen && node && (
           <DeployDialog
             nodeId={node.id}
-            nodeName={node.data.label}
+            nodeName={tn(node.data.label)}
             onClose={() => setDeployOpen(false)}
           />
         )}
