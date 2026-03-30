@@ -481,6 +481,11 @@ export const ja: Record<string, string> = {
   'stat.defense.name':   '防御力',
   'stat.chipSlots.name': 'チップスロット',
 
+  'ui.ground_items':     '地面アイテム',
+  'ui.inventory_label':  'インベントリ',
+  'ui.empty':            '空',
+  'ui.expand':           '展開',
+
   // === Node Labels ===
   'n.Hub': 'ハブ',
   'n.Data Mine Nano': 'データ鉱山 Nano',

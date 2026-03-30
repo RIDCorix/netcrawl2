@@ -8,7 +8,7 @@ import {
   addWorkerLog, getWorkerLogs,
   INITIAL_NODES, INITIAL_EDGES, INITIAL_RESOURCES, INITIAL_PLAYER_INVENTORY,
   RECIPES, Recipe, Chip,
-  getPlayerInventory, addToPlayerInventory, removeFromPlayerInventory, getItemEfficiency,
+  getPlayerInventory, addToPlayerInventory, removeFromPlayerInventory, getItemEfficiency, getCpuComputePoints, getRamCapacityBonus, getItemComputeCost,
   getPlayerChips, addPlayerChip, removePlayerChip,
   getLayerManager, isLayerUnlocked, switchActiveLayer, getStat,
 } from './db.js';
@@ -173,18 +173,49 @@ router.post('/deploy', async (req: Request, res: Response) => {
   const node = state.nodes.find((n: any) => n.id === nodeId);
   if (!node) return res.status(404).json({ error: 'Node not found' });
 
-  // Handle equipped pickaxe — deduct from inventory
+  // Handle CPU modules — deduct N from inventory, sum compute points
+  const cpuCount: number = Number(equippedItems?.cpuCount) || 0;
+  const cpuItemType: string = equippedItems?.cpuType || 'cpu_basic';
+  let equippedCpu: { itemType: string; computePoints: number; count: number } | null = null;
+  if (cpuCount > 0) {
+    const removed = removeFromPlayerInventory(cpuItemType, cpuCount);
+    if (!removed) return res.status(400).json({ error: `Not enough ${cpuItemType} (need ${cpuCount})` });
+    equippedCpu = { itemType: cpuItemType, computePoints: getCpuComputePoints(cpuItemType) * cpuCount, count: cpuCount };
+  }
+
+  // Handle RAM modules — deduct N from inventory, sum capacity
+  const ramCount: number = Number(equippedItems?.ramCount) || 0;
+  const ramItemType: string = equippedItems?.ramType || 'ram_basic';
+  let equippedRam: { itemType: string; capacityBonus: number; count: number } | null = null;
+  if (ramCount > 0) {
+    const removed = removeFromPlayerInventory(ramItemType, ramCount);
+    if (!removed) {
+      if (equippedCpu) addToPlayerInventory(equippedCpu.itemType, equippedCpu.count);
+      return res.status(400).json({ error: `Not enough ${ramItemType} (need ${ramCount})` });
+    }
+    equippedRam = { itemType: ramItemType, capacityBonus: getRamCapacityBonus(ramItemType) * ramCount, count: ramCount };
+  }
+
+  // Handle equipped pickaxe — deduct from inventory, check compute budget
   let equippedPickaxe: { itemType: string; efficiency: number } | null = null;
   const pickaxeItemType = equippedItems?.pickaxe;
   if (pickaxeItemType) {
+    const baseCompute = 1;
+    const totalCompute = baseCompute + (equippedCpu?.computePoints || 0);
+    // Sum compute costs of all equipped items
+    let totalCost = getItemComputeCost(pickaxeItemType);
+    if (totalCost > totalCompute) {
+      if (equippedCpu) addToPlayerInventory(equippedCpu.itemType, equippedCpu.count);
+      if (equippedRam) addToPlayerInventory(equippedRam.itemType, equippedRam.count);
+      return res.status(400).json({ error: `Not enough compute (need ${totalCost}, have ${totalCompute}). Add more CPU.` });
+    }
     const removed = removeFromPlayerInventory(pickaxeItemType, 1);
     if (!removed) {
+      if (equippedCpu) addToPlayerInventory(equippedCpu.itemType, equippedCpu.count);
+      if (equippedRam) addToPlayerInventory(equippedRam.itemType, equippedRam.count);
       return res.status(400).json({ error: `Not enough ${pickaxeItemType} in inventory` });
     }
-    equippedPickaxe = {
-      itemType: pickaxeItemType,
-      efficiency: getItemEfficiency(pickaxeItemType),
-    };
+    equippedPickaxe = { itemType: pickaxeItemType, efficiency: getItemEfficiency(pickaxeItemType) };
   }
 
   const workerId = `worker_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -221,6 +252,8 @@ router.post('/deploy', async (req: Request, res: Response) => {
     deployed_at: new Date().toISOString(),
     holding: null,
     equippedPickaxe,
+    equippedCpu,
+    equippedRam,
   });
 
   // Queue for code server

@@ -191,7 +191,8 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const rate = Math.floor((baseRate + rateBonus) * harvestMult);
       const carrying = { ...worker.carrying } as Record<string, number>;
       const totalCarrying = Object.values(carrying).reduce((a, b) => a + b, 0);
-      const capacityBonus = (chipEffects['capacity_bonus'] || 0) + (passiveEffects['global_capacity_bonus'] || 0);
+      const ramBonus = worker.equippedRam?.capacityBonus || 0;
+      const capacityBonus = ramBonus + (chipEffects['capacity_bonus'] || 0) + (passiveEffects['global_capacity_bonus'] || 0);
       const canCarry = Math.min(rate, (50 + capacityBonus) - totalCarrying);
       if (canCarry <= 0) return { ok: false, error: 'Carrying capacity full' };
 

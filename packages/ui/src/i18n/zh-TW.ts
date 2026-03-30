@@ -481,6 +481,11 @@ export const zhTW: Record<string, string> = {
   'stat.defense.name':   '防禦力',
   'stat.chipSlots.name': '晶片槽',
 
+  'ui.ground_items':     '地面物品',
+  'ui.inventory_label':  '背包',
+  'ui.empty':            '空',
+  'ui.expand':           '展開',
+
   // === Node Labels ===
   'n.Hub': '基地',
   'n.Data Mine Nano': '資料礦場 Nano',

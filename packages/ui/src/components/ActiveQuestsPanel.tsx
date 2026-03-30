@@ -30,18 +30,36 @@ export function ActiveQuestsPanel() {
   }, [questSummary]);
 
   const [claimedIds, setClaimedIds] = useState<Set<string>>(new Set());
+  // Snapshot quests that are mid-animation so they don't vanish on refetch
+  const [claimedSnapshots, setClaimedSnapshots] = useState<Record<string, any>>({});
 
   const handleClaim = useCallback(async (questId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    // Snapshot the quest data before claiming
+    const quest = quests.find(q => q.id === questId);
+    if (quest) {
+      setClaimedSnapshots(prev => ({ ...prev, [questId]: quest }));
+    }
     try {
       await axios.post(`/api/quests/${questId}/claim`);
       setClaimedIds(prev => new Set([...prev, questId]));
-      // Remove after animation completes
-      setTimeout(() => setClaimedIds(prev => { const n = new Set(prev); n.delete(questId); return n; }), 1500);
+      // Remove after sweep (0.3s) + hold (0.4s) + collapse (0.3s) + buffer
+      setTimeout(() => {
+        setClaimedIds(prev => { const n = new Set(prev); n.delete(questId); return n; });
+        setClaimedSnapshots(prev => { const n = { ...prev }; delete n[questId]; return n; });
+      }, 1300);
     } catch {}
-  }, []);
+  }, [quests]);
 
-  if (quests.length === 0) return null;
+  // Merge: show fetched quests + any claimed snapshots still animating
+  const displayQuests = [...quests];
+  for (const [id, snap] of Object.entries(claimedSnapshots)) {
+    if (!displayQuests.find(q => q.id === id)) {
+      displayQuests.push(snap);
+    }
+  }
+
+  if (displayQuests.length === 0) return null;
 
   return (
     <>
@@ -82,7 +100,7 @@ export function ActiveQuestsPanel() {
               background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.25)',
               color: '#60a5fa', fontFamily: 'var(--font-mono)',
             }}>
-              {quests.length}
+              {quests.length /* don't count snapshots in badge */}
             </span>
           </div>
           {collapsed ? <ChevronRight size={11} style={{ color: 'var(--text-muted)' }} /> : <ChevronDown size={11} style={{ color: 'var(--text-muted)' }} />}
@@ -96,7 +114,7 @@ export function ActiveQuestsPanel() {
               style={{ overflow: 'hidden' }}
             >
               <div style={{ padding: '6px 4px', overflowY: 'auto', maxHeight: 'calc(50vh - 130px)' }}>
-                {quests.map(q => {
+                {displayQuests.map(q => {
                   const color = CHAPTER_COLORS[q.chapter] || '#9ca3af';
                   const allMet = q.objectives.every((o: any) => o.met);
                   const progress = q.objectives.length > 0
@@ -109,63 +127,53 @@ export function ActiveQuestsPanel() {
                     <motion.div
                       key={q.id}
                       layout
-                      initial={{ opacity: 1, x: 0 }}
-                      animate={justClaimed ? { opacity: 0, x: -60, scale: 0.9 } : { opacity: 1, x: 0, scale: 1 }}
-                      transition={justClaimed ? { duration: 0.5, delay: 0.6 } : { duration: 0.15 }}
+                      initial={{ opacity: 1, height: 'auto' }}
+                      animate={justClaimed
+                        ? { height: 0, opacity: 0, marginBottom: 0 }
+                        : { height: 'auto', opacity: 1 }}
+                      transition={justClaimed
+                        ? { height: { duration: 0.3, delay: 0.7, ease: 'easeInOut' }, opacity: { duration: 0.15, delay: 0.85 }, marginBottom: { duration: 0.3, delay: 0.7 } }
+                        : { duration: 0.15 }}
+                      style={{ overflow: 'hidden', position: 'relative' }}
                     >
                       <button
                         onClick={() => !justClaimed && setSelectedQuest(q)}
                         style={{
                           width: '100%', display: 'flex', alignItems: 'center', gap: 8,
                           padding: '6px 8px', marginBottom: 2,
-                          background: justClaimed ? 'rgba(74,222,128,0.08)' : 'none',
-                          border: justClaimed ? '1px solid rgba(74,222,128,0.2)' : 'none',
+                          background: 'none', border: 'none',
                           borderRadius: 'var(--radius-sm)',
                           cursor: justClaimed ? 'default' : 'pointer', textAlign: 'left',
-                          transition: 'all 0.3s',
+                          transition: 'background 0.15s',
                         }}
                         onMouseEnter={e => { if (!justClaimed) e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
                         onMouseLeave={e => { if (!justClaimed) e.currentTarget.style.background = 'transparent'; }}
                       >
                         {/* Status indicator */}
-                        <motion.div
-                          animate={justClaimed ? { scale: [1, 1.4, 1], rotate: [0, 360] } : {}}
-                          transition={{ duration: 0.5 }}
-                          style={{
-                            width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            background: justClaimed ? 'rgba(74,222,128,0.2)' : allMet ? `${color}20` : 'var(--bg-primary)',
-                            border: `1.5px solid ${justClaimed ? '#4ade80' : allMet ? color : 'var(--border)'}`,
-                          }}
-                        >
-                          {justClaimed ? <Check size={10} style={{ color: '#4ade80' }} /> : allMet ? <Gift size={9} style={{ color }} /> : null}
-                        </motion.div>
+                        <div style={{
+                          width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: allMet ? `${color}20` : 'var(--bg-primary)',
+                          border: `1.5px solid ${allMet ? color : 'var(--border)'}`,
+                        }}>
+                          {allMet ? <Gift size={9} style={{ color }} /> : null}
+                        </div>
 
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{
                             fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)',
-                            color: justClaimed ? '#4ade80' : 'var(--text-primary)',
+                            color: 'var(--text-primary)',
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                            textDecoration: justClaimed ? 'line-through' : 'none',
                           }}>
                             {q.name}
                           </div>
-                          {!justClaimed && (
-                            <div style={{ height: 2, borderRadius: 1, background: 'var(--bg-primary)', marginTop: 3, overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${progress * 100}%`, background: color, borderRadius: 1, transition: 'width 0.3s' }} />
-                            </div>
-                          )}
+                          <div style={{ height: 2, borderRadius: 1, background: 'var(--bg-primary)', marginTop: 3, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${progress * 100}%`, background: color, borderRadius: 1, transition: 'width 0.3s' }} />
+                          </div>
                         </div>
 
-                        {/* Claim button / claimed state / chapter badge */}
-                        {justClaimed ? (
-                          <motion.span
-                            initial={{ scale: 0 }} animate={{ scale: 1 }}
-                            style={{ fontSize: 9, fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#4ade80', flexShrink: 0 }}
-                          >
-                            {t('ui.claimed')}
-                          </motion.span>
-                        ) : allMet && q.status === 'completed' ? (
+                        {/* Claim button / chapter badge */}
+                        {allMet && q.status === 'completed' && !justClaimed ? (
                           <span
                             role="button"
                             onClick={(e) => handleClaim(q.id, e)}
@@ -179,12 +187,38 @@ export function ActiveQuestsPanel() {
                           >
                             <Gift size={8} /> {t('ui.claim')}
                           </span>
-                        ) : (
+                        ) : !justClaimed ? (
                           <span style={{ fontSize: 8, color, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
                             Ch.{q.chapter}
                           </span>
-                        )}
+                        ) : null}
                       </button>
+
+                      {/* COMPLETED sweep overlay */}
+                      <AnimatePresence>
+                        {justClaimed && (
+                          <motion.div
+                            initial={{ clipPath: 'inset(0 100% 0 0)' }}
+                            animate={{ clipPath: 'inset(0 0% 0 0)' }}
+                            transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
+                            style={{
+                              position: 'absolute', inset: 0,
+                              borderRadius: 'var(--radius-sm)',
+                              background: 'var(--bg-elevated)',
+                              border: '1px solid rgba(74,222,128,0.4)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                            }}
+                          >
+                            <Check size={12} style={{ color: '#4ade80' }} />
+                            <span style={{
+                              fontSize: 11, fontWeight: 800, fontFamily: 'var(--font-mono)',
+                              color: '#4ade80', letterSpacing: '0.12em',
+                            }}>
+                              COMPLETED
+                            </span>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </motion.div>
                   );
                 })}

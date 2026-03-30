@@ -481,6 +481,11 @@ export const en: Record<string, string> = {
   'stat.defense.name':   'Defense',
   'stat.chipSlots.name': 'Chip Slots',
 
+  'ui.ground_items':     'GROUND ITEMS',
+  'ui.inventory_label':  'INVENTORY',
+  'ui.empty':            'Empty',
+  'ui.expand':           'Expand',
+
   // === Node Labels ===
   'n.Hub': 'Hub',
   'n.Data Mine Nano': 'Data Mine Nano',

@@ -1,7 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Database, Cpu, Star, Wifi, WifiOff, ShieldAlert, Activity, Package, Trophy, BookOpen, Settings, Zap, Layers } from 'lucide-react';
+import { Database, Cpu, Star, Wifi, WifiOff, ShieldAlert, Activity, Package, Trophy, BookOpen, Settings, Zap, Layers, X } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useRef, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useT } from '../hooks/useT';
 
 function formatBytes(n: number): string {
@@ -33,14 +34,12 @@ function ResourceItem({ icon: Icon, value, label, color, prevValue, formatFn, to
     }
   }, [value]);
 
-  // Close tooltip on outside click
+  // Close dialog on Escape key
   useEffect(() => {
     if (!showTooltip) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setShowTooltip(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowTooltip(false); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
   }, [showTooltip]);
 
   return (
@@ -97,39 +96,69 @@ function ResourceItem({ icon: Icon, value, label, color, prevValue, formatFn, to
         )}
       </AnimatePresence>
 
-      {/* Tooltip on click */}
-      <AnimatePresence>
-        {showTooltip && tooltip && (
+      {/* Resource info dialog — rendered via portal to avoid z-index issues */}
+      {showTooltip && tooltip && createPortal(
+        <AnimatePresence>
           <motion.div
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 4 }}
-            transition={{ duration: 0.15 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowTooltip(false)}
             style={{
-              position: 'absolute',
-              top: 'calc(100% + 8px)',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              padding: '8px 12px',
-              borderRadius: 'var(--radius-sm)',
-              background: 'var(--bg-glass-heavy)',
-              backdropFilter: 'blur(16px)',
-              border: '1px solid var(--border-bright)',
-              fontSize: 10,
-              fontFamily: 'var(--font-mono)',
-              color: 'var(--text-secondary)',
-              lineHeight: 1.6,
-              whiteSpace: 'pre-line',
-              width: 200,
-              zIndex: 100,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+              position: 'fixed', inset: 0, zIndex: 200,
+              background: 'rgba(0,0,0,0.4)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           >
-            <div style={{ fontWeight: 700, color, marginBottom: 4, fontSize: 11 }}>{label}</div>
-            {tooltip}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              onClick={e => e.stopPropagation()}
+              style={{
+                width: 280, padding: '16px 20px',
+                borderRadius: 'var(--radius-lg)',
+                background: 'var(--bg-glass-heavy)',
+                backdropFilter: 'blur(24px)',
+                border: '1px solid var(--border-bright)',
+                fontFamily: 'var(--font-mono)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+              }}
+            >
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Icon size={18} style={{ color }} />
+                  <span style={{ fontWeight: 800, color, fontSize: 14 }}>{label}</span>
+                </div>
+                <button onClick={() => setShowTooltip(false)} style={{
+                  background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)', padding: 3, cursor: 'pointer',
+                  color: 'var(--text-muted)', display: 'flex',
+                }}>
+                  <X size={12} />
+                </button>
+              </div>
+              {/* Value */}
+              <div style={{
+                fontSize: 24, fontWeight: 800, color: 'var(--text-primary)',
+                marginBottom: 12, fontVariantNumeric: 'tabular-nums',
+              }}>
+                {formatFn ? formatFn(value ?? 0) : (value ?? 0).toLocaleString()}
+              </div>
+              {/* Description */}
+              <div style={{
+                fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.7,
+                whiteSpace: 'pre-line',
+              }}>
+                {tooltip}
+              </div>
+            </motion.div>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
     </motion.div>
   );
 }

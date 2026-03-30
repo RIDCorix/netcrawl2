@@ -58,7 +58,7 @@ export interface GameEdge {
 
 export interface InventoryItem {
   id: string;
-  itemType: 'pickaxe_basic' | 'pickaxe_iron' | 'pickaxe_diamond' | 'shield' | 'beacon' | 'data_fragment' | 'rp_shard';
+  itemType: 'pickaxe_basic' | 'pickaxe_iron' | 'pickaxe_diamond' | 'shield' | 'beacon' | 'data_fragment' | 'rp_shard' | 'chip_pack_basic' | 'chip_pack_premium' | 'scanner' | 'signal_booster' | 'overclock_kit' | 'antivirus_module' | 'memory_allocator' | 'fullstack_pickaxe' | 'cpu_basic' | 'cpu_advanced' | 'ram_basic' | 'ram_advanced';
   count: number;
   metadata?: {
     efficiency?: number;

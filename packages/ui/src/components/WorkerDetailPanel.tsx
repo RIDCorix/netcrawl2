@@ -1,9 +1,11 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, PauseCircle, Square, MapPin, Clock, Pickaxe, Package } from 'lucide-react';
+import { X, PauseCircle, Square, MapPin, Clock, Pickaxe, Package, Database, Cpu, Star, MemoryStick, Maximize2 } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { CLASS_COLORS } from '../constants/colors';
+import { InvCell } from './ui/InvCell';
 import { getWorkerIcon } from '../constants/workerIcons';
 import { getStatusConfig } from '../constants/status';
 import { useT } from '../hooks/useT';
@@ -14,6 +16,7 @@ export function WorkerDetailPanel() {
   const tn = (label: string) => { const k = `n.${label}`; const v = t(k); return v === k ? label : v; };
   const [logs, setLogs] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
+  const [logDialogOpen, setLogDialogOpen] = useState(false);
 
   const worker = workers.find(w => w.id === selectedWorkerId);
   const workerNode = worker ? nodes.find(n => n.id === worker.current_node) : null;
@@ -49,6 +52,7 @@ export function WorkerDetailPanel() {
   };
 
   return (
+    <>
     <AnimatePresence>
       {selectedWorkerId && worker && (
         <motion.div
@@ -162,35 +166,38 @@ export function WorkerDetailPanel() {
               </div>
             )}
 
-            {worker.holding && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Package size={12} style={{ color: 'var(--accent)' }} />
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{t('ui.holding')}</span>
-                <span style={{ fontSize: 11, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>
-                  {worker.holding.amount}× {worker.holding.type}
-                </span>
-              </div>
-            )}
           </div>
 
           {/* Divider */}
           <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, var(--border-bright), transparent)' }} />
 
-          {/* Logs */}
+          {/* Logs — compact with expand button */}
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em', marginBottom: 8 }}>
-              {t('ui.logs')}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>
+                {t('ui.logs')} {logs.length > 0 && <span style={{ fontWeight: 600, opacity: 0.5 }}>({logs.length})</span>}
+              </div>
+              {logs.length > 0 && (
+                <button onClick={() => setLogDialogOpen(true)} style={{
+                  background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)', padding: '2px 6px', cursor: 'pointer',
+                  color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3,
+                  fontSize: 9, fontFamily: 'var(--font-mono)',
+                }}>
+                  <Maximize2 size={9} /> {t('ui.expand')}
+                </button>
+              )}
             </div>
             <div style={{
               background: 'var(--bg-primary)', border: '1px solid var(--border)',
               borderRadius: 'var(--radius-sm)', padding: 10,
-              maxHeight: 200, overflowY: 'auto', minHeight: 60,
+              maxHeight: 120, overflowY: 'auto', minHeight: 40,
             }}>
               {logs.length === 0 ? (
                 <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{t('ui.no_logs')}</div>
-              ) : logs.map((log, i) => (
+              ) : logs.slice(-20).map((log, i) => (
                 <div key={i} style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 2 }}>
-                  <span style={{ color: 'rgba(255,255,255,0.12)' }}>{new Date(log.created_at).toLocaleTimeString()} </span>
+                  <span style={{ color: 'var(--text-muted)', opacity: 0.5 }}>{new Date(log.created_at).toLocaleTimeString()} </span>
                   <span style={{
                     color: log.message.includes('[ERROR]') ? 'var(--danger)'
                          : log.message.includes('[WARN]') ? '#facc15'
@@ -202,6 +209,59 @@ export function WorkerDetailPanel() {
               ))}
             </div>
           </div>
+
+          {/* Worker Inventory Grid — below logs */}
+          {(() => {
+            const items: { type: string; count: number }[] = [];
+            if (worker.holding) items.push({ type: worker.holding.type, count: worker.holding.amount });
+            const carrying = worker.carrying || {};
+            if ((carrying as any).data > 0) items.push({ type: 'data', count: (carrying as any).data });
+            if ((carrying as any).rp > 0) items.push({ type: 'rp', count: (carrying as any).rp });
+            if ((carrying as any).credits > 0) items.push({ type: 'credits', count: (carrying as any).credits });
+
+            const baseCapacity = 1;
+            const ramBonus = (worker as any).equippedRam?.capacityBonus || 0;
+            const capacityLabel = ramBonus > 0 ? `${baseCapacity}+${ramBonus}` : `${baseCapacity}`;
+            const totalItems = items.reduce((s, i) => s + i.count, 0);
+
+            const INV_ICONS: Record<string, any> = { data_fragment: Database, rp_shard: Cpu, data: Database, rp: Cpu, credits: Star };
+            const INV_COLORS: Record<string, string> = { data_fragment: '#45aaf2', rp_shard: '#a78bfa', data: 'var(--data-color)', rp: 'var(--rp-color)', credits: 'var(--credits-color)' };
+            const INV_LABELS: Record<string, string> = { data_fragment: 'Data Fragment', rp_shard: 'RP Shard', data: 'Data', rp: 'RP', credits: 'Credits' };
+
+            return (
+              <>
+                <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, var(--border-bright), transparent)' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Package size={11} style={{ color: 'var(--text-muted)' }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>
+                      {t('ui.inventory_label')}
+                    </span>
+                    <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                      ({totalItems}/{capacityLabel})
+                    </span>
+                  </div>
+                  {items.length === 0 ? (
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', padding: '4px 0', textAlign: 'center' }}>
+                      {t('ui.empty')}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 3 }}>
+                      {items.map(item => (
+                        <InvCell
+                          key={item.type}
+                          icon={INV_ICONS[item.type] || Package}
+                          color={INV_COLORS[item.type] || 'var(--text-muted)'}
+                          label={INV_LABELS[item.type] || item.type}
+                          count={item.count}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
 
           {/* Actions */}
           <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
@@ -243,5 +303,68 @@ export function WorkerDetailPanel() {
         </motion.div>
       )}
     </AnimatePresence>
+
+    {/* Log dialog — full-screen overlay */}
+    {logDialogOpen && createPortal(
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        onClick={() => setLogDialogOpen(false)}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 200,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 32,
+        }}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+          onClick={e => e.stopPropagation()}
+          style={{
+            width: '100%', maxWidth: 600, maxHeight: '80vh',
+            borderRadius: 'var(--radius-lg)',
+            background: 'var(--bg-glass-heavy)', backdropFilter: 'blur(24px)',
+            border: '1px solid var(--border-bright)',
+            display: 'flex', flexDirection: 'column',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+          }}
+        >
+          {/* Header */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '12px 16px', borderBottom: '1px solid var(--border)',
+          }}>
+            <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
+              {t('ui.logs')} — {worker?.class_name}
+            </span>
+            <button onClick={() => setLogDialogOpen(false)} style={{
+              background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)', padding: 4, cursor: 'pointer',
+              color: 'var(--text-muted)', display: 'flex',
+            }}>
+              <X size={12} />
+            </button>
+          </div>
+          {/* Log content */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
+            {logs.length === 0 ? (
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{t('ui.no_logs')}</div>
+            ) : logs.map((log, i) => (
+              <div key={i} style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 3, lineHeight: 1.5 }}>
+                <span style={{ color: 'var(--text-muted)', opacity: 0.5, marginRight: 8 }}>{new Date(log.created_at).toLocaleTimeString()}</span>
+                <span style={{
+                  color: log.message.includes('[ERROR]') ? 'var(--danger)'
+                       : log.message.includes('[WARN]') ? '#facc15'
+                       : 'var(--text-secondary)',
+                }}>
+                  {log.message}
+                </span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      </motion.div>,
+      document.body
+    )}
+    </>
   );
 }

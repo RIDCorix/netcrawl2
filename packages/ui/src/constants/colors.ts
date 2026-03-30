@@ -45,6 +45,8 @@ export const ITEM_LABELS: Record<string, string> = {
   scanner: 'Scanner', signal_booster: 'Signal Booster', overclock_kit: 'Overclock Kit',
   antivirus_module: 'Antivirus Module', memory_allocator: 'Memory Allocator',
   fullstack_pickaxe: 'Fullstack Pickaxe',
+  cpu_basic: 'CPU Module', cpu_advanced: 'CPU Module II',
+  ram_basic: 'RAM Module', ram_advanced: 'RAM Module II',
 };
 
 export const ITEM_COLORS: Record<string, string> = {
@@ -52,4 +54,6 @@ export const ITEM_COLORS: Record<string, string> = {
   shield: '#4ade80', beacon: '#00d4aa',
   data_fragment: '#45aaf2', rp_shard: '#a78bfa',
   chip_pack_basic: '#9ca3af', chip_pack_premium: '#f59e0b',
+  cpu_basic: '#f59e0b', cpu_advanced: '#f97316',
+  ram_basic: '#a78bfa', ram_advanced: '#8b5cf6',
 };

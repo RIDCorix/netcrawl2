@@ -4,6 +4,7 @@ import { useGameStore, GameNode, Resources } from '../store/gameStore';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { ChipSlotManager } from './ChipSlotManager';
+import { InvCell } from './ui/InvCell';
 import { NODE_DIALOG_REGISTRY, NodeDialogConfig, NodeInfoDialog } from './NodeInfoDialog';
 import { DeployDialog } from './DeployDialog';
 import { useT } from '../hooks/useT';
@@ -516,26 +517,7 @@ if (n.type === 'cache') return '#a78bfa';
               </div>
             )}
 
-            {/* Drops on node */}
-            {Array.isArray(node.data.drops) && node.data.drops.length > 0 && (
-              <div style={{
-                padding: '8px 12px',
-                borderRadius: 'var(--radius-sm)',
-                background: 'rgba(250,204,21,0.08)',
-                border: '1px solid rgba(250,204,21,0.25)',
-              }}>
-                <div style={{ fontSize: 10, fontWeight: 700, marginBottom: 4, color: '#facc15', fontFamily: 'var(--font-mono)' }}>
-                  DROPS ON GROUND ({node.data.drops.length})
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {node.data.drops.map((drop: any) => (
-                    <div key={drop.id} style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                      • {drop.type} ×{drop.amount}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Drops on node — shown as inventory grid at bottom of panel */}
 
             {/* Resource info */}
             {node.type === 'resource' && (
@@ -802,6 +784,47 @@ if (n.type === 'cache') return '#a78bfa';
                 <ChipSlotManager nodeId={node.id} chipSlots={node.data.chipSlots || 0} installedChips={node.data.installedChips || []} />
               </>
             )}
+
+            {/* Ground Items — inventory grid */}
+            {Array.isArray(node.data.drops) && node.data.drops.length > 0 && (() => {
+              // Aggregate drops by type
+              const dropCounts: Record<string, number> = {};
+              for (const d of node.data.drops) {
+                dropCounts[d.type] = (dropCounts[d.type] || 0) + d.amount;
+              }
+              const totalItems = Object.values(dropCounts).reduce((s, v) => s + v, 0);
+              const DROP_ICONS: Record<string, any> = { data_fragment: Database, rp_shard: Cpu };
+              const DROP_COLORS: Record<string, string> = { data_fragment: '#45aaf2', rp_shard: '#a78bfa' };
+              const DROP_LABELS: Record<string, string> = { data_fragment: 'Data', rp_shard: 'RP' };
+
+              return (
+                <>
+                  <Divider />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Box size={11} style={{ color: 'var(--text-muted)' }} />
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>
+                        {t('ui.ground_items')}
+                      </span>
+                      <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                        {totalItems}
+                      </span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 3 }}>
+                      {Object.entries(dropCounts).map(([type, count]) => (
+                        <InvCell
+                          key={type}
+                          icon={DROP_ICONS[type] || Box}
+                          color={DROP_COLORS[type] || 'var(--text-muted)'}
+                          label={DROP_LABELS[type] || type}
+                          count={count}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </motion.div>
         )}
       </AnimatePresence>

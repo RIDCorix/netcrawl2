@@ -17,9 +17,11 @@ export async function spawnWorker(options: {
   commitHash: string;
   workspacePath: string;
   equippedPickaxe?: { itemType: string; efficiency: number } | null;
+  equippedCpu?: { itemType: string; computePoints: number; count: number } | null;
+  equippedRam?: { itemType: string; capacityBonus: number; count: number } | null;
   injectedFields?: Record<string, any>;
 }): Promise<{ ok: boolean; error?: string; pid?: number }> {
-  const { workerId, nodeId, className, commitHash, workspacePath, equippedPickaxe, injectedFields } = options;
+  const { workerId, nodeId, className, commitHash, workspacePath, equippedPickaxe, equippedCpu, equippedRam, injectedFields } = options;
 
   // Resolve the worker script path
   const workersDir = path.join(workspacePath, 'workers');
@@ -71,6 +73,8 @@ export async function spawnWorker(options: {
     deployed_at: new Date().toISOString(),
     holding: null,
     equippedPickaxe: equippedPickaxe || null,
+    equippedCpu: equippedCpu || null,
+    equippedRam: equippedRam || null,
   });
 
   let child: ChildProcess;
@@ -137,6 +141,8 @@ export async function spawnWorker(options: {
       deployed_at: new Date().toISOString(),
       holding: null,
       equippedPickaxe: equippedPickaxe || null,
+      equippedCpu: equippedCpu || null,
+      equippedRam: equippedRam || null,
     });
   }
 
@@ -151,14 +157,12 @@ export async function spawnWorker(options: {
         return;
       }
       // Return equipped items to player inventory on exit
-      if (w.equippedPickaxe) {
-        addToPlayerInventory(w.equippedPickaxe.itemType, 1);
-      }
-      if (w.holding) {
-        addToPlayerInventory(w.holding.type, w.holding.amount);
-      }
+      if (w.equippedPickaxe) addToPlayerInventory(w.equippedPickaxe.itemType, 1);
+      if (w.equippedCpu) addToPlayerInventory(w.equippedCpu.itemType, w.equippedCpu.count);
+      if (w.equippedRam) addToPlayerInventory(w.equippedRam.itemType, w.equippedRam.count);
+      if (w.holding) addToPlayerInventory(w.holding.type, w.holding.amount);
       const status = code === 0 ? 'suspended' : 'crashed';
-      upsertWorker({ ...w, status, pid: null, equippedPickaxe: null, holding: null });
+      upsertWorker({ ...w, status, pid: null, equippedPickaxe: null, equippedCpu: null, equippedRam: null, holding: null });
       broadcastFullState();
     }
   });

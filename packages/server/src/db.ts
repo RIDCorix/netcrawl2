@@ -50,7 +50,7 @@ export interface Drop {
 // === Player Inventory ===
 export interface InventoryItem {
   id: string;
-  itemType: 'pickaxe_basic' | 'pickaxe_iron' | 'pickaxe_diamond' | 'shield' | 'beacon' | 'data_fragment' | 'rp_shard' | 'chip_pack_basic' | 'chip_pack_premium' | 'scanner' | 'signal_booster' | 'overclock_kit' | 'antivirus_module' | 'memory_allocator' | 'fullstack_pickaxe';
+  itemType: 'pickaxe_basic' | 'pickaxe_iron' | 'pickaxe_diamond' | 'shield' | 'beacon' | 'data_fragment' | 'rp_shard' | 'chip_pack_basic' | 'chip_pack_premium' | 'scanner' | 'signal_booster' | 'overclock_kit' | 'antivirus_module' | 'memory_allocator' | 'fullstack_pickaxe' | 'cpu_basic' | 'cpu_advanced' | 'ram_basic' | 'ram_advanced';
   count: number;
   metadata?: {
     efficiency?: number;
@@ -90,6 +90,8 @@ export interface WorkerRow {
   deployed_at: string;
   holding: Drop | null;
   equippedPickaxe: { itemType: string; efficiency: number } | null;
+  equippedCpu: { itemType: string; computePoints: number; count: number } | null;
+  equippedRam: { itemType: string; capacityBonus: number; count: number } | null;
 }
 
 export interface WorkerLogRow {
@@ -149,6 +151,36 @@ export const RECIPES: Recipe[] = [
     description: 'Increases scan radius for workers.',
     output: { itemType: 'beacon', count: 1 },
     cost: { data: 500, rp: 8 },
+  },
+  // CPU — adds compute points to a worker
+  {
+    id: 'cpu_basic',
+    name: 'CPU Module',
+    description: '+1 compute point. Enables equipping advanced algorithms.',
+    output: { itemType: 'cpu_basic', count: 1 },
+    cost: { data: 400, rp: 3 },
+  },
+  {
+    id: 'cpu_advanced',
+    name: 'CPU Module II',
+    description: '+2 compute points. For demanding algorithms.',
+    output: { itemType: 'cpu_advanced', count: 1 },
+    cost: { data: 1500, rp: 12 },
+  },
+  // RAM — increases worker carrying capacity
+  {
+    id: 'ram_basic',
+    name: 'RAM Module',
+    description: '+50 carrying capacity.',
+    output: { itemType: 'ram_basic', count: 1 },
+    cost: { data: 300, rp: 2 },
+  },
+  {
+    id: 'ram_advanced',
+    name: 'RAM Module II',
+    description: '+150 carrying capacity.',
+    output: { itemType: 'ram_advanced', count: 1 },
+    cost: { data: 1200, rp: 10 },
   },
 ];
 
@@ -464,10 +496,12 @@ export function initDb() {
       store.game_state.nodes = store.game_state.nodes.map((n: any) =>
         n.type === 'relay' ? { ...n, type: 'empty' } : n
       );
-      // Migrate workers to add holding/equippedPickaxe
+      // Migrate workers to add holding/equippedPickaxe/equippedCpu/equippedRam
       for (const w of Object.values(store.workers)) {
         if (w.holding === undefined) (w as any).holding = null;
         if (w.equippedPickaxe === undefined) (w as any).equippedPickaxe = null;
+        if (w.equippedCpu === undefined) (w as any).equippedCpu = null;
+        if (w.equippedRam === undefined) (w as any).equippedRam = null;
       }
       // Clean up stale workers from previous session — processes are gone after restart
       for (const w of Object.values(store.workers)) {
@@ -479,6 +513,8 @@ export function initDb() {
             if (existing) existing.count += 1;
             else inv.push({ id: `item_${Date.now()}`, itemType: w.equippedPickaxe.itemType as any, count: 1, metadata: { efficiency: w.equippedPickaxe.efficiency } });
           }
+          if (w.equippedCpu) addToPlayerInventory(w.equippedCpu.itemType, w.equippedCpu.count || 1);
+          if (w.equippedRam) addToPlayerInventory(w.equippedRam.itemType, w.equippedRam.count || 1);
           if (w.holding) {
             const inv = store.game_state.playerInventory || [];
             const existing = inv.find((i: any) => i.itemType === w.holding!.type);
@@ -487,6 +523,8 @@ export function initDb() {
           w.status = 'suspended';
           w.pid = null;
           (w as any).equippedPickaxe = null;
+          (w as any).equippedCpu = null;
+          (w as any).equippedRam = null;
           (w as any).holding = null;
           console.log(`[initDb] Cleaned up stale worker ${w.id} (was ${w.status})`);
         }
@@ -688,6 +726,36 @@ export function getItemEfficiency(itemType: string): number {
     pickaxe_diamond: 2.5,
   };
   return effMap[itemType] ?? 1.0;
+}
+
+/** Compute points provided by a CPU item */
+export function getCpuComputePoints(itemType: string): number {
+  const cpuMap: Record<string, number> = {
+    cpu_basic: 1,
+    cpu_advanced: 2,
+  };
+  return cpuMap[itemType] ?? 0;
+}
+
+/** Carrying capacity bonus provided by a RAM item */
+export function getRamCapacityBonus(itemType: string): number {
+  const ramMap: Record<string, number> = {
+    ram_basic: 50,
+    ram_advanced: 150,
+  };
+  return ramMap[itemType] ?? 0;
+}
+
+/** Compute points required to equip an item */
+export function getItemComputeCost(itemType: string): number {
+  const costMap: Record<string, number> = {
+    pickaxe_basic: 1,
+    pickaxe_iron: 1,
+    pickaxe_diamond: 2,
+    shield: 0,
+    beacon: 1,
+  };
+  return costMap[itemType] ?? 0;
 }
 
 // ── Workers ───────────────────────────────────────────────────────────────────
@@ -966,11 +1034,13 @@ export function grantNodeXp(nodeId: string, action: string): boolean {
   if (newXp >= threshold) {
     const nextUpgrade = upgrades.find(u => u.level === currentLevel + 1);
     if (nextUpgrade) {
+      const newLevel = nextUpgrade.level;
+      const nextThreshold = getNodeXpThreshold(key, newLevel + 1); // threshold for the level AFTER this upgrade
       const data = {
         ...node.data,
-        upgradeLevel: nextUpgrade.level,
+        upgradeLevel: newLevel,
         nodeXp: 0,
-        nodeXpToNext: 0,
+        nodeXpToNext: nextThreshold, // 0 if at max level
         enhancementPoints: (node.data.enhancementPoints || 0) + (nextUpgrade.enhancementPoints || 2),
         statAlloc: node.data.statAlloc || {},
       };
@@ -1025,11 +1095,13 @@ export function sweepNodeAutoUpgrades(): boolean {
     const nextUpgrade = upgrades.find(u => u.level === currentLevel + 1);
     if (!nextUpgrade) continue;
 
+    const newLevel = nextUpgrade.level;
+    const nextThreshold = getNodeXpThreshold(key, newLevel + 1);
     const data = {
       ...node.data,
-      upgradeLevel: nextUpgrade.level,
+      upgradeLevel: newLevel,
       nodeXp: 0,
-      nodeXpToNext: 0,
+      nodeXpToNext: nextThreshold,
       enhancementPoints: (node.data.enhancementPoints || 0) + (nextUpgrade.enhancementPoints || 2),
       statAlloc: node.data.statAlloc || {},
     };

@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Upload, Pickaxe, Shield, Radio, Package, Zap, Mountain, Database, Check, ChevronRight, ArrowLeftRight } from 'lucide-react';
+import { X, Upload, Pickaxe, Shield, Radio, Package, Zap, Mountain, Database, Check, ChevronRight, ArrowLeftRight, Cpu, MemoryStick } from 'lucide-react';
 import { useGameStore, InventoryItem } from '../store/gameStore';
 import { useState, useEffect, useCallback, DragEvent } from 'react';
 import axios from 'axios';
@@ -14,11 +14,15 @@ import { useT } from '../hooks/useT';
 const ITEM_ICONS: Record<string, any> = {
   pickaxe_basic: Pickaxe, pickaxe_iron: Pickaxe, pickaxe_diamond: Pickaxe,
   shield: Shield, beacon: Radio,
+  cpu_basic: Cpu, cpu_advanced: Cpu,
+  ram_basic: MemoryStick, ram_advanced: MemoryStick,
 };
 const SLOT_ACCEPTS: Record<string, string[]> = {
   Pickaxe: ['pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond'],
   Shield: ['shield'],
   Beacon: ['beacon'],
+  CPU: ['cpu_basic', 'cpu_advanced'],
+  RAM: ['ram_basic', 'ram_advanced'],
 };
 
 interface WorkerClassEntry {
@@ -163,6 +167,9 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
   const [unitCount, setUnitCount] = useState(1);
   // Per-unit equipment: equippedPerUnit[unitIndex][slotName] = itemType
   const [equippedPerUnit, setEquippedPerUnit] = useState<Record<string, string>[]>([{}]);
+  // Per-unit hardware: cpuPerUnit[unitIndex], ramPerUnit[unitIndex]
+  const [cpuPerUnit, setCpuPerUnit] = useState<number[]>([0]);
+  const [ramPerUnit, setRamPerUnit] = useState<number[]>([0]);
   const [currentUnitIdx, setCurrentUnitIdx] = useState(0);
   const [routes, setRoutes] = useState<Record<string, { id: string; source: string; target: string }>>({});
   const [step, setStep] = useState(0);
@@ -170,15 +177,16 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
 
   const selectedClassEntry = workerClasses.find(c => c.class_id === selectedClass);
 
-  const itemSlots = selectedClassEntry
+  const classItemSlots = selectedClassEntry
     ? Object.entries(selectedClassEntry.fields).filter(([, f]) => f.type === 'item').map(([name, f]) => ({ name, itemType: f.item_type || '', description: f.description }))
     : [];
+  const itemSlots = classItemSlots;
   const routeSlots = selectedClassEntry
     ? Object.entries(selectedClassEntry.fields).filter(([, f]) => f.type === 'route').map(([name, f]) => ({ name, description: f.description }))
     : [];
 
   const hasRoutes = routeSlots.length > 0;
-  const hasEquipment = itemSlots.length > 0;
+  const hasEquipment = true; // always show equipment step for hardware + items
 
   const steps: { label: string; key: string }[] = [{ label: 'Class', key: 'class' }];
   if (hasRoutes) steps.push({ label: 'Routes', key: 'routes' });
@@ -190,14 +198,38 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
   // Current unit's equipment (for the equipment step)
   const equipped = equippedPerUnit[currentUnitIdx] || {};
 
-  // Count ALL equipped items across all units
+  // Count ALL equipped items across all units (including CPU/RAM)
   const equippedCounts: Record<string, number> = {};
   for (const unitEquip of equippedPerUnit) {
     for (const t of Object.values(unitEquip)) equippedCounts[t] = (equippedCounts[t] || 0) + 1;
   }
+  // Add CPU/RAM counts
+  const totalCpuUsed = cpuPerUnit.reduce((s, n) => s + n, 0);
+  const totalRamUsed = ramPerUnit.reduce((s, n) => s + n, 0);
+  equippedCounts['cpu_basic'] = (equippedCounts['cpu_basic'] || 0) + totalCpuUsed;
+  equippedCounts['ram_basic'] = (equippedCounts['ram_basic'] || 0) + totalRamUsed;
   const availableInventory = playerInventory.map(i => ({ ...i, count: i.count - (equippedCounts[i.itemType] || 0) })).filter(i => i.count > 0);
 
-  const allSlotsFilled = equippedPerUnit.every(ue => itemSlots.every(s => !!ue[s.name]));
+  // Current unit's hardware
+  const currentCpu = cpuPerUnit[currentUnitIdx] || 0;
+  const currentRam = ramPerUnit[currentUnitIdx] || 0;
+  const baseCompute = 1;
+  const totalCompute = baseCompute + currentCpu; // each cpu_basic = 1 compute point
+  const baseCapacity = 50;
+  const totalCapacity = baseCapacity + currentRam * 50; // each ram_basic = 50
+
+  // Compute cost of all equipped items for current unit
+  const COMPUTE_COSTS: Record<string, number> = { pickaxe_basic: 1, pickaxe_iron: 1, pickaxe_diamond: 2, beacon: 1 };
+  const usedCompute = Object.values(equipped).reduce((s, itemType) => s + (COMPUTE_COSTS[itemType] || 0), 0);
+
+  // Max CPU/RAM available globally
+  const cpuOwned = playerInventory.find(i => i.itemType === 'cpu_basic')?.count || 0;
+  const ramOwned = playerInventory.find(i => i.itemType === 'ram_basic')?.count || 0;
+  const cpuAvailForUnit = cpuOwned - cpuPerUnit.reduce((s, n, i) => i === currentUnitIdx ? s : s + n, 0);
+  const ramAvailForUnit = ramOwned - ramPerUnit.reduce((s, n, i) => i === currentUnitIdx ? s : s + n, 0);
+
+  // Only class-defined item slots are required; CPU/RAM hardware slots are optional
+  const allSlotsFilled = equippedPerUnit.every(ue => classItemSlots.every(s => !!ue[s.name]));
   const allRoutesFilled = routeSlots.every(s => !!routes[s.name]);
 
   useEffect(() => {
@@ -256,7 +288,12 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
       const ids: string[] = [];
       for (let i = 0; i < unitCount; i++) {
         const body: any = { nodeId, classId: selectedClass };
-        const unitEquip = equippedPerUnit[i] || {};
+        const unitEquip = { ...(equippedPerUnit[i] || {}) };
+        // Add CPU/RAM counts to equippedItems
+        const cpuN = cpuPerUnit[i] || 0;
+        const ramN = ramPerUnit[i] || 0;
+        if (cpuN > 0) { unitEquip.cpuCount = String(cpuN); unitEquip.cpuType = 'cpu_basic'; }
+        if (ramN > 0) { unitEquip.ramCount = String(ramN); unitEquip.ramType = 'ram_basic'; }
         if (Object.keys(unitEquip).length > 0) body.equippedItems = unitEquip;
         if (Object.keys(routePayload).length > 0) body.routes = routePayload;
         const res = await axios.post('/api/deploy', body);
@@ -275,8 +312,8 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
   const canGoNext = () => {
     if (currentStepKey === 'class') {
       if (!selectedClass || unitCount < 1) return false;
-      // Check item requirements satisfiable for N units
-      for (const slot of itemSlots) {
+      // Check only required (class-defined) item slots, not optional hardware slots
+      for (const slot of classItemSlots) {
         const accepts = SLOT_ACCEPTS[slot.itemType] || [];
         const owned = playerInventory.filter(i => accepts.includes(i.itemType)).reduce((s, i) => s + i.count, 0);
         if (owned < unitCount) return false;
@@ -284,7 +321,18 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
       return true;
     }
     if (currentStepKey === 'routes') return allRoutesFilled;
-    if (currentStepKey === 'equipment') return allSlotsFilled;
+    if (currentStepKey === 'equipment') {
+      if (!allSlotsFilled) return false;
+      // Check compute budget for all units
+      for (let i = 0; i < unitCount; i++) {
+        const unitEquip = equippedPerUnit[i] || {};
+        const unitCpu = cpuPerUnit[i] || 0;
+        const unitCompute = 1 + unitCpu;
+        const unitCost = Object.values(unitEquip).reduce((s, t) => s + (COMPUTE_COSTS[t] || 0), 0);
+        if (unitCost > unitCompute) return false;
+      }
+      return true;
+    }
     return true;
   };
 
@@ -375,7 +423,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
             {/* STEP: Class */}
             {currentStepKey === 'class' && (() => {
               // Check requirements
-              const reqsMet = itemSlots.every(slot => {
+              const reqsMet = classItemSlots.every(slot => {
                 const accepts = SLOT_ACCEPTS[slot.itemType] || [];
                 const owned = playerInventory.filter(i => accepts.includes(i.itemType)).reduce((s, i) => s + i.count, 0);
                 return owned >= unitCount;
@@ -398,7 +446,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
 
                   {/* Class signature panel */}
                   {selectedClassEntry && (
-                    <div style={{ padding: '14px 16px', borderRadius: 'var(--radius-md)', background: 'var(--bg-elevated)', border: `1px solid ${!reqsMet && itemSlots.length > 0 ? 'rgba(255,71,87,0.3)' : 'var(--border)'}`, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ padding: '14px 16px', borderRadius: 'var(--radius-md)', background: 'var(--bg-elevated)', border: `1px solid ${!reqsMet && classItemSlots.length > 0 ? 'rgba(255,71,87,0.3)' : 'var(--border)'}`, display: 'flex', flexDirection: 'column', gap: 10 }}>
                       {/* Title */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         {(() => { const Icon = getWorkerIcon(selectedClassEntry.class_icon); return <Icon size={18} style={{ color: 'var(--accent)' }} />; })()}
@@ -418,12 +466,12 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                       )}
 
                       {/* Requirements (items) */}
-                      {itemSlots.length > 0 && (
+                      {classItemSlots.length > 0 && (
                         <div>
                           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', marginBottom: 6 }}>
                             {t('ui.requires')}
                           </div>
-                          {itemSlots.map(slot => {
+                          {classItemSlots.map(slot => {
                             const accepts = SLOT_ACCEPTS[slot.itemType] || [];
                             const owned = playerInventory.filter(i => accepts.includes(i.itemType)).reduce((s, i) => s + i.count, 0);
                             const met = owned >= unitCount;
@@ -473,7 +521,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                       </div>
 
                       {/* Requirements not met warning */}
-                      {!reqsMet && itemSlots.length > 0 && (
+                      {!reqsMet && classItemSlots.length > 0 && (
                         <div style={{
                           fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--danger)',
                           padding: '6px 10px', borderRadius: 'var(--radius-sm)',
@@ -491,14 +539,14 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                       {t('ui.deploy_count')}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <button onClick={() => { const n = Math.max(1, unitCount - 1); setUnitCount(n); setEquippedPerUnit(prev => prev.slice(0, n)); setCurrentUnitIdx(i => Math.min(i, n - 1)); }}
+                      <button onClick={() => { const n = Math.max(1, unitCount - 1); setUnitCount(n); setEquippedPerUnit(prev => prev.slice(0, n)); setCpuPerUnit(prev => prev.slice(0, n)); setRamPerUnit(prev => prev.slice(0, n)); setCurrentUnitIdx(i => Math.min(i, n - 1)); }}
                         style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 16, fontFamily: 'var(--font-mono)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         -
                       </button>
                       <span style={{ fontSize: 20, fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', minWidth: 32, textAlign: 'center' }}>
                         {unitCount}
                       </span>
-                      <button onClick={() => { const n = unitCount + 1; setUnitCount(n); setEquippedPerUnit(prev => { const next = [...prev]; while (next.length < n) next.push({}); return next; }); }}
+                      <button onClick={() => { const n = unitCount + 1; setUnitCount(n); setEquippedPerUnit(prev => { const next = [...prev]; while (next.length < n) next.push({}); return next; }); setCpuPerUnit(prev => { const next = [...prev]; while (next.length < n) next.push(0); return next; }); setRamPerUnit(prev => { const next = [...prev]; while (next.length < n) next.push(0); return next; }); }}
                         style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 16, fontFamily: 'var(--font-mono)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         +
                       </button>
@@ -556,7 +604,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                 {unitCount > 1 && (
                   <div style={{ display: 'flex', gap: 4 }}>
                     {Array.from({ length: unitCount }).map((_, i) => {
-                      const unitFilled = itemSlots.every(s => !!(equippedPerUnit[i] || {})[s.name]);
+                      const unitFilled = classItemSlots.every(s => !!(equippedPerUnit[i] || {})[s.name]);
                       return (
                         <button key={i} onClick={() => setCurrentUnitIdx(i)} style={{
                           padding: '4px 12px', borderRadius: 'var(--radius-sm)',
@@ -574,45 +622,132 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                   </div>
                 )}
 
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>
-                  {t('ui.equipment')}
-                </div>
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  {itemSlots.map(slot => (
-                    <EquipSlot key={slot.name} slotName={slot.name} acceptType={slot.itemType}
-                      equipped={equipped[slot.name] ? playerInventory.find(i => i.itemType === equipped[slot.name]) || null : null}
-                      onEquip={t => {
-                        setEquippedPerUnit(prev => {
-                          const next = [...prev];
-                          next[currentUnitIdx] = { ...(next[currentUnitIdx] || {}), [slot.name]: t };
-                          return next;
-                        });
-                      }}
-                      onUnequip={() => {
-                        setEquippedPerUnit(prev => {
-                          const next = [...prev];
-                          const u = { ...(next[currentUnitIdx] || {}) };
-                          delete u[slot.name];
-                          next[currentUnitIdx] = u;
-                          return next;
-                        });
-                      }} />
-                  ))}
-                </div>
-                {!allSlotsFilled && <div style={{ fontSize: 10, color: 'var(--warning)', fontFamily: 'var(--font-mono)' }}>
-                  {unitCount > 1 ? `Fill equipment for all ${unitCount} units` : 'Drag items from below to fill slots'}
-                </div>}
-                <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, var(--border-bright), transparent)' }} />
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>{t('ui.inventory')}</div>
-                {availableInventory.length === 0 ? (
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'center', padding: '12px 0' }}>{t('ui.no_items_craft')}</div>
-                ) : (
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {availableInventory.map(item => (
-                      <InvItem key={item.itemType} item={item}
-                        disabled={!itemSlots.some(s => (SLOT_ACCEPTS[s.itemType] || []).includes(item.itemType))} />
-                    ))}
+                {/* Hardware: CPU + RAM number inputs with summary */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>
+                    HARDWARE
                   </div>
+
+                  {/* Summary badges */}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px',
+                      borderRadius: 'var(--radius-sm)', background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                      fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 700,
+                    }}>
+                      <Cpu size={12} style={{ color: usedCompute > totalCompute ? 'var(--danger)' : '#f59e0b' }} />
+                      <span style={{ color: usedCompute > totalCompute ? 'var(--danger)' : 'var(--text-primary)' }}>
+                        {usedCompute}
+                      </span>
+                      <span style={{ color: 'var(--text-muted)' }}>/</span>
+                      <span style={{ color: '#f59e0b' }}>{totalCompute}</span>
+                    </div>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px',
+                      borderRadius: 'var(--radius-sm)', background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                      fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 700,
+                    }}>
+                      <MemoryStick size={12} style={{ color: '#a78bfa' }} />
+                      <span style={{ color: '#a78bfa' }}>{totalCapacity}</span>
+                    </div>
+                  </div>
+
+                  {/* CPU row */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Cpu size={14} style={{ color: '#f59e0b', flexShrink: 0 }} />
+                    <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', flex: 1 }}>CPU</span>
+                    <button onClick={() => setCpuPerUnit(prev => { const n = [...prev]; n[currentUnitIdx] = Math.max(0, (n[currentUnitIdx] || 0) - 1); return n; })}
+                      disabled={currentCpu <= 0}
+                      style={{ width: 26, height: 26, borderRadius: 'var(--radius-sm)', background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 14, fontFamily: 'var(--font-mono)', cursor: currentCpu <= 0 ? 'not-allowed' : 'pointer', opacity: currentCpu <= 0 ? 0.3 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                      -
+                    </button>
+                    <span style={{ fontSize: 14, fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', minWidth: 24, textAlign: 'center' }}>
+                      {currentCpu}
+                    </span>
+                    <button onClick={() => setCpuPerUnit(prev => { const n = [...prev]; n[currentUnitIdx] = (n[currentUnitIdx] || 0) + 1; return n; })}
+                      disabled={currentCpu >= cpuAvailForUnit}
+                      style={{ width: 26, height: 26, borderRadius: 'var(--radius-sm)', background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 14, fontFamily: 'var(--font-mono)', cursor: currentCpu >= cpuAvailForUnit ? 'not-allowed' : 'pointer', opacity: currentCpu >= cpuAvailForUnit ? 0.3 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                      +
+                    </button>
+                    <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                      ({cpuAvailForUnit})
+                    </span>
+                  </div>
+
+                  {/* RAM row */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <MemoryStick size={14} style={{ color: '#a78bfa', flexShrink: 0 }} />
+                    <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', flex: 1 }}>RAM</span>
+                    <button onClick={() => setRamPerUnit(prev => { const n = [...prev]; n[currentUnitIdx] = Math.max(0, (n[currentUnitIdx] || 0) - 1); return n; })}
+                      disabled={currentRam <= 0}
+                      style={{ width: 26, height: 26, borderRadius: 'var(--radius-sm)', background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 14, fontFamily: 'var(--font-mono)', cursor: currentRam <= 0 ? 'not-allowed' : 'pointer', opacity: currentRam <= 0 ? 0.3 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                      -
+                    </button>
+                    <span style={{ fontSize: 14, fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', minWidth: 24, textAlign: 'center' }}>
+                      {currentRam}
+                    </span>
+                    <button onClick={() => setRamPerUnit(prev => { const n = [...prev]; n[currentUnitIdx] = (n[currentUnitIdx] || 0) + 1; return n; })}
+                      disabled={currentRam >= ramAvailForUnit}
+                      style={{ width: 26, height: 26, borderRadius: 'var(--radius-sm)', background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 14, fontFamily: 'var(--font-mono)', cursor: currentRam >= ramAvailForUnit ? 'not-allowed' : 'pointer', opacity: currentRam >= ramAvailForUnit ? 0.3 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                      +
+                    </button>
+                    <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                      ({ramAvailForUnit})
+                    </span>
+                  </div>
+                </div>
+
+                {/* Equipment slots (class-defined items) */}
+                {classItemSlots.length > 0 && (
+                  <>
+                    <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, var(--border-bright), transparent)' }} />
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>
+                      {t('ui.equipment')}
+                    </div>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                      {itemSlots.map(slot => (
+                        <EquipSlot key={slot.name} slotName={slot.name} acceptType={slot.itemType}
+                          equipped={equipped[slot.name] ? playerInventory.find(i => i.itemType === equipped[slot.name]) || null : null}
+                          onEquip={t => {
+                            setEquippedPerUnit(prev => {
+                              const next = [...prev];
+                              next[currentUnitIdx] = { ...(next[currentUnitIdx] || {}), [slot.name]: t };
+                              return next;
+                            });
+                          }}
+                          onUnequip={() => {
+                            setEquippedPerUnit(prev => {
+                              const next = [...prev];
+                              const u = { ...(next[currentUnitIdx] || {}) };
+                              delete u[slot.name];
+                              next[currentUnitIdx] = u;
+                              return next;
+                            });
+                          }} />
+                      ))}
+                    </div>
+                    {!allSlotsFilled && <div style={{ fontSize: 10, color: 'var(--warning)', fontFamily: 'var(--font-mono)' }}>
+                      {unitCount > 1 ? `Fill equipment for all ${unitCount} units` : 'Drag items from below to fill slots'}
+                    </div>}
+                  </>
+                )}
+
+                {/* Inventory (for drag-drop) */}
+                {classItemSlots.length > 0 && (
+                  <>
+                    <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, var(--border-bright), transparent)' }} />
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>{t('ui.inventory')}</div>
+                    {availableInventory.filter(i => !['cpu_basic', 'cpu_advanced', 'ram_basic', 'ram_advanced'].includes(i.itemType)).length === 0 ? (
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'center', padding: '12px 0' }}>{t('ui.no_items_craft')}</div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {availableInventory.filter(i => !['cpu_basic', 'cpu_advanced', 'ram_basic', 'ram_advanced'].includes(i.itemType)).map(item => (
+                          <InvItem key={item.itemType} item={item}
+                            disabled={!itemSlots.some(s => (SLOT_ACCEPTS[s.itemType] || []).includes(item.itemType))} />
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -671,7 +806,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                   cursor: deploying || deployed ? 'not-allowed' : 'pointer', opacity: deploying || deployed ? 0.5 : 1,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 }}>
-                  <Upload size={14} /> {deploying ? t('ui.deploying') : t('ui.deploy_n', { count: unitCount })}
+                  <Upload size={14} /> {deploying ? t('ui.deploying', { n: unitCount }) : t(unitCount > 1 ? 'ui.deploy_n_plural' : 'ui.deploy_n', { n: unitCount })}
                 </button>
               ) : (
                 <button onClick={() => setStep(s => s + 1)} disabled={!canGoNext()} style={{
