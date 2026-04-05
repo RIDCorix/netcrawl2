@@ -5,7 +5,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, BookOpen, Check, Gift, Zap, Mountain, Database, Lock } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { Markdown } from './ui/markdown';
 import { CHAPTER_COLORS } from '../constants/colors';
@@ -50,6 +50,12 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
   const lang = useGameStore(s => s.settings.language);
   const translatedGuide = getTranslatedGuide(lang, quest.id);
   const guide = translatedGuide || quest.guide || [];
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Reset scroll on page change
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [page]);
   const totalPages = guide.length;
   const isLastPage = page === totalPages - 1;
   const isFirstPage = page === 0;
@@ -213,33 +219,24 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
         </div>
 
         {/* ── Step content (scrollable, fixed height) ── */}
-        <div style={{ flex: 1, overflow: 'auto', padding: '16px 24px' }}>
+        <div ref={scrollRef} style={{ flex: 1, overflow: 'auto', padding: '16px 24px' }}>
           {totalPages > 0 ? (
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={`step-${page}`}
-                initial={{ opacity: 0, x: 40 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -40 }}
-                transition={{ duration: 0.15 }}
-              >
-                <div style={{ fontSize: 10, fontWeight: 700, color, fontFamily: 'var(--font-mono)', marginBottom: 8, letterSpacing: '0.08em' }}>
-                  {t('ui.step_of').replace('{current}', String(page + 1)).replace('{total}', String(totalPages))}
+            <div key={`step-${page}`}>
+              <div style={{ fontSize: 10, fontWeight: 700, color, fontFamily: 'var(--font-mono)', marginBottom: 8, letterSpacing: '0.08em' }}>
+                {t('ui.step_of').replace('{current}', String(page + 1)).replace('{total}', String(totalPages))}
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginBottom: 12 }}>
+                {guide[page].title}
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                <Markdown content={guide[page].content} />
+              </div>
+              {DEMO_SCRIPTS[`${quest.id}:${page}`] && (
+                <div style={{ marginTop: 16 }}>
+                  <DemoPlayer key={`${quest.id}:${page}`} script={DEMO_SCRIPTS[`${quest.id}:${page}`]} />
                 </div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginBottom: 12 }}>
-                  {guide[page].title}
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
-                  <Markdown content={guide[page].content} />
-                </div>
-                {/* Demo player — shown when a demo script exists for this quest/step */}
-                {DEMO_SCRIPTS[`${quest.id}:${page}`] && (
-                  <div style={{ marginTop: 16 }}>
-                    <DemoPlayer key={`${quest.id}:${page}`} script={DEMO_SCRIPTS[`${quest.id}:${page}`]} />
-                  </div>
-                )}
-              </motion.div>
-            </AnimatePresence>
+              )}
+            </div>
           ) : (
             <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'center', padding: '40px 0' }}>
               {t('ui.no_guide')}
