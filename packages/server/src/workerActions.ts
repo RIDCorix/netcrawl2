@@ -354,20 +354,34 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       // New-style: deposit held drop → convert to resources
       if (w5.holding !== null) {
         const held = w5.holding;
+        const freshState = getGameState();
+        const newResources = { ...freshState.resources } as Record<string, number>;
+
+        if (held.type === 'bad_data') {
+          // Bad data SUBTRACTS resources as a penalty
+          const penalty = held.amount;
+          newResources['data'] = Math.max(0, (newResources['data'] || 0) - penalty);
+          saveGameState({ ...freshState, resources: newResources as any });
+          upsertWorker({ ...w5, holding: null, carrying: {}, status: 'running' });
+          broadcastFullState();
+          incrementStat('total_bad_data_deposited', penalty);
+          incrementStat('total_deposits', 1);
+          checkAchievements();
+          checkQuests();
+          return { ok: true, deposited: held, penalty, warning: `Bad data! Lost ${penalty} data.` };
+        }
+
         const dropToResource: Record<string, string> = {
           data_fragment: 'data',
           rp_shard: 'rp',
         };
         const resourceKey = dropToResource[held.type];
-        const freshState = getGameState();
         if (resourceKey) {
-          const newResources = { ...freshState.resources } as Record<string, number>;
           newResources[resourceKey] = (newResources[resourceKey] || 0) + held.amount;
           saveGameState({ ...freshState, resources: newResources as any });
         }
         upsertWorker({ ...w5, holding: null, carrying: {}, status: 'running' });
         broadcastFullState();
-        // Track achievement stats
         if (resourceKey) {
           incrementStat(`total_${resourceKey}_deposited`, held.amount);
           incrementStat('total_deposits', 1);
@@ -375,7 +389,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
           grantNodeXp('hub', 'deposit');
         }
         checkAchievements();
-      checkQuests();
+        checkQuests();
         return { ok: true, deposited: held };
       }
 
@@ -776,6 +790,10 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const discarded = w6.holding;
       upsertWorker({ ...w6, holding: null });
       broadcastFullState();
+      if (discarded.type === 'bad_data') {
+        incrementStat('total_bad_data_discarded', 1);
+        checkQuests();
+      }
       return { ok: true, discarded };
     }
 

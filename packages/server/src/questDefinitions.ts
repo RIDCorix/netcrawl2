@@ -122,9 +122,12 @@ export const QUESTS: QuestDef[] = [
   },
   {
     id: 'q_conditions', chapter: 1, name: 'If Statement', codeConcept: 'Conditionals',
-    description: 'if self.inventory.full(): self.deposit() — make decisions in your code.',
+    description: 'if self.holding.type == "bad_data": self.discard() — filter contaminated data before depositing.',
     mainline: true, prerequisites: ['q_dot_notation'],
-    objectives: [{ id: 'o1', description: 'Deposit 500 data total', statKey: 'total_data_deposited', target: 500, type: 'stat_gte' }],
+    objectives: [
+      { id: 'o1', description: 'Discard 5 bad data', statKey: 'total_bad_data_discarded', target: 5, type: 'stat_gte' },
+      { id: 'o2', description: 'Deposit 300 data total', statKey: 'total_data_deposited', target: 300, type: 'stat_gte' },
+    ],
     rewards: [{ kind: 'passive', effectId: 'harvest_speed_5', description: '+5% harvest speed', effect: { global_harvest_speed_mult: 1.05 } }],
     position: { x: 400, y: 900 },
   },

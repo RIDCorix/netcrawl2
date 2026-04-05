@@ -256,8 +256,8 @@ interface Store {
 // ── Initial data ──────────────────────────────────────────────────────────────
 
 // Helper to create typed node data
-const R = (label: string, rate: number, cost: Record<string, number>) =>
-  ({ label, resource: 'data' as const, rate, baseRate: rate, unlocked: false, unlockCost: cost, mineable: true, drops: [] as any[], mineCount: 0, upgradeLevel: 0, chipSlots: 1, baseChipSlots: 1, installedChips: [] as string[], enhancementPoints: 0, statAlloc: {} as Record<string, number>, baseDefense: 0 });
+const R = (label: string, rate: number, cost: Record<string, number>, badDataChance: number = 0.2) =>
+  ({ label, resource: 'data' as const, rate, baseRate: rate, unlocked: false, unlockCost: cost, mineable: true, drops: [] as any[], mineCount: 0, upgradeLevel: 0, chipSlots: 1, baseChipSlots: 1, installedChips: [] as string[], enhancementPoints: 0, statAlloc: {} as Record<string, number>, baseDefense: 0, bad_data_chance: badDataChance });
 const C = (label: string, diff: 'easy' | 'medium' | 'hard', cost: Record<string, number>) =>
   ({ label, unlocked: false, unlockCost: cost, difficulty: diff, rewardResource: 'rp' as const, solveCount: 0, upgradeLevel: 0, chipSlots: 0, baseChipSlots: 0, installedChips: [] as string[], enhancementPoints: 0, statAlloc: {} as Record<string, number>, baseDefense: 0 });
 const Y = (label: string, cost: Record<string, number>) =>
@@ -283,9 +283,9 @@ export const INITIAL_NODES = [
   // ═══════════════════════════════════════════════════════════════════════════
   // NORTH — Mining District (easy start, main data income)
   // ═══════════════════════════════════════════════════════════════════════════
-  { id: 'n_relay1', type: 'resource', position: { x: 0,    y: -300 },  data: { ...R('Data Mine Nano', 30, { data: 20 }), unlocked: true } },
-  { id: 'n_mine1',  type: 'resource', position: { x: -220, y: -500 },  data: R('Data Mine Alpha', 50, { data: 100 }) },
-  { id: 'n_mine2',  type: 'resource', position: { x: 220,  y: -500 },  data: R('Data Mine Beta', 40, { data: 150 }) },
+  { id: 'n_relay1', type: 'resource', position: { x: 0,    y: -300 },  data: { ...R('Data Mine Nano', 30, { data: 20 }, 0.4), unlocked: true } },
+  { id: 'n_mine1',  type: 'resource', position: { x: -220, y: -500 },  data: R('Data Mine Alpha', 50, { data: 100 }, 0.25) },
+  { id: 'n_mine2',  type: 'resource', position: { x: 220,  y: -500 },  data: R('Data Mine Beta', 40, { data: 150 }, 0.2) },
   { id: 'n_relay2', type: 'empty',    position: { x: 0,    y: -700 },  data: Y('Relay N2', { data: 200 }) },
   { id: 'n_mine3',  type: 'resource', position: { x: -220, y: -900 },  data: R('Data Mine Gamma', 60, { data: 400 }) },
   { id: 'n_mine4',  type: 'resource', position: { x: 220,  y: -900 },  data: R('Data Mine Delta', 55, { data: 500 }) },

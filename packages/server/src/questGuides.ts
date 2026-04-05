@@ -153,35 +153,49 @@ To unlock a node, you need enough resources. Click **"Unlock"** in the node deta
   ],
 
   q_conditions: [
-    { title: 'Making Decisions', content: `An \`if\` statement lets your code make decisions:
+    { title: 'The Bad Data Problem', content: `Every data mine has a chance of producing **bad data** — corrupted fragments mixed in with good data.
+
+If you deposit bad data at the Hub, it **subtracts** from your data resources!
+
+Data Mine Nano has a **40% bad data rate** (60% cleanliness). Other mines are cleaner, but all have some risk.
+
+You need to learn \`if\` statements to **filter out bad data** before depositing.` },
+
+    { title: 'The if Statement', content: `An \`if\` statement lets your code make decisions:
 
 \`\`\`python
-if something_is_true:
+if condition:
     do_this()
 else:
     do_that()
 \`\`\`
 
-In NetCrawl, your worker needs to decide **when** to deposit. Without conditions, it deposits every single loop — even when carrying nothing!` },
+After you \`collect()\` a drop, check \`self.holding\` to see what you picked up:
+- \`self.holding["type"]\` — either \`"data_fragment"\` (good) or \`"bad_data"\` (bad)
+- \`self.discard()\` — throw away the held item without depositing` },
 
-    { title: 'Smart Mining Loop', content: `Here's a smarter miner that checks before depositing:
+    { title: 'Smart Miner with Filtering', content: `Here's a miner that filters bad data:
 
 \`\`\`python
 def on_loop(self):
-    self.move_edge(self.route)
-    self.pickaxe.mine()
-    result = self.collect()
+    self.move(self.to_mine)
+    self.pickaxe.mine_and_collect()
 
-    if result.get("ok"):
-        self.move_edge(self.route)  # return to hub
-        self.deposit()
+    # Check what we picked up
+    if self.holding and self.holding["type"] == "bad_data":
+        self.discard()          # throw away bad data
+        self.info("Discarded bad data!")
     else:
-        self.info("Nothing to collect, trying again...")
+        self.move(self.to_hub)
+        self.deposit()
+        self.info("Deposited good data!")
 \`\`\`
 
-The \`if\` checks whether \`collect()\` succeeded before wasting a trip back to hub.
+**Goals:**
+- Discard **5 bad data** fragments
+- Deposit **300 data** total
 
-**Goal:** Deposit **500 data total**. A smarter loop means faster accumulation.` },
+Without filtering, bad data will eat into your resources!` },
   ],
 
   q_operators: [
