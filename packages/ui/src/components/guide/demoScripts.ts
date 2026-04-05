@@ -481,5 +481,5 @@ export const DEMO_SCRIPTS: Record<string, DemoScript> = {
   'q_method_call:2': METHOD_CALL_DEMO,     // "Deploy and Watch" step
   'q_conditions:1':  CONDITIONS_DEMO,       // "Smart Mining Loop" step
   'q_while_loop:1':  WHILE_LOOP_DEMO,      // "Filtering Bad Data" step
-  'q_for_loop:1':    FOR_LOOP_DEMO,        // "The Data Mine Cluster" step
+  'q_cluster_mining:1': FOR_LOOP_DEMO,      // "Build a Cluster Miner" step
 };
