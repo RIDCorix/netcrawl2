@@ -1,0 +1,11 @@
+[project]
+name = "netcrawl-workspace"
+version = "0.1.0"
+description = "NetCrawl worker workspace"
+requires-python = ">=3.10"
+dependencies = [
+    "netcrawl",
+]
+
+[tool.uv.sources]
+netcrawl = { git = "https://github.com/RIDCorix/netcrawl2.git", subdirectory = "packages/sdk-python" }

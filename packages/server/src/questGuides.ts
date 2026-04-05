@@ -16,36 +16,29 @@ Also install the **Python extension** in VSCode:
 2. Press \`Ctrl+Shift+X\` (Extensions)
 3. Search "Python" → Install the Microsoft Python extension` },
 
-    { title: 'Clone the Workspace', content: `Clone the starter workspace repository to get your worker code set up:
+    { title: 'Set Up Your Workspace', content: `Install **uv** (Python package manager), then create your workspace:
 
-\`\`\`bash
-git clone https://github.com/Starscribers/netcrawl-workspace.git workspace
-cd workspace
-\`\`\`
-
-This creates a \`workspace/\` folder with everything you need:
-- \`main.py\` — entry point (registers your workers)
-- \`workers/\` — your worker classes go here
-- \`pyproject.toml\` — Python dependencies
-
-You'll be editing files inside this folder to write your own workers.` },
-
-    { title: 'Install uv (Python Package Manager)', content: `NetCrawl uses **uv** for fast Python dependency management.
-
-**Windows (PowerShell):**
+**Install uv — Windows (PowerShell):**
 \`\`\`powershell
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 \`\`\`
 
-**macOS / Linux:**
+**Install uv — macOS / Linux:**
 \`\`\`bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 \`\`\`
 
-Then in your workspace folder:
+**Create workspace and install the SDK:**
 \`\`\`bash
+git clone https://github.com/RIDCorix/netcrawl2.git
+cp -r netcrawl2/workspace_example workspace
+cd workspace
 uv sync
-\`\`\`` },
+\`\`\`
+
+This creates a \`workspace/\` folder with:
+- \`main.py\` — entry point (registers your workers)
+- \`workers/\` — your worker classes go here` },
 
     { title: 'Configure main.py', content: `Open \`workspace/main.py\` and make sure the server URL is correct.
 
