@@ -11,19 +11,15 @@ export const zhTW: Record<string, GuideStep[]> = {
 2. 按 \`Ctrl+Shift+X\`（擴充套件）
 3. 搜尋 "Python" → 安裝 Microsoft 的 Python 擴充套件` },
 
-    { title: '設定工作區', content: `安裝 **uv**（Python 套件管理器），然後 clone 工作區：
-
-**安裝 uv — Windows (PowerShell)：**
+    { title: '設定工作區', content: `**步驟 1：** 安裝 **uv**（Python 套件管理器）：
 \`\`\`powershell
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 \`\`\`
-
-**安裝 uv — macOS / Linux：**
 \`\`\`bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 \`\`\`
 
-**Clone 並安裝：**
+**步驟 2：** Clone 工作區並安裝 SDK：
 \`\`\`bash
 git clone https://github.com/Starscribers/netcrawl-workspace.git workspace
 cd workspace

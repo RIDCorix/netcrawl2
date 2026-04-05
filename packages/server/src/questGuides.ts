@@ -16,19 +16,15 @@ Also install the **Python extension** in VSCode:
 2. Press \`Ctrl+Shift+X\` (Extensions)
 3. Search "Python" → Install the Microsoft Python extension` },
 
-    { title: 'Set Up Your Workspace', content: `Install **uv** (Python package manager), then clone the workspace:
-
-**Install uv — Windows (PowerShell):**
+    { title: 'Set Up Your Workspace', content: `**Step 1:** Install **uv** (Python package manager):
 \`\`\`powershell
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 \`\`\`
-
-**Install uv — macOS / Linux:**
 \`\`\`bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 \`\`\`
 
-**Clone and install:**
+**Step 2:** Clone the workspace and install the SDK:
 \`\`\`bash
 git clone https://github.com/Starscribers/netcrawl-workspace.git workspace
 cd workspace

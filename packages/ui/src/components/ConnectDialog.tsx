@@ -71,12 +71,8 @@ function SyntaxBlock({ lang, code, copyText }: { lang: string; code: React.React
   );
 }
 
-// Syntax color tokens
-const K = ({ children }: { children: string }) => <span style={{ color: '#ff7b72' }}>{children}</span>;  // keyword
-const S = ({ children }: { children: string }) => <span style={{ color: '#a5d6ff' }}>{children}</span>;  // string
-const F = ({ children }: { children: string }) => <span style={{ color: '#d2a8ff' }}>{children}</span>;  // function
-const C = ({ children }: { children: string }) => <span style={{ color: '#8b949e' }}>{children}</span>;  // comment
-const P = ({ children }: { children: string }) => <span style={{ color: '#c9d1d9' }}>{children}</span>;  // punctuation
+// Plain text token for code display
+const P = ({ children }: { children: string }) => <span style={{ color: '#c9d1d9' }}>{children}</span>;
 
 export function ConnectDialog() {
   const { connectOpen, toggleConnect } = useGameStore();
@@ -101,11 +97,11 @@ export function ConnectDialog() {
   const apiKey = localStorage.getItem('netcrawl-token') || '';
 
   const pythonCopy = isCloud
-    ? `app = NetCrawl(\n    server="${serverUrl}",\n    api_key="${apiKey}",\n)`
+    ? `app = NetCrawl(server="${serverUrl}", api_key="${apiKey}")`
     : `app = NetCrawl(server="${serverUrl}")`;
 
   const jsCopy = isCloud
-    ? `const app = new NetCrawl({\n  server: '${serverUrl}',\n  apiKey: '${apiKey}',\n});`
+    ? `const app = new NetCrawl({ server: '${serverUrl}', apiKey: '${apiKey}' });`
     : `const app = new NetCrawl({ server: '${serverUrl}' });`;
 
   return (
@@ -174,29 +170,9 @@ export function ConnectDialog() {
 
               <div style={{ borderTop: '1px solid var(--border)', margin: '14px 0' }} />
 
-              {/* Python example with syntax highlighting */}
-              <SyntaxBlock lang="Python" copyText={pythonCopy} code={
-                isCloud ? (<>
-                  <P>{'app = '}</P><F>{'NetCrawl'}</F><P>{'('}</P>{'\n'}
-                  <P>{'    server='}</P><S>{`"${serverUrl}"`}</S><P>{','}</P>{'\n'}
-                  <P>{'    api_key='}</P><S>{`"${apiKey}"`}</S><P>{','}</P>{'\n'}
-                  <P>{')'}</P>
-                </>) : (<>
-                  <P>{'app = '}</P><F>{'NetCrawl'}</F><P>{'(server='}</P><S>{`"${serverUrl}"`}</S><P>{')'}</P>
-                </>)
-              } />
-
-              {/* JavaScript example with syntax highlighting */}
-              <SyntaxBlock lang="JavaScript" copyText={jsCopy} code={
-                isCloud ? (<>
-                  <K>{'const '}</K><P>{'app = '}</P><K>{'new '}</K><F>{'NetCrawl'}</F><P>{'({'}</P>{'\n'}
-                  <P>{'  server: '}</P><S>{`'${serverUrl}'`}</S><P>{','}</P>{'\n'}
-                  <P>{'  apiKey: '}</P><S>{`'${apiKey}'`}</S><P>{','}</P>{'\n'}
-                  <P>{'});'}</P>
-                </>) : (<>
-                  <K>{'const '}</K><P>{'app = '}</P><K>{'new '}</K><F>{'NetCrawl'}</F><P>{'({ server: '}</P><S>{`'${serverUrl}'`}</S><P>{' });'}</P>
-                </>)
-              } />
+              {/* Code examples — tabbed Python / JavaScript */}
+              <SyntaxBlock lang="Python" copyText={pythonCopy} code={<P>{pythonCopy}</P>} />
+              <SyntaxBlock lang="JavaScript" copyText={jsCopy} code={<P>{jsCopy}</P>} />
             </div>
           </motion.div>
         </motion.div>
