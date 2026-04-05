@@ -85,10 +85,15 @@ self.mine()       # 呼叫挖礦方法
 self.collect()    # 呼叫收集方法
 self.deposit()    # 呼叫存入方法
 \`\`\`
+\`\`\`javascript
+this.mine();       // 呼叫挖礦方法
+this.collect();    // 呼叫收集方法
+this.deposit();    // 呼叫存入方法
+\`\`\`
 
 每次方法呼叫都是告訴你的 Worker **執行某個動作**。方法是你與遊戲世界互動的方式。` },
 
-    { title: '寫你的第一個 Worker', content: `開啟 \`workspace/workers/miner.py\` 並寫入：
+    { title: '寫你的第一個 Worker', content: `開啟 \`workspace/workers/miner.py\`（或 \`miner.js\`）並寫入：
 
 \`\`\`python
 from netcrawl import WorkerClass, Edge
@@ -107,6 +112,26 @@ class Miner(WorkerClass):
         self.collect()               # 撿起來
         self.move_edge(self.route)   # 礦場 → hub
         self.deposit()               # 轉換為資源
+\`\`\`
+\`\`\`javascript
+import { WorkerClass, Edge, Pickaxe } from '@netcrawl/sdk';
+
+class Miner extends WorkerClass {
+    static classId = 'miner';
+    static className = 'Miner';
+    static fields = {
+        pickaxe: new Pickaxe(),
+        route: new Edge('mining route'),
+    };
+
+    onLoop() {
+        this.moveEdge(this.route);   // hub → 礦場
+        this.pickaxe.mine();         // 產生掉落物
+        this.collect();              // 撿起來
+        this.moveEdge(this.route);   // 礦場 → hub
+        this.deposit();              // 轉換為資源
+    }
+}
 \`\`\`
 
 每一行都是一個**方法呼叫**。Worker 會按順序一個一個執行。` },
@@ -131,7 +156,15 @@ print(node.node_type)    # "resource", "hub", "compute"...
 print(node.label)        # "Data Mine Alpha"
 
 item = self.collect()
-print(item["type"])      # "data_fragment" 或 "bad_data"
+print(item.type)         # "data_fragment" 或 "bad_data"
+\`\`\`
+\`\`\`javascript
+const node = this.getCurrentNode();
+console.log(node.nodeType);    // "resource", "hub", "compute"...
+console.log(node.label);       // "Data Mine Alpha"
+
+const item = this.collect();
+console.log(item.type);        // "data_fragment" 或 "bad_data"
 \`\`\`
 
 點號讓你在行動前先**檢查**世界狀態。` },
@@ -164,7 +197,7 @@ else:
 \`\`\`
 
 \`collect()\` 之後，檢查 \`self.holding\` 看你撿到了什麼：
-- \`self.holding["type"]\` — \`"data_fragment"\`（好的）或 \`"bad_data"\`（壞的）
+- \`self.holding.type\` — \`"data_fragment"\`（好的）或 \`"bad_data"\`（壞的）
 - \`self.discard()\` — 丟棄手持物品，不存入` },
 
     { title: '帶過濾的聰明礦工', content: `這是一個會過濾 bad data 的礦工：
@@ -175,13 +208,29 @@ def on_loop(self):
     self.pickaxe.mine_and_collect()
 
     # 檢查我們撿到了什麼
-    if self.holding and self.holding["type"] == "bad_data":
+    if self.holding and self.holding.type == "bad_data":
         self.discard()          # 丟棄 bad data
         self.info("丟棄了 bad data！")
     else:
         self.move(self.to_hub)
         self.deposit()
         self.info("存入了好資料！")
+\`\`\`
+\`\`\`javascript
+onLoop() {
+    this.move(this.toMine);
+    this.pickaxe.mineAndCollect();
+
+    // 檢查我們撿到了什麼
+    if (this.holding && this.holding.type === 'bad_data') {
+        this.discard();          // 丟棄 bad data
+        this.info('丟棄了 bad data！');
+    } else {
+        this.move(this.toHub);
+        this.deposit();
+        this.info('存入了好資料！');
+    }
+}
 \`\`\`
 
 **目標：**
@@ -210,8 +259,14 @@ def on_loop(self):
 
 \`\`\`python
 node = self.get_current_node()
-if node.data.get("infected"):
+if node.is_infected:
     self.repair(node.id)
+\`\`\`
+\`\`\`javascript
+const node = this.getCurrentNode();
+if (node.isInfected) {
+    this.repair(node.id);
+}
 \`\`\`
 
 **目標：** 修復 1 個受感染的節點。你可能需要等待感染事件，或探索地圖找到一個。
@@ -238,14 +293,32 @@ def on_loop(self):
     # 持續收集直到拿到好資料
     while self.has_dropped_items():
         result = self.collect()
-        item = result.get("item", {})
-        if item.get("type") == "bad_data":
+        if result.item.type == "bad_data":
             self.discard()       # 丟棄 bad data
         else:
             break                # 拿到好資料了！
 
     self.move_edge(self.route)
     self.deposit()
+\`\`\`
+\`\`\`javascript
+onLoop() {
+    this.moveEdge(this.route);
+    this.pickaxe.mine();
+
+    // 持續收集直到拿到好資料
+    while (this.hasDroppedItems()) {
+        const result = this.collect();
+        if (result.item.type === 'bad_data') {
+            this.discard();       // 丟棄 bad data
+        } else {
+            break;                // 拿到好資料了！
+        }
+    }
+
+    this.moveEdge(this.route);
+    this.deposit();
+}
 \`\`\`
 
 \`has_dropped_items()\` 檢查節點是否還有掉落物。\`discard()\` 丟棄手持物品。
@@ -288,6 +361,32 @@ class ClusterMiner(WorkerClass):
                 self.collect()
                 self.move_edge(edge.edge_id)  # 回到中繼站
                 self.deposit()
+\`\`\`
+\`\`\`javascript
+import { WorkerClass, AdvancedSensor, ResourceNode, Pickaxe } from '@netcrawl/sdk';
+
+class ClusterMiner extends WorkerClass {
+    static classId = 'cluster_miner';
+    static className = 'Cluster Miner';
+    static fields = {
+        pickaxe: new Pickaxe(),
+        sensor: new AdvancedSensor(),
+    };
+
+    onLoop() {
+        const edges = this.sensor.scan();
+
+        for (const edge of edges) {
+            if (edge.targetNode instanceof ResourceNode) {
+                this.moveEdge(edge.edgeId);
+                this.pickaxe.mine();
+                this.collect();
+                this.moveEdge(edge.edgeId);  // 回到中繼站
+                this.deposit();
+            }
+        }
+    }
+}
 \`\`\`
 
 **注意：** 叢集中繼站不是 Hub — 你需要先把資料帶回主 Hub。請調整你的程式碼！

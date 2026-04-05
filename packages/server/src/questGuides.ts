@@ -92,10 +92,15 @@ self.mine()       # call the mine method
 self.collect()    # call the collect method
 self.deposit()    # call the deposit method
 \`\`\`
+\`\`\`javascript
+this.mine();       // call the mine method
+this.collect();    // call the collect method
+this.deposit();    // call the deposit method
+\`\`\`
 
 Each method call tells your worker to **do something**. Methods are how you interact with the game world.` },
 
-    { title: 'Write Your First Worker', content: `Open \`workspace/workers/miner.py\` and write:
+    { title: 'Write Your First Worker', content: `Open \`workspace/workers/miner.py\` (or \`miner.js\`) and write:
 
 \`\`\`python
 from netcrawl import WorkerClass, Edge
@@ -114,6 +119,26 @@ class Miner(WorkerClass):
         self.collect()               # pick it up
         self.move_edge(self.route)   # mine → hub
         self.deposit()               # convert to resources
+\`\`\`
+\`\`\`javascript
+import { WorkerClass, Edge, Pickaxe } from '@netcrawl/sdk';
+
+class Miner extends WorkerClass {
+    static classId = 'miner';
+    static className = 'Miner';
+    static fields = {
+        pickaxe: new Pickaxe(),
+        route: new Edge('mining route'),
+    };
+
+    onLoop() {
+        this.moveEdge(this.route);   // hub → mine
+        this.pickaxe.mine();         // create a drop
+        this.collect();              // pick it up
+        this.moveEdge(this.route);   // mine → hub
+        this.deposit();              // convert to resources
+    }
+}
 \`\`\`
 
 Each line is a **method call**. The worker executes them one by one, in order.` },
@@ -138,7 +163,15 @@ print(node.node_type)    # "resource", "hub", "compute"...
 print(node.label)        # "Data Mine Alpha"
 
 item = self.collect()
-print(item["type"])      # "data_fragment" or "bad_data"
+print(item.type)         # "data_fragment" or "bad_data"
+\`\`\`
+\`\`\`javascript
+const node = this.getCurrentNode();
+console.log(node.nodeType);    // "resource", "hub", "compute"...
+console.log(node.label);       // "Data Mine Alpha"
+
+const item = this.collect();
+console.log(item.type);        // "data_fragment" or "bad_data"
 \`\`\`
 
 Dot notation lets you **inspect** the world before acting on it.` },
@@ -171,7 +204,7 @@ else:
 \`\`\`
 
 After you \`collect()\` a drop, check \`self.holding\` to see what you picked up:
-- \`self.holding["type"]\` — either \`"data_fragment"\` (good) or \`"bad_data"\` (bad)
+- \`self.holding.type\` — either \`"data_fragment"\` (good) or \`"bad_data"\` (bad)
 - \`self.discard()\` — throw away the held item without depositing` },
 
     { title: 'Smart Miner with Filtering', content: `Here's a miner that filters bad data:
@@ -182,13 +215,29 @@ def on_loop(self):
     self.pickaxe.mine_and_collect()
 
     # Check what we picked up
-    if self.holding and self.holding["type"] == "bad_data":
+    if self.holding and self.holding.type == "bad_data":
         self.discard()          # throw away bad data
         self.info("Discarded bad data!")
     else:
         self.move(self.to_hub)
         self.deposit()
         self.info("Deposited good data!")
+\`\`\`
+\`\`\`javascript
+onLoop() {
+    this.move(this.toMine);
+    this.pickaxe.mineAndCollect();
+
+    // Check what we picked up
+    if (this.holding && this.holding.type === 'bad_data') {
+        this.discard();          // throw away bad data
+        this.info('Discarded bad data!');
+    } else {
+        this.move(this.toHub);
+        this.deposit();
+        this.info('Deposited good data!');
+    }
+}
 \`\`\`
 
 **Goals:**
@@ -217,8 +266,14 @@ You can write a worker that checks infection level using operators:
 
 \`\`\`python
 node = self.get_current_node()
-if node.data.get("infected"):
+if node.is_infected:
     self.repair(node.id)
+\`\`\`
+\`\`\`javascript
+const node = this.getCurrentNode();
+if (node.isInfected) {
+    this.repair(node.id);
+}
 \`\`\`
 
 **Goal:** Repair 1 infected node. You may need to wait for an infection event, or explore the map to find one.
@@ -245,14 +300,32 @@ def on_loop(self):
     # Keep collecting until we get good data
     while self.has_dropped_items():
         result = self.collect()
-        item = result.get("item", {})
-        if item.get("type") == "bad_data":
+        if result.item.type == "bad_data":
             self.discard()       # throw away bad data
         else:
             break                # got good data!
 
     self.move_edge(self.route)
     self.deposit()
+\`\`\`
+\`\`\`javascript
+onLoop() {
+    this.moveEdge(this.route);
+    this.pickaxe.mine();
+
+    // Keep collecting until we get good data
+    while (this.hasDroppedItems()) {
+        const result = this.collect();
+        if (result.item.type === 'bad_data') {
+            this.discard();       // throw away bad data
+        } else {
+            break;                // got good data!
+        }
+    }
+
+    this.moveEdge(this.route);
+    this.deposit();
+}
 \`\`\`
 
 \`has_dropped_items()\` checks if the node still has drops. \`discard()\` throws away the held item.
@@ -296,6 +369,32 @@ class ClusterMiner(WorkerClass):
                 self.move_edge(edge.edge_id)  # back to relay
                 self.deposit()
 \`\`\`
+\`\`\`javascript
+import { WorkerClass, AdvancedSensor, ResourceNode, Pickaxe } from '@netcrawl/sdk';
+
+class ClusterMiner extends WorkerClass {
+    static classId = 'cluster_miner';
+    static className = 'Cluster Miner';
+    static fields = {
+        pickaxe: new Pickaxe(),
+        sensor: new AdvancedSensor(),
+    };
+
+    onLoop() {
+        const edges = this.sensor.scan();
+
+        for (const edge of edges) {
+            if (edge.targetNode instanceof ResourceNode) {
+                this.moveEdge(edge.edgeId);
+                this.pickaxe.mine();
+                this.collect();
+                this.moveEdge(edge.edgeId);  // back to relay
+                this.deposit();
+            }
+        }
+    }
+}
+\`\`\`
 
 **Note:** The cluster relay is NOT a hub — you'll need to carry data back to the main hub first. Adapt your code accordingly!
 
@@ -311,6 +410,14 @@ try:
 except Exception as e:
     self.warn(f"Collect failed: {e}")
     # recover gracefully
+\`\`\`
+\`\`\`javascript
+try {
+    const result = this.collect();
+} catch (e) {
+    this.warn(\`Collect failed: \${e}\`);
+    // recover gracefully
+}
 \`\`\`
 
 Without error handling, one unexpected failure kills your entire worker process.` },
@@ -332,6 +439,25 @@ def on_loop(self):
             self.move("hub")
         except:
             pass
+\`\`\`
+\`\`\`javascript
+onLoop() {
+    try {
+        this.moveEdge(this.route);
+        this.pickaxe.mine();
+        this.collect();
+        this.moveEdge(this.route);
+        this.deposit();
+    } catch (e) {
+        this.error(\`Loop failed: \${e}\`);
+        // Try to get back to hub
+        try {
+            this.move('hub');
+        } catch (_) {
+            // ignore
+        }
+    }
+}
 \`\`\`
 
 **Goal:** Deploy **3 workers total**. More workers = more chances to see (and survive) errors.` },
@@ -453,7 +579,13 @@ Unlock **4 nodes** total to build a resilient network.
 \`\`\`python
 nodes = self.scan()
 for node in nodes:
-    print(f"{node['id']}: {node['type']}")
+    print(f"{node.id}: {node.type}")
+\`\`\`
+\`\`\`javascript
+const nodes = this.scan();
+for (const node of nodes) {
+    console.log(\`\${node.id}: \${node.type}\`);
+}
 \`\`\`
 
 Deploy **6 workers** total to explore the network from multiple vantage points.` },
@@ -490,10 +622,17 @@ Install **2 chips** to complete this quest.` },
     { title: 'Pattern Matching', content: `Antivirus software scans for known patterns. Your Guardian does the same:
 
 \`\`\`python
-infected = [n for n in self.scan() if n["type"] == "infected"]
+infected = [n for n in self.scan() if n.type == "infected"]
 if infected:
-    self.travel_to(infected[0]["id"])
-    self.repair(infected[0]["id"])
+    self.travel_to(infected[0].id)
+    self.repair(infected[0].id)
+\`\`\`
+\`\`\`javascript
+const infected = this.scan().filter(n => n.type === 'infected');
+if (infected.length > 0) {
+    this.travelTo(infected[0].id);
+    this.repair(infected[0].id);
+}
 \`\`\`
 
 Repair **3 infected nodes** to earn the unique **Antivirus Module**.` },
