@@ -102,24 +102,30 @@ function WorkerDotsRow({ workers, show }: { workers: any[]; show: boolean }) {
                 {w.status === 'harvesting' ? <Pickaxe size={10} /> : <Package size={10} />}
               </div>
             )}
-            {/* Speech bubble — grows from this dot, offset by worker index */}
+            {/* Speech bubble — vertical line up from dot, then diagonal + horizontal + text */}
             {showBubble && (() => {
               const lc = w.lastLog.level === 'error' ? '#ef4444' : w.lastLog.level === 'warn' ? '#f59e0b' : c;
               const bc = w.lastLog.level === 'error' ? 'rgba(239,68,68,0.35)' : w.lastLog.level === 'warn' ? 'rgba(245,158,11,0.35)' : `${c}40`;
               const msg = (w.lastLog.message || '').replace(/^\[(INFO|WARN|ERROR)\]\s*/i, '');
-              const yOff = -(20 + wi * 14); // stack upward per worker index
+              const vLen = 16 + wi * 12; // vertical line length — stacks higher per worker
               return (
                 <div key={`b-${w.lastLog.ts}`} style={{
-                  position: 'absolute', left: 6, top: yOff,
+                  position: 'absolute', left: 3, bottom: 8,
                   pointerEvents: 'none', whiteSpace: 'nowrap',
                   animation: 'bubble-fade 2s ease-out forwards',
-                  display: 'flex', alignItems: 'flex-end',
                 }}>
-                  <svg width="12" height="12" style={{ flexShrink: 0 }}>
-                    <line x1="1" y1="12" x2="6" y2="2" stroke={lc} strokeWidth="0.7" opacity="0.5" />
-                    <line x1="6" y1="2" x2="12" y2="2" stroke={lc} strokeWidth="0.7" opacity="0.5" />
+                  {/* Vertical line up + diagonal kick + horizontal */}
+                  <svg width={24} height={vLen + 10} style={{ position: 'absolute', left: 0, bottom: 0 }}>
+                    {/* Vertical from dot upward */}
+                    <line x1="1" y1={vLen + 10} x2="1" y2={10} stroke={lc} strokeWidth="0.7" opacity="0.45" />
+                    {/* Diagonal kick to the right */}
+                    <line x1="1" y1={10} x2="10" y2={2} stroke={lc} strokeWidth="0.7" opacity="0.45" />
+                    {/* Horizontal to text */}
+                    <line x1="10" y1={2} x2="24" y2={2} stroke={lc} strokeWidth="0.7" opacity="0.45" />
                   </svg>
+                  {/* Text label */}
                   <span style={{
+                    position: 'absolute', left: 26, top: -(vLen + 2),
                     fontSize: 7, fontFamily: 'var(--font-mono)', fontWeight: 600,
                     color: lc, borderBottom: `1px solid ${bc}`,
                     padding: '0 2px 1px', maxWidth: 120,
