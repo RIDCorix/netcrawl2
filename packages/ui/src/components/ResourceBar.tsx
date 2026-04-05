@@ -176,7 +176,7 @@ export function ResourceBar() {
   useEffect(() => {
     const check = () => {
       apiFetch('/api/worker-classes').then(r => r.json())
-        .then(data => setCodeServerUp(Array.isArray(data) && data.length > 0))
+        .then(data => setCodeServerUp(Array.isArray(data?.classes) && data.classes.length > 0))
         .catch(() => setCodeServerUp(false));
     };
     check();
