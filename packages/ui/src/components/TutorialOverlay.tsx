@@ -237,9 +237,9 @@ export function TutorialOverlay() {
 
   return (
     <>
-      {/* Full-screen blocker */}
+      {/* Full-screen blocker — z-index must be above quest tree (100), docs (150), etc. */}
       <div
-        style={{ position: 'fixed', inset: 0, zIndex: 89, background: 'rgba(0,0,0,0.45)' }}
+        style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.45)' }}
         onClick={(e) => e.stopPropagation()}
       />
 
@@ -254,13 +254,13 @@ export function TutorialOverlay() {
             position: 'fixed',
             top: highlightRect.top, left: highlightRect.left,
             width: highlightRect.width, height: highlightRect.height,
-            zIndex: 91, borderRadius: 'var(--radius-md)',
+            zIndex: 302, borderRadius: 'var(--radius-md)',
             cursor: 'pointer',
           }}
         />
       )}
 
-      <div style={{ position: 'fixed', inset: 0, zIndex: 90, pointerEvents: 'none' }}>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 301, pointerEvents: 'none' }}>
         {/* Highlight ring */}
         <AnimatePresence>
           {highlightRect && (
@@ -272,7 +272,7 @@ export function TutorialOverlay() {
                 borderRadius: 'var(--radius-md)',
                 border: '2px solid var(--accent)',
                 boxShadow: '0 0 20px rgba(0,212,170,0.4)',
-                pointerEvents: 'none', zIndex: 91,
+                pointerEvents: 'none', zIndex: 301,
                 animation: currentStep.waitFor ? 'pulse-ring 1.5s ease-in-out infinite' : undefined,
               }}
             />
@@ -282,7 +282,7 @@ export function TutorialOverlay() {
         {/* Tooltip */}
         <AnimatePresence mode="wait">
           {isCenter ? (
-            <div key={`center-${step}`} style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 92 }}>
+            <div key={`center-${step}`} style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 303 }}>
               {tooltipCard}
             </div>
           ) : tooltipPos ? (
@@ -290,7 +290,7 @@ export function TutorialOverlay() {
               position: 'fixed',
               top: currentStep.placement === 'bottom' ? tooltipPos.top : currentStep.placement === 'top' ? tooltipPos.top - 180 : tooltipPos.top - 90,
               left: currentStep.placement === 'right' ? tooltipPos.left : currentStep.placement === 'left' ? tooltipPos.left - 336 : tooltipPos.left - 160,
-              zIndex: 92, pointerEvents: 'none',
+              zIndex: 303, pointerEvents: 'none',
             }}>
               {tooltipCard}
             </div>
