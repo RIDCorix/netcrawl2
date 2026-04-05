@@ -73,6 +73,69 @@ uv run main.py
 🎉 連線成功後，部署 Worker 的按鈕就會啟用。前往下一個任務吧。` },
   ],
 
+  q_hello_world: [
+    { title: 'Worker 生命週期', content: `每個 Worker 有兩個方法：
+
+- \`on_startup()\` — 啟動時執行**一次**
+- \`on_loop()\` — **永遠重複**執行
+
+\`\`\`python
+class HelloWorker(WorkerClass):
+    class_name = "Hello"
+    class_id = "hello"
+
+    def on_startup(self):
+        self.info("我剛啟動！")    # 執行一次
+
+    def on_loop(self):
+        self.info("還在跑...")     # 永遠重複
+\`\`\`
+\`\`\`javascript
+class HelloWorker extends WorkerClass {
+    static classId = 'hello';
+    static className = 'Hello';
+
+    onStartup() {
+        this.info("我剛啟動！");    // 執行一次
+    }
+
+    onLoop() {
+        this.info("還在跑...");     // 永遠重複
+    }
+}
+\`\`\`
+
+遊戲引擎會先呼叫 \`on_startup()\` 一次，然後不斷呼叫 \`on_loop()\` 直到你停止 Worker。` },
+
+    { title: '日誌：info、warn、error', content: `Worker 可以發送訊息到 UI：
+
+\`\`\`python
+self.info("一切正常！")      # 綠色 — 正常狀態
+self.warn("資源不足")        # 黃色 — 需要注意
+self.error("無法移動！")     # 紅色 — 出了問題
+\`\`\`
+\`\`\`javascript
+this.info("一切正常！");      // 綠色 — 正常狀態
+this.warn("資源不足");        // 黃色 — 需要注意
+this.error("無法移動！");     // 紅色 — 出了問題
+\`\`\`
+
+這些訊息會顯示在 Worker 的日誌面板和地圖上的對話氣泡。
+
+用 \`info()\` 報告正常狀態，\`warn()\` 報告不嚴重的問題，\`error()\` 報告需要處理的錯誤。` },
+
+    { title: '部署你的第一個 Worker', content: `\`workspace/workers/helloworker.py\` 裡的 \`HelloWorker\` 已經可以部署：
+
+1. 點擊地圖上的 **Hub** 節點
+2. 點擊**部署 Worker**
+3. 從下拉選單選擇 **Hello**
+4. 點擊**部署**（不需要裝備！）
+
+觀察 Worker 日誌 — 你會看到 \`"我剛啟動！"\` 出現一次，然後 \`"還在跑..."\` 不斷重複。
+
+**目標：** 部署 1 個 Worker 即可完成此任務。之後你就會學到真正的挖礦方法！` },
+  ],
+
   q_method_call: [
     { title: '什麼是方法？', content: `在 Python 中，**方法**是屬於物件的函式。用點號呼叫：
 

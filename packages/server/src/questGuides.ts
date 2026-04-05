@@ -80,6 +80,69 @@ You should see:
 
   // ── Chapter 1: New quest guides ─────────────────────────────────────────────
 
+  q_hello_world: [
+    { title: 'Worker Lifecycle', content: `Every worker has two methods:
+
+- \`on_startup()\` — runs **once** when the worker starts
+- \`on_loop()\` — runs **repeatedly** forever
+
+\`\`\`python
+class HelloWorker(WorkerClass):
+    class_name = "Hello"
+    class_id = "hello"
+
+    def on_startup(self):
+        self.info("I just started!")    # runs once
+
+    def on_loop(self):
+        self.info("Still running...")   # runs forever
+\`\`\`
+\`\`\`javascript
+class HelloWorker extends WorkerClass {
+    static classId = 'hello';
+    static className = 'Hello';
+
+    onStartup() {
+        this.info("I just started!");    // runs once
+    }
+
+    onLoop() {
+        this.info("Still running...");   // runs forever
+    }
+}
+\`\`\`
+
+The game runner calls \`on_startup()\` once, then keeps calling \`on_loop()\` until you stop the worker.` },
+
+    { title: 'Logging: info, warn, error', content: `Workers can send messages visible in the UI:
+
+\`\`\`python
+self.info("All good!")       # green — normal status
+self.warn("Low resources")  # yellow — something to watch
+self.error("Can't move!")   # red — something broke
+\`\`\`
+\`\`\`javascript
+this.info("All good!");       // green — normal status
+this.warn("Low resources");  // yellow — something to watch
+this.error("Can't move!");   // red — something broke
+\`\`\`
+
+These messages appear in the worker's log panel and as speech bubbles on the map.
+
+Use \`info()\` for normal status updates, \`warn()\` for issues that aren't critical, and \`error()\` for things that need attention.` },
+
+    { title: 'Deploy Your First Worker', content: `The \`HelloWorker\` class in \`workspace/workers/helloworker.py\` is ready to deploy:
+
+1. Click the **Hub** node on the map
+2. Click **Deploy Worker**
+3. Select **Hello** from the class dropdown
+4. Click **Deploy** (no equipment needed!)
+
+Watch the worker logs — you'll see \`"I just started!"\` once, then \`"Still running..."\` repeating.
+
+**Goal:** Deploy 1 worker to complete this quest. After this, you'll learn actual mining methods!` },
+  ],
+
   q_method_call: [
     { title: 'What is a Method?', content: `In Python, a **method** is a function that belongs to an object. You call it with dot notation:
 

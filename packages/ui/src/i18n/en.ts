@@ -147,6 +147,8 @@ export const en: Record<string, string> = {
   'quest.q_setup.name': 'Dev Setup',
   'quest.q_setup.desc': 'Download VSCode, copy workspace_example, and connect your code server to start the game.',
 
+  'quest.q_hello_world.name': 'Hello World',
+  'quest.q_hello_world.desc': 'on_startup() runs once, on_loop() repeats forever — deploy your first worker.',
   'quest.q_method_call.name': 'Method Call',
   'quest.q_method_call.desc': 'self.mine(), self.collect(), self.deposit() — call methods to make things happen.',
   'quest.q_dot_notation.name': 'Dot Notation',

@@ -147,6 +147,8 @@ export const ja: Record<string, string> = {
   'quest.q_setup.name': '開発セットアップ',
   'quest.q_setup.desc': 'VSCodeをダウンロードし、workspace_exampleをコピーして、コードサーバーを接続してゲームを開始しましょう。',
 
+  'quest.q_hello_world.name': 'Hello World',
+  'quest.q_hello_world.desc': 'on_startup()は一度だけ、on_loop()はずっと繰り返す — 最初のワーカーをデプロイ。',
   'quest.q_method_call.name': 'メソッド呼び出し',
   'quest.q_method_call.desc': 'self.mine()、self.collect()、self.deposit() — メソッドを呼び出してアクションを起こそう。',
   'quest.q_dot_notation.name': 'ドット記法',

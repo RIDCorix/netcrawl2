@@ -68,6 +68,77 @@ const INITIAL_HUB_MINE: DemoGraphState = {
   worker: { nodeId: 'hub', color: '#fbbf24' },
 };
 
+// ── q_hello_world: step 0 (Worker Lifecycle) ──────────────────────────────
+
+const HUB_ONLY: DemoGraphState = {
+  nodes: [{ id: 'hub', type: 'hub', label: 'Hub', position: { x: 0, y: 0 } }],
+  edges: [],
+  worker: { nodeId: 'hub', color: '#fbbf24' },
+};
+
+const HELLO_WORLD_DEMO: DemoScript = {
+  code: `def on_startup(self):
+    self.info("I just started!")
+
+def on_loop(self):
+    self.info("Still running...")`,
+  initialState: HUB_ONLY,
+  steps: [
+    {
+      codeLine: 1,
+      durationMs: 600,
+      apply: (prev) => patch(prev, { statusLabel: '▶ on_startup() called' }),
+    },
+    {
+      codeLine: 2,
+      durationMs: 1200,
+      apply: (prev) => {
+        let s = highlightNode(prev, 'hub');
+        return patch(s, { statusLabel: '💬 info: "I just started!"' });
+      },
+    },
+    {
+      codeLine: 4,
+      durationMs: 600,
+      apply: (prev) => patch(clearHighlights(prev), { statusLabel: '🔁 on_loop() — iteration 1' }),
+    },
+    {
+      codeLine: 5,
+      durationMs: 1000,
+      apply: (prev) => {
+        let s = highlightNode(prev, 'hub');
+        return patch(s, { statusLabel: '💬 info: "Still running..."' });
+      },
+    },
+    {
+      codeLine: 4,
+      durationMs: 600,
+      apply: (prev) => patch(clearHighlights(prev), { statusLabel: '🔁 on_loop() — iteration 2' }),
+    },
+    {
+      codeLine: 5,
+      durationMs: 1000,
+      apply: (prev) => {
+        let s = highlightNode(prev, 'hub');
+        return patch(s, { statusLabel: '💬 info: "Still running..."' });
+      },
+    },
+    {
+      codeLine: 4,
+      durationMs: 600,
+      apply: (prev) => patch(clearHighlights(prev), { statusLabel: '🔁 on_loop() — iteration 3' }),
+    },
+    {
+      codeLine: 5,
+      durationMs: 1000,
+      apply: (prev) => {
+        let s = highlightNode(prev, 'hub');
+        return patch(s, { statusLabel: '💬 info: "Still running..." (repeats forever)' });
+      },
+    },
+  ],
+};
+
 // ── q_method_call: step 1 (Write Your First Worker) ────────────────────────
 
 const METHOD_CALL_DEMO: DemoScript = {
@@ -596,6 +667,7 @@ const ROUTE_DEMO: DemoScript = {
  * Key format: `${questId}:${guideStepIndex}` (0-indexed step)
  */
 export const DEMO_SCRIPTS: Record<string, DemoScript> = {
+  'q_hello_world:0': HELLO_WORLD_DEMO,     // "Worker Lifecycle" step
   'q_method_call:2': METHOD_CALL_DEMO,     // "Deploy and Watch" step
   'q_conditions:1':  CONDITIONS_DEMO,       // "Smart Mining Loop" step
   'q_while_loop:1':  WHILE_LOOP_DEMO,      // "Filtering Bad Data" step

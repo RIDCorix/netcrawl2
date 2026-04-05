@@ -127,6 +127,7 @@ export interface WorkerRow {
   equippedPickaxe: { itemType: string; efficiency: number } | null;
   equippedCpu: { itemType: string; computePoints: number; count: number } | null;
   equippedRam: { itemType: string; capacityBonus: number; count: number } | null;
+  lastLog?: { message: string; level: string; ts: number } | null;
 }
 
 export interface WorkerLogRow {

@@ -102,6 +102,30 @@ function WorkerDotsRow({ workers, show }: { workers: any[]; show: boolean }) {
                 {w.status === 'harvesting' ? <Pickaxe size={10} /> : <Package size={10} />}
               </div>
             )}
+            {/* Speech bubble — tech callout style */}
+            {w.lastLog && (Date.now() - (w.lastLog.ts || 0) < 4000) && (
+              <div style={{
+                position: 'absolute', left: 10, top: -8,
+                pointerEvents: 'none', whiteSpace: 'nowrap',
+                animation: 'bubble-fade 4s ease-out forwards',
+              }}>
+                {/* Diagonal + horizontal line */}
+                <svg width="24" height="16" style={{ position: 'absolute', left: 0, top: 6 }}>
+                  <line x1="0" y1="16" x2="12" y2="4" stroke={w.lastLog.level === 'error' ? '#ef4444' : w.lastLog.level === 'warn' ? '#f59e0b' : 'var(--accent)'} strokeWidth="1" />
+                  <line x1="12" y1="4" x2="24" y2="4" stroke={w.lastLog.level === 'error' ? '#ef4444' : w.lastLog.level === 'warn' ? '#f59e0b' : 'var(--accent)'} strokeWidth="1" />
+                </svg>
+                {/* Message */}
+                <span style={{
+                  position: 'absolute', left: 26, top: 0,
+                  fontSize: 7, fontFamily: 'var(--font-mono)', fontWeight: 600,
+                  color: w.lastLog.level === 'error' ? '#ef4444' : w.lastLog.level === 'warn' ? '#f59e0b' : 'var(--accent)',
+                  background: 'rgba(10,10,15,0.85)', padding: '1px 4px', borderRadius: 2,
+                  maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis',
+                }}>
+                  {(w.lastLog.message || '').replace(/^\[(INFO|WARN|ERROR)\]\s*/i, '')}
+                </span>
+              </div>
+            )}
           </div>
         );
       })}

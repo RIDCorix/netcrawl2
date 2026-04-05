@@ -102,9 +102,17 @@ export const QUESTS: QuestDef[] = [
     position: { x: 400, y: 0 },
   },
   {
+    id: 'q_hello_world', chapter: 1, name: 'Hello World', codeConcept: 'Worker Lifecycle',
+    description: 'on_startup() runs once, on_loop() repeats forever — deploy your first worker.',
+    mainline: true, prerequisites: ['q_setup'],
+    objectives: [{ id: 'o1', description: 'Deploy 1 worker', statKey: 'total_workers_deployed', target: 1, type: 'stat_gte' }],
+    rewards: [{ kind: 'resources', resources: { data: 100 } }],
+    position: { x: 400, y: 150 },
+  },
+  {
     id: 'q_method_call', chapter: 1, name: 'Method Call', codeConcept: 'Methods',
     description: 'self.mine(), self.collect(), self.deposit() — call methods to make things happen.',
-    mainline: true, prerequisites: ['q_setup'],
+    mainline: true, prerequisites: ['q_hello_world'],
     objectives: [
       { id: 'o1', description: 'Mine a resource node', statKey: 'total_mines', target: 1, type: 'stat_gte' },
       { id: 'o2', description: 'Deposit at hub', statKey: 'total_deposits', target: 1, type: 'stat_gte' },

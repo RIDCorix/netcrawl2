@@ -399,6 +399,13 @@ body::after {
   100% { opacity: 1; transform: scale(1); }
 }
 
+@keyframes bubble-fade {
+  0% { opacity: 0; transform: translateY(4px); }
+  10% { opacity: 1; transform: translateY(0); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 @keyframes pulse-connect {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
