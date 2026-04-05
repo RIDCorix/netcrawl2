@@ -9,6 +9,17 @@ import time
 from netcrawl.fields import WorkerField, ItemField
 
 
+class DotDict(dict):
+    """Dict subclass that supports dot notation access (d.key == d['key'])."""
+    def __getattr__(self, key):
+        try:
+            return self[key]
+        except KeyError:
+            raise AttributeError(f"No attribute '{key}'")
+    def __setattr__(self, key, value):
+        self[key] = value
+
+
 class APIRequest:
     """Represents a pending request from an API node's queue."""
 
@@ -273,7 +284,8 @@ class WorkerClass(metaclass=WorkerMeta):
         """
         result = self._client.action("collect", {})
         if result.get("ok"):
-            self._holding = result.get("item")
+            item = result.get("item")
+            self._holding = DotDict(item) if isinstance(item, dict) else item
         return result
 
     def deposit(self) -> dict:
