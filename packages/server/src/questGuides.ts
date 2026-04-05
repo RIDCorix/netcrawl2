@@ -103,7 +103,7 @@ Each method call tells your worker to **do something**. Methods are how you inte
     { title: 'Write Your First Worker', content: `Open \`workspace/workers/miner.py\` (or \`miner.js\`) and write:
 
 \`\`\`python
-from netcrawl import WorkerClass, Route
+from netcrawl import WorkerClass, Edge
 from netcrawl.items.equipment import Pickaxe
 
 class Miner(WorkerClass):
@@ -111,55 +111,39 @@ class Miner(WorkerClass):
     class_id = "miner"
 
     pickaxe = Pickaxe()
-    route = Route("hub → mine → hub")
+    edge = Edge("hub ↔ mine")
 
     def on_loop(self):
-        # Walk the route forward (hub → mine)
-        for edge in self.route:
-            self.move(edge)
-
-        self.pickaxe.mine_and_collect()
-
-        # Walk the route backward (mine → hub)
-        for edge in reversed(self.route):
-            self.move(edge)
-
-        self.deposit()
+        self.move(self.edge)           # hub → mine
+        self.pickaxe.mine_and_collect() # mine + pick up
+        self.move(self.edge)           # mine → hub
+        self.deposit()                 # convert to data
 \`\`\`
 \`\`\`javascript
-import { WorkerClass, Route, Pickaxe } from '@netcrawl/sdk';
+import { WorkerClass, Edge, Pickaxe } from '@netcrawl/sdk';
 
 class Miner extends WorkerClass {
     static classId = 'miner';
     static className = 'Miner';
     static fields = {
         pickaxe: new Pickaxe(),
-        route: new Route('hub → mine → hub'),
+        edge: new Edge('hub ↔ mine'),
     };
 
     onLoop() {
-        // Walk the route forward (hub → mine)
-        for (const edge of this.route) {
-            this.move(edge);
-        }
-
-        this.pickaxe.mineAndCollect();
-
-        // Walk the route backward (mine → hub)
-        for (const edge of [...this.route].reverse()) {
-            this.move(edge);
-        }
-
-        this.deposit();
+        this.move(this.edge);           // hub → mine
+        this.pickaxe.mineAndCollect();  // mine + pick up
+        this.move(this.edge);           // mine → hub
+        this.deposit();                 // convert to data
     }
 }
 \`\`\`
 
-A \`Route\` is a path you build at deploy time by clicking nodes. At runtime it becomes a list of edge IDs that you can iterate with \`for\`. Use \`reversed()\` to walk back.` },
+An \`Edge\` is a single connection between two adjacent nodes. At deploy time you click one edge on the map. \`self.move(edge)\` walks back and forth along it.` },
 
     { title: 'Deploy and Watch', content: `1. Click the **Hub** node → **Deploy Worker**
 2. Select **Miner** from the dropdown
-3. Pick an **edge** that leads to a resource node
+3. Select the **edge** connecting Hub to Data Mine Nano
 4. Equip a **Pickaxe** from inventory
 5. Click **Deploy**
 
@@ -355,7 +339,64 @@ for item in collection:
     process(item)
 \`\`\`
 
-Unlike \`while\` (repeat until condition), \`for\` iterates a **known set** of things — a list, a sequence, scan results.` },
+Unlike \`while\` (repeat until condition), \`for\` iterates a **known set** of things — a list, a route, scan results.` },
+
+    { title: 'Routes: Multi-Edge Paths', content: `So far you've used \`Edge\` (one connection). A \`Route\` is a **path across multiple nodes**.
+
+At deploy time, you click nodes in order to build the path. At runtime it becomes a list of edge IDs:
+
+\`\`\`python
+from netcrawl import WorkerClass, Route
+from netcrawl.items.equipment import Pickaxe
+
+class LongRangeMiner(WorkerClass):
+    class_name = "Long Range Miner"
+    class_id = "long_range_miner"
+
+    pickaxe = Pickaxe()
+    route = Route("hub → relay → deep mine")
+
+    def on_loop(self):
+        # Walk forward along the route
+        for edge in self.route:
+            self.move(edge)
+
+        self.pickaxe.mine_and_collect()
+
+        # Walk backward to return
+        for edge in reversed(self.route):
+            self.move(edge)
+
+        self.deposit()
+\`\`\`
+\`\`\`javascript
+import { WorkerClass, Route, Pickaxe } from '@netcrawl/sdk';
+
+class LongRangeMiner extends WorkerClass {
+    static classId = 'long_range_miner';
+    static className = 'Long Range Miner';
+    static fields = {
+        pickaxe: new Pickaxe(),
+        route: new Route('hub → relay → deep mine'),
+    };
+
+    onLoop() {
+        for (const edge of this.route) {
+            this.move(edge);
+        }
+
+        this.pickaxe.mineAndCollect();
+
+        for (const edge of [...this.route].reverse()) {
+            this.move(edge);
+        }
+
+        this.deposit();
+    }
+}
+\`\`\`
+
+\`reversed(self.route)\` walks the path backward — perfect for return trips.` },
 
     { title: 'The Data Mine Cluster', content: `Far south on the map, there's a **Data Mine Cluster**: a relay hub surrounded by 6 tiny resource nodes (capacity 1 each, refills every 5 seconds).
 

@@ -1,32 +1,36 @@
 """
-Scout — 探索 worker
+Scout — exploration worker
 
-沿著巡邏路線移動，記錄發現的新節點。
+Travels along a route, scanning and logging discovered nodes.
 
-部署需求：
-  - patrol_route: 巡邏路徑（建議是一個閉環）
-  - sensor: 感應器小工具（自動提供）
+Deploy requirements:
+  - route:  patrol route (click nodes to build path)
+  - sensor: SensorGadget (auto-provided)
 """
 import time
 from netcrawl import WorkerClass, Route, SensorGadget
 
 
 class Scout(WorkerClass):
-    patrol_route = Route("巡邏路徑（閉環）")
+    class_name = "Scout"
+    class_id = "scout"
+
+    route = Route("patrol route")
     sensor = SensorGadget()
 
     def on_startup(self):
         self.discovered = set()
-        self.info("Scout 上線！")
+        self.info("Scout online!")
 
     def on_loop(self):
-        # explore() 比 scan() 範圍更大（需要 Beacon 道具最大化）
         nodes = self.sensor.explore()
-        new_nodes = [n for n in nodes if n["id"] not in self.discovered]
+        for node in nodes:
+            if node.id not in self.discovered:
+                self.discovered.add(node.id)
+                self.info(f"Discovered: {node.id} ({node.type})")
 
-        for node in new_nodes:
-            self.discovered.add(node["id"])
-            self.info(f"發現新節點：{node['id']} (type={node['type']})")
+        # Walk the patrol route
+        for edge in self.route:
+            self.move(edge)
 
-        self.move_through(self.patrol_route)
         time.sleep(1)

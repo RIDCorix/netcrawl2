@@ -96,7 +96,7 @@ this.deposit();    // 呼叫存入方法
     { title: '寫你的第一個 Worker', content: `開啟 \`workspace/workers/miner.py\`（或 \`miner.js\`）並寫入：
 
 \`\`\`python
-from netcrawl import WorkerClass, Route
+from netcrawl import WorkerClass, Edge
 from netcrawl.items.equipment import Pickaxe
 
 class Miner(WorkerClass):
@@ -104,51 +104,35 @@ class Miner(WorkerClass):
     class_id = "miner"
 
     pickaxe = Pickaxe()
-    route = Route("hub → 礦場 → hub")
+    edge = Edge("hub ↔ 礦場")
 
     def on_loop(self):
-        # 沿路線前進（hub → 礦場）
-        for edge in self.route:
-            self.move(edge)
-
-        self.pickaxe.mine_and_collect()
-
-        # 沿路線返回（礦場 → hub）
-        for edge in reversed(self.route):
-            self.move(edge)
-
-        self.deposit()
+        self.move(self.edge)           # hub → 礦場
+        self.pickaxe.mine_and_collect() # 挖礦 + 撿起
+        self.move(self.edge)           # 礦場 → hub
+        self.deposit()                 # 轉換為資源
 \`\`\`
 \`\`\`javascript
-import { WorkerClass, Route, Pickaxe } from '@netcrawl/sdk';
+import { WorkerClass, Edge, Pickaxe } from '@netcrawl/sdk';
 
 class Miner extends WorkerClass {
     static classId = 'miner';
     static className = 'Miner';
     static fields = {
         pickaxe: new Pickaxe(),
-        route: new Route('hub → 礦場 → hub'),
+        edge: new Edge('hub ↔ 礦場'),
     };
 
     onLoop() {
-        // 沿路線前進（hub → 礦場）
-        for (const edge of this.route) {
-            this.move(edge);
-        }
-
-        this.pickaxe.mineAndCollect();
-
-        // 沿路線返回（礦場 → hub）
-        for (const edge of [...this.route].reverse()) {
-            this.move(edge);
-        }
-
-        this.deposit();
+        this.move(this.edge);           // hub → 礦場
+        this.pickaxe.mineAndCollect();  // 挖礦 + 撿起
+        this.move(this.edge);           // 礦場 → hub
+        this.deposit();                 // 轉換為資源
     }
 }
 \`\`\`
 
-\`Route\` 是部署時透過點擊節點建立的路徑。執行時會變成邊 ID 的列表，可以用 \`for\` 遍歷。用 \`reversed()\` 來走回去。` },
+\`Edge\` 是兩個相鄰節點之間的單一連線。部署時在地圖上點選一條邊。\`self.move(edge)\` 可以沿著它來回移動。` },
 
     { title: '部署並觀察', content: `1. 點擊 **Hub** 節點 → **部署 Worker**
 2. 從下拉選單選擇 **Miner**
@@ -348,7 +332,64 @@ for item in collection:
     process(item)
 \`\`\`
 
-不像 \`while\`（重複直到條件不成立），\`for\` 遍歷一組**已知的**東西 — 列表、序列、掃描結果。` },
+不像 \`while\`（重複直到條件不成立），\`for\` 遍歷一組**已知的**東西 — 列表、路徑、掃描結果。` },
+
+    { title: '路徑 Route：多邊路線', content: `之前你用的是 \`Edge\`（單一連線）。\`Route\` 是跨越**多個節點的路徑**。
+
+部署時按順序點擊節點來建立路徑。執行時它會變成邊 ID 的列表：
+
+\`\`\`python
+from netcrawl import WorkerClass, Route
+from netcrawl.items.equipment import Pickaxe
+
+class LongRangeMiner(WorkerClass):
+    class_name = "Long Range Miner"
+    class_id = "long_range_miner"
+
+    pickaxe = Pickaxe()
+    route = Route("hub → 中繼站 → 深層礦場")
+
+    def on_loop(self):
+        # 沿路線前進
+        for edge in self.route:
+            self.move(edge)
+
+        self.pickaxe.mine_and_collect()
+
+        # 沿路線返回
+        for edge in reversed(self.route):
+            self.move(edge)
+
+        self.deposit()
+\`\`\`
+\`\`\`javascript
+import { WorkerClass, Route, Pickaxe } from '@netcrawl/sdk';
+
+class LongRangeMiner extends WorkerClass {
+    static classId = 'long_range_miner';
+    static className = 'Long Range Miner';
+    static fields = {
+        pickaxe: new Pickaxe(),
+        route: new Route('hub → 中繼站 → 深層礦場'),
+    };
+
+    onLoop() {
+        for (const edge of this.route) {
+            this.move(edge);
+        }
+
+        this.pickaxe.mineAndCollect();
+
+        for (const edge of [...this.route].reverse()) {
+            this.move(edge);
+        }
+
+        this.deposit();
+    }
+}
+\`\`\`
+
+\`reversed(self.route)\` 把路徑反轉 — 回程的最佳選擇。` },
 
     { title: '資料礦場叢集', content: `在地圖的南方，有一個**資料礦場叢集**：一個中繼站被 6 個小型資源節點包圍（容量 1，每 5 秒補充）。
 
