@@ -182,7 +182,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
     : [];
   const itemSlots = classItemSlots;
   const routeSlots = selectedClassEntry
-    ? Object.entries(selectedClassEntry.fields).filter(([, f]) => f.type === 'route').map(([name, f]) => ({ name, description: f.description }))
+    ? Object.entries(selectedClassEntry.fields).filter(([, f]) => f.type === 'route' || f.type === 'edge').map(([name, f]) => ({ name, description: f.description }))
     : [];
 
   const hasRoutes = routeSlots.length > 0;
