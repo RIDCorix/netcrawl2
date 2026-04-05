@@ -94,6 +94,90 @@ class RuntimeAdvancedSensor(RuntimeGadget):
         ]
 
 
+class RuntimeEdge:
+    """
+    Runtime proxy for an Edge field. Injected at deploy time with edge metadata.
+
+    Attributes:
+        edge_id: The edge identifier (e.g. 'e1')
+        source: Source node ID
+        target: Target node ID
+
+    Can be passed directly to worker.move():
+        self.move(self.edge)  # works!
+    """
+
+    def __init__(self, edge_id: str, source: str = '', target: str = ''):
+        self.edge_id = edge_id
+        self.source = source
+        self.target = target
+
+    def __str__(self) -> str:
+        return self.edge_id
+
+    def __repr__(self) -> str:
+        return f"<Edge {self.edge_id}: {self.source} ↔ {self.target}>"
+
+
+class RuntimeRoute:
+    """
+    Runtime proxy for a Route field. Injected at deploy time with edge list.
+
+    Attributes:
+        edges: List[RuntimeEdge] — the edges in order
+        nodes: List[str] — the node IDs in path order
+
+    Iterable — yields RuntimeEdge objects:
+        for edge in self.route:
+            self.move(edge)
+
+    Reversible:
+        for edge in reversed(self.route):
+            self.move(edge)
+    """
+
+    def __init__(self, edge_ids: list[str], edge_metadata: list[dict] | None = None):
+        self._edge_ids = edge_ids
+        if edge_metadata:
+            self._edges = [
+                RuntimeEdge(m.get('id', eid), m.get('source', ''), m.get('target', ''))
+                for eid, m in zip(edge_ids, edge_metadata)
+            ]
+        else:
+            self._edges = [RuntimeEdge(eid) for eid in edge_ids]
+
+    @property
+    def edges(self) -> list[RuntimeEdge]:
+        """List of edges in the route, in order."""
+        return list(self._edges)
+
+    @property
+    def nodes(self) -> list[str]:
+        """List of node IDs in the path, in order (derived from edges)."""
+        if not self._edges:
+            return []
+        result = []
+        for e in self._edges:
+            if e.source and (not result or result[-1] != e.source):
+                result.append(e.source)
+            if e.target:
+                result.append(e.target)
+        return result
+
+    def __iter__(self):
+        return iter(self._edges)
+
+    def __reversed__(self):
+        return reversed(self._edges)
+
+    def __len__(self) -> int:
+        return len(self._edges)
+
+    def __repr__(self) -> str:
+        nodes = self.nodes
+        return f"<Route {' → '.join(nodes) if nodes else self._edge_ids}>"
+
+
 class RuntimeItem:
     """
     Runtime proxy for equipped items. Wraps the injected item metadata.

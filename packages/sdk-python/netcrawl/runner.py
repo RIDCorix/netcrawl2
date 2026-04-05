@@ -61,7 +61,7 @@ def main():
     # - GadgetField → create runtime gadget (no injected data needed)
     # - Other → keep as-is
     from netcrawl.fields import ItemField, EdgeField, RouteField, GadgetField
-    from netcrawl.runtime import RuntimeItem
+    from netcrawl.runtime import RuntimeItem, RuntimeEdge, RuntimeRoute
     from netcrawl.items.equipment import SensorGadget, BasicSensor, AdvancedSensor
     from netcrawl.runtime import RuntimeSensorGadget, RuntimeBasicSensor, RuntimeAdvancedSensor
 
@@ -82,9 +82,9 @@ def main():
             item_proxy = RuntimeItem(value)
             injected_fields[field_name] = item_proxy
         elif isinstance(cls_field, EdgeField) and isinstance(value, str):
-            injected_fields[field_name] = value
+            injected_fields[field_name] = RuntimeEdge(value)
         elif isinstance(cls_field, RouteField) and isinstance(value, list):
-            injected_fields[field_name] = value
+            injected_fields[field_name] = RuntimeRoute(value)
         else:
             injected_fields[field_name] = value
 

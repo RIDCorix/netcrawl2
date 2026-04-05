@@ -210,42 +210,54 @@ class WorkerClass(metaclass=WorkerMeta):
 
     # ── Movement ────────────────────────────────────────────────────────────
 
-    def move(self, target) -> None:
+    def move(self, target) -> MoveResult:
         """
-        Move along an edge, to a node, or through a route.
-        - If target is a list: treats as a route (sequence of edges/nodes) and moves through all
-        - If target looks like an edge ID (starts with 'e'): uses move_edge
-        - Otherwise: legacy move by node ID
+        Universal move method. Accepts any of:
 
-        Raises ValueError if the edge/node is not connected.
+        - Edge object:   self.move(self.edge)
+        - Route object:  self.move(self.route)     — walks entire path
+        - Edge ID str:   self.move('e1')
+        - Node ID str:   self.move('hub')
+        - List:          self.move(['e1', 'e3'])
+
+        Returns MoveResult with .ok, .from_node, .to_node
+        Raises ValueError if the move fails.
         """
-        # Route: list of edge IDs or node IDs
-        if isinstance(target, list):
-            return self.move_through(target)
-        # Edge-based (edge IDs like 'e1', 'e2', etc.)
-        if isinstance(target, str) and target.startswith('e') and target[1:].isdigit():
-            return self.move_edge(target)
-        # Legacy: move by node ID
-        result = self._client.action("move", {"targetNodeId": target})
-        if result.get("ok"):
-            self._current_node = target
-        else:
+        from netcrawl.runtime import RuntimeEdge, RuntimeRoute
+
+        # RuntimeRoute or list → walk each step
+        if isinstance(target, (RuntimeRoute, list)):
+            last = None
+            for item in target:
+                last = self.move(item)
+            return last
+
+        # RuntimeEdge → extract edge_id
+        if isinstance(target, RuntimeEdge):
+            return self._move_edge(target.edge_id)
+
+        # String
+        if isinstance(target, str):
+            # Edge ID (e1, e2, ...)
+            if target.startswith('e') and target[1:].isdigit():
+                return self._move_edge(target)
+            # Node ID
+            result = self._client.action("move", {"targetNodeId": target})
+            if result.get("ok"):
+                self._current_node = target
+                return MoveResult(**result)
             raise ValueError(f"Cannot move to {target}: {result.get('error')}")
 
-    def move_edge(self, edge_id: str) -> MoveResult:
-        """
-        Move along a specific edge.
+        raise TypeError(f"move() expects Edge, Route, str, or list — got {type(target).__name__}")
 
-        Returns MoveResult with .ok, .from_node, .to_node, .edge_id
-        Raises ValueError if the edge doesn't connect to current node.
-        """
+    def _move_edge(self, edge_id: str) -> MoveResult:
+        """Internal: move along a specific edge by ID."""
         data = self._client.action("move_edge", {"edgeId": edge_id})
         result = MoveResult(**data)
         if result.ok:
             self._current_node = result.to_node or self._current_node
             return result
-        else:
-            raise ValueError(f"Cannot move along edge {edge_id}: {result.error}")
+        raise ValueError(f"Cannot move along edge {edge_id}: {result.error}")
 
     def get_edges(self) -> List[EdgeInfo]:
         """
@@ -255,17 +267,6 @@ class WorkerClass(metaclass=WorkerMeta):
         """
         result = self._client.action("get_edges", {})
         return [EdgeInfo(**e) for e in result.get("edges", [])]
-
-    def move_through(self, route) -> None:
-        """
-        Move through a list of edge IDs or node IDs in order.
-        Supports both ['e1', 'e2'] (edge-based) and ['hub', 'r1'] (node-based).
-        """
-        items = list(route)
-        for item in items:
-            if item == self._current_node:
-                continue
-            self.move(item)
 
     # ── Resource actions ─────────────────────────────────────────────────────
 
