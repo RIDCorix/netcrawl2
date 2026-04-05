@@ -102,35 +102,36 @@ function WorkerDotsRow({ workers, show }: { workers: any[]; show: boolean }) {
                 {w.status === 'harvesting' ? <Pickaxe size={10} /> : <Package size={10} />}
               </div>
             )}
-            {/* Speech bubble — tech callout style */}
-            {w.lastLog && (
-              <div
-                key={`bubble-${w.lastLog.ts}`}
-                style={{
-                  position: 'absolute', left: 10, top: -10,
-                  pointerEvents: 'none', whiteSpace: 'nowrap',
-                  animation: 'bubble-fade 4s ease-out forwards',
-                }}
-              >
-                {/* Diagonal + horizontal line */}
-                <svg width="20" height="14" style={{ position: 'absolute', left: 0, top: 6 }}>
-                  <line x1="0" y1="14" x2="10" y2="3" stroke={w.lastLog.level === 'error' ? '#ef4444' : w.lastLog.level === 'warn' ? '#f59e0b' : 'var(--accent)'} strokeWidth="0.8" opacity="0.7" />
-                  <line x1="10" y1="3" x2="20" y2="3" stroke={w.lastLog.level === 'error' ? '#ef4444' : w.lastLog.level === 'warn' ? '#f59e0b' : 'var(--accent)'} strokeWidth="0.8" opacity="0.7" />
-                </svg>
-                {/* Message — transparent bg, bottom border only */}
-                <span style={{
-                  position: 'absolute', left: 22, top: -2,
-                  fontSize: 7, fontFamily: 'var(--font-mono)', fontWeight: 600, letterSpacing: '0.02em',
-                  color: w.lastLog.level === 'error' ? '#ef4444' : w.lastLog.level === 'warn' ? '#f59e0b' : 'var(--accent)',
-                  background: 'transparent',
-                  borderBottom: `1px solid ${w.lastLog.level === 'error' ? 'rgba(239,68,68,0.4)' : w.lastLog.level === 'warn' ? 'rgba(245,158,11,0.4)' : 'rgba(0,212,170,0.3)'}`,
-                  padding: '0 2px 1px',
-                  maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis',
-                }}>
-                  {(w.lastLog.message || '').replace(/^\[(INFO|WARN|ERROR)\]\s*/i, '')}
-                </span>
-              </div>
-            )}
+            {/* Speech bubble — tech callout from dot center-right */}
+            {w.lastLog && (() => {
+              const lc = w.lastLog.level === 'error' ? '#ef4444' : w.lastLog.level === 'warn' ? '#f59e0b' : 'var(--accent)';
+              const bc = w.lastLog.level === 'error' ? 'rgba(239,68,68,0.4)' : w.lastLog.level === 'warn' ? 'rgba(245,158,11,0.4)' : 'rgba(0,212,170,0.3)';
+              return (
+                <div
+                  key={`bubble-${w.lastLog.ts}`}
+                  style={{
+                    position: 'absolute', left: 6, top: -18,
+                    pointerEvents: 'none', whiteSpace: 'nowrap',
+                    animation: 'bubble-fade 4s ease-out forwards',
+                  }}
+                >
+                  <svg width="18" height="18" style={{ position: 'absolute', left: 0, bottom: 0 }}>
+                    <line x1="2" y1="18" x2="10" y2="4" stroke={lc} strokeWidth="0.8" opacity="0.6" />
+                    <line x1="10" y1="4" x2="18" y2="4" stroke={lc} strokeWidth="0.8" opacity="0.6" />
+                  </svg>
+                  <span style={{
+                    position: 'absolute', left: 20, top: 0,
+                    fontSize: 7, fontFamily: 'var(--font-mono)', fontWeight: 600, letterSpacing: '0.02em',
+                    color: lc, background: 'transparent',
+                    borderBottom: `1px solid ${bc}`,
+                    padding: '0 2px 1px',
+                    maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis',
+                  }}>
+                    {(w.lastLog.message || '').replace(/^\[(INFO|WARN|ERROR)\]\s*/i, '')}
+                  </span>
+                </div>
+              );
+            })()}
           </div>
         );
       })}
