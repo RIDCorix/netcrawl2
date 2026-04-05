@@ -12,6 +12,7 @@ import {
   getPlayerChips, addPlayerChip, removePlayerChip,
   getLayerManager, isLayerUnlocked, switchActiveLayer, getStat,
   setCurrentUser,
+  allocateFlop, releaseFlop, FLOP_COSTS,
 } from './db.js';
 import { LAYER_DEFS } from './layerDefinitions.js';
 import { handleWorkerAction } from './workerActions.js';
@@ -194,13 +195,23 @@ router.post('/deploy', async (req: Request, res: Response) => {
   const node = state.nodes.find((n: any) => n.id === nodeId);
   if (!node) return res.status(404).json({ error: 'Node not found' });
 
+  // Check FLOP capacity
+  const flopCost = FLOP_COSTS.worker;
+  if (!allocateFlop(flopCost)) {
+    const { used, total } = state.flop;
+    return res.status(400).json({ ok: false, error: `Not enough FLOP capacity. Current: ${used}/${total}` });
+  }
+
   // Handle CPU modules — deduct N from inventory, sum compute points
   const cpuCount: number = Number(equippedItems?.cpuCount) || 0;
   const cpuItemType: string = equippedItems?.cpuType || 'cpu_basic';
   let equippedCpu: { itemType: string; computePoints: number; count: number } | null = null;
   if (cpuCount > 0) {
     const removed = removeFromPlayerInventory(cpuItemType, cpuCount);
-    if (!removed) return res.status(400).json({ error: `Not enough ${cpuItemType} (need ${cpuCount})` });
+    if (!removed) {
+      releaseFlop(flopCost);
+      return res.status(400).json({ error: `Not enough ${cpuItemType} (need ${cpuCount})` });
+    }
     equippedCpu = { itemType: cpuItemType, computePoints: getCpuComputePoints(cpuItemType) * cpuCount, count: cpuCount };
   }
 
@@ -211,6 +222,7 @@ router.post('/deploy', async (req: Request, res: Response) => {
   if (ramCount > 0) {
     const removed = removeFromPlayerInventory(ramItemType, ramCount);
     if (!removed) {
+      releaseFlop(flopCost);
       if (equippedCpu) addToPlayerInventory(equippedCpu.itemType, equippedCpu.count);
       return res.status(400).json({ error: `Not enough ${ramItemType} (need ${ramCount})` });
     }
@@ -226,12 +238,14 @@ router.post('/deploy', async (req: Request, res: Response) => {
     // Sum compute costs of all equipped items
     let totalCost = getItemComputeCost(pickaxeItemType);
     if (totalCost > totalCompute) {
+      releaseFlop(flopCost);
       if (equippedCpu) addToPlayerInventory(equippedCpu.itemType, equippedCpu.count);
       if (equippedRam) addToPlayerInventory(equippedRam.itemType, equippedRam.count);
       return res.status(400).json({ error: `Not enough compute (need ${totalCost}, have ${totalCompute}). Add more CPU.` });
     }
     const removed = removeFromPlayerInventory(pickaxeItemType, 1);
     if (!removed) {
+      releaseFlop(flopCost);
       if (equippedCpu) addToPlayerInventory(equippedCpu.itemType, equippedCpu.count);
       if (equippedRam) addToPlayerInventory(equippedRam.itemType, equippedRam.count);
       return res.status(400).json({ error: `Not enough ${pickaxeItemType} in inventory` });
@@ -311,10 +325,11 @@ router.post('/deploy-ack', (req: Request, res: Response) => {
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
 
   if (spawnError) {
-    // Spawn failed — return equipped items
+    // Spawn failed — return equipped items and release FLOP
     if (worker.equippedPickaxe) {
       addToPlayerInventory(worker.equippedPickaxe.itemType, 1);
     }
+    releaseFlop(FLOP_COSTS.worker);
     upsertWorker({ ...worker, status: 'crashed' });
     addWorkerLog(workerId, `[ERROR] Spawn failed: ${spawnError}`);
   } else {
@@ -347,6 +362,7 @@ router.post('/recall', (req: Request, res: Response) => {
     // Remove from deploy queue if still pending
     removeFromDeployQueue(workerId);
 
+    releaseFlop(FLOP_COSTS.worker);
     deleteWorker(workerId);
     broadcastFullState();
     return res.json({ ok: true });
@@ -356,11 +372,14 @@ router.post('/recall', (req: Request, res: Response) => {
   const result = killWorker(workerId);
   if (!result.ok) {
     // Process not found but worker exists — just clean up
+    releaseFlop(FLOP_COSTS.worker);
     deleteWorker(workerId);
     broadcastFullState();
     return res.json({ ok: true });
   }
 
+  // Process killed — exit handler will set status to suspended/crashed.
+  // FLOP released when worker is eventually recalled (deleteWorker path above).
   broadcastFullState();
   res.json({ ok: true });
 });

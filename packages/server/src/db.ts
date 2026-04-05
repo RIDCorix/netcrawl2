@@ -850,6 +850,20 @@ export function deleteWorker(id: string) {
   delete store.workers[id];
 }
 
+/** Try to allocate FLOP capacity. Returns false if not enough room. */
+export function allocateFlop(cost: number): boolean {
+  const flop = store.game_state.flop;
+  if (flop.used + cost > flop.total) return false;
+  flop.used += cost;
+  return true;
+}
+
+/** Release FLOP capacity (clamped to 0). */
+export function releaseFlop(cost: number): void {
+  const flop = store.game_state.flop;
+  flop.used = Math.max(0, flop.used - cost);
+}
+
 // ── Worker logs ───────────────────────────────────────────────────────────────
 
 export function addWorkerLog(workerId: string, message: string) {
