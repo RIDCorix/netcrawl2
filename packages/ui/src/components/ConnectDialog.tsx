@@ -7,7 +7,6 @@ import { SERVER_URL, WS_URL, apiFetch } from '../lib/api';
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
-  const t = useT();
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(text);
@@ -22,44 +21,68 @@ function CopyButton({ text }: { text: string }) {
       style={{
         background: 'none', border: 'none', cursor: 'pointer',
         color: copied ? 'var(--success)' : 'var(--text-muted)',
-        padding: 4, display: 'flex', alignItems: 'center', gap: 4,
-        fontSize: 10, fontFamily: 'var(--font-mono)',
+        padding: '4px 6px', display: 'flex', alignItems: 'center', gap: 4,
+        fontSize: 10, fontFamily: 'var(--font-mono)', flexShrink: 0,
       }}
     >
-      {copied ? <><Check size={12} /> {t('connect.copied')}</> : <Copy size={12} />}
+      {copied ? <><Check size={12} /> Copied</> : <Copy size={12} />}
     </motion.button>
   );
 }
 
-function CodeBlock({ label, code }: { label: string; code: string }) {
+function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{
-        fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)',
-        marginBottom: 4, letterSpacing: '0.05em', textTransform: 'uppercase',
-      }}>
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginBottom: 4, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
         {label}
       </div>
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         background: 'var(--bg-base)', border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-sm)', padding: '8px 12px',
-        fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--accent)',
-        wordBreak: 'break-all',
+        borderRadius: 'var(--radius-sm)', padding: '6px 10px',
+        fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--accent)',
+        overflow: 'hidden',
       }}>
-        <span>{code}</span>
-        <CopyButton text={code} />
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
+        <CopyButton text={value} />
       </div>
     </div>
   );
 }
+
+/** Simple syntax highlight for Python/JS code */
+function SyntaxBlock({ lang, code, copyText }: { lang: string; code: React.ReactNode; copyText: string }) {
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginBottom: 4, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+        {lang}
+      </div>
+      <div style={{
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+        background: '#0d1117', border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-sm)', padding: '10px 12px',
+        fontFamily: 'var(--font-mono)', fontSize: 11, lineHeight: 1.6,
+        overflow: 'auto',
+      }}>
+        <pre style={{ margin: 0, flex: 1, whiteSpace: 'pre' }}>{code}</pre>
+        <CopyButton text={copyText} />
+      </div>
+    </div>
+  );
+}
+
+// Syntax color tokens
+const K = ({ children }: { children: string }) => <span style={{ color: '#ff7b72' }}>{children}</span>;  // keyword
+const S = ({ children }: { children: string }) => <span style={{ color: '#a5d6ff' }}>{children}</span>;  // string
+const F = ({ children }: { children: string }) => <span style={{ color: '#d2a8ff' }}>{children}</span>;  // function
+const C = ({ children }: { children: string }) => <span style={{ color: '#8b949e' }}>{children}</span>;  // comment
+const P = ({ children }: { children: string }) => <span style={{ color: '#c9d1d9' }}>{children}</span>;  // punctuation
 
 export function ConnectDialog() {
   const { connectOpen, toggleConnect } = useGameStore();
   const t = useT();
   const [codeServerConnected, setCodeServerConnected] = useState(false);
 
-  // Poll for code server registration status
   useEffect(() => {
     if (!connectOpen) return;
     let alive = true;
@@ -74,15 +97,15 @@ export function ConnectDialog() {
   }, [connectOpen]);
 
   const serverUrl = SERVER_URL;
-  const wsUrl = WS_URL;
   const isCloud = !!import.meta.env.VITE_API_URL;
   const apiKey = localStorage.getItem('netcrawl-token') || '';
 
-  const pythonCode = isCloud
-    ? `app = NetCrawl(server="${serverUrl}", api_key="${apiKey}")`
+  const pythonCopy = isCloud
+    ? `app = NetCrawl(\n    server="${serverUrl}",\n    api_key="${apiKey}",\n)`
     : `app = NetCrawl(server="${serverUrl}")`;
-  const jsCode = isCloud
-    ? `const app = new NetCrawl({ server: '${serverUrl}', apiKey: '${apiKey}' });`
+
+  const jsCopy = isCloud
+    ? `const app = new NetCrawl({\n  server: '${serverUrl}',\n  apiKey: '${apiKey}',\n});`
     : `const app = new NetCrawl({ server: '${serverUrl}' });`;
 
   return (
@@ -104,41 +127,36 @@ export function ConnectDialog() {
             transition={{ type: 'spring', damping: 25, stiffness: 350 }}
             onClick={(e) => e.stopPropagation()}
             style={{
-              width: 580, maxWidth: 'calc(100vw - 40px)',
+              width: 640, maxWidth: 'calc(100vw - 40px)',
+              maxHeight: 'calc(100vh - 80px)',
               background: 'var(--bg-glass-heavy)',
               border: '1px solid var(--border-bright)',
               borderRadius: 'var(--radius-lg)',
+              display: 'flex', flexDirection: 'column',
               overflow: 'hidden',
             }}
           >
             {/* Header */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '14px 16px', borderBottom: '1px solid var(--border)',
+              padding: '14px 18px', borderBottom: '1px solid var(--border)', flexShrink: 0,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Terminal size={14} style={{ color: 'var(--accent)' }} />
-                <span style={{
-                  fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700,
-                  color: 'var(--text-primary)', letterSpacing: '0.05em',
-                }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.05em' }}>
                   {t('connect.title')}
                 </span>
               </div>
-              <motion.button
-                whileTap={{ scale: 0.9 }}
-                onClick={toggleConnect}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex' }}
-              >
+              <motion.button whileTap={{ scale: 0.9 }} onClick={toggleConnect} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex' }}>
                 <X size={16} />
               </motion.button>
             </div>
 
-            {/* Content */}
-            <div style={{ padding: 16 }}>
+            {/* Scrollable content */}
+            <div style={{ padding: '16px 18px', overflowY: 'auto', flex: 1 }}>
               {/* Status */}
               <div style={{
-                display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16,
+                display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14,
                 fontSize: 11, fontFamily: 'var(--font-mono)',
                 color: codeServerConnected ? 'var(--success)' : 'var(--text-muted)',
               }}>
@@ -146,55 +164,39 @@ export function ConnectDialog() {
                 <span>{codeServerConnected ? 'Code server connected' : 'Waiting for code server...'}</span>
               </div>
 
-              {/* Description */}
-              <p style={{
-                fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5,
-                marginBottom: 16,
-              }}>
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 14, margin: '0 0 14px' }}>
                 {t('connect.description')}
               </p>
 
-              {/* URLs */}
-              <CodeBlock label={t('connect.server_url')} code={serverUrl} />
-              {isCloud && apiKey && (
-                <CodeBlock label="API KEY" code={apiKey} />
-              )}
+              {/* Connection info */}
+              <InfoRow label={t('connect.server_url')} value={serverUrl} />
+              {isCloud && apiKey && <InfoRow label="API KEY" value={apiKey} />}
 
-              {/* Divider */}
-              <div style={{ borderTop: '1px solid var(--border)', margin: '16px 0' }} />
+              <div style={{ borderTop: '1px solid var(--border)', margin: '14px 0' }} />
 
-              {/* Code examples */}
-              <div style={{
-                fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)',
-                marginBottom: 8, letterSpacing: '0.05em', textTransform: 'uppercase',
-              }}>
-                {t('connect.python_example')}
-              </div>
-              <div style={{
-                display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-                background: 'var(--bg-base)', border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)', padding: '8px 12px', marginBottom: 12,
-                fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-primary)',
-              }}>
-                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', flex: 1 }}>{pythonCode}</pre>
-                <CopyButton text={pythonCode} />
-              </div>
+              {/* Python example with syntax highlighting */}
+              <SyntaxBlock lang="Python" copyText={pythonCopy} code={
+                isCloud ? (<>
+                  <P>{'app = '}</P><F>{'NetCrawl'}</F><P>{'('}</P>{'\n'}
+                  <P>{'    server='}</P><S>{`"${serverUrl}"`}</S><P>{','}</P>{'\n'}
+                  <P>{'    api_key='}</P><S>{`"${apiKey}"`}</S><P>{','}</P>{'\n'}
+                  <P>{')'}</P>
+                </>) : (<>
+                  <P>{'app = '}</P><F>{'NetCrawl'}</F><P>{'(server='}</P><S>{`"${serverUrl}"`}</S><P>{')'}</P>
+                </>)
+              } />
 
-              <div style={{
-                fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)',
-                marginBottom: 8, letterSpacing: '0.05em', textTransform: 'uppercase',
-              }}>
-                {t('connect.js_example')}
-              </div>
-              <div style={{
-                display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-                background: 'var(--bg-base)', border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)', padding: '8px 12px',
-                fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-primary)',
-              }}>
-                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', flex: 1 }}>{jsCode}</pre>
-                <CopyButton text={jsCode} />
-              </div>
+              {/* JavaScript example with syntax highlighting */}
+              <SyntaxBlock lang="JavaScript" copyText={jsCopy} code={
+                isCloud ? (<>
+                  <K>{'const '}</K><P>{'app = '}</P><K>{'new '}</K><F>{'NetCrawl'}</F><P>{'({'}</P>{'\n'}
+                  <P>{'  server: '}</P><S>{`'${serverUrl}'`}</S><P>{','}</P>{'\n'}
+                  <P>{'  apiKey: '}</P><S>{`'${apiKey}'`}</S><P>{','}</P>{'\n'}
+                  <P>{'});'}</P>
+                </>) : (<>
+                  <K>{'const '}</K><P>{'app = '}</P><K>{'new '}</K><F>{'NetCrawl'}</F><P>{'({ server: '}</P><S>{`'${serverUrl}'`}</S><P>{' });'}</P>
+                </>)
+              } />
             </div>
           </motion.div>
         </motion.div>
