@@ -10,20 +10,26 @@ import urllib.request
 import urllib.error
 
 
-def http_post(url: str, data: dict, timeout: int = 10) -> dict:
+def http_post(url: str, data: dict, timeout: int = 10, api_key: str = "") -> dict:
     """POST JSON to a URL and return the parsed response."""
     body = json.dumps(data).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
     req = urllib.request.Request(
         url, data=body,
-        headers={"Content-Type": "application/json"},
+        headers=headers,
         method="POST",
     )
     return _do_request(req, timeout)
 
 
-def http_get(url: str, timeout: int = 10) -> dict:
+def http_get(url: str, timeout: int = 10, api_key: str = "") -> dict:
     """GET a URL and return the parsed JSON response."""
-    req = urllib.request.Request(url, method="GET")
+    headers = {}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    req = urllib.request.Request(url, headers=headers, method="GET")
     return _do_request(req, timeout)
 
 
@@ -47,9 +53,10 @@ class ApiClient:
     HTTP client for worker subprocess → game server communication.
     """
 
-    def __init__(self, api_url: str, worker_id: str):
+    def __init__(self, api_url: str, worker_id: str, api_key: str = ""):
         self.api_url = api_url.rstrip("/")
         self.worker_id = worker_id
+        self.api_key = api_key
 
     def action(self, action: str, payload: dict) -> dict:
         """POST /api/worker/action — returns server response as dict."""
@@ -57,4 +64,4 @@ class ApiClient:
             "workerId": self.worker_id,
             "action": action,
             "payload": payload,
-        })
+        }, api_key=self.api_key)

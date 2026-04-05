@@ -49,10 +49,10 @@ class NetCrawl:
         print(f"[NetCrawl] Registered: {class_name} (id={class_id})")
 
     def _post(self, path: str, data: dict) -> dict:
-        return http_post(f"{self.server}{path}", data)
+        return http_post(f"{self.server}{path}", data, api_key=self.api_key)
 
     def _get(self, path: str) -> dict:
-        return http_get(f"{self.server}{path}")
+        return http_get(f"{self.server}{path}", api_key=self.api_key)
 
     def _register_all(self) -> None:
         """Register all worker classes with the game server."""

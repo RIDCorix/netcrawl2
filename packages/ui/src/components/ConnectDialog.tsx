@@ -75,9 +75,15 @@ export function ConnectDialog() {
 
   const serverUrl = SERVER_URL;
   const wsUrl = WS_URL;
+  const isCloud = !!import.meta.env.VITE_API_URL;
+  const apiKey = localStorage.getItem('netcrawl-token') || '';
 
-  const pythonCode = `app = NetCrawl(server="${serverUrl}")`;
-  const jsCode = `const app = new NetCrawl({ server: '${serverUrl}' });`;
+  const pythonCode = isCloud
+    ? `app = NetCrawl(\n    server="${serverUrl}",\n    api_key="${apiKey}",\n)`
+    : `app = NetCrawl(server="${serverUrl}")`;
+  const jsCode = isCloud
+    ? `const app = new NetCrawl({\n  server: '${serverUrl}',\n  apiKey: '${apiKey}',\n});`
+    : `const app = new NetCrawl({ server: '${serverUrl}' });`;
 
   return (
     <AnimatePresence>
@@ -150,7 +156,9 @@ export function ConnectDialog() {
 
               {/* URLs */}
               <CodeBlock label={t('connect.server_url')} code={serverUrl} />
-              <CodeBlock label={t('connect.ws_url')} code={wsUrl} />
+              {isCloud && apiKey && (
+                <CodeBlock label="API KEY" code={apiKey} />
+              )}
 
               {/* Divider */}
               <div style={{ borderTop: '1px solid var(--border)', margin: '16px 0' }} />
@@ -163,18 +171,12 @@ export function ConnectDialog() {
                 {t('connect.python_example')}
               </div>
               <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
                 background: 'var(--bg-base)', border: '1px solid var(--border)',
                 borderRadius: 'var(--radius-sm)', padding: '8px 12px', marginBottom: 12,
                 fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-primary)',
               }}>
-                <code>
-                  <span style={{ color: '#9ca3af' }}>app = </span>
-                  <span style={{ color: '#4ade80' }}>NetCrawl</span>
-                  <span style={{ color: '#9ca3af' }}>(server=</span>
-                  <span style={{ color: '#f59e0b' }}>"{serverUrl}"</span>
-                  <span style={{ color: '#9ca3af' }}>)</span>
-                </code>
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', flex: 1 }}>{pythonCode}</pre>
                 <CopyButton text={pythonCode} />
               </div>
 
@@ -185,19 +187,12 @@ export function ConnectDialog() {
                 {t('connect.js_example')}
               </div>
               <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
                 background: 'var(--bg-base)', border: '1px solid var(--border)',
                 borderRadius: 'var(--radius-sm)', padding: '8px 12px',
                 fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-primary)',
               }}>
-                <code>
-                  <span style={{ color: '#60a5fa' }}>const </span>
-                  <span style={{ color: '#9ca3af' }}>app = </span>
-                  <span style={{ color: '#4ade80' }}>new NetCrawl</span>
-                  <span style={{ color: '#9ca3af' }}>({"{"} server: </span>
-                  <span style={{ color: '#f59e0b' }}>'{serverUrl}'</span>
-                  <span style={{ color: '#9ca3af' }}> {"}"})</span>
-                </code>
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', flex: 1 }}>{jsCode}</pre>
                 <CopyButton text={jsCode} />
               </div>
             </div>
