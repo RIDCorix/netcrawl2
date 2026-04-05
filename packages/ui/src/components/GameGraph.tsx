@@ -102,31 +102,33 @@ function WorkerDotsRow({ workers, show }: { workers: any[]; show: boolean }) {
                 {w.status === 'harvesting' ? <Pickaxe size={10} /> : <Package size={10} />}
               </div>
             )}
-            {/* Speech bubble — vertical line up, diagonal kick, then text with underline */}
+            {/* Speech bubble — vertical up, diagonal kick right, text sits ON the line */}
             {showBubble && (() => {
               const lc = w.lastLog.level === 'error' ? '#ef4444' : w.lastLog.level === 'warn' ? '#f59e0b' : c;
               const msg = (w.lastLog.message || '').replace(/^\[(INFO|WARN|ERROR)\]\s*/i, '');
-              const vLen = 18 + wi * 13;
+              // Right-most workers get shorter lines (lower height)
+              const vLen = 28 + (workers.length - 1 - wi) * 13;
+              const totalH = vLen + 12;
               return (
                 <div key={`b-${w.lastLog.ts}`} style={{
-                  position: 'absolute', left: 3, bottom: 8,
+                  position: 'absolute', left: 2, bottom: 6,
                   pointerEvents: 'none', whiteSpace: 'nowrap',
                   animation: 'bubble-fade 2s ease-out forwards',
+                  width: 0, height: 0,
                 }}>
-                  {/* SVG: vertical line + diagonal + horizontal underline extending under text */}
-                  <svg width={140} height={vLen + 4} style={{ position: 'absolute', left: 0, bottom: 0, overflow: 'visible' }}>
+                  <svg width={140} height={totalH} style={{ position: 'absolute', left: 0, bottom: 0, overflow: 'visible' }}>
                     {/* Vertical from dot upward */}
-                    <line x1="1" y1={vLen + 4} x2="1" y2={10} stroke={lc} strokeWidth="0.7" opacity="0.45" />
+                    <line x1="1" y1={totalH} x2="1" y2={12} stroke={lc} strokeWidth="0.7" opacity="0.4" />
                     {/* Diagonal kick right */}
-                    <line x1="1" y1={10} x2="12" y2={1} stroke={lc} strokeWidth="0.7" opacity="0.45" />
-                    {/* Horizontal line — extends as text underline */}
-                    <line x1="12" y1={1} x2="140" y2={1} stroke={lc} strokeWidth="0.7" opacity="0.3" />
+                    <line x1="1" y1={12} x2="14" y2={1} stroke={lc} strokeWidth="0.7" opacity="0.4" />
+                    {/* Horizontal underline — text sits above this */}
+                    <line x1="14" y1={1} x2="140" y2={1} stroke={lc} strokeWidth="0.7" opacity="0.25" />
                   </svg>
-                  {/* Text — positioned at the horizontal line level */}
+                  {/* Text — bottom-aligned to sit just above the horizontal line */}
                   <span style={{
-                    position: 'absolute', left: 14, bottom: vLen - 4,
+                    position: 'absolute', left: 16, bottom: totalH - 2,
                     fontSize: 7, fontFamily: 'var(--font-mono)', fontWeight: 600,
-                    color: lc, padding: '0 2px',
+                    color: lc, lineHeight: 1,
                     maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis',
                   }}>
                     {msg}
