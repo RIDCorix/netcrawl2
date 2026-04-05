@@ -506,7 +506,7 @@ export function InventoryPanel() {
               style={{
                 background: 'var(--bg-glass-heavy)', backdropFilter: 'blur(24px)',
                 border: '1px solid var(--border-bright)', borderRadius: 'var(--radius-lg)',
-                padding: 20, width: 560, maxWidth: 'calc(100vw - 48px)',
+                padding: 20, width: 720, maxWidth: 'calc(100vw - 48px)',
                 maxHeight: 'calc(100vh - 80px)', overflowY: 'auto',
                 display: 'flex', flexDirection: 'column', gap: 14,
               }}

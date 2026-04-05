@@ -486,7 +486,19 @@ export function QuestTree() {
               onNodeClick={onNodeClick}
               nodeTypes={QUEST_NODE_TYPES}
               fitView
-              fitViewOptions={{ padding: 0.8, maxZoom: 1.2 }}
+              fitViewOptions={{
+                padding: 0.8,
+                maxZoom: 1.2,
+                includeHiddenNodes: false,
+                nodes: (() => {
+                  // Focus on available/completed quests (not yet claimed) for better zoom
+                  const active = nodes.filter(n => {
+                    const s = n.data?.quest?.status;
+                    return s === 'available' || s === 'completed';
+                  });
+                  return active.length > 0 ? active : nodes;
+                })(),
+              }}
               style={{ background: 'transparent' }}
               proOptions={{ hideAttribution: true }}
               minZoom={0.3}

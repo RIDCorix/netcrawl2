@@ -1,6 +1,7 @@
 /**
  * TutorialOverlay — inline step-by-step onboarding guide.
  * Points to specific UI elements with a highlight + floating tooltip.
+ * BLOCKS all other interactions during the tutorial.
  * Persisted to localStorage. Skippable at any time.
  */
 
@@ -18,7 +19,7 @@ interface TutorialStep {
   title: string;
   content: string;
   nextLabel?: string;
-  advanceOn?: string; // gameStore event key that auto-advances
+  action?: () => void; // action to execute when advancing FROM this step
 }
 
 const TUTORIAL_STEPS: TutorialStep[] = [
@@ -29,6 +30,11 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     title: 'tutorial.welcome.title',
     content: 'tutorial.welcome.content',
     nextLabel: 'tutorial.btn.start',
+    action: () => {
+      // Open the quest book when user clicks "Start"
+      const state = useGameStore.getState();
+      if (!state.questsOpen) state.toggleQuests();
+    },
   },
   {
     id: 'quest_book',
@@ -38,6 +44,10 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     title: 'tutorial.quests.title',
     content: 'tutorial.quests.content',
     nextLabel: 'tutorial.btn.next',
+    action: () => {
+      // Select the first quest (Dev Setup / q_setup)
+      useGameStore.getState().selectQuest('q_setup');
+    },
   },
   {
     id: 'setup_code',
@@ -92,7 +102,7 @@ interface HighlightRect {
 
 export function TutorialOverlay() {
   const t = useT();
-  const { workers, questSummary } = useGameStore();
+  const { workers } = useGameStore();
   const [tutState, setTutState] = useState(loadTutorialState);
   const [highlightRect, setHighlightRect] = useState<HighlightRect | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null);
@@ -103,12 +113,16 @@ export function TutorialOverlay() {
   const isActive = !dismissed && step < TUTORIAL_STEPS.length;
 
   const advance = useCallback(() => {
+    const cs = TUTORIAL_STEPS[tutState.step];
+    // Execute step action before advancing
+    if (cs?.action) cs.action();
+
     setTutState(s => {
       const next = { step: s.step + 1, dismissed: s.step + 1 >= TUTORIAL_STEPS.length };
       saveTutorialState(next);
       return next;
     });
-  }, []);
+  }, [tutState.step]);
 
   const dismiss = useCallback(() => {
     const next = { step, dismissed: true };
@@ -141,7 +155,6 @@ export function TutorialOverlay() {
         height: rect.height + pad * 2,
       });
 
-      // Tooltip position based on placement
       const placement = currentStep.placement;
       const gap = 16;
       if (placement === 'bottom') {
@@ -173,7 +186,6 @@ export function TutorialOverlay() {
   const Icon = currentStep.icon;
   const isCenter = currentStep.placement === 'center' || !currentStep.target || !tooltipPos;
 
-  // Tooltip card
   const tooltipCard = (
     <motion.div
       key={`tooltip-${step}`}
@@ -195,7 +207,6 @@ export function TutorialOverlay() {
         pointerEvents: 'auto' as const,
       }}
     >
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{
@@ -224,7 +235,6 @@ export function TutorialOverlay() {
         </button>
       </div>
 
-      {/* Content */}
       <p style={{
         fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)',
         lineHeight: 1.7, margin: 0,
@@ -232,7 +242,6 @@ export function TutorialOverlay() {
         {t(currentStep.content) || currentStep.content}
       </p>
 
-      {/* Progress dots + Next button */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
         <div style={{ display: 'flex', gap: 4 }}>
           {TUTORIAL_STEPS.map((_, i) => (
@@ -271,61 +280,71 @@ export function TutorialOverlay() {
   );
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 90, pointerEvents: 'none' }}>
-      {/* Highlight ring around target */}
-      <AnimatePresence>
-        {highlightRect && (
-          <motion.div
-            key={`highlight-${step}`}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            style={{
-              position: 'fixed',
-              top: highlightRect.top,
-              left: highlightRect.left,
-              width: highlightRect.width,
-              height: highlightRect.height,
-              borderRadius: 'var(--radius-md)',
-              border: '2px solid var(--accent)',
-              boxShadow: '0 0 0 3000px rgba(0,0,0,0.35), 0 0 20px rgba(0,212,170,0.4)',
-              pointerEvents: 'none',
-              zIndex: 91,
-            }}
-          />
-        )}
-      </AnimatePresence>
+    <>
+      {/* Full-screen blocker — prevents clicking anything except the tutorial card */}
+      <div
+        style={{
+          position: 'fixed', inset: 0, zIndex: 89,
+          background: 'rgba(0,0,0,0.45)',
+          cursor: 'not-allowed',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      />
 
-      {/* Tooltip card */}
-      <AnimatePresence mode="wait">
-        {isCenter ? (
-          // Centered card (welcome screen or no target found)
-          <div key={`center-${step}`} style={{
-            position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            pointerEvents: 'none', zIndex: 92,
-          }}>
-            {tooltipCard}
-          </div>
-        ) : tooltipPos ? (
-          // Positioned near the target element
-          <div
-            key={`pos-${step}`}
-            style={{
-              position: 'fixed',
-              top: currentStep.placement === 'bottom' ? tooltipPos.top
-                : currentStep.placement === 'top' ? tooltipPos.top - 180
-                : tooltipPos.top - 90,
-              left: currentStep.placement === 'right' ? tooltipPos.left
-                : currentStep.placement === 'left' ? tooltipPos.left - 336
-                : tooltipPos.left - 160,
-              zIndex: 92,
-              pointerEvents: 'none',
-            }}
-          >
-            {tooltipCard}
-          </div>
-        ) : null}
-      </AnimatePresence>
-    </div>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 90, pointerEvents: 'none' }}>
+        {/* Highlight ring around target */}
+        <AnimatePresence>
+          {highlightRect && (
+            <motion.div
+              key={`highlight-${step}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              style={{
+                position: 'fixed',
+                top: highlightRect.top,
+                left: highlightRect.left,
+                width: highlightRect.width,
+                height: highlightRect.height,
+                borderRadius: 'var(--radius-md)',
+                border: '2px solid var(--accent)',
+                boxShadow: '0 0 20px rgba(0,212,170,0.4)',
+                pointerEvents: 'none',
+                zIndex: 91,
+              }}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Tooltip card */}
+        <AnimatePresence mode="wait">
+          {isCenter ? (
+            <div key={`center-${step}`} style={{
+              position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              pointerEvents: 'none', zIndex: 92,
+            }}>
+              {tooltipCard}
+            </div>
+          ) : tooltipPos ? (
+            <div
+              key={`pos-${step}`}
+              style={{
+                position: 'fixed',
+                top: currentStep.placement === 'bottom' ? tooltipPos.top
+                  : currentStep.placement === 'top' ? tooltipPos.top - 180
+                  : tooltipPos.top - 90,
+                left: currentStep.placement === 'right' ? tooltipPos.left
+                  : currentStep.placement === 'left' ? tooltipPos.left - 336
+                  : tooltipPos.left - 160,
+                zIndex: 92,
+                pointerEvents: 'none',
+              }}
+            >
+              {tooltipCard}
+            </div>
+          ) : null}
+        </AnimatePresence>
+      </div>
+    </>
   );
 }
