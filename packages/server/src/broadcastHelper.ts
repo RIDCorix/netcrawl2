@@ -3,7 +3,7 @@
  * Single source of truth for building STATE_UPDATE payloads.
  */
 
-import { getGameState, getVisibleState, getWorkers, getPlayerLevelSummary, getLayerManager, isLayerUnlocked, checkLayerUnlocks, getActiveLayerId, getStat } from './db.js';
+import { getGameState, getVisibleState, getWorkers, getPlayerLevelSummary, getLayerManager, isLayerUnlocked, checkLayerUnlocks, getActiveLayerId, getStat, getCurrentUserId } from './db.js';
 import { LAYER_DEFS } from './layerDefinitions.js';
 import { broadcast } from './websocket.js';
 import { getAchievementSummary } from './achievements.js';
@@ -19,7 +19,7 @@ export function broadcastFullState() {
   for (const layerId of newlyUnlocked) {
     const def = LAYER_DEFS.find(d => d.id === layerId);
     if (def) {
-      broadcast({ type: 'LAYER_UNLOCKED', payload: { id: layerId, name: def.name, emoji: def.emoji } });
+      broadcast({ type: 'LAYER_UNLOCKED', payload: { id: layerId, name: def.name, emoji: def.emoji } }, getCurrentUserId() || undefined);
     }
   }
 
@@ -61,5 +61,5 @@ export function broadcastFullState() {
       activeLayer: getActiveLayerId(),
       layerMeta,
     },
-  });
+  }, getCurrentUserId() || undefined);
 }

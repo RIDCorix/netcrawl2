@@ -10,6 +10,8 @@ import { checkAchievements } from './achievements.js';
 import { checkQuests } from './quests.js';
 import { getActivePassives } from './db.js';
 import { broadcastFullState } from './broadcastHelper.js';
+import { broadcast } from './websocket.js';
+import { getCurrentUserId } from './db.js';
 import { getNeighborIds, edgeExists, bfsPath } from './graphUtils.js';
 import { apiPoll, apiRespond, apiReject, getAPIPendingCount, getAPIStats } from './apiNodeEngine.js';
 import { generatePuzzle, PuzzleInstance, DIFFICULTY_CONFIG, PUZZLE_TEMPLATES } from './puzzleDefinitions.js';
@@ -92,7 +94,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
     if (w) {
       upsertWorker({ ...w, lastLog: { message: payload.message, level: payload.level || 'info', ts: Date.now() } });
       // Send lightweight message instead of full state
-      broadcast({ type: 'WORKER_LOG', payload: { workerId, message: payload.message, level: payload.level || 'info', ts: Date.now(), nodeId: w.current_node || w.node_id } });
+      broadcast({ type: 'WORKER_LOG', payload: { workerId, message: payload.message, level: payload.level || 'info', ts: Date.now(), nodeId: w.current_node || w.node_id } }, getCurrentUserId() || undefined);
     }
     return { ok: true };
   }

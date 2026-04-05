@@ -21,11 +21,28 @@ export function initWebSocket(server: http.Server) {
   return wss;
 }
 
-export function broadcast(data: any) {
+/**
+ * Broadcast to all connected clients.
+ * In multi-user mode, only sends to the current user's connections.
+ */
+export function broadcast(data: any, userId?: string) {
   if (!wss) return;
   const message = JSON.stringify(data);
-  wss.clients.forEach((client: WebSocket) => {
-    if (client.readyState === WebSocket.OPEN) {
+  const isMultiUser = process.env.NETCRAWL_MULTI_USER === 'true';
+
+  wss.clients.forEach((client: any) => {
+    if (client.readyState !== WebSocket.OPEN) return;
+
+    if (isMultiUser && userId) {
+      // Only send to this specific user's connections
+      if (client._userId === userId) {
+        client.send(message);
+      }
+    } else if (isMultiUser && !userId) {
+      // No userId specified in multi-user mode — skip (caller should provide userId)
+      // Fallback: don't send to avoid leaking state
+    } else {
+      // Single-user mode: send to everyone
       client.send(message);
     }
   });
