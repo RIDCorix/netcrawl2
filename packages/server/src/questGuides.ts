@@ -47,18 +47,6 @@ Then in your workspace folder:
 uv sync
 \`\`\`` },
 
-    { title: 'Start the Game Server', content: `The game server must be running before your code server.
-
-In the \`netcrawl2/\` folder, run:
-
-\`\`\`bash
-pnpm dev
-\`\`\`
-
-You should see the UI open at **http://localhost:5173** and the API server at **http://localhost:3001**.
-
-Keep this terminal open.` },
-
     { title: 'Run Your Code Server', content: `Now start your Python code server. In the \`workspace/\` folder:
 
 \`\`\`bash
