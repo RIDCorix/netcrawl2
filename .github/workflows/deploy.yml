@@ -1,0 +1,50 @@
+name: Deploy Cloud
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy-server:
+    name: Deploy Server (Railway)
+    runs-on: ubuntu-latest
+    if: ${{ vars.RAILWAY_TOKEN != '' || secrets.RAILWAY_TOKEN != '' }}
+    defaults:
+      run:
+        working-directory: packages/server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm install
+      - run: npx tsc
+
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
+      - name: Deploy to Railway
+        run: railway up --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+  # Vercel auto-deploys via GitHub integration (no action needed)
+  # This job is just a notification/verification step
+  verify-ui:
+    name: Verify UI Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/ui
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm install
+      - run: npx tsc --noEmit
+      - run: npx vite build
