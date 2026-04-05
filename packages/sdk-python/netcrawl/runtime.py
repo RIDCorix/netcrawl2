@@ -57,6 +57,43 @@ class RuntimeSensorGadget(RuntimeGadget):
         return result.get("nodes", [])
 
 
+class RuntimeBasicSensor(RuntimeGadget):
+    """
+    Runtime proxy for BasicSensor. Calls server scan_edges action.
+    Returns list[EdgeInfo] — edges with basic info only.
+    """
+
+    def scan(self) -> list:
+        """
+        Scan adjacent edges from current node.
+        Returns: list[EdgeInfo] with edge_id, source_node_id, target_node_id.
+        """
+        from netcrawl.sensors import EdgeInfo
+        result = self._worker._client.action("scan_edges", {})
+        edges_data = result.get("edges", [])
+        return [EdgeInfo(e) for e in edges_data]
+
+
+class RuntimeAdvancedSensor(RuntimeGadget):
+    """
+    Runtime proxy for AdvancedSensor. Calls server scan_edges_advanced action.
+    Returns list[AdvancedEdgeInfo] — edges with full target node type info.
+    """
+
+    def scan(self) -> list:
+        """
+        Scan adjacent edges with node info from current node.
+        Returns: list[AdvancedEdgeInfo] with edge_id + target_node (typed).
+        """
+        from netcrawl.sensors import AdvancedEdgeInfo
+        result = self._worker._client.action("scan_edges_advanced", {})
+        edges_data = result.get("edges", [])
+        return [
+            AdvancedEdgeInfo(e, self._worker._client, self._worker._worker_id)
+            for e in edges_data
+        ]
+
+
 class RuntimeItem:
     """
     Runtime proxy for equipped items. Wraps the injected item metadata.

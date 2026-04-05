@@ -1,0 +1,202 @@
+---
+title: Sensors
+description: Sensor data types -- EdgeInfo and AdvancedEdgeInfo.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Sensor equipment (`BasicSensor`, `AdvancedSensor`) returns typed data objects when scanning. These types describe the edges adjacent to the worker's current node.
+
+## EdgeInfo
+
+Basic edge information returned by `BasicSensor.scan()`. Contains the edge ID and endpoint node IDs, but **no type information** about the target node.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `edge_id` / `edgeId` | `str` / `string` | The edge identifier (e.g. `'e5'`) |
+| `source_node_id` / `sourceNodeId` | `str` / `string` | The node you are currently at |
+| `target_node_id` / `targetNodeId` | `str` / `string` | The node on the other end (ID only) |
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    from netcrawl.sensors import EdgeInfo
+
+    # Returned by BasicSensor.scan()
+    edges = self.basic_sensor.scan()
+    for edge in edges:
+        print(edge.edge_id)          # 'e5'
+        print(edge.source_node_id)   # 'hub'
+        print(edge.target_node_id)   # 'r3'
+
+        # You can move along the edge
+        self.move_edge(edge.edge_id)
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    // Returned by BasicSensor.scan()
+    const edges = await this.basicSensor.scan();
+    for (const edge of edges) {
+      console.log(edge.edgeId);        // 'e5'
+      console.log(edge.sourceNodeId);  // 'hub'
+      console.log(edge.targetNodeId);  // 'r3'
+
+      await this.moveEdge(edge.edgeId);
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+:::note
+With `EdgeInfo`, you know **where** an edge leads (the node ID) but not **what** is there. Use `AdvancedSensor` for type information.
+:::
+
+---
+
+## AdvancedEdgeInfo
+
+Advanced edge information returned by `AdvancedSensor.scan()`. Extends `EdgeInfo` with full target node type information, enabling `isinstance()` checks and attribute access on the target node.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `edge_id` / `edgeId` | `str` / `string` | The edge identifier |
+| `source_node_id` / `sourceNodeId` | `str` / `string` | The node you are currently at |
+| `target_node_id` / `targetNodeId` | `str` / `string` | The node on the other end |
+| `target_node` / `targetNode` | `BaseNode` | **Typed** node object (e.g. `ResourceNode`, `HubNode`) |
+
+The `target_node` property is a fully typed node object. You can use `isinstance()` (Python) or check `target_node.type` (JS) to determine the node type and access type-specific properties.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    from netcrawl.sensors import AdvancedEdgeInfo
+    from netcrawl.nodes import ResourceNode, ComputeNode, InfectedNode
+
+    edges = self.advanced_sensor.scan()
+    for edge in edges:
+        node = edge.target_node
+
+        if isinstance(node, ResourceNode):
+            self.info(f"Resource node {node.id}: {node.resource_type}")
+            self.move_edge(edge.edge_id)
+            self.pickaxe.mine_and_collect()
+            return
+
+        elif isinstance(node, ComputeNode):
+            self.info(f"Compute node: difficulty={node.difficulty}")
+
+        elif isinstance(node, InfectedNode):
+            self.warn(f"Infected node {node.id}! Repairing...")
+            self.repair(node.id)
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const edges = await this.advancedSensor.scan();
+    for (const edge of edges) {
+      const node = edge.targetNode;
+
+      if (node.type === 'resource') {
+        await this.info(`Resource: ${node.resourceType}`);
+        await this.moveEdge(edge.edgeId);
+        await this.pickaxe.mineAndCollect();
+        return;
+      } else if (node.type === 'compute') {
+        await this.info(`Compute: difficulty=${node.difficulty}`);
+      } else if (node.type === 'infected') {
+        await this.warn(`Infected: ${node.id}`);
+        await this.repair(node.id);
+      }
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+---
+
+## Comparison
+
+| Feature | BasicSensor | AdvancedSensor |
+|---------|------------|----------------|
+| Edge ID | Yes | Yes |
+| Source/Target node IDs | Yes | Yes |
+| Target node type | No | Yes |
+| Target node properties | No | Yes (full typed object) |
+| `isinstance()` checks | No | Yes |
+| Deploy cost | None (gadget) | None (gadget) |
+| Unlock requirement | Early game | Later quests |
+
+---
+
+## Usage Pattern: Smart Explorer
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    from netcrawl import WorkerClass, Pickaxe
+    from netcrawl.items import AdvancedSensor
+    from netcrawl.nodes import ResourceNode
+
+    class SmartExplorer(WorkerClass):
+        class_name = "Smart Explorer"
+        sensor = AdvancedSensor()
+        pickaxe = Pickaxe()
+
+        def on_loop(self):
+            edges = self.sensor.scan()
+
+            # Find the best resource node
+            best_edge = None
+            best_rate = 0
+            for edge in edges:
+                if isinstance(edge.target_node, ResourceNode):
+                    if edge.target_node.rate > best_rate:
+                        best_rate = edge.target_node.rate
+                        best_edge = edge
+
+            if best_edge:
+                self.move_edge(best_edge.edge_id)
+                self.pickaxe.mine_and_collect()
+                self.move_edge(best_edge.edge_id)  # Return
+                self.deposit()
+            else:
+                self.info("No resource nodes nearby")
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    import { WorkerClass, Pickaxe, AdvancedSensor } from '@netcrawl/sdk';
+
+    class SmartExplorer extends WorkerClass {
+      static className = 'Smart Explorer';
+      static fields = {
+        sensor: new AdvancedSensor(),
+        pickaxe: new Pickaxe(),
+      };
+
+      async onLoop() {
+        const edges = await this.sensor.scan();
+
+        let bestEdge = null;
+        let bestRate = 0;
+        for (const edge of edges) {
+          if (edge.targetNode.type === 'resource' && edge.targetNode.rate > bestRate) {
+            bestRate = edge.targetNode.rate;
+            bestEdge = edge;
+          }
+        }
+
+        if (bestEdge) {
+          await this.moveEdge(bestEdge.edgeId);
+          await this.pickaxe.mineAndCollect();
+          await this.moveEdge(bestEdge.edgeId);
+          await this.deposit();
+        } else {
+          await this.info('No resource nodes nearby');
+        }
+      }
+    }
+    ```
+  </TabItem>
+</Tabs>

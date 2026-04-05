@@ -1,0 +1,419 @@
+---
+title: Items & Equipment
+description: Equipment reference -- Pickaxe, Shield, Beacon, and Sensor gadgets.
+---
+
+import { Tabs, TabItem, Card, CardGrid } from '@astrojs/starlight/components';
+
+Equipment items are declared as fields on your `WorkerClass`. Items that extend `ItemField` are consumed from inventory at deploy time. Gadgets that extend `GadgetField` have no deploy-time cost.
+
+---
+
+## Pickaxe
+
+Mining tool that creates resource drops at the current node.
+
+**Stats:**
+
+| Tier | Efficiency | Drops per Mine |
+|------|-----------|----------------|
+| Basic Pickaxe | 1.0x | 1 |
+| Iron Pickaxe | 1.5x | 1-2 |
+| Diamond Pickaxe | 2.5x | 2-3 |
+
+> **In-Game Crafting:**
+> - Basic Pickaxe: 200 data
+> - Iron Pickaxe: 500 data + 5 RP
+> - Diamond Pickaxe: 2,000 data + 20 RP
+>
+> The basic pickaxe recipe is available from the start. Iron pickaxe is unlocked through quest progression.
+
+### Methods
+
+#### mine
+
+Mine the current node. Creates a drop on the node floor. Use `worker.collect()` to pick it up.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    result = self.pickaxe.mine()
+    # { ok: True, drop: { type: 'data_fragment', amount: 1 } }
+
+    # Then pick it up:
+    self.collect()
+    ```
+    **Signature:** `mine(self) -> dict`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const result = await this.pickaxe.mine();
+    await this.collect();
+    ```
+    **Signature:** `async mine(): Promise<Record<string, unknown>>`
+  </TabItem>
+</Tabs>
+
+#### mine_and_collect / mineAndCollect
+
+Convenience method: mines then immediately collects in one call.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    result = self.pickaxe.mine_and_collect()
+    # Returns the collected item, or error dict
+    ```
+    **Signature:** `mine_and_collect(self) -> dict`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const result = await this.pickaxe.mineAndCollect();
+    ```
+    **Signature:** `async mineAndCollect(): Promise<Record<string, unknown>>`
+  </TabItem>
+</Tabs>
+
+### Usage Example
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    from netcrawl import WorkerClass, Edge, Pickaxe
+
+    class Miner(WorkerClass):
+        pickaxe = Pickaxe()
+        to_mine = Edge("Edge to ore")
+        to_hub = Edge("Return edge")
+
+        def on_loop(self):
+            self.move(self.to_mine)
+            self.pickaxe.mine_and_collect()
+            self.move(self.to_hub)
+            self.deposit()
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    import { WorkerClass, Edge, Pickaxe } from '@netcrawl/sdk';
+
+    class Miner extends WorkerClass {
+      static fields = {
+        pickaxe: new Pickaxe(),
+        toMine: new Edge('Edge to ore'),
+        toHub: new Edge('Return edge'),
+      };
+
+      async onLoop() {
+        await this.move(this.toMine);
+        await this.pickaxe.mineAndCollect();
+        await this.move(this.toHub);
+        await this.deposit();
+      }
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+---
+
+## Shield
+
+Defensive item that reduces infection damage when passing through infected nodes.
+
+**Stats:**
+- Defense: 0.5 (50% damage reduction)
+
+> **In-Game Crafting:**
+> - Shield: 300 data + 3 RP
+>
+> Awarded as quest reward from the "Try / Except" side quest (Chapter 1).
+
+### Usage
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    from netcrawl import WorkerClass, Shield, Edge
+
+    class Guardian(WorkerClass):
+        shield = Shield()
+        patrol = Edge("Patrol edge")
+
+        def on_loop(self):
+            nodes = self.scan()
+            for node in nodes:
+                if node.get('infected'):
+                    self.repair(node['id'])
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    import { WorkerClass, Shield, Edge } from '@netcrawl/sdk';
+
+    class Guardian extends WorkerClass {
+      static fields = {
+        shield: new Shield(),
+        patrol: new Edge('Patrol edge'),
+      };
+
+      async onLoop() {
+        const nodes = await this.scan();
+        for (const node of nodes) {
+          if (node.infected) {
+            await this.repair(node.id);
+          }
+        }
+      }
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+:::note
+The Shield is a passive item. Once equipped, it automatically reduces infection damage. There are no methods to call on it.
+:::
+
+---
+
+## Beacon
+
+Scanner booster that increases the scan radius for the equipped worker.
+
+**Stats:**
+- Radius: 2 (extra scan hops)
+
+> **In-Game Crafting:**
+> - Beacon: 500 data + 8 RP
+>
+> Beacon items are also awarded from the "Packet Routing" quest (Chapter 3).
+
+### Usage
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    from netcrawl import WorkerClass, Beacon
+
+    class Scanner(WorkerClass):
+        beacon = Beacon()
+
+        def on_loop(self):
+            # Beacon passively extends scan range
+            nodes = self.scan()
+            self.info(f"Scanned {len(nodes)} nodes")
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    import { WorkerClass, Beacon } from '@netcrawl/sdk';
+
+    class Scanner extends WorkerClass {
+      static fields = {
+        beacon: new Beacon(),
+      };
+
+      async onLoop() {
+        const nodes = await this.scan();
+        await this.info(`Scanned ${nodes.length} nodes`);
+      }
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+---
+
+## SensorGadget
+
+Advanced graph navigation gadget providing pathfinding and exploration methods. **No deploy-time cost** -- no item is consumed from inventory.
+
+> **In-Game:** Unlocked through quest progression (Networking chapter).
+
+### Methods
+
+#### travel_to / travelTo
+
+Travel to any node using server-side pathfinding. Automatically moves through intermediate nodes.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    self.sensor.travel_to('r3')  # Auto-pathfind from current to 'r3'
+    ```
+    **Signature:** `travel_to(self, node_id: str) -> None`
+    **Raises:** `ValueError` if no path exists.
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    await this.sensor.travelTo('r3');
+    ```
+    **Signature:** `async travelTo(nodeId: string): Promise<void>`
+  </TabItem>
+</Tabs>
+
+#### find_nearest / findNearest
+
+Find the nearest node of a given type using BFS.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    nearest = self.sensor.find_nearest('resource')
+    if nearest:
+        self.sensor.travel_to(nearest)
+    ```
+    **Signature:** `find_nearest(self, node_type: str) -> str | None`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const nearest = await this.sensor.findNearest('resource');
+    if (nearest) {
+      await this.sensor.travelTo(nearest);
+    }
+    ```
+    **Signature:** `async findNearest(nodeType: string): Promise<string | null>`
+  </TabItem>
+</Tabs>
+
+#### explore
+
+Scan a wider radius. Returns all visible nodes within an extended scan radius.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    nodes = self.sensor.explore()
+    for node in nodes:
+        print(node['id'], node['type'])
+    ```
+    **Signature:** `explore(self) -> list[dict]`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const nodes = await this.sensor.explore();
+    ```
+    **Signature:** `async explore(): Promise<Record<string, unknown>[]>`
+  </TabItem>
+</Tabs>
+
+---
+
+## BasicSensor
+
+Basic edge scanner that returns adjacent edges with basic info (edge ID, direction) but **no target node type info**. No deploy-time cost.
+
+### scan
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    from netcrawl.items import BasicSensor
+
+    class Explorer(WorkerClass):
+        basic_sensor = BasicSensor()
+
+        def on_loop(self):
+            edges = self.basic_sensor.scan()
+            for edge in edges:
+                print(edge.edge_id)          # e.g. 'e5'
+                print(edge.source_node_id)   # current node
+                print(edge.target_node_id)   # other end (ID only)
+                self.move_edge(edge.edge_id)
+    ```
+    **Signature:** `scan(self) -> list[EdgeInfo]`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    import { WorkerClass, BasicSensor } from '@netcrawl/sdk';
+
+    class Explorer extends WorkerClass {
+      static fields = {
+        basicSensor: new BasicSensor(),
+      };
+
+      async onLoop() {
+        const edges = await this.basicSensor.scan();
+        for (const edge of edges) {
+          console.log(edge.edgeId, edge.targetNodeId);
+          await this.moveEdge(edge.edgeId);
+        }
+      }
+    }
+    ```
+    **Signature:** `async scan(): Promise<EdgeInfo[]>`
+  </TabItem>
+</Tabs>
+
+See [Sensors](/sdk-reference/sensors/) for the `EdgeInfo` type definition.
+
+---
+
+## AdvancedSensor
+
+Advanced edge scanner that returns adjacent edges **with target node type info**, enabling `isinstance()` checks and smart routing. No deploy-time cost.
+
+> **In-Game:** Unlocked through later quest progression.
+
+### scan
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    from netcrawl.items import AdvancedSensor
+    from netcrawl.nodes import ResourceNode
+
+    class SmartMiner(WorkerClass):
+        advanced_sensor = AdvancedSensor()
+        pickaxe = Pickaxe()
+
+        def on_loop(self):
+            edges = self.advanced_sensor.scan()
+            for edge in edges:
+                if isinstance(edge.target_node, ResourceNode):
+                    self.move_edge(edge.edge_id)
+                    self.pickaxe.mine_and_collect()
+                    return
+    ```
+    **Signature:** `scan(self) -> list[AdvancedEdgeInfo]`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    import { WorkerClass, AdvancedSensor, Pickaxe } from '@netcrawl/sdk';
+
+    class SmartMiner extends WorkerClass {
+      static fields = {
+        advancedSensor: new AdvancedSensor(),
+        pickaxe: new Pickaxe(),
+      };
+
+      async onLoop() {
+        const edges = await this.advancedSensor.scan();
+        for (const edge of edges) {
+          if (edge.targetNode.type === 'resource') {
+            await this.moveEdge(edge.edgeId);
+            await this.pickaxe.mineAndCollect();
+            return;
+          }
+        }
+      }
+    }
+    ```
+    **Signature:** `async scan(): Promise<AdvancedEdgeInfo[]>`
+  </TabItem>
+</Tabs>
+
+See [Sensors](/sdk-reference/sensors/) for the `AdvancedEdgeInfo` type definition.
+
+---
+
+## Equipment Summary
+
+| Item | Type | Deploy Cost | Key Stats | Methods |
+|------|------|-------------|-----------|---------|
+| Pickaxe | ItemField | 1x Pickaxe | efficiency (1.0-2.5) | `mine()`, `mine_and_collect()` |
+| Shield | ItemField | 1x Shield | defense (0.5) | Passive |
+| Beacon | ItemField | 1x Beacon | radius (2) | Passive |
+| SensorGadget | GadgetField | None | -- | `travel_to()`, `find_nearest()`, `explore()` |
+| BasicSensor | GadgetField | None | -- | `scan()` returns `EdgeInfo[]` |
+| AdvancedSensor | GadgetField | None | -- | `scan()` returns `AdvancedEdgeInfo[]` |

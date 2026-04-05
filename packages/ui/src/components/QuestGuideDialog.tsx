@@ -10,6 +10,8 @@ import axios from 'axios';
 import { Markdown } from './ui/markdown';
 import { CHAPTER_COLORS } from '../constants/colors';
 import { useT } from '../hooks/useT';
+import { DemoPlayer } from './guide/DemoPlayer';
+import { DEMO_SCRIPTS } from './guide/demoScripts';
 
 function RewardBadge({ reward, color }: { reward: any; color: string }) {
   const text = (() => {
@@ -81,8 +83,9 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
         style={{
           background: 'var(--bg-glass-heavy)', backdropFilter: 'blur(24px)',
           border: '1px solid var(--border-bright)', borderRadius: 'var(--radius-lg)',
-          width: 600, maxWidth: 'calc(100vw - 48px)',
-          height: 520,
+          width: 780, maxWidth: 'calc(100vw - 48px)',
+          maxHeight: 'calc(100vh - 48px)',
+          height: 620,
           display: 'flex', flexDirection: 'column',
           overflow: 'hidden',
         }}
@@ -225,6 +228,12 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
                 <div style={{ fontSize: 13, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
                   <Markdown content={guide[page].content} />
                 </div>
+                {/* Demo player — shown when a demo script exists for this quest/step */}
+                {DEMO_SCRIPTS[`${quest.id}:${page}`] && (
+                  <div style={{ marginTop: 16 }}>
+                    <DemoPlayer key={`${quest.id}:${page}`} script={DEMO_SCRIPTS[`${quest.id}:${page}`]} />
+                  </div>
+                )}
               </motion.div>
             </AnimatePresence>
           ) : (

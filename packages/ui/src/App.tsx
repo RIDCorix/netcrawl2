@@ -14,11 +14,14 @@ import { QuestTree } from './components/QuestTree';
 import { QuestToast } from './components/QuestToast';
 import { ActiveQuestsPanel } from './components/ActiveQuestsPanel';
 import { SettingsPanel } from './components/SettingsPanel';
+import { DocsDialog } from './components/DocsDialog';
+import { ConnectDialog } from './components/ConnectDialog';
 import { LevelPanel } from './components/LevelPanel';
 import { LevelUpToast } from './components/LevelUpToast';
 import { TutorialOverlay } from './components/TutorialOverlay';
 import { LayerSelectScreen } from './components/LayerSelectScreen';
 import { LayerUnlockToast } from './components/LayerUnlockToast';
+import { useAudioInit } from './hooks/useAudio';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -34,6 +37,7 @@ document.documentElement.setAttribute('data-theme', _savedSettings.theme || 'dee
 
 function GameView() {
   useGameState();
+  useAudioInit();
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
@@ -101,6 +105,8 @@ function GameView() {
       <InventoryPanel />
       <AchievementsPanel />
       <SettingsPanel />
+      <DocsDialog />
+      <ConnectDialog />
       <QuestTree />
       <LevelPanel />
       <AchievementToast />

@@ -1,10 +1,20 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, CheckCircle } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { playSfx } from '../hooks/useSfx';
 
 export function QuestToast() {
   const { questToasts, removeQuestToast } = useGameStore();
+  const prevCount = useRef(questToasts.length);
+
+  useEffect(() => {
+    if (questToasts.length > prevCount.current) {
+      const latest = questToasts[questToasts.length - 1];
+      playSfx(latest?.type === 'completed' ? 'questComplete' : 'notification');
+    }
+    prevCount.current = questToasts.length;
+  }, [questToasts.length]);
 
   useEffect(() => {
     for (const toast of questToasts) {

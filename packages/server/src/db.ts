@@ -10,13 +10,16 @@ import { INITIAL_LEVEL_STATE, type LevelState, grantXp, getLevelSummary, getTitl
 import { getUpgradeKey, getNodeXpForAction, getNodeXpThreshold, NODE_UPGRADE_DEFS } from './upgradeDefinitions.js';
 import { getLayerInitialSnapshot, LAYER_DEFS, type LayerSnapshot } from './layerDefinitions.js';
 
-const DATA_PATH = path.join(process.cwd(), 'data', 'netcrawl-state.json');
+let _dataDir = process.env.NETCRAWL_DATA_DIR || process.cwd();
+let DATA_PATH = path.join(_dataDir, 'data', 'netcrawl-state.json');
 
-// Ensure data directory exists
-const dataDir = path.dirname(DATA_PATH);
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+/** Set data directory before calling initDb(). Used by Electron main process. */
+export function setDataDir(dir: string) {
+  _dataDir = dir;
+  DATA_PATH = path.join(_dataDir, 'data', 'netcrawl-state.json');
 }
+
+// Data directory is created in initDb() after setDataDir() has been called
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,7 +46,7 @@ export const INITIAL_FLOP: FlopState = { total: 50, used: 0 };
 // === Drop System ===
 export interface Drop {
   id: string;           // uuid
-  type: 'data_fragment' | 'rp_shard';
+  type: 'data_fragment' | 'rp_shard' | 'bad_data';
   amount: number;
 }
 
@@ -234,6 +237,10 @@ const P = (label: string, tier: number, cost: Record<string, number>) =>
 const AU = (label: string, cost: Record<string, number>) =>
   ({ label, unlocked: false, unlockCost: cost, upgradeLevel: 0, chipSlots: 1, baseChipSlots: 1, installedChips: [] as string[], enhancementPoints: 0, statAlloc: {} as Record<string, number>, baseDefense: 0 });
 
+// Data Mine Cluster node: capacity=1, 5s refill, optional bad_data chance
+const MC = (label: string, rate: number, cost: Record<string, number>, badDataChance: number = 0) =>
+  ({ label, resource: 'data' as const, rate, baseRate: rate, unlocked: false, unlockCost: cost, mineable: true, drops: [] as any[], mineCount: 0, upgradeLevel: 0, chipSlots: 0, baseChipSlots: 0, installedChips: [] as string[], enhancementPoints: 0, statAlloc: {} as Record<string, number>, baseDefense: 0, capacity: 1, refillMs: 5000, bad_data_chance: badDataChance });
+
 export const INITIAL_NODES = [
   // ═══════════════════════════════════════════════════════════════════════════
   // Core
@@ -335,6 +342,18 @@ export const INITIAL_NODES = [
   { id: 'nw_comp2',  type: 'compute',  position: { x: -820, y: -560 },  data: C('Deep Research Lab', 'hard', { data: 4000, rp: 20 }) },
   { id: 'nw_empty1', type: 'empty',    position: { x: -600, y: -880 },  data: E('Open Slot', { data: 3000, rp: 15 }) },
   { id: 'nw_locked1',type: 'locked',   position: { x: -600, y: -1080 }, data: Y('Observatory', { data: 8000, rp: 30 }) },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DATA MINE CLUSTER (far south — star topology for Ch1 for-loop quest)
+  // capacity=1, 5s refill, forces iteration over multiple nodes
+  // ═══════════════════════════════════════════════════════════════════════════
+  { id: 'cluster_hub', type: 'empty',    position: { x: 0,    y: 1400 },  data: Y('Cluster Relay', { data: 300 }) },
+  { id: 'cluster_m1',  type: 'resource', position: { x: 0,    y: 1200 },  data: MC('Micro Mine A', 10, { data: 50 }) },
+  { id: 'cluster_m2',  type: 'resource', position: { x: 200,  y: 1300 },  data: MC('Micro Mine B', 10, { data: 50 }) },
+  { id: 'cluster_m3',  type: 'resource', position: { x: 200,  y: 1500 },  data: MC('Micro Mine C', 10, { data: 50 }) },
+  { id: 'cluster_m4',  type: 'resource', position: { x: 0,    y: 1600 },  data: MC('Micro Mine D', 10, { data: 50 }) },
+  { id: 'cluster_m5',  type: 'resource', position: { x: -200, y: 1500 },  data: MC('Micro Mine E', 10, { data: 50 }) },
+  { id: 'cluster_m6',  type: 'resource', position: { x: -200, y: 1300 },  data: MC('Micro Mine F', 10, { data: 50 }) },
 ];
 
 export const INITIAL_EDGES = [
@@ -429,6 +448,15 @@ export const INITIAL_EDGES = [
   { id: 'eapi2', source: 'api_east_1', target: 'api_east_2' },
   { id: 'eapi3', source: 'api_east_2', target: 'auth_iam1' },
   { id: 'eapi4', source: 'e_empty2',  target: 'auth_iam1' },
+
+  // ── Data Mine Cluster (far south — for Ch1 for-loop quest) ──
+  { id: 'ec1', source: 's_empty1',    target: 'cluster_hub' },
+  { id: 'ec2', source: 'cluster_hub', target: 'cluster_m1' },
+  { id: 'ec3', source: 'cluster_hub', target: 'cluster_m2' },
+  { id: 'ec4', source: 'cluster_hub', target: 'cluster_m3' },
+  { id: 'ec5', source: 'cluster_hub', target: 'cluster_m4' },
+  { id: 'ec6', source: 'cluster_hub', target: 'cluster_m5' },
+  { id: 'ec7', source: 'cluster_hub', target: 'cluster_m6' },
 ];
 
 export const INITIAL_RESOURCES: Resources = { data: 500, rp: 0, credits: 0 };
@@ -466,6 +494,12 @@ const INITIAL_STORE: Store = {
 let store: Store;
 
 export function initDb() {
+  // Ensure data directory exists
+  const dataDir = path.dirname(DATA_PATH);
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+
   if (fs.existsSync(DATA_PATH)) {
     try {
       store = JSON.parse(fs.readFileSync(DATA_PATH, 'utf-8')) as Store;

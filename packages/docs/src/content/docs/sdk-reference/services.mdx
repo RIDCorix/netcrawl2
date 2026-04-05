@@ -1,0 +1,228 @@
+---
+title: Services
+description: Service proxies for structure nodes -- CacheService and error handling.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Services are accessed via `worker.get_service(node_id)` / `worker.getService(nodeId)`. Currently the only service type is `CacheService`.
+
+## CacheService
+
+A proxy for a Cache Node that provides key-value storage within range.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `range` | `int` / `number` | How many hops away the cache can be accessed from |
+| `capacity` | `int` / `number` | Maximum number of key-value pairs |
+| `used_slots` / `usedSlots` | `int` / `number` | Currently used slots |
+
+### get
+
+Get a value from cache. Returns `None` / `null` on cache miss or expiry.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    cache = self.get_service("cache-node-id")
+    value = cache.get("my-key")
+    if value is not None:
+        self.info(f"Cache hit: {value}")
+    ```
+    **Signature:** `get(self, key: str) -> Any | None`
+    **Raises:** `ServiceNotReachable` if cache is out of range.
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const cache = await this.getService('cache-node-id');
+    const value = await cache.get('my-key');
+    if (value !== null) {
+      await this.info(`Cache hit: ${value}`);
+    }
+    ```
+    **Signature:** `async get(key: string): Promise<unknown | null>`
+    **Throws:** `ServiceNotReachable`
+  </TabItem>
+</Tabs>
+
+### set
+
+Set a value in cache. Returns `true` if stored, `false` if cache is full.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    cache = self.get_service("cache-node-id")
+
+    # Store with no expiry
+    cache.set("key", 42)
+
+    # Store with TTL (30 seconds)
+    cache.set("key", {"result": [1, 2, 3]}, ttl=30000)
+    ```
+    **Signature:** `set(self, key: str, value: Any, ttl: int = 0) -> bool`
+
+    **Parameters:**
+    - `key` -- cache key string
+    - `value` -- any JSON-serializable value
+    - `ttl` -- time-to-live in milliseconds (0 = no expiry)
+
+    **Raises:** `ServiceNotReachable` if cache is out of range.
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const cache = await this.getService('cache-node-id');
+    await cache.set('key', 42);
+    await cache.set('key', { result: [1, 2, 3] }, 30000);
+    ```
+    **Signature:** `async set(key: string, value: unknown, ttl?: number): Promise<boolean>`
+    **Throws:** `ServiceNotReachable`
+  </TabItem>
+</Tabs>
+
+### keys
+
+List all keys currently stored in the cache.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    cache = self.get_service("cache-node-id")
+    all_keys = cache.keys()
+    self.info(f"Cache keys: {all_keys}")
+    ```
+    **Signature:** `keys(self) -> list[str]`
+    **Raises:** `ServiceNotReachable` if cache is out of range.
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const cache = await this.getService('cache-node-id');
+    const allKeys = await cache.keys();
+    await this.info(`Cache keys: ${allKeys}`);
+    ```
+    **Signature:** `async keys(): Promise<string[]>`
+    **Throws:** `ServiceNotReachable`
+  </TabItem>
+</Tabs>
+
+---
+
+## ServiceNotReachable
+
+Exception raised when a service node is out of range or not available. This can happen when:
+
+- The node ID does not exist
+- The node is not a service node
+- The worker is too far from the service node (outside its range)
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    from netcrawl.services import ServiceNotReachable
+
+    try:
+        cache = self.get_service("cache-far-away")
+        cache.set("key", "value")
+    except ServiceNotReachable as e:
+        self.warn(f"Cache not reachable: {e}")
+        # Move closer and try again
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    import { ServiceNotReachable } from '@netcrawl/sdk';
+
+    try {
+      const cache = await this.getService('cache-far-away');
+      await cache.set('key', 'value');
+    } catch (e) {
+      if (e instanceof ServiceNotReachable) {
+        await this.warn(`Cache not reachable: ${e.message}`);
+      }
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+---
+
+## Range Mechanics
+
+Cache nodes have a **range** property that determines how far away workers can access them. A range of 1 means only workers on the cache node or adjacent nodes can use it. Higher range (increased by upgrades) allows access from further away.
+
+```
+Range 1:  [worker] -- [cache]        OK
+          [worker] -- [node] -- [cache]    NOT REACHABLE
+
+Range 2:  [worker] -- [node] -- [cache]    OK
+          [worker] -- [node] -- [node] -- [cache]    NOT REACHABLE
+```
+
+:::tip
+Build cache nodes in central locations to maximize the number of workers that can access them. Upgrade cache nodes to increase their range and capacity.
+:::
+
+## Full Example
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    from netcrawl import WorkerClass, Edge
+    from netcrawl.services import ServiceNotReachable
+
+    class CachedMiner(WorkerClass):
+        to_mine = Edge("Mining edge")
+        to_hub = Edge("Return edge")
+
+        def on_startup(self):
+            self.cache_node = "cache1"
+
+        def on_loop(self):
+            self.move(self.to_mine)
+            self.harvest()
+
+            # Try to cache results
+            try:
+                cache = self.get_service(self.cache_node)
+                count = cache.get("mine_count") or 0
+                cache.set("mine_count", count + 1)
+            except ServiceNotReachable:
+                pass  # Cache out of range, continue without it
+
+            self.move(self.to_hub)
+            self.deposit()
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    import { WorkerClass, Edge, ServiceNotReachable } from '@netcrawl/sdk';
+
+    class CachedMiner extends WorkerClass {
+      static fields = {
+        toMine: new Edge('Mining edge'),
+        toHub: new Edge('Return edge'),
+      };
+
+      cacheNode = 'cache1';
+
+      async onLoop() {
+        await this.move(this.toMine);
+        await this.harvest();
+
+        try {
+          const cache = await this.getService(this.cacheNode);
+          const count = (await cache.get('mine_count')) ?? 0;
+          await cache.set('mine_count', count + 1);
+        } catch (e) {
+          // Cache out of range
+        }
+
+        await this.move(this.toHub);
+        await this.deposit();
+      }
+    }
+    ```
+  </TabItem>
+</Tabs>

@@ -1,0 +1,227 @@
+---
+title: Your First Worker
+description: Step-by-step tutorial to build and deploy a simple Collector worker.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+This tutorial walks you through creating a simple mining worker that collects resources and deposits them at the hub.
+
+## Step 1: Create the Worker Class
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    # workers/collector.py
+    from netcrawl import WorkerClass, Edge, Pickaxe
+
+    class Collector(WorkerClass):
+        """Mines resources and brings them back to the hub."""
+
+        class_name = "Collector"
+        class_icon = "Pickaxe"
+
+        # Deploy-time fields
+        pickaxe = Pickaxe()            # Consumes 1 pickaxe from inventory
+        to_mine = Edge("Edge to mine") # User picks an edge in the UI
+        to_hub = Edge("Return edge")   # Edge back to hub
+
+        def on_startup(self):
+            self.trips = 0
+            self.info("Collector online!")
+
+        def on_loop(self):
+            # Go to resource node
+            self.move(self.to_mine)
+
+            # Mine and collect the drop
+            self.pickaxe.mine_and_collect()
+
+            # Return to hub
+            self.move(self.to_hub)
+
+            # Deposit at hub
+            self.deposit()
+
+            self.trips += 1
+            self.info(f"Trip #{self.trips} complete")
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    // workers/collector.js
+    import { WorkerClass, Edge, Pickaxe } from '@netcrawl/sdk';
+
+    export class Collector extends WorkerClass {
+      static className = 'Collector';
+      static classIcon = 'Pickaxe';
+
+      // Deploy-time fields
+      static fields = {
+        pickaxe: new Pickaxe(),
+        toMine: new Edge('Edge to mine'),
+        toHub: new Edge('Return edge'),
+      };
+
+      trips = 0;
+
+      async onStartup() {
+        await this.info('Collector online!');
+      }
+
+      async onLoop() {
+        // Go to resource node
+        await this.move(this.toMine);
+
+        // Mine and collect the drop
+        await this.pickaxe.mineAndCollect();
+
+        // Return to hub
+        await this.move(this.toHub);
+
+        // Deposit at hub
+        await this.deposit();
+
+        this.trips++;
+        await this.info(`Trip #${this.trips} complete`);
+      }
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+### What's happening here?
+
+- **`Pickaxe()`** declares that deploying this worker consumes a pickaxe from your inventory. At runtime, `self.pickaxe` becomes a runtime proxy with `.mine()` and `.mine_and_collect()` methods.
+- **`Edge("...")`** declares that the user must select an edge in the UI when deploying. At runtime, `self.to_mine` is an edge ID string like `'e5'`.
+- **`on_startup()`** runs once when the worker is first deployed.
+- **`on_loop()`** runs repeatedly in an infinite loop.
+
+## Step 2: Register and Run
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    # main.py
+    from netcrawl import NetCrawl
+    from workers.collector import Collector
+
+    # Replace the URL with your actual server URL from the Connect dialog
+    app = NetCrawl(server="http://localhost:4800")
+    app.register(Collector)
+    app.run()
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    // main.js
+    import { NetCrawl } from '@netcrawl/sdk';
+    import { Collector } from './workers/collector.js';
+
+    // Replace the URL with your actual server URL from the Connect dialog
+    const app = new NetCrawl({ server: 'http://localhost:4800' });
+    app.register(Collector);
+    app.run();
+    ```
+  </TabItem>
+</Tabs>
+
+## Step 3: Run the Code Server
+
+<Tabs>
+  <TabItem label="Python">
+    ```bash
+    python main.py
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```bash
+    node main.js
+    ```
+  </TabItem>
+</Tabs>
+
+You should see:
+
+```
+[NetCrawl] Code Server starting...
+[NetCrawl] Server: http://localhost:4800
+[NetCrawl] Workers: Collector(collector)
+
+[NetCrawl] Waiting for game server...
+[NetCrawl] Game server connected!
+[NetCrawl] Registered 1 worker classes
+
+[NetCrawl] Code server running. Polling for deploy requests...
+[NetCrawl] Press Ctrl+C to stop.
+```
+
+## Step 4: Deploy from the UI
+
+1. Open the game UI in your browser
+2. You should see "Collector" in the available worker classes
+3. Make sure you have a **pickaxe** in your inventory (craft one if needed: 200 data)
+4. Click Deploy, select the pickaxe, pick two edges (one to a resource node, one back)
+5. Watch your worker mine and deposit!
+
+## Step 5: Improve It
+
+Here are some improvements to try:
+
+### Handle bad drops
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    def on_loop(self):
+        self.move(self.to_mine)
+        self.pickaxe.mine()
+
+        # Filter out bad drops
+        while self.has_dropped_items():
+            result = self.collect()
+            item = result.get('item', {})
+            if item.get('type') == 'bad_data':
+                self.discard()
+                self.info("Discarded bad data")
+            else:
+                break
+
+        self.move(self.to_hub)
+        self.deposit()
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    async onLoop() {
+      await this.move(this.toMine);
+      await this.pickaxe.mine();
+
+      // Filter out bad drops
+      while (await this.hasDroppedItems()) {
+        const result = await this.collect();
+        if (result.item?.type === 'bad_data') {
+          await this.discard();
+          await this.info('Discarded bad data');
+        } else {
+          break;
+        }
+      }
+
+      await this.move(this.toHub);
+      await this.deposit();
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+:::tip
+Check the [WorkerClass Reference](/sdk-reference/worker-class/) for the full list of methods available to your workers.
+:::
+
+## Next Steps
+
+- [WorkerClass API](/sdk-reference/worker-class/) -- full method reference
+- [Fields](/sdk-reference/fields/) -- Edge, Route, ItemField, GadgetField
+- [Items & Equipment](/sdk-reference/items/) -- Pickaxe, Shield, Beacon, Sensors
+- [Game Guide: Nodes](/game-guide/nodes/) -- understand the network

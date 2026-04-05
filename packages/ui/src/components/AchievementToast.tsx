@@ -1,17 +1,23 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { CATEGORY_COLORS } from '../constants/colors';
+import { playSfx } from '../hooks/useSfx';
 
 export function AchievementToast() {
   const { achievementToasts, removeAchievementToast } = useGameStore();
+  const prevCount = useRef(achievementToasts.length);
+
+  useEffect(() => {
+    if (achievementToasts.length > prevCount.current) playSfx('questComplete');
+    prevCount.current = achievementToasts.length;
+  }, [achievementToasts.length]);
 
   // Auto-dismiss after 4s
   useEffect(() => {
     for (const toast of achievementToasts) {
       const timer = setTimeout(() => removeAchievementToast(toast.id), 4000);
-      // Cleanup not strictly needed since we remove by id, but good practice
       return () => clearTimeout(timer);
     }
   }, [achievementToasts]);

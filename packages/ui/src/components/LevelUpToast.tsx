@@ -1,10 +1,17 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zap } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { playSfx } from '../hooks/useSfx';
 
 export function LevelUpToast() {
   const { levelUpToasts, removeLevelUpToast } = useGameStore();
+  const prevCount = useRef(levelUpToasts.length);
+
+  useEffect(() => {
+    if (levelUpToasts.length > prevCount.current) playSfx('levelUp');
+    prevCount.current = levelUpToasts.length;
+  }, [levelUpToasts.length]);
 
   useEffect(() => {
     for (const toast of levelUpToasts) {

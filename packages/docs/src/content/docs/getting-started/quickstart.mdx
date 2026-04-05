@@ -1,0 +1,86 @@
+---
+title: Quick Start
+description: Understand how the NetCrawl system works before writing your first worker.
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## System Overview
+
+NetCrawl has three main components that work together:
+
+<CardGrid>
+  <Card title="Code Server" icon="seti:python">
+    Your Python or JavaScript process that registers worker classes and spawns worker subprocesses when the game requests them.
+  </Card>
+  <Card title="Game Server" icon="server">
+    Manages the network graph, resources, quests, and processes worker actions via a REST API.
+  </Card>
+  <Card title="Browser UI" icon="laptop">
+    React app where you see the network, deploy workers, craft items, and track quest progress.
+  </Card>
+</CardGrid>
+
+## How It Works
+
+### 1. Write Worker Classes
+
+You define Python or JavaScript classes that extend `WorkerClass`. Each class declares what equipment it needs (pickaxe, shield, sensor) and what edges/routes it follows.
+
+### 2. Register with the Code Server
+
+Create a `NetCrawl` app, register your worker classes, and call `run()`. The code server connects to the game server and tells it what worker types are available.
+
+### 3. Deploy from the UI
+
+In the browser UI, you select a worker class, assign equipment from your inventory, pick edges for the worker to follow, and click Deploy. The game server sends a deploy request to your code server.
+
+### 4. Worker Lifecycle
+
+Once deployed, your worker goes through this lifecycle:
+
+```
+__init__()          # SDK injects field values (edges, items)
+    |
+on_startup()        # Called once -- initialize state
+    |
+on_loop()           # Called repeatedly until killed
+on_loop()
+on_loop()
+  ...
+```
+
+### 5. Actions
+
+Inside `on_loop()`, your worker calls methods like:
+- `self.move(edge)` -- travel along a network edge
+- `self.pickaxe.mine()` -- mine resources at the current node
+- `self.collect()` -- pick up dropped items
+- `self.deposit()` -- deposit items at the hub
+- `self.scan()` -- scan adjacent nodes
+- `self.repair(nodeId)` -- repair infected nodes
+
+Each action is a REST call to the game server. The server processes it and returns the result.
+
+## Key Concepts
+
+### Nodes
+The network is a graph of nodes connected by edges. Node types include Hub, Resource, Compute, API, Cache, Locked, Infected, and Empty.
+
+### Edges
+Connections between nodes. Workers travel along edges using `move()`. At deploy time, you assign specific edges to your worker via `Edge` or `Route` fields.
+
+### Items & Equipment
+Workers equip items (Pickaxe, Shield, Beacon) that are consumed from your inventory at deploy time. Gadgets (SensorGadget, BasicSensor) have no deploy-time cost.
+
+### The Hub
+The central node where workers start and deposit resources. If the hub gets infected, it is game over.
+
+### Resources
+- **Data** -- primary currency, mined from resource nodes
+- **RP (Research Points)** -- earned from compute puzzles, used for advanced crafting
+- **Credits** -- earned from API requests
+
+## Next Steps
+
+Ready to code? Head to [Your First Worker](/getting-started/first-worker/).

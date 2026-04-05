@@ -1,0 +1,199 @@
+---
+title: Nodes & Network
+description: Game guide to node types, the network graph, and how they affect gameplay.
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+The NetCrawl network is a **graph** of nodes connected by edges. Each node type serves a different purpose in the game. Understanding nodes is key to building an effective automation network.
+
+## Node Types Overview
+
+<CardGrid>
+  <Card title="Hub" icon="star">
+    Central command. Deposit resources here. **Game over if infected.**
+  </Card>
+  <Card title="Resource" icon="seti:crystal">
+    Mine for data drops using a Pickaxe. Different rates and resource types.
+  </Card>
+  <Card title="Compute" icon="seti:python">
+    Solve programming puzzles to earn RP (Research Points).
+  </Card>
+  <Card title="API" icon="external">
+    Handle HTTP-like requests for credits. Requires authentication checks.
+  </Card>
+  <Card title="Cache" icon="document">
+    Key-value store service. Access via `get_service()` from nearby workers.
+  </Card>
+  <Card title="Locked" icon="warning">
+    Unknown nodes. Spend data to unlock and reveal their type.
+  </Card>
+  <Card title="Infected" icon="error">
+    Spreading threat. Costs data to repair. Can spread to neighbors.
+  </Card>
+  <Card title="Empty" icon="add-document">
+    Buildable slots. Construct cache nodes, API nodes, or other structures.
+  </Card>
+</CardGrid>
+
+---
+
+## Hub Node
+
+The **hub** is the center of your network and the most important node.
+
+- Workers start here when deployed
+- Resources are deposited here via `deposit()`
+- Acts as the central exchange for all resources
+
+:::caution
+If the hub becomes infected, it is **game over**. Always keep defenders nearby and repair infections quickly.
+:::
+
+---
+
+## Resource Node
+
+Resource nodes produce **data** -- the primary currency of the game.
+
+- Use a **Pickaxe** to mine: `self.pickaxe.mine()`
+- Mining creates a **drop** on the ground
+- Pick up drops with `self.collect()`
+- Carry drops back to the hub and `self.deposit()`
+- Some drops are **bad_data** -- discard them with `self.discard()`
+
+**Properties:**
+- `resource_type` -- the type of resource produced
+- `rate` -- production rate (higher = more resources per mine)
+- `is_mineable` -- whether the node can currently be mined
+
+:::tip
+Upgrade resource nodes to increase their rate and yields. A Level 3 resource node produces significantly more than a Level 1.
+:::
+
+---
+
+## Compute Node
+
+Compute nodes present **programming puzzles** that earn Research Points (RP).
+
+- Call `node.get_task()` to receive a puzzle
+- Each puzzle has `parameters` (inputs) and a `hint`
+- Submit your answer with `node.submit(task_id, answer)`
+- Correct answers earn RP rewards
+- Puzzles have cooldowns between solves
+
+**Difficulty levels:** easy, medium, hard -- harder puzzles give more RP.
+
+**Example puzzle:** "Add these two numbers" with parameters `{ a: 15, b: 27 }` -- answer is `42`.
+
+---
+
+## API Node
+
+API nodes simulate real-world API endpoints. External requests arrive in a queue, and your workers must process them.
+
+- Poll for requests with `self.poll_request()` or `node.poll_for_request()`
+- Each request has a `type`, `body`, and authentication status
+- **Always check `has_token` before responding!**
+- Respond with `self.respond(req.id, data)` for authenticated requests
+- Reject with `self.reject(req.id, 401)` for unauthenticated requests
+- Earn **credits** for successful responses
+
+:::caution
+**Security is critical.** Responding to an unauthenticated request (where `has_token` is `false`) causes a security breach that adds **+25 infection** to the node. Always reject unauthenticated requests with status 401.
+:::
+
+**Speed bonuses:** Responding faster earns bonus credits.
+
+---
+
+## Cache Node
+
+Cache nodes are **structure nodes** that provide key-value storage as a service.
+
+- Access via `self.get_service("cache-node-id")`
+- Store computed results to avoid redundant work
+- Has a **range** -- workers must be within range to access
+- Has a **capacity** -- limited number of key-value pairs
+- Values can have a **TTL** (time-to-live) for automatic expiry
+
+Build cache nodes on empty nodes to give your workers shared storage.
+
+---
+
+## Locked Node
+
+Locked nodes are **unknown** until you unlock them.
+
+- Spend **data** to unlock
+- Once unlocked, the node reveals its true type (resource, compute, etc.)
+- Unlocking expands your network, giving access to new resources and pathways
+
+:::tip
+Unlock nodes strategically. Look at the edges to see where locked nodes connect -- they might open shortcuts to valuable resources.
+:::
+
+---
+
+## Infected Node
+
+Infected nodes are a **spreading threat** that must be contained.
+
+- Infection can spread to adjacent nodes each game tick
+- Repair with `self.repair(node_id)` -- costs **30 data**
+- Must be **adjacent** to the infected node to repair
+- The Shield item reduces infection damage to workers passing through
+
+**Infection sources:**
+- Random events
+- Security breaches (responding to unauthenticated API requests)
+- Spreading from neighboring infected nodes
+
+:::tip
+Deploy a dedicated "Guardian" worker that patrols the network and auto-repairs infections. This is taught in Chapter 4's "Antivirus Daemon" quest.
+:::
+
+---
+
+## Empty Node
+
+Empty nodes are **buildable slots** where you can construct new structures through the game UI.
+
+Available structures:
+- **Cache Node** -- key-value storage service
+- **API Node** -- handle external requests for credits
+
+Building structures is a key part of the Infrastructure chapter (Chapter 5).
+
+---
+
+## Network Graph Concepts
+
+### Edges
+
+Edges connect nodes. Workers travel along edges using `move()`. Each edge has an ID like `'e5'`.
+
+### Routes
+
+A route is a sequence of edges forming a path. Workers with route chips can follow multi-edge routes in a single `move()` call.
+
+### Adjacency
+
+Two nodes are **adjacent** if connected by a direct edge. Some actions (like `repair()`) require adjacency.
+
+### Layers
+
+The network has multiple layers that unlock as you progress. Each layer is a new graph with its own nodes and edges, representing deeper parts of the network.
+
+---
+
+## Node Upgrades
+
+Most nodes can be upgraded to Level 3:
+- **Resource nodes:** higher rate, more drops per mine
+- **Compute nodes:** better puzzle rewards
+- **Cache nodes:** more capacity and range
+- **API nodes:** more concurrent requests, higher credit rewards
+
+Upgrades cost increasing amounts of data and RP.

@@ -135,3 +135,54 @@ class SensorGadget(GadgetField):
 
     def explore(self) -> list[dict]:
         raise RuntimeError("sensor.explore() called on descriptor — worker not initialized")
+
+
+# ── Sensor Equipment (Tiered) ────────────────────────────────────────────────
+
+class BasicSensor(GadgetField):
+    """
+    Basic edge scanner. Returns adjacent edges with basic info (edge ID, direction)
+    but NO target node type info. No deploy-time cost.
+
+    Usage:
+        class Explorer(WorkerClass):
+            basic_sensor = BasicSensor()
+
+            def on_loop(self):
+                edges = self.basic_sensor.scan()
+                for edge in edges:
+                    print(edge.edge_id)       # e.g. 'e5'
+                    self.move_edge(edge.edge_id)
+    """
+
+    def __init__(self):
+        super().__init__(description="Basic Sensor — scan adjacent edges")
+
+    def scan(self) -> list:
+        """Scan adjacent edges. Returns list[EdgeInfo]."""
+        raise RuntimeError("basic_sensor.scan() called on descriptor — worker not initialized")
+
+
+class AdvancedSensor(GadgetField):
+    """
+    Advanced edge scanner. Returns adjacent edges WITH target node type info,
+    enabling isinstance() checks and smart routing. No deploy-time cost.
+
+    Usage:
+        class SmartMiner(WorkerClass):
+            advanced_sensor = AdvancedSensor()
+
+            def on_loop(self):
+                edges = self.advanced_sensor.scan()
+                for edge in edges:
+                    if isinstance(edge.target_node, ResourceNode):
+                        self.move_edge(edge.edge_id)
+                        self.mine()
+    """
+
+    def __init__(self):
+        super().__init__(description="Advanced Sensor — scan edges with node type info")
+
+    def scan(self) -> list:
+        """Scan adjacent edges with node info. Returns list[AdvancedEdgeInfo]."""
+        raise RuntimeError("advanced_sensor.scan() called on descriptor — worker not initialized")

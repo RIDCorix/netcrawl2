@@ -67,6 +67,11 @@ function generateUuid(): string {
 }
 
 function getDropTypeForNode(node: any): Drop['type'] {
+  // Some nodes have a chance to drop bad_data (used in Ch1 while-loop quest)
+  const badDataChance = node.data.bad_data_chance || 0;
+  if (badDataChance > 0 && Math.random() < badDataChance) {
+    return 'bad_data';
+  }
   return 'data_fragment';
 }
 
@@ -222,6 +227,24 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
 
       if (!node.data.mineable) return { ok: false, error: 'Node is not mineable' };
       if (node.data.depleted) return { ok: false, error: 'Node is depleted', reason: 'node_depleted', depletedUntil: node.data.depletedUntil };
+      // Cluster nodes: capacity-based depletion with timed refill
+      if (node.data.capacity !== undefined) {
+        const currentDrops = Array.isArray(node.data.drops) ? node.data.drops.length : 0;
+        if (node.data.mineCount >= node.data.capacity && !node.data.depleted) {
+          // Auto-deplete with refillMs timer
+          const refillMs = node.data.refillMs || 5000;
+          const freshS = getGameState();
+          const newN = freshS.nodes.map((n: any) => {
+            if (n.id === node.id) {
+              return { ...n, data: { ...n.data, depleted: true, depletedUntil: Date.now() + refillMs, mineCount: 0 } };
+            }
+            return n;
+          });
+          saveGameState({ ...freshS, nodes: newN });
+          broadcastFullState();
+          return { ok: false, error: 'Node is depleted (refilling)', reason: 'node_depleted', depletedUntil: Date.now() + refillMs };
+        }
+      }
       if (!worker.equippedPickaxe) return { ok: false, error: 'No pickaxe equipped' };
 
       const mineChipEffects = getNodeChipEffects(currentNode);
@@ -686,6 +709,110 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       if (distCK > rangeCK) return { ok: false, error: 'Cache out of range', reason: 'not_reachable' };
 
       return { ok: true, keys: cacheKeys(cacheNodeIdK) };
+    }
+
+    // ── Sensor actions ────────────────────────────────────────────────────
+
+    case 'scan_edges': {
+      // BasicSensor: return edges with IDs only (no node type info)
+      const curNodeSE = worker.current_node || worker.node_id;
+      const connectedSE = edges
+        .filter((e: any) => e.source === curNodeSE || e.target === curNodeSE)
+        .map((e: any) => ({
+          edge_id: e.id,
+          source_node_id: curNodeSE,
+          target_node_id: e.source === curNodeSE ? e.target : e.source,
+        }));
+      return { ok: true, edges: connectedSE };
+    }
+
+    case 'scan_edges_advanced': {
+      // AdvancedSensor: return edges with full target node info
+      const curNodeSEA = worker.current_node || worker.node_id;
+      const connectedSEA = edges
+        .filter((e: any) => e.source === curNodeSEA || e.target === curNodeSEA)
+        .map((e: any) => {
+          const targetId = e.source === curNodeSEA ? e.target : e.source;
+          const targetNode = nodes.find((n: any) => n.id === targetId);
+          const infoEdges = targetNode ? edges
+            .filter((te: any) => te.source === targetId || te.target === targetId)
+            .map((te: any) => ({ id: te.id, otherNode: te.source === targetId ? te.target : te.source }))
+            : [];
+          return {
+            edge_id: e.id,
+            source_node_id: curNodeSEA,
+            target_node_id: targetId,
+            target_node_data: targetNode ? {
+              ok: true,
+              id: targetNode.id,
+              type: targetNode.type,
+              label: targetNode.data.label,
+              data: {
+                resource: targetNode.data.resource,
+                rate: targetNode.data.rate,
+                difficulty: targetNode.data.difficulty,
+                rewardResource: targetNode.data.rewardResource,
+                unlocked: targetNode.data.unlocked,
+                infected: targetNode.data.infected,
+                mineable: targetNode.data.mineable,
+                upgradeLevel: targetNode.data.upgradeLevel,
+                solveCount: targetNode.data.solveCount,
+              },
+              edges: infoEdges,
+            } : null,
+          };
+        });
+      return { ok: true, edges: connectedSEA };
+    }
+
+    // ── Discard & drop check ────────────────────────────────────────────────
+
+    case 'discard': {
+      // Discard the currently held item without depositing
+      const w6 = getWorker(workerId);
+      if (!w6 || w6.holding === null) {
+        return { ok: false, error: 'Nothing to discard', reason: 'nothing_held' };
+      }
+      const discarded = w6.holding;
+      upsertWorker({ ...w6, holding: null });
+      broadcastFullState();
+      return { ok: true, discarded };
+    }
+
+    case 'has_dropped_items': {
+      // Check if the current node has any drops
+      const curNodeHDI = worker.current_node || worker.node_id;
+      const nodeHDI = nodes.find((n: any) => n.id === curNodeHDI);
+      if (!nodeHDI) return { ok: true, has_items: false };
+      const dropsHDI = Array.isArray(nodeHDI.data.drops) ? nodeHDI.data.drops : [];
+      return { ok: true, has_items: dropsHDI.length > 0, count: dropsHDI.length };
+    }
+
+    // ── findNearest ───────────────────────────────────────────────────────
+
+    case 'findNearest': {
+      const { from: fnFrom, nodeType: fnType } = payload;
+      if (!fnFrom || !fnType) return { ok: false, error: 'from and nodeType required' };
+      // BFS to find nearest node of type
+      const visited = new Set<string>();
+      const queue: string[] = [fnFrom];
+      visited.add(fnFrom);
+      let foundId: string | null = null;
+      while (queue.length > 0 && !foundId) {
+        const current = queue.shift()!;
+        const neighborsFN = getNeighborIds(edges, current);
+        for (const nid of neighborsFN) {
+          if (visited.has(nid)) continue;
+          visited.add(nid);
+          const n = nodes.find((nd: any) => nd.id === nid);
+          if (n && n.type === fnType && n.data.unlocked) {
+            foundId = nid;
+            break;
+          }
+          queue.push(nid);
+        }
+      }
+      return { ok: true, nodeId: foundId };
     }
 
     default:

@@ -88,6 +88,8 @@ export const CHAPTER_DESCRIPTIONS: Record<number, string> = {
 export const QUESTS: QuestDef[] = [
   // ════════════════════════════════════════════════════════════════════════════
   // Chapter 1: Getting Started
+  // Learning order: ① method call → ② dot notation → ③ conditions
+  //                → ④ operators → ⑤ while loop → ⑥ for loop
   // ════════════════════════════════════════════════════════════════════════════
 
   // ── Mainline ──
@@ -100,46 +102,76 @@ export const QUESTS: QuestDef[] = [
     position: { x: 400, y: 0 },
   },
   {
-    id: 'q_hello_world', chapter: 1, name: 'Hello, World!', codeConcept: 'Running Code',
-    description: 'Every journey begins with a single deployment. Deploy your first worker.',
+    id: 'q_method_call', chapter: 1, name: 'Method Call', codeConcept: 'Methods',
+    description: 'self.mine(), self.collect(), self.deposit() — call methods to make things happen.',
     mainline: true, prerequisites: ['q_setup'],
-    objectives: [{ id: 'o1', description: 'Deploy 1 worker', statKey: 'total_workers_deployed', target: 1, type: 'stat_gte' }],
-    rewards: [{ kind: 'resources', resources: { data: 500 } }],
+    objectives: [
+      { id: 'o1', description: 'Mine a resource node', statKey: 'total_mines', target: 1, type: 'stat_gte' },
+      { id: 'o2', description: 'Deposit at hub', statKey: 'total_deposits', target: 1, type: 'stat_gte' },
+    ],
+    rewards: [{ kind: 'items', items: [{ itemType: 'pickaxe_basic', count: 1, metadata: { efficiency: 1.0 } }] }],
     position: { x: 400, y: 300 },
   },
   {
-    id: 'q_first_mine', chapter: 1, name: 'Gather Data', codeConcept: 'Return Values',
-    description: 'Functions return values. Mine a resource node to see what comes back.',
-    mainline: true, prerequisites: ['q_hello_world'],
-    objectives: [{ id: 'o1', description: 'Mine a resource node', statKey: 'total_mines', target: 1, type: 'stat_gte' }],
-    rewards: [{ kind: 'items', items: [{ itemType: 'pickaxe_basic', count: 1, metadata: { efficiency: 1.0 } }] }],
+    id: 'q_dot_notation', chapter: 1, name: 'Dot Notation', codeConcept: 'Attributes',
+    description: 'node.node_type, item.item_type — read properties to understand your world.',
+    mainline: true, prerequisites: ['q_method_call'],
+    objectives: [{ id: 'o1', description: 'Unlock 1 node', statKey: 'total_nodes_unlocked', target: 1, type: 'stat_gte' }],
+    rewards: [{ kind: 'resources', resources: { data: 300 } }],
     position: { x: 400, y: 600 },
   },
   {
-    id: 'q_first_deposit', chapter: 1, name: 'Return Statement', codeConcept: 'Functions',
-    description: 'A function that computes but never returns is useless. Deposit resources at the hub.',
-    mainline: true, prerequisites: ['q_first_mine'],
-    objectives: [{ id: 'o1', description: 'Deposit at hub', statKey: 'total_deposits', target: 1, type: 'stat_gte' }],
-    rewards: [{ kind: 'resources', resources: { data: 300 } }],
+    id: 'q_conditions', chapter: 1, name: 'If Statement', codeConcept: 'Conditionals',
+    description: 'if self.inventory.full(): self.deposit() — make decisions in your code.',
+    mainline: true, prerequisites: ['q_dot_notation'],
+    objectives: [{ id: 'o1', description: 'Deposit 500 data total', statKey: 'total_data_deposited', target: 500, type: 'stat_gte' }],
+    rewards: [{ kind: 'passive', effectId: 'harvest_speed_5', description: '+5% harvest speed', effect: { global_harvest_speed_mult: 1.05 } }],
     position: { x: 400, y: 900 },
   },
   {
-    id: 'q_unlock_node', chapter: 1, name: 'Import Module', codeConcept: 'Imports',
-    description: 'Expand your capabilities. Unlock a new node to grow the network.',
-    mainline: true, prerequisites: ['q_first_deposit'],
-    objectives: [{ id: 'o1', description: 'Unlock 1 node', statKey: 'total_nodes_unlocked', target: 1, type: 'stat_gte' }],
-    rewards: [{ kind: 'passive', effectId: 'harvest_speed_5', description: '+5% harvest speed', effect: { global_harvest_speed_mult: 1.05 } }],
+    id: 'q_operators', chapter: 1, name: 'Operators', codeConcept: 'Operators',
+    description: 'a > b, x == y, n + 1 — compare and compute to make smarter decisions.',
+    mainline: true, prerequisites: ['q_conditions'],
+    objectives: [{ id: 'o1', description: 'Repair 1 infected node', statKey: 'total_repairs', target: 1, type: 'stat_gte' }],
+    rewards: [{ kind: 'passive', effectId: 'defense_1', description: '+1 global defense', effect: { global_defense_bonus: 1 } }],
     position: { x: 400, y: 1200 },
+  },
+  {
+    id: 'q_while_loop', chapter: 1, name: 'While Loop', codeConcept: 'While Loops',
+    description: 'while self.has_dropped_items(): collect and filter — repeat until done.',
+    mainline: true, prerequisites: ['q_operators'],
+    objectives: [{ id: 'o1', description: 'Deposit 1,000 data total', statKey: 'total_data_deposited', target: 1000, type: 'stat_gte' }],
+    rewards: [{ kind: 'items', items: [{ itemType: 'pickaxe_iron', count: 1, metadata: { efficiency: 1.5 } }] }],
+    position: { x: 400, y: 1500 },
+  },
+  {
+    id: 'q_for_loop', chapter: 1, name: 'For Loop', codeConcept: 'For Loops',
+    description: 'for edge in edges: visit each node — iterate over a collection.',
+    mainline: true, prerequisites: ['q_while_loop'],
+    objectives: [{ id: 'o1', description: 'Mine 20 times', statKey: 'total_mines', target: 20, type: 'stat_gte' }],
+    rewards: [
+      { kind: 'items', items: [{ itemType: 'pickaxe_iron', count: 1, metadata: { efficiency: 2.0 } }] },
+      { kind: 'resources', resources: { data: 500 } },
+    ],
+    position: { x: 400, y: 1800 },
   },
 
   // ── Side quests ──
   {
     id: 'q_craft_first', chapter: 1, name: 'First Craft', codeConcept: 'Constructors',
     description: 'Create something new. Craft any item from the crafting menu.',
-    mainline: false, prerequisites: ['q_first_deposit'],
+    mainline: false, prerequisites: ['q_method_call'],
     objectives: [{ id: 'o1', description: 'Craft 1 item', statKey: 'total_crafts', target: 1, type: 'stat_gte' }],
     rewards: [{ kind: 'resources', resources: { data: 200 } }],
-    position: { x: 0, y: 800 },
+    position: { x: 0, y: 200 },
+  },
+  {
+    id: 'q_try_except', chapter: 1, name: 'Try / Except', codeConcept: 'Error Handling',
+    description: 'try: self.collect() except Error: recover() — handle the unexpected.',
+    mainline: false, prerequisites: ['q_while_loop'],
+    objectives: [{ id: 'o1', description: 'Deploy 3 workers total', statKey: 'total_workers_deployed', target: 3, type: 'stat_gte' }],
+    rewards: [{ kind: 'items', items: [{ itemType: 'shield', count: 1 }] }],
+    position: { x: 700, y: 1650 },
   },
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -148,19 +180,19 @@ export const QUESTS: QuestDef[] = [
 
   // ── Mainline ──
   {
-    id: 'q_for_loop', chapter: 2, name: 'For Loop', codeConcept: 'Loops',
-    description: 'Your worker\'s on_loop() runs forever. Make it mine 10 times.',
-    mainline: true, prerequisites: ['q_unlock_node'],
-    objectives: [{ id: 'o1', description: 'Mine 10 times', statKey: 'total_mines', target: 10, type: 'stat_gte' }],
+    id: 'q_event_loop', chapter: 2, name: 'Event Loop', codeConcept: 'Loops',
+    description: 'Your worker\'s on_loop() runs forever. Make it mine 30 times.',
+    mainline: true, prerequisites: ['q_for_loop'],
+    objectives: [{ id: 'o1', description: 'Mine 30 times', statKey: 'total_mines', target: 30, type: 'stat_gte' }],
     rewards: [{ kind: 'resources', resources: { data: 1000 } }],
     position: { x: 400, y: 0 },
   },
   {
     id: 'q_accumulator', chapter: 2, name: 'Accumulator Pattern', codeConcept: 'State',
-    description: 'total = 0; for item in items: total += item. Deposit 1,000 data total.',
-    mainline: true, prerequisites: ['q_for_loop'],
-    objectives: [{ id: 'o1', description: 'Deposit 1,000 data', statKey: 'total_data_deposited', target: 1000, type: 'stat_gte' }],
-    rewards: [{ kind: 'items', items: [{ itemType: 'pickaxe_iron', count: 1, metadata: { efficiency: 1.5 } }] }],
+    description: 'total = 0; for item in items: total += item. Deposit 2,000 data total.',
+    mainline: true, prerequisites: ['q_event_loop'],
+    objectives: [{ id: 'o1', description: 'Deposit 2,000 data', statKey: 'total_data_deposited', target: 2000, type: 'stat_gte' }],
+    rewards: [{ kind: 'items', items: [{ itemType: 'pickaxe_diamond', count: 1, metadata: { efficiency: 2.5 } }] }],
     position: { x: 400, y: 300 },
   },
   {
@@ -176,7 +208,7 @@ export const QUESTS: QuestDef[] = [
   {
     id: 'q_batch_craft', chapter: 2, name: 'Batch Processing', codeConcept: 'Iteration',
     description: '[craft(x) for x in materials] — craft multiple items.',
-    mainline: false, prerequisites: ['q_for_loop'],
+    mainline: false, prerequisites: ['q_event_loop'],
     objectives: [{ id: 'o1', description: 'Craft 3 items', statKey: 'total_crafts', target: 3, type: 'stat_gte' }],
     rewards: [{ kind: 'items', items: [{ itemType: 'chip_pack_basic', count: 1 }] }],
     position: { x: 0, y: 150 },
@@ -184,7 +216,7 @@ export const QUESTS: QuestDef[] = [
   {
     id: 'q_error_handling', chapter: 2, name: 'Try / Except', codeConcept: 'Error Handling',
     description: 'Things break. The key is recovering. Deploy 5 workers to learn resilience.',
-    mainline: false, prerequisites: ['q_for_loop'],
+    mainline: false, prerequisites: ['q_event_loop'],
     objectives: [{ id: 'o1', description: 'Deploy 5 workers total', statKey: 'total_workers_deployed', target: 5, type: 'stat_gte' }],
     rewards: [{ kind: 'items', items: [{ itemType: 'shield', count: 1 }] }],
     position: { x: 700, y: 150 },

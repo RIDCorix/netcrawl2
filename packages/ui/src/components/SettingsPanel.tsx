@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Settings, Keyboard, Sliders } from 'lucide-react';
+import { X, Settings, Keyboard, Sliders, Volume2, Music, Lock, Check } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useState } from 'react';
 import { LANGUAGES } from '../i18n/index';
@@ -117,6 +117,7 @@ export function SettingsPanel() {
 
   const TABS = [
     { key: 'preferences', label: t('settings.tab.preferences'), icon: Sliders },
+    { key: 'audio', label: t('settings.tab.audio'), icon: Volume2 },
     { key: 'keybindings', label: t('settings.tab.keybindings'), icon: Keyboard },
   ];
 
@@ -281,6 +282,103 @@ export function SettingsPanel() {
                   {/* About */}
                   <div style={{ padding: '10px 12px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', border: '1px solid var(--border)', fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'center', lineHeight: 1.6, marginTop: 8 }}>
                     NetCrawl v0.1.0 -- Learn to code by building network automation workers
+                  </div>
+                </div>
+              )}
+
+              {tab === 'audio' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {/* BGM Volume */}
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Music size={12} style={{ color: 'var(--accent)' }} />
+                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                          {t('settings.bgm_volume')}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>
+                        {settings.bgmVolume}%
+                      </span>
+                    </div>
+                    <input
+                      type="range" min={0} max={100} value={settings.bgmVolume}
+                      onChange={e => updateSettings({ bgmVolume: Number(e.target.value) })}
+                      style={{ width: '100%', accentColor: 'var(--accent)' }}
+                    />
+                  </div>
+
+                  {/* SFX Volume */}
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Volume2 size={12} style={{ color: 'var(--accent)' }} />
+                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                          {t('settings.sfx_volume')}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>
+                        {settings.sfxVolume}%
+                      </span>
+                    </div>
+                    <input
+                      type="range" min={0} max={100} value={settings.sfxVolume}
+                      onChange={e => updateSettings({ sfxVolume: Number(e.target.value) })}
+                      style={{ width: '100%', accentColor: 'var(--accent)' }}
+                    />
+                  </div>
+
+                  <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+
+                  {/* Music Packs */}
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginBottom: 10 }}>
+                      {t('settings.music_packs')}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {[
+                        { id: 'default', name: 'Ambient Pulse', desc: 'Chill ambient arpeggios', free: true },
+                        { id: 'deep_space', name: 'Deep Space', desc: 'Dark ambient, evolving pads', cost: 30 },
+                        { id: 'neon_grid', name: 'Neon Grid', desc: 'Synthwave, pulsing bass', cost: 50 },
+                        { id: 'data_flow', name: 'Data Flow', desc: 'Minimal techno, glitchy', cost: 40 },
+                        { id: 'quantum_core', name: 'Quantum Core', desc: 'Epic layered intensity', cost: 100 },
+                      ].map(pack => {
+                        const isActive = settings.currentTrack === pack.id;
+                        const isUnlocked = pack.free; // TODO: check server unlocked packs
+                        return (
+                          <button
+                            key={pack.id}
+                            onClick={() => isUnlocked && updateSettings({ currentTrack: pack.id })}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 10,
+                              padding: '10px 12px', borderRadius: 'var(--radius-sm)',
+                              background: isActive ? 'var(--accent-dim)' : 'var(--bg-primary)',
+                              border: `1px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+                              cursor: isUnlocked ? 'pointer' : 'default',
+                              opacity: isUnlocked ? 1 : 0.5,
+                              transition: 'all 0.15s', textAlign: 'left',
+                            }}
+                          >
+                            <Music size={14} style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)', flexShrink: 0 }} />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 11, fontWeight: 600, color: isActive ? 'var(--accent)' : 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                                {pack.name}
+                              </div>
+                              <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                                {pack.desc}
+                              </div>
+                            </div>
+                            {isActive && <Check size={12} style={{ color: 'var(--accent)' }} />}
+                            {!isUnlocked && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                                <Lock size={10} />
+                                {pack.cost} credits
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               )}

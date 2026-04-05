@@ -1,0 +1,167 @@
+---
+title: Items & Crafting
+description: Complete crafting reference -- recipes, costs, item effects, and quest rewards.
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Resources
+
+NetCrawl has three main resource types used for crafting and progression:
+
+| Resource | Source | Used For |
+|----------|--------|----------|
+| **Data** | Mining resource nodes | Crafting, unlocking nodes, repairs |
+| **RP** (Research Points) | Solving compute puzzles | Advanced crafting, upgrades |
+| **Credits** | Completing API requests | Premium items, special purchases |
+
+---
+
+## Crafting Recipes
+
+Craft items from the game UI using resources you have deposited at the hub.
+
+### Mining Tools
+
+| Recipe | Output | Cost | Description |
+|--------|--------|------|-------------|
+| Basic Pickaxe | `pickaxe_basic` | 200 data | Standard mining tool. 1.0x efficiency |
+| Iron Pickaxe | `pickaxe_iron` | 500 data + 5 RP | Stronger pick. 1.5x efficiency. Yields 1-2 drops |
+| Diamond Pickaxe | `pickaxe_diamond` | 2,000 data + 20 RP | Finest tool. 2.5x efficiency. Yields 2-3 drops |
+
+:::tip
+Start with Basic Pickaxes to get mining. Save up for Iron Pickaxes once you have a steady data income. Diamond Pickaxes are a significant investment but dramatically increase throughput.
+:::
+
+### Defense & Utility
+
+| Recipe | Output | Cost | Description |
+|--------|--------|------|-------------|
+| Shield | `shield` | 300 data + 3 RP | Protects worker from infection damage (0.5 defense) |
+| Beacon | `beacon` | 500 data + 8 RP | Increases scan radius for workers (+2 hops) |
+
+### Worker Upgrades
+
+| Recipe | Output | Cost | Description |
+|--------|--------|------|-------------|
+| CPU Module | `cpu_basic` | 400 data + 3 RP | +1 compute point. Enables equipping advanced algorithms |
+| CPU Module II | `cpu_advanced` | 1,500 data + 12 RP | +2 compute points. For demanding algorithms |
+| RAM Module | `ram_basic` | 300 data + 2 RP | +50 carrying capacity |
+| RAM Module II | `ram_advanced` | 1,200 data + 10 RP | +150 carrying capacity |
+
+---
+
+## Unlockable Recipes
+
+These recipes are locked by default and unlock through quest progression:
+
+| Recipe | Unlock Source | Cost | Description |
+|--------|-------------|------|-------------|
+| Scanner | Quest: Multiprocessing (Ch. 2) | 200 data + 400 RP | Increases scan radius for workers |
+| Signal Booster | Quest: Network Topology (Ch. 3) | 600 data | Boosts relay node speed |
+| Overclock Kit | Quest: Compute Service (Ch. 5) | 800 data + 400 RP | Temporary 2x speed boost |
+
+---
+
+## Item Types
+
+### Equipment (ItemField)
+
+Equipment items are **consumed from inventory** when a worker is deployed. Each worker can equip items declared in its class definition.
+
+<CardGrid>
+  <Card title="Pickaxe" icon="seti:crystal">
+    **Type:** ItemField (consumed at deploy)
+
+    Mining tool with an `efficiency` stat that determines mining yield. Available in three tiers: Basic (1.0x), Iron (1.5x), Diamond (2.5x).
+
+    **Methods:** `mine()`, `mine_and_collect()`
+  </Card>
+  <Card title="Shield" icon="approve-check-circle">
+    **Type:** ItemField (consumed at deploy)
+
+    Defensive item with a `defense` stat (0.5). Passively reduces infection damage when the worker passes through infected nodes. No callable methods.
+  </Card>
+  <Card title="Beacon" icon="star">
+    **Type:** ItemField (consumed at deploy)
+
+    Scanner booster with a `radius` stat (2). Passively increases the worker's scan range. No callable methods.
+  </Card>
+</CardGrid>
+
+### Gadgets (GadgetField)
+
+Gadgets provide runtime methods but have **no deploy-time cost**. They are not consumed from inventory.
+
+<CardGrid>
+  <Card title="SensorGadget" icon="magnifier">
+    **Type:** GadgetField (free)
+
+    Advanced pathfinding and exploration gadget.
+
+    **Methods:** `travel_to(nodeId)`, `find_nearest(nodeType)`, `explore()`
+  </Card>
+  <Card title="BasicSensor" icon="magnifier">
+    **Type:** GadgetField (free)
+
+    Edge scanner returning basic info.
+
+    **Methods:** `scan()` returns `EdgeInfo[]`
+  </Card>
+  <Card title="AdvancedSensor" icon="magnifier">
+    **Type:** GadgetField (free)
+
+    Edge scanner with target node type info.
+
+    **Methods:** `scan()` returns `AdvancedEdgeInfo[]`
+  </Card>
+</CardGrid>
+
+---
+
+## Quest Reward Items
+
+Some items are only obtainable through quest rewards and cannot be crafted:
+
+| Item | Source Quest | Description |
+|------|-------------|-------------|
+| Antivirus Module | Antivirus Daemon (Ch. 4) | Shield with auto-repair capability. 2.0x efficiency |
+| Memory Allocator | Revenue Model (Ch. 7) | 3.0x efficiency pickaxe |
+| Full Stack Pickaxe | Full Stack Dev (Ch. 8) | 5.0x efficiency legendary pickaxe |
+
+These unique items are significantly more powerful than crafted equivalents and represent major progression milestones.
+
+---
+
+## Chips
+
+Chips are installable upgrades for workers and nodes. They are obtained from:
+- **Quest rewards** -- specific chips for completing quests
+- **Chip packs** -- random chips with rarity tiers (common, rare, legendary)
+
+| Rarity | Drop Rate | Example Effects |
+|--------|-----------|-----------------|
+| Common | Frequent | +1 move speed |
+| Rare | Moderate | +2 defense, +2 production rate, +3 harvest speed |
+| Legendary | Rare | Overclock (major speed boost) |
+
+---
+
+## Crafting Strategy
+
+### Early Game (Chapter 1-2)
+1. Craft **Basic Pickaxes** (200 data each) to get multiple miners going
+2. Focus on data accumulation
+3. Craft your first **Shield** (300 data + 3 RP) once infections appear
+
+### Mid Game (Chapter 3-5)
+1. Upgrade to **Iron Pickaxes** (500 data + 5 RP)
+2. Craft **Beacons** (500 data + 8 RP) for better scanning
+3. Invest in **CPU/RAM Modules** for specialized workers
+4. Unlock recipes through quest progression
+
+### Late Game (Chapter 6-8)
+1. Craft **Diamond Pickaxes** (2,000 data + 20 RP)
+2. Use **Overclock Kits** for speed bursts
+3. Target quest-reward unique items for maximum efficiency
+4. Optimize with legendary chips

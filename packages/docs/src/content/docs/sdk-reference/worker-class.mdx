@@ -1,0 +1,701 @@
+---
+title: WorkerClass
+description: Complete API reference for the WorkerClass base class.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+`WorkerClass` is the base class for all NetCrawl workers. Extend it to define your worker's behavior, equipment requirements, and logic.
+
+## Class Definition
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    from netcrawl import WorkerClass, Edge, Pickaxe
+
+    class MyWorker(WorkerClass):
+        class_name = "My Worker"     # Display name in the UI
+        class_id = "myworker"       # Unique identifier (defaults to lowercase class name)
+        class_icon = "Bot"          # Lucide icon name
+
+        pickaxe = Pickaxe()         # Deploy-time item field
+        target = Edge("Target edge") # Deploy-time edge field
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    import { WorkerClass, Edge, Pickaxe } from '@netcrawl/sdk';
+
+    class MyWorker extends WorkerClass {
+      static className = 'My Worker';
+      static classId = 'myworker';
+      static classIcon = 'Bot';
+
+      static fields = {
+        pickaxe: new Pickaxe(),
+        target: new Edge('Target edge'),
+      };
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+---
+
+## Lifecycle Methods
+
+### on_startup / onStartup
+
+Called once when the worker is first deployed. Use this to initialize state.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    def on_startup(self):
+        self.trips = 0
+        self.info("Worker started!")
+    ```
+    **Signature:** `on_startup(self) -> None`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    async onStartup() {
+      this.trips = 0;
+      await this.info('Worker started!');
+    }
+    ```
+    **Signature:** `async onStartup(): Promise<void>`
+  </TabItem>
+</Tabs>
+
+### on_loop / onLoop
+
+Called repeatedly in a loop until the worker is killed. This is where your main logic goes.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    def on_loop(self):
+        self.move(self.target)
+        self.pickaxe.mine_and_collect()
+        self.move(self.hub_edge)
+        self.deposit()
+    ```
+    **Signature:** `on_loop(self) -> None`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    async onLoop() {
+      await this.move(this.target);
+      await this.pickaxe.mineAndCollect();
+      await this.move(this.hubEdge);
+      await this.deposit();
+    }
+    ```
+    **Signature:** `async onLoop(): Promise<void>`
+  </TabItem>
+</Tabs>
+
+---
+
+## Movement
+
+### move
+
+Move along an edge, to a node, or through a route. Dispatches based on the argument type:
+- **List/Array**: treats as a route, calls `move_through` / `moveThrough`
+- **Edge ID** (starts with `e`, e.g. `'e5'`): calls `move_edge` / `moveEdge`
+- **Node ID**: legacy move by node ID
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    # Move along an edge
+    self.move(self.to_mine)        # self.to_mine = 'e5'
+
+    # Move through a route
+    self.move(self.patrol_route)   # self.patrol_route = ['e1', 'e3', 'e5']
+
+    # Legacy: move by node ID
+    self.move("hub")
+    ```
+    **Signature:** `move(self, target: str | list) -> None`
+    **Raises:** `ValueError` if the edge/node is not connected.
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    await this.move(this.toMine);
+    await this.move(this.patrolRoute);
+    await this.move('hub');
+    ```
+    **Signature:** `async move(target: string | string[]): Promise<void>`
+    **Throws:** `Error` if the edge/node is not connected.
+  </TabItem>
+</Tabs>
+
+### move_edge / moveEdge
+
+Move along a specific edge. The worker travels to the other end of the edge from their current position.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    result = self.move_edge('e5')
+    # result: { ok: True, travelTime: 1, edgeId: 'e5', from: 'hub', to: 'r1' }
+    ```
+    **Signature:** `move_edge(self, edge_id: str) -> dict`
+    **Returns:** `{ ok, travelTime, edgeId, from, to }`
+    **Raises:** `ValueError` if the edge doesn't connect to the current node.
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const result = await this.moveEdge('e5');
+    ```
+    **Signature:** `async moveEdge(edgeId: string): Promise<Record<string, unknown>>`
+    **Throws:** `Error` if the edge doesn't connect to the current node.
+  </TabItem>
+</Tabs>
+
+### move_through / moveThrough
+
+Move through a list of edge IDs or node IDs in order. Supports both edge-based routes (`['e1', 'e2']`) and node-based routes (`['hub', 'r1']`).
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    self.move_through(['e1', 'e3', 'e5'])
+    ```
+    **Signature:** `move_through(self, route: list) -> None`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    await this.moveThrough(['e1', 'e3', 'e5']);
+    ```
+    **Signature:** `async moveThrough(route: string[]): Promise<void>`
+  </TabItem>
+</Tabs>
+
+### get_edges / getEdges
+
+Get all edges connected to the current node.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    edges = self.get_edges()
+    for edge in edges:
+        print(edge['id'], edge['otherNode'])
+    ```
+    **Signature:** `get_edges(self) -> list`
+    **Returns:** `list of { id: str, otherNode: str }`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const edges = await this.getEdges();
+    for (const edge of edges) {
+      console.log(edge.id, edge.otherNode);
+    }
+    ```
+    **Signature:** `async getEdges(): Promise<Array<{ id: string; otherNode: string }>>`
+  </TabItem>
+</Tabs>
+
+---
+
+## Resource Actions
+
+### collect
+
+Pick up a drop from the current node into the 1-slot internal inventory.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    result = self.collect()
+    # Success: { ok: True, item: { type: 'data_fragment', amount: 1 } }
+    # Fail:    { ok: False, error: 'slot_full' }
+    # Fail:    { ok: False, error: 'nothing_here' }
+    ```
+    **Signature:** `collect(self) -> dict`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const result = await this.collect();
+    ```
+    **Signature:** `async collect(): Promise<Record<string, unknown>>`
+  </TabItem>
+</Tabs>
+
+### deposit
+
+Deposit the held item into the player inventory. Must be at the Hub node.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    result = self.deposit()
+    # { ok: True, deposited: { type: 'data_fragment', amount: 1 } }
+    ```
+    **Signature:** `deposit(self) -> dict`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const result = await this.deposit();
+    ```
+    **Signature:** `async deposit(): Promise<Record<string, unknown>>`
+  </TabItem>
+</Tabs>
+
+### discard
+
+Discard the currently held item without depositing. Use this to throw away unwanted drops like `bad_data`.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    result = self.collect()
+    if result.get('item', {}).get('type') == 'bad_data':
+        self.discard()
+    ```
+    **Signature:** `discard(self, item=None) -> dict`
+    **Returns:** `{ ok: True, discarded: { type, amount } }`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const result = await this.collect();
+    if (result.item?.type === 'bad_data') {
+      await this.discard();
+    }
+    ```
+    **Signature:** `async discard(): Promise<Record<string, unknown>>`
+  </TabItem>
+</Tabs>
+
+### has_dropped_items / hasDroppedItems
+
+Check if the current node has any dropped items waiting to be collected.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    self.pickaxe.mine()
+    while self.has_dropped_items():
+        item = self.collect()
+        if item.get('item', {}).get('type') == 'bad_data':
+            self.discard()
+        else:
+            break
+    ```
+    **Signature:** `has_dropped_items(self) -> bool`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    await this.pickaxe.mine();
+    while (await this.hasDroppedItems()) {
+      const item = await this.collect();
+      if (item.item?.type === 'bad_data') {
+        await this.discard();
+      } else {
+        break;
+      }
+    }
+    ```
+    **Signature:** `async hasDroppedItems(): Promise<boolean>`
+  </TabItem>
+</Tabs>
+
+### harvest
+
+Legacy method: harvest resources at the current node using the old carry system.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    result = self.harvest()
+    # { harvested: { data: 5 } }
+    ```
+    **Signature:** `harvest(self) -> dict`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const result = await this.harvest();
+    ```
+    **Signature:** `async harvest(): Promise<Record<string, unknown>>`
+  </TabItem>
+</Tabs>
+
+:::caution
+`harvest()` uses the legacy carry system. Prefer `pickaxe.mine()` + `collect()` + `deposit()` for the modern drop-based workflow.
+:::
+
+---
+
+## Scanning
+
+### scan
+
+Scan adjacent nodes. Returns information about nearby nodes.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    nodes = self.scan()
+    for node in nodes:
+        print(node['id'], node['type'], node['infected'])
+    ```
+    **Signature:** `scan(self) -> list`
+    **Returns:** `list of { id, type, resources, infected, adjacent: bool }`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const nodes = await this.scan();
+    for (const node of nodes) {
+      console.log(node.id, node.type, node.infected);
+    }
+    ```
+    **Signature:** `async scan(): Promise<Record<string, unknown>[]>`
+  </TabItem>
+</Tabs>
+
+---
+
+## Repair
+
+### repair
+
+Repair an infected node. Costs 30 data from game resources. Must be adjacent to the target node.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    success = self.repair("r3")
+    ```
+    **Signature:** `repair(self, node_id: str) -> bool`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const success = await this.repair('r3');
+    ```
+    **Signature:** `async repair(nodeId: string): Promise<boolean>`
+  </TabItem>
+</Tabs>
+
+---
+
+## API Node Methods
+
+These methods are used when your worker is stationed on an API node to handle incoming requests.
+
+### poll_request / pollRequest
+
+Poll the current API node for the next pending request. Must be standing on an api-type node.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    req = self.poll_request()
+    if req is None:
+        return  # No pending requests
+
+    # req.id          - request ID
+    # req.type        - request type string
+    # req.body        - request body dict
+    # req.has_token   - whether the request has authentication
+    # req.token       - the auth token (or None)
+    # req.deadline_tick - tick by which you must respond
+    # req.reward      - reward dict for completing
+    ```
+    **Signature:** `poll_request(self) -> APIRequest | None`
+    **Raises:** `RuntimeError` on failure.
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const req = await this.pollRequest();
+    if (req === null) return;
+
+    // req.id, req.type, req.body, req.hasToken, req.token,
+    // req.deadlineTick, req.reward
+    ```
+    **Signature:** `async pollRequest(): Promise<APIRequest | null>`
+    **Throws:** `Error` on failure.
+  </TabItem>
+</Tabs>
+
+### respond
+
+Respond to a request with a 2xx success response. Only call this for **authenticated** requests where `req.has_token` / `req.hasToken` is `true`.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    if req.has_token:
+        self.respond(req.id, {"result": 42})
+    ```
+    **Signature:** `respond(self, request_id: str, response_data: dict) -> dict`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    if (req.hasToken) {
+      await this.respond(req.id, { result: 42 });
+    }
+    ```
+    **Signature:** `async respond(requestId: string, responseData: Record<string, unknown>): Promise<Record<string, unknown>>`
+  </TabItem>
+</Tabs>
+
+:::caution
+Responding to an unauthenticated request (where `has_token` is `false`) adds **+25 infection** to the node. Always check authentication first!
+:::
+
+### reject
+
+Reject a request with an error status code (4xx or 5xx).
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    if not req.has_token:
+        self.reject(req.id, 401)     # Unauthenticated
+    # Other status codes:
+    # self.reject(req.id, 400)       # Bad request
+    # self.reject(req.id, 429)       # Rate limited
+    # self.reject(req.id, 500)       # Server error
+    ```
+    **Signature:** `reject(self, request_id: str, status_code: int = 401) -> dict`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    if (!req.hasToken) {
+      await this.reject(req.id, 401);
+    }
+    ```
+    **Signature:** `async reject(requestId: string, statusCode: number = 401): Promise<Record<string, unknown>>`
+  </TabItem>
+</Tabs>
+
+### validate_token / validateToken
+
+Validate a token by querying the auth node you are currently standing on.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    self.move("auth_iam1")
+    result = self.validate_token(req.token)
+    if result["valid"]:
+        self.move(api_node_id)
+        self.respond(req.id, {"status": "ok"})
+    ```
+    **Signature:** `validate_token(self, token: str) -> dict`
+    **Returns:** `{ valid: bool, ttl: int }` -- `ttl` is remaining ticks.
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    await this.move('auth_iam1');
+    const result = await this.validateToken(req.token);
+    if (result.valid) {
+      await this.move(apiNodeId);
+      await this.respond(req.id, { status: 'ok' });
+    }
+    ```
+    **Signature:** `async validateToken(token: string): Promise<{ valid: boolean; ttl: number }>`
+  </TabItem>
+</Tabs>
+
+---
+
+## Node Access
+
+### get_current_node / getCurrentNode
+
+Get a typed node object for the worker's current position. Returns a subclass of `BaseNode` based on the node type.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    from netcrawl.nodes import ComputeNode, ResourceNode
+
+    node = self.get_current_node()
+    if isinstance(node, ComputeNode):
+        task = node.get_task()
+        answer = task.parameters['a'] + task.parameters['b']
+        node.submit(task.task_id, answer)
+    elif isinstance(node, ResourceNode):
+        print(f"Resource: {node.resource_type}, rate: {node.rate}")
+    ```
+    **Signature:** `get_current_node(self) -> BaseNode`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const node = await this.getCurrentNode();
+    // Use node.type to check the node type
+    if (node.type === 'compute') {
+      const task = await node.getTask();
+      const answer = task.parameters.a + task.parameters.b;
+      await node.submit(task.taskId, answer);
+    }
+    ```
+    **Signature:** `async getCurrentNode(): Promise<BaseNode>`
+  </TabItem>
+</Tabs>
+
+---
+
+## Services
+
+### get_service / getService
+
+Get a service proxy for a structure node (e.g., Cache Node). Throws `ServiceNotReachable` if the node is out of range or unavailable.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    cache = self.get_service("cache-node-id")
+    val = cache.get("key")
+    cache.set("key", 42)
+    cache.set("key", 42, ttl=30000)  # expires in 30s
+    ```
+    **Signature:** `get_service(self, node_id: str) -> CacheService`
+    **Raises:** `ServiceNotReachable`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const cache = await this.getService('cache-node-id');
+    const val = await cache.get('key');
+    await cache.set('key', 42);
+    await cache.set('key', 42, 30000);
+    ```
+    **Signature:** `async getService(nodeId: string): Promise<CacheService>`
+    **Throws:** `ServiceNotReachable`
+  </TabItem>
+</Tabs>
+
+See the [Services reference](/sdk-reference/services/) for full `CacheService` documentation.
+
+---
+
+## Logging
+
+Log messages appear in the UI's worker log panel.
+
+### info / warn / error
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    self.info("Mining complete")
+    self.warn("Low resources")
+    self.error("Failed to move")
+    ```
+    **Signatures:**
+    - `info(self, msg: str) -> None`
+    - `warn(self, msg: str) -> None`
+    - `error(self, msg: str) -> None`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    await this.info('Mining complete');
+    await this.warn('Low resources');
+    await this.error('Failed to move');
+    ```
+    **Signatures:**
+    - `async info(msg: string): Promise<void>`
+    - `async warn(msg: string): Promise<void>`
+    - `async error(msg: string): Promise<void>`
+  </TabItem>
+</Tabs>
+
+---
+
+## Properties
+
+### holding
+
+Currently held item in the 1-slot internal inventory. `None` / `null` if empty.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    if self.holding is not None:
+        print(f"Holding: {self.holding}")
+    ```
+    **Type:** `dict | None`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    if (this.holding !== null) {
+      console.log(`Holding: ${JSON.stringify(this.holding)}`);
+    }
+    ```
+    **Type:** `Record<string, unknown> | null`
+  </TabItem>
+</Tabs>
+
+### carrying
+
+Currently carried resources (legacy carry system).
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    print(self.carrying)  # { 'data': 5 }
+    ```
+    **Type:** `dict`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    console.log(this.carrying);  // { data: 5 }
+    ```
+    **Type:** `Record<string, unknown>`
+  </TabItem>
+</Tabs>
+
+### current_node / currentNode
+
+The ID of the node the worker is currently at.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    print(self.current_node)  # 'hub'
+    ```
+    **Type:** `str`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    console.log(this.currentNode);  // 'hub'
+    ```
+    **Type:** `string`
+  </TabItem>
+</Tabs>
+
+---
+
+## Static Methods
+
+### get_schema / getSchema
+
+Returns the deploy-time requirements schema. Called by the code server to register worker classes with the game server.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    schema = Collector.get_schema()
+    # {
+    #   class_id: 'collector',
+    #   class_name: 'Collector',
+    #   class_icon: 'Pickaxe',
+    #   fields: { pickaxe: { type: 'item', ... }, ... },
+    #   docstring: '...'
+    # }
+    ```
+    **Signature:** `classmethod get_schema(cls) -> dict`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const schema = Collector.getSchema();
+    ```
+    **Signature:** `static getSchema(): Record<string, unknown>`
+  </TabItem>
+</Tabs>

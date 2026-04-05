@@ -1,0 +1,221 @@
+---
+title: NetCrawl App
+description: The NetCrawl code server that bridges your worker classes with the game.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+The `NetCrawl` app is your **code server**. It registers your worker classes with the game server, polls for deploy requests, and spawns worker subprocesses.
+
+## Constructor
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    from netcrawl import NetCrawl
+
+    app = NetCrawl(server="http://localhost:4800", api_key="")
+    ```
+
+    **Parameters:**
+    - `server` (str) -- Game server URL. Default: `"http://localhost:4800"`
+    - `api_key` (str) -- Optional API key for authentication. Default: `""`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    import { NetCrawl } from '@netcrawl/sdk';
+
+    const app = new NetCrawl({ server: 'http://localhost:4800' });
+    ```
+
+    **Parameters:**
+    - `server` (string) -- Game server URL. Default: `'http://localhost:4800'`
+  </TabItem>
+</Tabs>
+
+---
+
+## register
+
+Register a worker class for deployment. The class must extend `WorkerClass`.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    from workers.miner import Miner
+    from workers.guardian import Guardian
+
+    app.register(Miner)
+    app.register(Guardian)
+    ```
+
+    **Signature:** `register(self, cls: Type[WorkerClass]) -> None`
+    **Raises:** `ValueError` if a class with the same `class_id` is already registered.
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    import { Miner } from './workers/miner.js';
+    import { Guardian } from './workers/guardian.js';
+
+    app.register(Miner);
+    app.register(Guardian);
+    ```
+
+    **Signature:** `register(cls: typeof WorkerClass): void`
+  </TabItem>
+</Tabs>
+
+When you register a class, the app:
+1. Reads the class's `class_id`, `class_name`, and `class_icon`
+2. Discovers all declared fields (items, edges, routes, gadgets)
+3. Stores the class for later spawning
+
+:::caution
+Each `class_id` must be unique. If you register two classes with the same `class_id`, the app throws an error. The `class_id` defaults to the lowercase Python/JS class name if not explicitly set.
+:::
+
+---
+
+## run
+
+Start the code server loop.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    app.run()
+    ```
+
+    **Signature:** `run(self) -> None`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    app.run();
+    ```
+
+    **Signature:** `run(): void`
+  </TabItem>
+</Tabs>
+
+The `run()` method performs these steps in order:
+
+1. **Wait for the game server** -- polls `/health` until the server responds (up to 30 seconds)
+2. **Register all worker classes** -- sends class schemas to `POST /api/worker-classes/register`
+3. **Poll for deploy requests** -- every second, checks `GET /api/deploy-queue` for pending deploys
+4. **Re-register every 30 seconds** -- handles game server restarts
+
+The method blocks forever until you press `Ctrl+C`.
+
+---
+
+## Full Example
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    # main.py
+    from netcrawl import NetCrawl, WorkerClass, Edge, Pickaxe
+
+    class Miner(WorkerClass):
+        class_name = "Miner"
+        class_icon = "Pickaxe"
+
+        pickaxe = Pickaxe()
+        to_mine = Edge("Mining edge")
+        to_hub = Edge("Return edge")
+
+        def on_startup(self):
+            self.info("Miner deployed!")
+
+        def on_loop(self):
+            self.move(self.to_mine)
+            self.pickaxe.mine_and_collect()
+            self.move(self.to_hub)
+            self.deposit()
+
+    class Guardian(WorkerClass):
+        class_name = "Guardian"
+        class_icon = "ShieldCheck"
+
+        patrol = Edge("Patrol edge")
+
+        def on_loop(self):
+            nodes = self.scan()
+            for node in nodes:
+                if node.get('infected'):
+                    self.repair(node['id'])
+
+    app = NetCrawl(server="http://localhost:4800")
+    app.register(Miner)
+    app.register(Guardian)
+    app.run()
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    // main.js
+    import { NetCrawl, WorkerClass, Edge, Pickaxe } from '@netcrawl/sdk';
+
+    class Miner extends WorkerClass {
+      static className = 'Miner';
+      static classIcon = 'Pickaxe';
+      static fields = {
+        pickaxe: new Pickaxe(),
+        toMine: new Edge('Mining edge'),
+        toHub: new Edge('Return edge'),
+      };
+
+      async onStartup() {
+        await this.info('Miner deployed!');
+      }
+
+      async onLoop() {
+        await this.move(this.toMine);
+        await this.pickaxe.mineAndCollect();
+        await this.move(this.toHub);
+        await this.deposit();
+      }
+    }
+
+    class Guardian extends WorkerClass {
+      static className = 'Guardian';
+      static classIcon = 'ShieldCheck';
+      static fields = {
+        patrol: new Edge('Patrol edge'),
+      };
+
+      async onLoop() {
+        const nodes = await this.scan();
+        for (const node of nodes) {
+          if (node.infected) {
+            await this.repair(node.id);
+          }
+        }
+      }
+    }
+
+    const app = new NetCrawl({ server: 'http://localhost:4800' });
+    app.register(Miner);
+    app.register(Guardian);
+    app.run();
+    ```
+  </TabItem>
+</Tabs>
+
+---
+
+## How Deploy Works
+
+When a user clicks "Deploy" in the game UI:
+
+1. The game server creates a deploy request with the worker ID, class ID, target node, and injected field values
+2. Your code server picks it up from the deploy queue
+3. The code server spawns a **new subprocess** for the worker
+4. The subprocess instantiates your class, injects field values, and calls `on_startup()` then `on_loop()` in a loop
+5. The deploy acknowledgment is sent back to the game server
+
+Each worker runs in its own subprocess, so multiple workers run in parallel. Killing a worker in the UI terminates the subprocess.
+
+:::tip
+You can register multiple worker classes in a single code server. The game UI will show all available classes for the user to deploy.
+:::

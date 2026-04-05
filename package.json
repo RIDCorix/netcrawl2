@@ -1,12 +1,23 @@
 {
   "name": "netcrawl",
+  "version": "1.0.0",
+  "description": "The programmable idle game",
+  "author": "NetCrawl",
   "private": true,
   "scripts": {
     "dev": "concurrently \"pnpm --filter server dev\" \"pnpm --filter ui dev\"",
     "start": "pnpm --filter cli start",
-    "build": "pnpm -r build"
+    "build": "pnpm -r build",
+    "desktop:dev": "pnpm --filter @netcrawl/desktop dev",
+    "desktop:build": "pnpm --filter @netcrawl/desktop build",
+    "desktop:dist:mac": "pnpm --filter @netcrawl/desktop dist:mac",
+    "desktop:dist:win": "pnpm --filter @netcrawl/desktop dist:win",
+    "desktop:dist:linux": "pnpm --filter @netcrawl/desktop dist:linux"
   },
   "devDependencies": {
     "concurrently": "^8.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "electron", "electron-winstaller", "sharp"]
   }
 }

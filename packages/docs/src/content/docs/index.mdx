@@ -1,0 +1,59 @@
+---
+title: NetCrawl Docs
+description: SDK Reference & Game Guide for NetCrawl — the programmable idle game.
+template: splash
+hero:
+  tagline: Write code. Deploy workers. Conquer the network.
+  actions:
+    - text: Get Started
+      link: /getting-started/installation/
+      icon: right-arrow
+      variant: primary
+    - text: SDK Reference
+      link: /sdk-reference/worker-class/
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid stagger>
+  <Card title="Getting Started" icon="rocket">
+    Install the SDK, connect to the game server, and deploy your first worker in minutes.
+    [Start here](/getting-started/installation/)
+  </Card>
+  <Card title="SDK Reference" icon="open-book">
+    Complete API docs for WorkerClass, Fields, Items, Nodes, Services, and Sensors -- with both Python and JavaScript examples.
+    [Browse the API](/sdk-reference/worker-class/)
+  </Card>
+  <Card title="Game Guide" icon="puzzle">
+    Understand node types, crafting recipes, quest progression, and game mechanics.
+    [Read the guide](/game-guide/nodes/)
+  </Card>
+  <Card title="Dual SDK Support" icon="seti:python">
+    Every API is available in both Python and JavaScript. Pick your language and start coding.
+  </Card>
+</CardGrid>
+
+## What is NetCrawl?
+
+NetCrawl is a **programmable idle game** where you write real code to automate workers on a network graph. Your workers mine resources, solve puzzles, handle API requests, and defend against infections -- all driven by the code you write.
+
+### How it works
+
+1. **Write worker classes** using the Python or JavaScript SDK
+2. **Register them** with the NetCrawl code server
+3. **Deploy workers** from the game UI, assigning edges and equipment
+4. **Watch them run** -- your `on_loop()` / `onLoop()` method executes repeatedly
+5. **Progress** through 8 chapters of quests that teach real programming concepts
+
+### Architecture
+
+```
+Your Code (Python/JS)       Game Server         Browser UI
+ +------------------+      +-----------+      +----------+
+ | WorkerClass      | ---> | Deploy    | ---> | Network  |
+ | - on_startup()   |      | Queue     |      | Graph    |
+ | - on_loop()      | <--- | Actions   | <--- | Controls |
+ +------------------+      +-----------+      +----------+
+       NetCrawl App            REST API          React App
+```

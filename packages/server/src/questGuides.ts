@@ -16,18 +16,19 @@ Also install the **Python extension** in VSCode:
 2. Press \`Ctrl+Shift+X\` (Extensions)
 3. Search "Python" → Install the Microsoft Python extension` },
 
-    { title: 'Copy the Workspace Template', content: `NetCrawl ships with a starter template. Copy it to get started:
+    { title: 'Clone the Workspace', content: `Clone the starter workspace repository to get your worker code set up:
 
 \`\`\`bash
-# From the netcrawl2 folder:
-cp -r workspace_example workspace
+git clone https://github.com/Starscribers/netcrawl-workspace.git workspace
 cd workspace
 \`\`\`
 
-The \`workspace/\` folder is yours to edit. It contains:
+This creates a \`workspace/\` folder with everything you need:
 - \`main.py\` — entry point (registers your workers)
 - \`workers/\` — your worker classes go here
-- \`pyproject.toml\` — Python dependencies` },
+- \`pyproject.toml\` — Python dependencies
+
+You'll be editing files inside this folder to write your own workers.` },
 
     { title: 'Install uv (Python Package Manager)', content: `NetCrawl uses **uv** for fast Python dependency management.
 
@@ -76,73 +77,23 @@ You should see:
 🎉 Once connected, the Deploy Worker button becomes active. Head to the next quest.` },
   ],
 
-  q_hello_world: [
-    { title: 'Open the Deploy Dialog', content: `Your code server is connected. Now deploy your first worker!
+  // ── Chapter 1: New quest guides ─────────────────────────────────────────────
 
-In the game UI:
-1. Click the **Hub** node (center of the graph)
-2. Click **"Deploy Worker"** in the panel that opens
-3. Select a worker class from the dropdown (e.g. "Miner")
-4. Click **"Deploy"**
-
-Your worker will appear as a colored dot on the Hub node.` },
-
-    { title: 'Watch the Worker Panel', content: `After deploying, check the **Workers** panel (bottom-left corner of the screen).
-
-You'll see your worker with:
-- Its **name** and **status** (deploying → running)
-- **Logs** showing what it's doing each loop
-- A **Suspend** button to gracefully stop it
-
-Click the worker row to select it and see detailed logs in the right panel.` },
-
-    { title: 'Your Worker is a Loop', content: `Every worker runs an infinite loop. Here's what the Miner looks like:
+  q_method_call: [
+    { title: 'What is a Method?', content: `In Python, a **method** is a function that belongs to an object. You call it with dot notation:
 
 \`\`\`python
-class Miner(WorkerClass):
-    class_name = "Miner"
-    class_id = "miner"
-
-    pickaxe = Pickaxe()
-    route = Route("mining route")
-
-    def on_startup(self):
-        self.edge_id = self.route
-        self.info(f"Miner online! Edge: {self.edge_id}")
-
-    def on_loop(self):
-        self.move_edge(self.edge_id)   # hub → mine
-        self.pickaxe.mine()
-        self.collect()
-        self.move_edge(self.edge_id)   # mine → hub
-        self.deposit()
+self.mine()       # call the mine method
+self.collect()    # call the collect method
+self.deposit()    # call the deposit method
 \`\`\`
 
-- **Route** is a deploy-time field — you pick which edge to mine when deploying
-- \`on_startup()\` runs once when deployed
-- \`on_loop()\` runs forever until suspended
-- \`move_edge()\` travels along an edge to the other end
+Each method call tells your worker to **do something**. Methods are how you interact with the game world.` },
 
-Watch the logs to confirm your worker is alive. Then move on to the next quest!` },
-  ],
-
-  q_first_harvest: [
-    { title: 'Understanding Resources', content: `The network has 3 resource types:
-
-- **Data** (blue) -- Primary currency, mined from resource nodes
-- **RP** (purple) -- Research points, earned from compute nodes
-- **Credits** (amber) -- Premium currency, from API nodes and quests
-
-Resource nodes produce drops when mined. You need a **Pickaxe** to mine.` },
-
-    { title: 'Unlock a Resource Node', content: `Click on a **Data Mine** node. If it is locked, click **"Unlock"** and spend the required Data.
-
-Once unlocked, the node shows its production rate (e.g., \`+3/harvest\`).` },
-
-    { title: 'Write a Mining Worker', content: `Modify your worker to mine:
+    { title: 'Write Your First Worker', content: `Open \`workspace/workers/miner.py\` and write:
 
 \`\`\`python
-from netcrawl import WorkerClass, Route
+from netcrawl import WorkerClass, Edge
 from netcrawl.items.equipment import Pickaxe
 
 class Miner(WorkerClass):
@@ -150,84 +101,224 @@ class Miner(WorkerClass):
     class_id = "miner"
 
     pickaxe = Pickaxe()
-    route = Route("mining route")
+    route = Edge("mining route")
 
     def on_loop(self):
-        self.move(self.mine_node)
-        self.pickaxe.mine()
-        self.collect()
-        self.move("hub")
-        self.deposit()
+        self.move_edge(self.route)   # hub → mine
+        self.pickaxe.mine()          # create a drop
+        self.collect()               # pick it up
+        self.move_edge(self.route)   # mine → hub
+        self.deposit()               # convert to resources
 \`\`\`
 
-The \`mine()\` action creates a drop on the node.` },
+Each line is a **method call**. The worker executes them one by one, in order.` },
 
-    { title: 'Deploy with Equipment', content: `When deploying a Miner, you need to:
+    { title: 'Deploy and Watch', content: `1. Click the **Hub** node → **Deploy Worker**
+2. Select **Miner** from the dropdown
+3. Pick an **edge** that leads to a resource node
+4. Equip a **Pickaxe** from inventory
+5. Click **Deploy**
 
-1. **Select the route** -- click an edge on the map
-2. **Equip a Pickaxe** -- drag from inventory to the equipment slot
+Watch the worker logs — you'll see each method call happening in sequence.
 
-The worker will use these during operation.` },
+**Goal:** Mine 1 time + Deposit 1 time to complete this quest.` },
   ],
 
-  q_bring_it_home: [
-    { title: 'The Deposit Cycle', content: `After mining, your worker holds a drop item. To convert it to resources:
+  q_dot_notation: [
+    { title: 'Reading Properties', content: `Objects have **attributes** you can read with dot notation:
 
 \`\`\`python
-self.collect()      # picks up the drop from the node
-self.move("hub")    # travel back to Hub
-self.deposit()      # converts the drop to resources
+node = self.get_current_node()
+print(node.node_type)    # "resource", "hub", "compute"...
+print(node.label)        # "Data Mine Alpha"
+
+item = self.collect()
+print(item["type"])      # "data_fragment" or "bad_data"
 \`\`\`
 
-- \`data_fragment\` becomes **Data**
-- \`rp_shard\` becomes **RP**` },
+Dot notation lets you **inspect** the world before acting on it.` },
 
-    { title: 'Complete Mining Loop', content: `A complete mining loop:
+    { title: 'Explore the Map', content: `Look at the map — some nodes are **locked** (greyed out). Click on a locked node to see:
+- Its **type** (resource, compute, relay...)
+- Its **unlock cost** (how much data you need)
+
+To unlock a node, you need enough resources. Click **"Unlock"** in the node detail panel.
+
+**Goal:** Unlock 1 node to complete this quest. Choose a resource node near the hub for easy mining access.` },
+  ],
+
+  q_conditions: [
+    { title: 'Making Decisions', content: `An \`if\` statement lets your code make decisions:
+
+\`\`\`python
+if something_is_true:
+    do_this()
+else:
+    do_that()
+\`\`\`
+
+In NetCrawl, your worker needs to decide **when** to deposit. Without conditions, it deposits every single loop — even when carrying nothing!` },
+
+    { title: 'Smart Mining Loop', content: `Here's a smarter miner that checks before depositing:
 
 \`\`\`python
 def on_loop(self):
-    self.move(self.mine_node)    # go to mine
-    self.pickaxe.mine()          # create drop
-    self.collect()               # pick up drop
-    self.move("hub")             # return home
-    self.deposit()               # convert to resources
-\`\`\`` },
+    self.move_edge(self.route)
+    self.pickaxe.mine()
+    result = self.collect()
 
-    { title: 'Monitor Progress', content: `Watch the **resource bar** at the top of the screen. When your worker deposits, the resource count increases.
+    if result.get("ok"):
+        self.move_edge(self.route)  # return to hub
+        self.deposit()
+    else:
+        self.info("Nothing to collect, trying again...")
+\`\`\`
 
-Click on your **worker dot** to see its logs and current status in the right panel.` },
+The \`if\` checks whether \`collect()\` succeeded before wasting a trip back to hub.
+
+**Goal:** Deposit **500 data total**. A smarter loop means faster accumulation.` },
   ],
 
-  q_expand_network: [
-    { title: 'Node Types', content: `The network has several node types:
+  q_operators: [
+    { title: 'Comparison Operators', content: `Python has operators for comparing values:
 
-| Type | Description |
-|------|-------------|
-| **Hub** | Your base, always unlocked |
-| **Resource** | Produces data when mined |
-| **Relay** | Network infrastructure |
-| **Locked** | Unknown, costs resources to unlock |` },
+| Operator | Meaning | Example |
+|----------|---------|---------|
+| \`>\` | greater than | \`a > 10\` |
+| \`<\` | less than | \`health < 50\` |
+| \`==\` | equals | \`status == "infected"\` |
+| \`!=\` | not equals | \`type != "hub"\` |
+| \`>=\` | greater or equal | \`count >= 3\` |
 
-    { title: 'Unlock a Node', content: `Click on any locked node to see its unlock cost. Spend the required resources to unlock it.
+These are used inside \`if\` statements to make numeric decisions.` },
 
-Unlocking nodes expands your network and gives workers more places to operate.
+    { title: 'Infection Defense', content: `Some nodes get **infected** — they turn red and spread infection to neighbors.
 
-**Reward:** Completing this quest grants a permanent **+5% harvest speed** bonus.` },
+You can write a worker that checks infection level using operators:
+
+\`\`\`python
+node = self.get_current_node()
+if node.data.get("infected"):
+    self.repair(node.id)
+\`\`\`
+
+**Goal:** Repair 1 infected node. You may need to wait for an infection event, or explore the map to find one.
+Repairing costs **500 data** — make sure you have enough!` },
   ],
 
-  q_variable_types: [
-    { title: 'Three Resource Types', content: `Just like Python has \`int\`, \`str\`, and \`float\`, NetCrawl has three resource types:
+  q_while_loop: [
+    { title: 'Repeating Until Done', content: `A \`while\` loop repeats **as long as a condition is true**:
 
-| Type | Python Analogy | Color |
-|------|---------------|-------|
-| Data | \`int\` | Blue |
-| RP | \`str\` | Purple |
-| Credits | \`float\` | Amber |
+\`\`\`python
+while there_is_work:
+    do_work()
+\`\`\`
 
-Deploy miners to resource nodes and complete API requests to earn all three.` },
+Unlike \`for\` loops (which iterate a known collection), \`while\` loops handle **unknown** amounts of work. You don't know in advance how many times you'll loop.` },
+
+    { title: 'Filtering Bad Data', content: `Some resource nodes produce **bad_data** drops. You need to filter them out:
+
+\`\`\`python
+def on_loop(self):
+    self.move_edge(self.route)
+    self.pickaxe.mine()
+
+    # Keep collecting until we get good data
+    while self.has_dropped_items():
+        result = self.collect()
+        item = result.get("item", {})
+        if item.get("type") == "bad_data":
+            self.discard()       # throw away bad data
+        else:
+            break                # got good data!
+
+    self.move_edge(self.route)
+    self.deposit()
+\`\`\`
+
+\`has_dropped_items()\` checks if the node still has drops. \`discard()\` throws away the held item.
+
+**Goal:** Deposit **1,000 data total**. The while loop helps you filter efficiently.` },
   ],
 
   q_for_loop: [
+    { title: 'Iterating Collections', content: `A \`for\` loop visits every item in a collection:
+
+\`\`\`python
+for item in collection:
+    process(item)
+\`\`\`
+
+Unlike \`while\` (repeat until condition), \`for\` iterates a **known set** of things — a list, a sequence, scan results.` },
+
+    { title: 'The Data Mine Cluster', content: `Far south on the map, there's a **Data Mine Cluster**: a relay hub surrounded by 6 tiny resource nodes (capacity 1 each, refills every 5 seconds).
+
+Sitting on one node is pointless — it depletes instantly. You need to **visit them all** in a loop:
+
+\`\`\`python
+from netcrawl import WorkerClass, AdvancedSensor, ResourceNode
+from netcrawl.items.equipment import Pickaxe
+
+class ClusterMiner(WorkerClass):
+    class_name = "Cluster Miner"
+    class_id = "cluster_miner"
+
+    pickaxe = Pickaxe()
+    sensor = AdvancedSensor()
+
+    def on_loop(self):
+        edges = self.sensor.scan()
+
+        for edge in edges:
+            if isinstance(edge.target_node, ResourceNode):
+                self.move_edge(edge.edge_id)
+                self.pickaxe.mine()
+                self.collect()
+                self.move_edge(edge.edge_id)  # back to relay
+                self.deposit()
+\`\`\`
+
+**Note:** The cluster relay is NOT a hub — you'll need to carry data back to the main hub first. Adapt your code accordingly!
+
+**Goal:** Mine **20 times total**. The cluster is the fastest way to hit this target.` },
+  ],
+
+  q_try_except: [
+    { title: 'Handling Errors', content: `Things go wrong. Nodes deplete, inventory fills up, moves fail. \`try/except\` catches errors so your worker doesn't crash:
+
+\`\`\`python
+try:
+    result = self.collect()
+except Exception as e:
+    self.warn(f"Collect failed: {e}")
+    # recover gracefully
+\`\`\`
+
+Without error handling, one unexpected failure kills your entire worker process.` },
+
+    { title: 'Resilient Workers', content: `A resilient worker wraps risky operations:
+
+\`\`\`python
+def on_loop(self):
+    try:
+        self.move_edge(self.route)
+        self.pickaxe.mine()
+        self.collect()
+        self.move_edge(self.route)
+        self.deposit()
+    except Exception as e:
+        self.error(f"Loop failed: {e}")
+        # Try to get back to hub
+        try:
+            self.move("hub")
+        except:
+            pass
+\`\`\`
+
+**Goal:** Deploy **3 workers total**. More workers = more chances to see (and survive) errors.` },
+  ],
+
+  q_event_loop: [
     { title: 'Understanding Loops', content: `Your worker's \`on_loop()\` method is called repeatedly -- it's already a loop!
 
 \`\`\`python
@@ -246,7 +337,7 @@ Each call to \`on_loop()\` is one iteration. Your miner mines, collects, deposit
 ...
 \`\`\`
 
-Mine **5 times** to see the loop in action. Check the worker logs to track progress.` },
+Mine **30 times** to see the loop in action. Let multiple miners run simultaneously for faster progress.` },
   ],
 
   q_batch_processing: [

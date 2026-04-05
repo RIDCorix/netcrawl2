@@ -39,7 +39,7 @@ export interface NodeData {
 
 export interface Drop {
   id: string;
-  type: 'data_fragment' | 'rp_shard';
+  type: 'data_fragment' | 'rp_shard' | 'bad_data';
   amount: number;
 }
 
@@ -105,6 +105,9 @@ export interface Settings {
   keybindings: Record<string, string>
   theme: 'deep-space' | 'synthwave' | 'matrix' | 'amber' | 'ice' | 'cloud' | 'sakura' | 'arctic'
   language: Language
+  bgmVolume: number
+  sfxVolume: number
+  currentTrack: string
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -114,6 +117,9 @@ const DEFAULT_SETTINGS: Settings = {
   keybindings: { inventory: 'e', achievements: 'a', quests: 'q', level: 'l', settings: 'Escape' },
   theme: 'deep-space',
   language: 'en',
+  bgmVolume: 50,
+  sfxVolume: 70,
+  currentTrack: 'default',
 }
 
 const savedSettings = (() => {
@@ -174,6 +180,8 @@ export interface GameState {
   levelUpToasts: Array<{ level: number; title: string; titleZh: string; timestamp: number }>;
   // Settings
   settingsOpen: boolean;
+  docsOpen: boolean;
+  connectOpen: boolean;
   settings: Settings;
   // Deploy wizard — edge selection mode
   edgeSelectMode: {
@@ -196,6 +204,8 @@ interface GameActions {
   toggleInventory: () => void;
   toggleAchievements: () => void;
   toggleSettings: () => void;
+  toggleDocs: () => void;
+  toggleConnect: () => void;
   updateSettings: (patch: Partial<Settings>) => void;
   toggleQuests: () => void;
   selectQuest: (questId: string | null) => void;
@@ -233,6 +243,8 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   achievementToasts: [],
   achievementsOpen: false,
   settingsOpen: false,
+  docsOpen: false,
+  connectOpen: false,
   settings: savedSettings,
   questSummary: { total: 0, claimed: 0, completed: 0, available: 0 },
   questsOpen: false,
@@ -255,6 +267,8 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   toggleInventory: () => set((state) => ({ inventoryOpen: !state.inventoryOpen })),
   toggleAchievements: () => set((state) => ({ achievementsOpen: !state.achievementsOpen })),
   toggleSettings: () => set((state) => ({ settingsOpen: !state.settingsOpen })),
+  toggleDocs: () => set((state) => ({ docsOpen: !state.docsOpen })),
+  toggleConnect: () => set((state) => ({ connectOpen: !state.connectOpen })),
   updateSettings: (patch) => set((state) => {
     const newSettings = { ...state.settings, ...patch }
     localStorage.setItem('netcrawl-settings', JSON.stringify(newSettings))

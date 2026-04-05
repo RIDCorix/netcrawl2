@@ -1,0 +1,275 @@
+---
+title: Nodes
+description: Node types returned by get_current_node() and used throughout the SDK.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Nodes are the building blocks of the network graph. When you call `get_current_node()` / `getCurrentNode()`, you get a typed node object with type-specific properties and methods.
+
+## BaseNode
+
+All node types extend `BaseNode`, which provides common properties.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `str` / `string` | Unique node identifier |
+| `type` | `str` / `string` | Node type string (`'hub'`, `'resource'`, `'compute'`, etc.) |
+| `label` | `str` / `string` | Display name |
+| `data` | `dict` / `Record` | Type-specific data |
+| `edges` | `list[NodeEdge]` | Connected edges |
+| `is_unlocked` / `isUnlocked` | `bool` / `boolean` | Whether the node is unlocked |
+| `is_infected` / `isInfected` | `bool` / `boolean` | Whether the node is infected |
+| `upgrade_level` / `upgradeLevel` | `int` / `number` | Current upgrade level (0-3) |
+
+### NodeEdge
+
+Represents a connection from the current node to another.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `str` / `string` | Edge identifier (e.g. `'e5'`) |
+| `other_node` / `otherNode` | `str` / `string` | ID of the connected node |
+
+---
+
+## HubNode
+
+The central hub node. Workers start here and deposit resources here.
+
+No additional properties or methods beyond `BaseNode`.
+
+:::caution
+If the hub gets infected, it is **game over**. Protect it at all costs!
+:::
+
+---
+
+## ResourceNode
+
+A resource-producing node. Workers mine these for data drops using a Pickaxe.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `resource_type` / `resourceType` | `str` / `string` | Type of resource (e.g. `'data'`) |
+| `rate` | `int` / `number` | Production rate |
+| `is_mineable` / `isMineable` | `bool` / `boolean` | Whether the node can currently be mined |
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    node = self.get_current_node()
+    if isinstance(node, ResourceNode):
+        print(f"Resource: {node.resource_type}")
+        print(f"Rate: {node.rate}")
+        if node.is_mineable:
+            self.pickaxe.mine()
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const node = await this.getCurrentNode();
+    if (node.type === 'resource') {
+      console.log(`Resource: ${node.resourceType}`);
+      if (node.isMineable) {
+        await this.pickaxe.mine();
+      }
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+:::note
+Mining is done through equipment (`self.pickaxe.mine()`), not through the ResourceNode directly.
+:::
+
+---
+
+## ComputeNode
+
+A puzzle node where workers solve programming challenges to earn RP.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `difficulty` | `str` / `string` | Puzzle difficulty (`'easy'`, `'medium'`, `'hard'`) |
+| `reward_resource` / `rewardResource` | `str` / `string` | Resource type earned (usually `'data'`) |
+| `solve_count` / `solveCount` | `int` / `number` | Number of puzzles solved at this node |
+
+### get_task / getTask
+
+Request a puzzle from the compute node.
+
+**Returns:** A `ComputeTask` with:
+- `task_id` / `taskId` -- unique task identifier
+- `parameters` -- dict/object with puzzle inputs
+- `hint` -- hint string
+- `difficulty` -- difficulty level
+
+### submit
+
+Submit an answer to a puzzle.
+
+**Returns:** `{ ok, correct: bool, reward?: { type, amount } }`
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    from netcrawl.nodes import ComputeNode
+
+    node = self.get_current_node()
+    if isinstance(node, ComputeNode):
+        task = node.get_task()
+        # Example: addition puzzle
+        answer = task.parameters['a'] + task.parameters['b']
+        result = node.submit(task.task_id, answer)
+        if result.get('correct'):
+            self.info(f"Solved! Reward: {result.get('reward')}")
+    ```
+    **Signatures:**
+    - `get_task(self) -> ComputeTask`
+    - `submit(self, task_id: str, answer: Any) -> dict`
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const node = await this.getCurrentNode();
+    if (node.type === 'compute') {
+      const task = await node.getTask();
+      const answer = task.parameters.a + task.parameters.b;
+      const result = await node.submit(task.taskId, answer);
+      if (result.correct) {
+        await this.info(`Solved! Reward: ${JSON.stringify(result.reward)}`);
+      }
+    }
+    ```
+    **Signatures:**
+    - `async getTask(): Promise<ComputeTask>`
+    - `async submit(taskId: string, answer: unknown): Promise<Record<string, unknown>>`
+  </TabItem>
+</Tabs>
+
+---
+
+## APINode
+
+An API endpoint node that receives external requests. Workers stationed here handle incoming requests by responding or rejecting them.
+
+### poll_for_request / pollForRequest
+
+Pick up the next pending request, or `None` / `null` if the queue is empty.
+
+**Returns:** An `APIRequestObj` with:
+- `id` -- request ID
+- `type` -- request type string
+- `body` -- request body
+- `has_token` / `hasToken` -- whether the request has authentication
+- `deadline_tick` / `deadlineTick` -- tick by which you must respond
+- `reward` -- reward for completing the request
+
+### respond
+
+Submit a response to a request.
+
+**Returns:** `{ ok, correct, credits_earned, speed_bonus }`
+
+### get_stats / getStats
+
+Get queue statistics.
+
+**Returns:** `{ pending, completed, failed, expired }`
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    node = self.get_current_node()
+    if isinstance(node, APINode):
+        request = node.poll_for_request()
+        if request is None:
+            return
+
+        if not request.has_token:
+            self.warn("Dropping unauthenticated request")
+            self.reject(request.id, 401)
+            return
+
+        result = node.respond(request.id, {'result': request.body['a'] + request.body['b']})
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    const node = await this.getCurrentNode();
+    if (node.type === 'api') {
+      const request = await node.pollForRequest();
+      if (!request) return;
+
+      if (!request.hasToken) {
+        await this.reject(request.id, 401);
+        return;
+      }
+
+      await node.respond(request.id, { result: request.body.a + request.body.b });
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+:::caution
+Responding to a request where `has_token` is `false` causes a **security breach** and infects the node! Always check authentication before responding.
+:::
+
+---
+
+## CacheNodeType
+
+A cache structure node. Workers access it via `get_service()` / `getService()` rather than direct methods.
+
+See the [Services reference](/sdk-reference/services/) for `CacheService` documentation.
+
+---
+
+## EmptyNode
+
+An empty buildable slot where you can construct structures (cache nodes, API nodes, etc.) through the game UI.
+
+---
+
+## LockedNode
+
+An unknown locked node. Spend data to unlock it and reveal its type.
+
+---
+
+## InfectedNode
+
+An infected node. Costs data to repair using `worker.repair(node_id)`. Infection can spread to adjacent nodes if left untreated.
+
+---
+
+## createNode Factory
+
+The SDK includes a factory function that creates the appropriate typed node from server info:
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    from netcrawl.nodes import create_node
+
+    # Mapping: type string -> class
+    # 'hub'      -> HubNode
+    # 'resource' -> ResourceNode
+    # 'compute'  -> ComputeNode
+    # 'api'      -> APINode
+    # 'cache'    -> CacheNodeType
+    # 'empty'    -> EmptyNode
+    # 'locked'   -> LockedNode
+    # 'infected' -> InfectedNode
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    import { createNode } from '@netcrawl/sdk';
+    // Same mapping as Python
+    ```
+  </TabItem>
+</Tabs>
+
+You typically do not call `createNode` directly -- it is used internally by `get_current_node()`.

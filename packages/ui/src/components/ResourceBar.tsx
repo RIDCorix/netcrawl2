@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Database, Cpu, Star, Wifi, WifiOff, ShieldAlert, Activity, Package, Trophy, BookOpen, Settings, Zap, Layers, X } from 'lucide-react';
+import { Database, Cpu, Star, Wifi, WifiOff, ShieldAlert, Activity, Package, Trophy, BookOpen, Settings, Zap, Layers, X, FileText, Terminal } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -164,7 +164,7 @@ function ResourceItem({ icon: Icon, value, label, color, prevValue, formatFn, to
 }
 
 export function ResourceBar() {
-  const { resources, tick, connected, gameOver, inventoryOpen, toggleInventory, playerInventory, achievements, toggleAchievements, questSummary, toggleQuests, toggleSettings, levelSummary, toggleLevel, activeLayer, layerMeta, openLayerSelect } = useGameStore();
+  const { resources, tick, connected, gameOver, inventoryOpen, toggleInventory, playerInventory, achievements, toggleAchievements, questSummary, toggleQuests, toggleSettings, toggleDocs, toggleConnect, levelSummary, toggleLevel, activeLayer, layerMeta, openLayerSelect } = useGameStore();
   const totalItems = playerInventory.reduce((sum, i) => sum + i.count, 0);
   const prevRef = useRef(resources);
   const [prev, setPrev] = useState(resources);
@@ -422,19 +422,43 @@ export function ResourceBar() {
         <span style={{ color: 'var(--accent)', fontWeight: 700 }}>#{tick}</span>
       </div>
 
-      {/* Connection */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 4,
-        flexShrink: 0,
-      }}>
-        {connected ? (
-          <Wifi size={12} style={{ color: 'var(--success)' }} />
-        ) : (
-          <WifiOff size={12} style={{ color: 'var(--danger)' }} />
-        )}
-      </div>
+      {/* Connect */}
+      <motion.button
+        onClick={toggleConnect}
+        whileTap={{ scale: 0.96 }}
+        title={t('hud.connect')}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 4,
+          background: 'var(--bg-elevated)',
+          border: `1px solid ${connected ? 'var(--success)' : 'var(--border)'}`,
+          borderRadius: 'var(--radius-sm)',
+          padding: '5px 8px',
+          color: connected ? 'var(--success)' : 'var(--text-muted)',
+          cursor: 'pointer', flexShrink: 0,
+          fontSize: 10, fontFamily: 'var(--font-mono)',
+        }}
+      >
+        <Terminal size={12} />
+        {window.location.port && <span>:{window.location.port}</span>}
+      </motion.button>
+
+      {/* Docs */}
+      <motion.button
+        onClick={toggleDocs}
+        whileTap={{ scale: 0.96 }}
+        title={t('hud.docs')}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-sm)',
+          padding: 5,
+          color: 'var(--text-muted)',
+          cursor: 'pointer', flexShrink: 0,
+        }}
+      >
+        <FileText size={12} />
+      </motion.button>
 
       {/* Settings */}
       <motion.button

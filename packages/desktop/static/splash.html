@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 480px; height: 320px;
+    background: #0a0a0f;
+    border: 1px solid #1a1a2e;
+    border-radius: 16px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    color: #d6deeb;
+    overflow: hidden;
+    -webkit-app-region: drag;
+  }
+  .title {
+    font-size: 32px; font-weight: 800;
+    letter-spacing: 0.15em;
+    background: linear-gradient(135deg, #4ade80 0%, #22d3ee 50%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  .subtitle {
+    font-size: 11px; color: #4b6479;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    margin-bottom: 32px;
+  }
+  .loader {
+    display: flex; gap: 6px; align-items: center;
+  }
+  .loader span {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #4ade80;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  .loader span:nth-child(2) { animation-delay: 0.2s; }
+  .loader span:nth-child(3) { animation-delay: 0.4s; }
+  .status {
+    margin-top: 16px;
+    font-size: 10px; color: #4b6479;
+    letter-spacing: 0.1em;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.2; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.2); }
+  }
+</style>
+</head>
+<body>
+  <div class="title">NETCRAWL</div>
+  <div class="subtitle">the programmable idle game</div>
+  <div class="loader">
+    <span></span><span></span><span></span>
+  </div>
+  <div class="status">initializing server...</div>
+</body>
+</html>

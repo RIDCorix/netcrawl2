@@ -793,9 +793,9 @@ if (n.type === 'cache') return '#a78bfa';
                 dropCounts[d.type] = (dropCounts[d.type] || 0) + d.amount;
               }
               const totalItems = Object.values(dropCounts).reduce((s, v) => s + v, 0);
-              const DROP_ICONS: Record<string, any> = { data_fragment: Database, rp_shard: Cpu };
-              const DROP_COLORS: Record<string, string> = { data_fragment: '#45aaf2', rp_shard: '#a78bfa' };
-              const DROP_LABELS: Record<string, string> = { data_fragment: 'Data', rp_shard: 'RP' };
+              const DROP_ICONS: Record<string, any> = { data_fragment: Database, rp_shard: Cpu, bad_data: AlertTriangle };
+              const DROP_COLORS: Record<string, string> = { data_fragment: '#45aaf2', rp_shard: '#a78bfa', bad_data: '#ef4444' };
+              const DROP_LABELS: Record<string, string> = { data_fragment: 'Data', rp_shard: 'RP', bad_data: 'Bad Data' };
 
               return (
                 <>

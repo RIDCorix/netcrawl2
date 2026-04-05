@@ -1,0 +1,203 @@
+---
+title: Fields
+description: Field types for declaring worker deploy-time requirements.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Fields are declarative descriptors you place on your `WorkerClass` to specify what the worker needs at deploy time. The game UI reads these fields to show the user what to provide (edges, items, etc.). At runtime, the SDK replaces each field with its actual value.
+
+## Edge
+
+Declares that deploying this worker requires selecting a **single edge** (a connection between two nodes) in the UI.
+
+At runtime, the field value becomes an edge ID string like `'e5'`.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    from netcrawl import WorkerClass, Edge
+
+    class Miner(WorkerClass):
+        to_mine = Edge("Edge to resource node")
+        to_hub = Edge("Return edge to hub")
+
+        def on_loop(self):
+            self.move(self.to_mine)   # self.to_mine is 'e5' at runtime
+            # ... mine ...
+            self.move(self.to_hub)    # self.to_hub is 'e2' at runtime
+    ```
+
+    **Constructor:** `Edge(description: str = "")`
+
+    **Schema output:**
+    ```python
+    { "type": "edge", "field": "to_mine", "description": "Edge to resource node" }
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    import { WorkerClass, Edge } from '@netcrawl/sdk';
+
+    class Miner extends WorkerClass {
+      static fields = {
+        toMine: new Edge('Edge to resource node'),
+        toHub: new Edge('Return edge to hub'),
+      };
+
+      async onLoop() {
+        await this.move(this.toMine);
+        await this.move(this.toHub);
+      }
+    }
+    ```
+
+    **Constructor:** `new Edge(description?: string)`
+  </TabItem>
+</Tabs>
+
+## Route
+
+Declares that deploying this worker requires selecting a **route** -- a sequence of connected edges forming a path. This is an advanced feature that requires the worker to be equipped with a route chip.
+
+At runtime, the field value becomes a list of edge IDs like `['e1', 'e3', 'e5']`.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    from netcrawl import WorkerClass, Route
+
+    class Courier(WorkerClass):
+        patrol = Route("Patrol route through the network")
+
+        def on_loop(self):
+            self.move(self.patrol)  # Moves through all edges in order
+    ```
+
+    **Constructor:** `Route(description: str = "")`
+
+    **Schema output:**
+    ```python
+    { "type": "route", "field": "patrol", "description": "Patrol route through the network" }
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    import { WorkerClass, Route } from '@netcrawl/sdk';
+
+    class Courier extends WorkerClass {
+      static fields = {
+        patrol: new Route('Patrol route through the network'),
+      };
+
+      async onLoop() {
+        await this.move(this.patrol);
+      }
+    }
+    ```
+
+    **Constructor:** `new Route(description?: string)`
+  </TabItem>
+</Tabs>
+
+:::note
+Route fields require the worker to have a **route chip** installed. Without it, you can only use single `Edge` fields.
+:::
+
+## ItemField
+
+Base class for equipment items that are **consumed from inventory** at deploy time. You typically use the concrete subclasses (`Pickaxe`, `Shield`, `Beacon`) rather than `ItemField` directly.
+
+At runtime, the field is replaced by a `RuntimeItem` instance with the item's stats and methods.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    from netcrawl.items import Pickaxe
+
+    class Miner(WorkerClass):
+        pickaxe = Pickaxe()  # Consumes 1 pickaxe from inventory
+
+        def on_loop(self):
+            # self.pickaxe is a RuntimeItem at runtime
+            print(self.pickaxe.efficiency)    # e.g. 1.5
+            self.pickaxe.mine_and_collect()
+    ```
+
+    **Schema output:**
+    ```python
+    { "type": "item", "field": "pickaxe", "item_type": "Pickaxe", "description": "Requires 1x Pickaxe from inventory" }
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    import { WorkerClass, Pickaxe } from '@netcrawl/sdk';
+
+    class Miner extends WorkerClass {
+      static fields = {
+        pickaxe: new Pickaxe(),
+      };
+
+      async onLoop() {
+        console.log(this.pickaxe.efficiency);
+        await this.pickaxe.mineAndCollect();
+      }
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+## GadgetField
+
+Base class for gadgets that provide runtime methods but require **no deploy-time input**. Unlike `ItemField`, no item is consumed from inventory.
+
+At runtime, the field is replaced with a runtime proxy that has a `_worker` back-reference.
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    from netcrawl.items import SensorGadget
+
+    class Scout(WorkerClass):
+        sensor = SensorGadget()  # No deploy-time cost
+
+        def on_loop(self):
+            self.sensor.travel_to('r3')       # Auto-pathfind
+            nearest = self.sensor.find_nearest('resource')
+    ```
+
+    **Constructor:** `GadgetField(description: str = "")`
+
+    **Schema output:**
+    ```python
+    { "type": "gadget", "field": "sensor", "description": "Sensor Gadget -- pathfinding & exploration" }
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    import { WorkerClass, SensorGadget } from '@netcrawl/sdk';
+
+    class Scout extends WorkerClass {
+      static fields = {
+        sensor: new SensorGadget(),
+      };
+
+      async onLoop() {
+        await this.sensor.travelTo('r3');
+        const nearest = await this.sensor.findNearest('resource');
+      }
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+## Deploy-time vs Runtime
+
+| Phase | Edge | Route | ItemField | GadgetField |
+|-------|------|-------|-----------|-------------|
+| **Deploy-time** | User picks 1 edge in UI | User draws a route in UI | 1 item consumed from inventory | Nothing needed |
+| **Runtime value** | Edge ID string (`'e5'`) | List of edge IDs (`['e1','e3']`) | `RuntimeItem` with stats + methods | Runtime proxy with methods |
+
+:::tip
+Fields are the bridge between the game UI and your code. They let the player configure your worker without modifying code.
+:::

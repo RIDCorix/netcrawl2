@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, PauseCircle, Square, MapPin, Clock, Pickaxe, Package, Database, Cpu, Star, MemoryStick, Maximize2 } from 'lucide-react';
+import { X, PauseCircle, Square, MapPin, Clock, Pickaxe, Package, Database, Cpu, Star, MemoryStick, Maximize2, AlertTriangle } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -224,9 +224,9 @@ export function WorkerDetailPanel() {
             const capacityLabel = ramBonus > 0 ? `${baseCapacity}+${ramBonus}` : `${baseCapacity}`;
             const totalItems = items.reduce((s, i) => s + i.count, 0);
 
-            const INV_ICONS: Record<string, any> = { data_fragment: Database, rp_shard: Cpu, data: Database, rp: Cpu, credits: Star };
-            const INV_COLORS: Record<string, string> = { data_fragment: '#45aaf2', rp_shard: '#a78bfa', data: 'var(--data-color)', rp: 'var(--rp-color)', credits: 'var(--credits-color)' };
-            const INV_LABELS: Record<string, string> = { data_fragment: 'Data Fragment', rp_shard: 'RP Shard', data: 'Data', rp: 'RP', credits: 'Credits' };
+            const INV_ICONS: Record<string, any> = { data_fragment: Database, rp_shard: Cpu, bad_data: AlertTriangle, data: Database, rp: Cpu, credits: Star };
+            const INV_COLORS: Record<string, string> = { data_fragment: '#45aaf2', rp_shard: '#a78bfa', bad_data: '#ef4444', data: 'var(--data-color)', rp: 'var(--rp-color)', credits: 'var(--credits-color)' };
+            const INV_LABELS: Record<string, string> = { data_fragment: 'Data Fragment', rp_shard: 'RP Shard', bad_data: 'Bad Data', data: 'Data', rp: 'RP', credits: 'Credits' };
 
             return (
               <>

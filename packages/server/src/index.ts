@@ -1,28 +1,52 @@
 import express, { Express } from 'express';
 import cors from 'cors';
 import http from 'http';
-import { initDb, getGameState, getVisibleState, getWorkers, setLevelBroadcast, getPlayerLevelSummary } from './db.js';
+import path from 'path';
+import { initDb, getGameState, getVisibleState, getWorkers, setLevelBroadcast, getPlayerLevelSummary, setDataDir } from './db.js';
 import { initWebSocket, broadcast } from './websocket.js';
 import { router } from './routes.js';
 import { startGameTick } from './gameTick.js';
 
-const app: Express = express();
-const PORT = process.env.PORT || 4800;
+export interface ServerOptions {
+  port?: number;
+  dataDir?: string;
+  staticDir?: string;
+}
 
-// Middleware
-app.use(cors({ origin: true }));
-app.use(express.json());
+export async function startServer(options: ServerOptions = {}): Promise<{
+  server: http.Server;
+  app: Express;
+  port: number;
+}> {
+  const port = options.port ?? (Number(process.env.PORT) || 4800);
 
-// Routes
-app.use('/api', router);
+  if (options.dataDir) {
+    setDataDir(options.dataDir);
+  }
 
-// Health check
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+  const app: Express = express();
 
-async function main() {
-  // Initialize DB first (sync)
+  // Middleware
+  app.use(cors({ origin: true }));
+  app.use(express.json());
+
+  // Routes
+  app.use('/api', router);
+
+  // Health check
+  app.get('/health', (_req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  // Serve static UI files (for Electron / production)
+  if (options.staticDir) {
+    app.use(express.static(options.staticDir));
+    app.get('*', (_req, res) => {
+      res.sendFile(path.join(options.staticDir!, 'index.html'));
+    });
+  }
+
+  // Initialize DB
   initDb();
   setLevelBroadcast(broadcast);
   console.log('[NetCrawl Server] Database initialized');
@@ -43,15 +67,23 @@ async function main() {
   startGameTick();
 
   // Start server
-  server.listen(PORT, () => {
-    console.log(`[NetCrawl Server] Running on http://localhost:${PORT}`);
-    console.log(`[NetCrawl Server] WebSocket on ws://localhost:${PORT}/ws`);
+  return new Promise((resolve) => {
+    server.listen(port, () => {
+      const actualPort = (server.address() as any).port;
+      console.log(`[NetCrawl Server] Running on http://localhost:${actualPort}`);
+      console.log(`[NetCrawl Server] WebSocket on ws://localhost:${actualPort}/ws`);
+      resolve({ server, app, port: actualPort });
+    });
   });
 }
 
-main().catch(err => {
-  console.error('[NetCrawl Server] Fatal error:', err);
-  process.exit(1);
-});
+// Run directly when executed as a standalone script (not bundled or imported)
+// Skip auto-start when bundled by esbuild (NETCRAWL_BUNDLED is set by the build script)
+if (!process.env.NETCRAWL_BUNDLED && (require.main === module || !module.parent)) {
+  startServer().catch(err => {
+    console.error('[NetCrawl Server] Fatal error:', err);
+    process.exit(1);
+  });
+}
 
-export default app;
+export default startServer;

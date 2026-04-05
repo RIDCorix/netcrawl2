@@ -1,0 +1,47 @@
+{
+  "name": "@netcrawl/desktop",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "build:main": "node scripts/build-main.cjs",
+    "build": "pnpm --filter @netcrawl/server build && pnpm --filter ui build && node scripts/copy-renderer.cjs && node scripts/build-main.cjs",
+    "dev": "node scripts/dev.cjs",
+    "dist:mac": "pnpm run build && electron-builder --mac",
+    "dist:win": "pnpm run build && electron-builder --win",
+    "dist:linux": "pnpm run build && electron-builder --linux"
+  },
+  "dependencies": {
+    "@netcrawl/server": "workspace:*"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^26.0.0",
+    "typescript": "^5.4.0",
+    "@types/node": "^20.0.0"
+  },
+  "optionalDependencies": {
+    "steamworks.js": "^0.3.1"
+  },
+  "build": {
+    "appId": "com.netcrawl.game",
+    "productName": "NetCrawl",
+    "directories": { "output": "release" },
+    "asar": false,
+    "files": ["dist/**/*", "static/**/*", "renderer/**/*"],
+    "mac": {
+      "category": "public.app-category.games",
+      "target": ["dmg", "zip"],
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "identity": null
+    },
+    "win": { "target": ["nsis"] },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    },
+    "linux": { "target": ["AppImage"], "category": "Game" }
+  }
+}

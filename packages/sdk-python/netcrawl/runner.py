@@ -61,13 +61,17 @@ def main():
     # - Other → keep as-is
     from netcrawl.fields import ItemField, EdgeField, RouteField, GadgetField
     from netcrawl.runtime import RuntimeItem
-    from netcrawl.items.equipment import SensorGadget
-    from netcrawl.runtime import RuntimeSensorGadget
+    from netcrawl.items.equipment import SensorGadget, BasicSensor, AdvancedSensor
+    from netcrawl.runtime import RuntimeSensorGadget, RuntimeBasicSensor, RuntimeAdvancedSensor
 
     # First: auto-create runtime proxies for gadget fields (not injected by server)
     injected_fields = {}
     for field_name, cls_field in WorkerCls._fields.items():
-        if isinstance(cls_field, SensorGadget):
+        if isinstance(cls_field, BasicSensor):
+            injected_fields[field_name] = RuntimeBasicSensor()
+        elif isinstance(cls_field, AdvancedSensor):
+            injected_fields[field_name] = RuntimeAdvancedSensor()
+        elif isinstance(cls_field, SensorGadget):
             injected_fields[field_name] = RuntimeSensorGadget()
 
     # Then: process server-injected values

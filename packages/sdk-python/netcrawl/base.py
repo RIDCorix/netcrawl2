@@ -288,6 +288,42 @@ class WorkerClass(metaclass=WorkerMeta):
             self._inventory = {}
         return result
 
+    def discard(self, item=None) -> dict:
+        """
+        Discard the currently held item without depositing.
+        Use this to throw away bad drops (e.g. bad_data).
+
+        Returns: { ok: True, discarded: { type, amount } }
+        Fails if: nothing is held ('nothing_held').
+
+        Example:
+            item = self.collect()
+            if item.get('item', {}).get('type') == 'bad_data':
+                self.discard()
+        """
+        result = self._client.action("discard", {})
+        if result.get("ok"):
+            self._holding = None
+        return result
+
+    def has_dropped_items(self) -> bool:
+        """
+        Check if the current node has any dropped items waiting to be collected.
+
+        Returns: True if there are drops on the node floor, False otherwise.
+
+        Example:
+            self.mine()
+            while self.has_dropped_items():
+                item = self.collect()
+                if item.get('item', {}).get('type') == 'bad_data':
+                    self.discard()
+                else:
+                    break
+        """
+        result = self._client.action("has_dropped_items", {})
+        return result.get("has_items", False)
+
     def harvest(self) -> dict:
         """
         Legacy: harvest resources at current node (old carry system).

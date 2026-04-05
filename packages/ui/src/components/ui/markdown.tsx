@@ -62,7 +62,7 @@ export function Markdown({ content }: { content: string }) {
           const isInline = !match && !codeString.includes('\n');
 
           if (isInline) {
-            // Inline code
+            // Inline code — disable font ligatures so == != >= show as-is
             return (
               <code style={{
                 background: 'var(--bg-primary)',
@@ -71,6 +71,8 @@ export function Markdown({ content }: { content: string }) {
                 padding: '1px 5px',
                 fontSize: '12px',
                 fontFamily: 'var(--font-mono)',
+                fontVariantLigatures: 'none',
+                fontFeatureSettings: '"liga" 0, "calt" 0',
                 color: 'var(--accent)',
               }}>
                 {children}
@@ -97,7 +99,7 @@ export function Markdown({ content }: { content: string }) {
                   lineHeight: '1.7',
                 }}
                 codeTagProps={{
-                  style: { fontFamily: 'var(--font-mono)' },
+                  style: { fontFamily: 'var(--font-mono)', fontVariantLigatures: 'none', fontFeatureSettings: '"liga" 0, "calt" 0' },
                 }}
               >
                 {codeString}

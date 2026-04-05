@@ -1,0 +1,94 @@
+---
+title: Installation
+description: Install the NetCrawl SDK for Python or JavaScript.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Prerequisites
+
+<Tabs>
+  <TabItem label="Python">
+    - **Python 3.10+** ([python.org](https://www.python.org/downloads/))
+    - **pip** (included with Python)
+    - A code editor (VS Code recommended)
+  </TabItem>
+  <TabItem label="JavaScript">
+    - **Node.js 18+** ([nodejs.org](https://nodejs.org/))
+    - **npm** or **pnpm**
+    - A code editor (VS Code recommended)
+  </TabItem>
+</Tabs>
+
+## Install the SDK
+
+<Tabs>
+  <TabItem label="Python">
+    ```bash
+    pip install netcrawl
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```bash
+    npm install @netcrawl/sdk
+    ```
+    Or with pnpm:
+    ```bash
+    pnpm add @netcrawl/sdk
+    ```
+  </TabItem>
+</Tabs>
+
+## Verify Installation
+
+<Tabs>
+  <TabItem label="Python">
+    ```python
+    from netcrawl import WorkerClass, NetCrawl
+    print("NetCrawl SDK ready!")
+    ```
+  </TabItem>
+  <TabItem label="JavaScript">
+    ```javascript
+    import { WorkerClass, NetCrawl } from '@netcrawl/sdk';
+    console.log('NetCrawl SDK ready!');
+    ```
+  </TabItem>
+</Tabs>
+
+## Game Server
+
+The NetCrawl game server runs locally. The server port may be assigned dynamically.
+
+```bash
+# Start the game (from the monorepo root)
+pnpm dev
+```
+
+This starts both the game server and the browser UI.
+
+:::tip[Finding your connection string]
+Click the **Terminal** button (showing the port number) in the top-right corner of the game UI to see your server URL and connection code snippets.
+:::
+
+In the desktop app, the port is assigned automatically. Use the **Connect** dialog in-game to get the correct URL for your SDK.
+
+## Workspace Setup
+
+The recommended workspace layout:
+
+```
+my-workers/
+  main.py          # or main.ts
+  workers/
+    miner.py       # Your worker classes
+    guardian.py
+```
+
+:::tip
+Copy the `workspace_example/` directory from the NetCrawl repo for a ready-to-go starter project.
+:::
+
+## Next Steps
+
+Continue to [Quick Start](/getting-started/quickstart/) to understand how the system works, or jump straight to [Your First Worker](/getting-started/first-worker/) to start coding.

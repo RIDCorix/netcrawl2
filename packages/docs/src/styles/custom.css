@@ -1,0 +1,44 @@
+/* NetCrawl Docs -- dark cyber theme with green accent */
+
+:root {
+  --sl-color-accent-low: #0a2e1a;
+  --sl-color-accent: #4ade80;
+  --sl-color-accent-high: #b6f5d0;
+  --sl-color-white: #e8e8e8;
+  --sl-color-gray-1: #c4c4c4;
+  --sl-color-gray-2: #8e8e8e;
+  --sl-color-gray-3: #585858;
+  --sl-color-gray-4: #383838;
+  --sl-color-gray-5: #272727;
+  --sl-color-gray-6: #1a1a1a;
+  --sl-color-black: #111111;
+}
+
+[data-theme='light'] {
+  --sl-color-accent-low: #d1fae5;
+  --sl-color-accent: #16a34a;
+  --sl-color-accent-high: #052e16;
+}
+
+/* Terminal-style code blocks */
+pre {
+  border: 1px solid var(--sl-color-gray-4);
+  border-radius: 6px;
+}
+
+/* Subtle glow on headings */
+.sl-markdown-content h1,
+.sl-markdown-content h2 {
+  text-shadow: 0 0 12px rgba(74, 222, 128, 0.15);
+}
+
+/* Game info callout styling */
+.sl-markdown-content blockquote {
+  border-left-color: var(--sl-color-accent);
+}
+
+/* Starlight tab active indicator */
+[role='tab'][aria-selected='true'] {
+  border-color: var(--sl-color-accent);
+  color: var(--sl-color-accent);
+}

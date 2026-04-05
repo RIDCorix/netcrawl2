@@ -8,9 +8,23 @@ __pycache__/
 *.db-shm
 .env
 .env.local
+.DS_Store
+
+# UI build output
 packages/ui/dist/
+
+# Desktop app build output
+packages/desktop/release/
+packages/desktop/renderer/
+
+# Docs build output
+packages/docs/dist/
+packages/docs/.astro/
 
 # Player workspace (copy from workspace_example/ to start)
 workspace/
 
 .creative-mode/
+
+# Vercel
+.vercel/
