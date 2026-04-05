@@ -156,7 +156,7 @@ function InvItem({ item, disabled }: { item: InventoryItem; disabled: boolean })
 export function DeployDialog({ nodeId, nodeName, onClose }: {
   nodeId: string; nodeName: string; onClose: () => void;
 }) {
-  const { workers, playerInventory, nodes: gameNodes, edges: gameEdges, setEdgeSelectMode, setNodeSelectMode } = useGameStore();
+  const { workers, playerInventory, nodes: gameNodes, edges: gameEdges, setEdgeSelectMode, setNodeSelectMode, setState } = useGameStore();
   const t = useT();
   const [workerClasses, setWorkerClasses] = useState<WorkerClassEntry[]>([]);
   const [selectedClass, setSelectedClass] = useState('');
@@ -256,7 +256,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
   }, [selectedClass]);
 
   // Clean up selection modes on unmount
-  useEffect(() => () => { setEdgeSelectMode(null); setNodeSelectMode(null); }, []);
+  useEffect(() => () => { setEdgeSelectMode(null); setNodeSelectMode(null); setState({ routePath: [] }); }, []);
 
   // Helper: find edge between two adjacent nodes
   const findEdgeBetween = useCallback((a: string, b: string) => {
@@ -287,7 +287,6 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
         onSelect: (nodeId) => {
           setRouteNodes(prev => {
             const existing = prev[fieldName] || [];
-            // Don't add duplicate consecutive
             if (existing[existing.length - 1] === nodeId) return prev;
             const updated = [...existing, nodeId];
 
@@ -302,6 +301,9 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
             }
             setRoutes(r => ({ ...r, [fieldName]: edges }));
 
+            // Sync path to store for visual feedback
+            setState({ routePath: updated });
+
             return { ...prev, [fieldName]: updated };
           });
         },
@@ -313,6 +315,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
     setSelectingRoute(null);
     setEdgeSelectMode(null);
     setNodeSelectMode(null);
+    setState({ routePath: [] });
   }, [setEdgeSelectMode, setNodeSelectMode]);
 
   const cancelRouteSelect = useCallback(() => {
@@ -323,6 +326,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
     setSelectingRoute(null);
     setEdgeSelectMode(null);
     setNodeSelectMode(null);
+    setState({ routePath: [] });
   }, [setEdgeSelectMode, setNodeSelectMode, selectingRoute]);
 
   const getNodeLabel = (id: string) => gameNodes.find(n => n.id === id)?.data?.label || id;

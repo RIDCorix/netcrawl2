@@ -194,6 +194,8 @@ export interface GameState {
     fieldName: string;
     onSelect: (nodeId: string) => void;
   } | null;
+  // Currently selected route path (for visual feedback in GameGraph)
+  routePath: string[];
   // Multi-layer system
   activeLayer: number;
   layerMeta: LayerMeta[];
@@ -263,6 +265,7 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   levelUpToasts: [],
   edgeSelectMode: null,
   nodeSelectMode: null,
+  routePath: [],
   activeLayer: 0,
   layerMeta: [],
   layerSelectOpen: false,
