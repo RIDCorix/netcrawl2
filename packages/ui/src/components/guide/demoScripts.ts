@@ -471,6 +471,124 @@ for edge in edges:
   ],
 };
 
+// ── q_for_loop: step 1 (Build a Long-Range Miner) ─────────────────────────
+
+const ROUTE_NODES: DemoNode[] = [
+  { id: 'hub', type: 'hub', label: 'Hub', position: { x: 0, y: 100 } },
+  { id: 'relay', type: 'empty', label: 'Relay', position: { x: 0, y: 0 } },
+  { id: 'deep', type: 'resource', label: 'Deep Mine', position: { x: 0, y: -100 }, subtitle: '+40/mine' },
+];
+
+const ROUTE_EDGES: DemoEdge[] = [
+  { id: 're1', source: 'hub', target: 'relay' },
+  { id: 're2', source: 'relay', target: 'deep' },
+];
+
+const ROUTE_DEMO: DemoScript = {
+  code: `def on_loop(self):
+    for edge in self.route:
+        self.move(edge)
+
+    self.pickaxe.mine_and_collect()
+
+    if self.holding.type == "bad_data":
+        self.discard()
+        return
+
+    for edge in reversed(self.route):
+        self.move(edge)
+
+    self.deposit()`,
+  initialState: {
+    nodes: ROUTE_NODES,
+    edges: ROUTE_EDGES,
+    worker: { nodeId: 'hub', color: '#fbbf24' },
+  },
+  steps: [
+    // Forward: hub → relay
+    {
+      codeLine: 2,
+      durationMs: 600,
+      apply: (prev) => patch(highlightEdge(prev, 're1'), { statusLabel: 'for edge re1 (hub → relay)' }),
+    },
+    {
+      codeLine: 3,
+      durationMs: 800,
+      apply: (prev) => patch(moveWorker(clearHighlights(prev), 'relay'), { statusLabel: 'Moving to Relay' }),
+    },
+    // Forward: relay → deep
+    {
+      codeLine: 2,
+      durationMs: 600,
+      apply: (prev) => patch(highlightEdge(prev, 're2'), { statusLabel: 'for edge re2 (relay → deep)' }),
+    },
+    {
+      codeLine: 3,
+      durationMs: 800,
+      apply: (prev) => patch(moveWorker(clearHighlights(prev), 'deep'), { statusLabel: 'Moving to Deep Mine' }),
+    },
+    // Mine + collect
+    {
+      codeLine: 5,
+      durationMs: 1200,
+      apply: (prev) => {
+        let s = highlightNode(prev, 'deep');
+        s = moveWorker(s, 'deep', { nodeId: 'deep', color: '#fbbf24', status: 'mining' });
+        s = setDrops(s, 'deep', 1);
+        return patch(s, { statusLabel: '⛏ Mining + collecting...' });
+      },
+    },
+    // Check holding — good data this time
+    {
+      codeLine: 7,
+      durationMs: 800,
+      apply: (prev) => {
+        let s = clearHighlights(prev);
+        s = setDrops(s, 'deep', 0);
+        return patch(s, { statusLabel: 'holding.type == "data_fragment" → keep!' });
+      },
+    },
+    // Backward: deep → relay
+    {
+      codeLine: 11,
+      durationMs: 600,
+      apply: (prev) => patch(highlightEdge(prev, 're2'), { statusLabel: 'reversed: edge re2 (deep → relay)' }),
+    },
+    {
+      codeLine: 12,
+      durationMs: 800,
+      apply: (prev) => patch(moveWorker(clearHighlights(prev), 'relay'), { statusLabel: 'Moving to Relay' }),
+    },
+    // Backward: relay → hub
+    {
+      codeLine: 11,
+      durationMs: 600,
+      apply: (prev) => patch(highlightEdge(prev, 're1'), { statusLabel: 'reversed: edge re1 (relay → hub)' }),
+    },
+    {
+      codeLine: 12,
+      durationMs: 800,
+      apply: (prev) => patch(moveWorker(clearHighlights(prev), 'hub'), { statusLabel: 'Moving to Hub' }),
+    },
+    // Deposit
+    {
+      codeLine: 14,
+      durationMs: 1000,
+      apply: (prev) => {
+        let s = highlightNode(prev, 'hub');
+        s = moveWorker(s, 'hub', { nodeId: 'hub', color: '#fbbf24', status: 'depositing' });
+        return patch(s, { statusLabel: '💰 Deposited! +40 data' });
+      },
+    },
+    // Done
+    {
+      codeLine: 14,
+      durationMs: 800,
+      apply: (prev) => patch(clearHighlights(moveWorker(prev, 'hub')), { statusLabel: '✓ Loop complete — starting again' }),
+    },
+  ],
+};
+
 // ── Registry ───────────────────────────────────────────────────────────────
 
 /**
@@ -481,5 +599,6 @@ export const DEMO_SCRIPTS: Record<string, DemoScript> = {
   'q_method_call:2': METHOD_CALL_DEMO,     // "Deploy and Watch" step
   'q_conditions:1':  CONDITIONS_DEMO,       // "Smart Mining Loop" step
   'q_while_loop:1':  WHILE_LOOP_DEMO,      // "Filtering Bad Data" step
+  'q_for_loop:1':    ROUTE_DEMO,           // "Build a Long-Range Miner" step
   'q_cluster_mining:1': FOR_LOOP_DEMO,      // "Build a Cluster Miner" step
 };
