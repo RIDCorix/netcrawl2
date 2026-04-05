@@ -165,7 +165,7 @@ function ResourceItem({ icon: Icon, value, label, color, prevValue, formatFn, to
 }
 
 export function ResourceBar() {
-  const { resources, tick, connected, gameOver, inventoryOpen, toggleInventory, playerInventory, achievements, toggleAchievements, questSummary, toggleQuests, toggleSettings, toggleDocs, toggleConnect, levelSummary, toggleLevel, activeLayer, layerMeta, openLayerSelect } = useGameStore();
+  const { resources, flop, tick, connected, gameOver, inventoryOpen, toggleInventory, playerInventory, achievements, toggleAchievements, questSummary, toggleQuests, toggleSettings, toggleDocs, toggleConnect, levelSummary, toggleLevel, activeLayer, layerMeta, openLayerSelect } = useGameStore();
   const totalItems = playerInventory.reduce((sum, i) => sum + i.count, 0);
   const prevRef = useRef(resources);
   const [prev, setPrev] = useState(resources);
@@ -255,6 +255,18 @@ export function ResourceBar() {
       <ResourceItem icon={Database} value={resources.data} label="Data" color="var(--data-color)" prevValue={prev.data} formatFn={formatBytes} tooltip={t('res.data.desc')} />
       <ResourceItem icon={Cpu} value={resources.rp} label={t('ui.research_points')} color="var(--rp-color)" prevValue={prev.rp} tooltip={t('res.rp.desc')} />
       <ResourceItem icon={Star} value={resources.credits} label={t('ui.credits')} color="var(--credits-color)" prevValue={prev.credits} tooltip={t('res.credits.desc')} />
+
+      {/* FLOP */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0,
+        padding: '4px 8px', borderRadius: 'var(--radius-sm)',
+        background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+        fontFamily: 'var(--font-mono)', fontSize: 10,
+        color: flop.used >= flop.total ? 'var(--danger)' : 'var(--text-muted)',
+      }}>
+        <Zap size={10} style={{ color: flop.used >= flop.total ? 'var(--danger)' : '#f59e0b' }} />
+        <span>{flop.used}/{flop.total} FLOP</span>
+      </div>
 
       {/* Level + XP bar */}
       <motion.button

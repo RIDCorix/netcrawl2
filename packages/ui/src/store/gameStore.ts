@@ -153,6 +153,7 @@ export interface GameState {
   nodes: GameNode[];
   edges: GameEdge[];
   resources: Resources;
+  flop: { total: number; used: number };
   tick: number;
   gameOver: boolean;
   workers: Worker[];
@@ -230,6 +231,7 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   nodes: [],
   edges: [],
   resources: { data: 0, rp: 0, credits: 0 },
+  flop: { total: 50, used: 0 },
   tick: 0,
   gameOver: false,
   workers: [],
@@ -317,6 +319,7 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
       nodes: data.nodes ?? state.nodes,
       edges: data.edges ?? state.edges,
       resources: data.resources ?? state.resources,
+      flop: data.flop ?? state.flop,
       tick: data.tick ?? state.tick,
       gameOver: data.gameOver ?? state.gameOver,
       workers: data.workers ?? state.workers,

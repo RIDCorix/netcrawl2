@@ -494,7 +494,7 @@ export const en: Record<string, string> = {
   'ui.worker_slot':      '+{value} Worker Slot',
   'ui.data_deposited':   'Data Deposited',
   'ui.research_points':  'Research Points',
-  'res.data.desc':       'Harvested from Resource nodes.\nDeploy a worker and call self.harvest().',
+  'res.data.desc':       'Mined from Data Mine nodes.\nEquip a Pickaxe, mine, collect, then deposit at Hub.\nBeware of bad data — it subtracts resources!',
   'res.rp.desc':         'Earned by solving Compute puzzles.\nDeploy a worker to a Compute node and submit answers.',
   'res.credits.desc':    'Earned from achievements and quests.\nUsed for premium upgrades.',
   'ui.claim':            'Claim',

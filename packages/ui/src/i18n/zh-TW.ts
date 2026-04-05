@@ -494,7 +494,7 @@ export const zhTW: Record<string, string> = {
   'ui.worker_slot':      '+{value} Worker 槽位',
   'ui.data_deposited':   '已存入數據',
   'ui.research_points':  '研究點數',
-  'res.data.desc':       '從資源節點採集。\n部署 worker 並呼叫 self.harvest()。',
+  'res.data.desc':       '從資料礦場挖掘。\n裝備鎬子，挖礦、收集，然後在 Hub 存入。\n注意 bad data — 會倒扣資源！',
   'res.rp.desc':         '透過解決 Compute 謎題獲得。\n部署 worker 到 Compute 節點並提交答案。',
   'res.credits.desc':    '透過成就和任務獲得。\n用於高級升級。',
   'ui.claim':            '領取',

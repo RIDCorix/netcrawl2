@@ -494,7 +494,7 @@ export const ja: Record<string, string> = {
   'ui.worker_slot':      '+{value} ワーカースロット',
   'ui.data_deposited':   'データ預入量',
   'ui.research_points':  '研究ポイント',
-  'res.data.desc':       'リソースノードから採取。\nworkerを配置してself.harvest()を呼ぶ。',
+  'res.data.desc':       'データ鉱山から採掘。\nピッケルを装備して採掘・収集し、Hubに預ける。\nbad dataに注意 — リソースが減る！',
   'res.rp.desc':         'Computeパズルを解いて獲得。\nComputeノードにworkerを配置して回答を提出。',
   'res.credits.desc':    '実績やクエストから獲得。\nプレミアムアップグレードに使用。',
   'ui.claim':            '受取',
