@@ -43,6 +43,14 @@ export function useGameState() {
           useGameStore.getState().addLevelUpToast(msg.payload);
         } else if (msg.type === 'LAYER_UNLOCKED') {
           useGameStore.getState().addLayerUnlockToast(msg.payload);
+        } else if (msg.type === 'WORKER_LOG') {
+          // Lightweight: update just the worker's lastLog for speech bubble
+          const { workerId, message, level, ts } = msg.payload;
+          const state = useGameStore.getState();
+          const workers = state.workers.map((w: any) =>
+            w.id === workerId ? { ...w, lastLog: { message, level, ts } } : w
+          );
+          useGameStore.setState({ workers });
         }
       } catch (err) {
         console.error('[WS] Parse error:', err);

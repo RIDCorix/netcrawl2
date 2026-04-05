@@ -87,11 +87,12 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
   // Log action doesn't need a lock
   if (action === 'log') {
     addWorkerLog(workerId, payload.message);
-    // Update lastLog on worker for speech bubble display
+    // Update lastLog on worker for speech bubble display (no full broadcast — too spammy)
     const w = getWorker(workerId);
     if (w) {
       upsertWorker({ ...w, lastLog: { message: payload.message, level: payload.level || 'info', ts: Date.now() } });
-      broadcastFullState();
+      // Send lightweight message instead of full state
+      broadcast({ type: 'WORKER_LOG', payload: { workerId, message: payload.message, level: payload.level || 'info', ts: Date.now(), nodeId: w.current_node || w.node_id } });
     }
     return { ok: true };
   }
