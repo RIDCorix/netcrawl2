@@ -47,6 +47,23 @@ Then in your workspace folder:
 uv sync
 \`\`\`` },
 
+    { title: 'Configure main.py', content: `Open \`workspace/main.py\` and make sure the server URL is correct.
+
+Click the **Connect** button (terminal icon) in the top-right toolbar to find your server URL, then update \`main.py\`:
+
+\`\`\`python
+from netcrawl import NetCrawl
+from workers.miner import Miner
+
+app = NetCrawl(
+    server="http://localhost:4800",  # ← paste your server URL here
+)
+app.register(Miner)
+app.run()
+\`\`\`
+
+> **Tip:** The Connect dialog has a copy button — use it to get the exact URL for your setup.` },
+
     { title: 'Run Your Code Server', content: `Now start your Python code server. In the \`workspace/\` folder:
 
 \`\`\`bash
@@ -56,7 +73,6 @@ uv run main.py
 You should see:
 \`\`\`
 [NetCrawl] Registered: Miner (id=miner)
-[NetCrawl] Registered: Scout (id=scout)
 [NetCrawl] Code server connected ✓
 \`\`\`
 
