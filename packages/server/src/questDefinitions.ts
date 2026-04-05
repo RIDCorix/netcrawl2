@@ -149,7 +149,7 @@ export const QUESTS: QuestDef[] = [
   },
   {
     id: 'q_for_loop', chapter: 1, name: 'For Loop', codeConcept: 'For Loops',
-    description: 'for edge in edges: visit each node — iterate over a collection.',
+    description: 'for edge in self.route: reach distant mines with multi-node paths.',
     mainline: true, prerequisites: ['q_while_loop'],
     objectives: [{ id: 'o1', description: 'Mine 20 times', statKey: 'total_mines', target: 20, type: 'stat_gte' }],
     rewards: [
@@ -175,6 +175,17 @@ export const QUESTS: QuestDef[] = [
     objectives: [{ id: 'o1', description: 'Deploy 3 workers total', statKey: 'total_workers_deployed', target: 3, type: 'stat_gte' }],
     rewards: [{ kind: 'items', items: [{ itemType: 'shield', count: 1 }] }],
     position: { x: 700, y: 1650 },
+  },
+  {
+    id: 'q_cluster_mining', chapter: 1, name: 'Cluster Mining', codeConcept: 'Sensor + For Loop',
+    description: 'Use AdvancedSensor to scan edges, then for-loop through nearby mines.',
+    mainline: false, prerequisites: ['q_for_loop'],
+    objectives: [{ id: 'o1', description: 'Mine 50 times', statKey: 'total_mines', target: 50, type: 'stat_gte' }],
+    rewards: [
+      { kind: 'items', items: [{ itemType: 'beacon', count: 1 }] },
+      { kind: 'resources', resources: { data: 1000 } },
+    ],
+    position: { x: 700, y: 1950 },
   },
 
   // ════════════════════════════════════════════════════════════════════════════

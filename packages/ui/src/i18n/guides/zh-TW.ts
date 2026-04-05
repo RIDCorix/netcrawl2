@@ -325,18 +325,19 @@ onLoop() {
   ],
 
   q_for_loop: [
-    { title: '遍歷集合', content: `\`for\` 迴圈會訪問集合中的每個元素：
+    { title: '路徑與 For 迴圈', content: `之前你用的是 \`Edge\` — 兩個相鄰節點之間的單一連線。但如果礦場**很遠**，中間隔著中繼節點呢？
+
+\`Route\` 是**多節點路徑**。部署時按順序點擊節點。執行時它變成可迭代的邊列表：
 
 \`\`\`python
-for item in collection:
-    process(item)
-\`\`\`
+route = Route("hub → 中繼站 → 深層礦場")
 
-不像 \`while\`（重複直到條件不成立），\`for\` 遍歷一組**已知的**東西 — 列表、路徑、掃描結果。` },
+# 執行時，self.route 可迭代：
+for edge in self.route:
+    self.move(edge)       # 一步一步走
+\`\`\`` },
 
-    { title: '路徑 Route：多邊路線', content: `之前你用的是 \`Edge\`（單一連線）。\`Route\` 是跨越**多個節點的路徑**。
-
-部署時按順序點擊節點來建立路徑。執行時它會變成邊 ID 的列表：
+    { title: '建立遠程礦工', content: `建立 \`workspace/workers/long_range_miner.py\`：
 
 \`\`\`python
 from netcrawl import WorkerClass, Route
@@ -350,13 +351,18 @@ class LongRangeMiner(WorkerClass):
     route = Route("hub → 中繼站 → 深層礦場")
 
     def on_loop(self):
-        # 沿路線前進
+        # 沿路線前進：hub → 中繼站 → 礦場
         for edge in self.route:
             self.move(edge)
 
         self.pickaxe.mine_and_collect()
 
-        # 沿路線返回
+        # 過濾 bad data
+        if self.holding and self.holding.type == "bad_data":
+            self.discard()
+            return
+
+        # 沿路線返回：礦場 → 中繼站 → hub
         for edge in reversed(self.route):
             self.move(edge)
 
@@ -374,26 +380,47 @@ class LongRangeMiner extends WorkerClass {
     };
 
     onLoop() {
-        for (const edge of this.route) {
+        for (const edge of this.route)
             this.move(edge);
-        }
 
         this.pickaxe.mineAndCollect();
 
-        for (const edge of [...this.route].reverse()) {
-            this.move(edge);
+        if (this.holding?.type === 'bad_data') {
+            this.discard();
+            return;
         }
+
+        for (const edge of [...this.route].reverse())
+            this.move(edge);
 
         this.deposit();
     }
 }
 \`\`\`
 
-\`reversed(self.route)\` 把路徑反轉 — 回程的最佳選擇。` },
+在 \`main.py\` 中註冊，然後用一條路徑部署到遠處的礦場。` },
 
-    { title: '資料礦場叢集', content: `在地圖的南方，有一個**資料礦場叢集**：一個中繼站被 6 個小型資源節點包圍（容量 1，每 5 秒補充）。
+    { title: '部署與測試', content: `1. 在 \`main.py\` 註冊 \`LongRangeMiner\`
+2. 部署到 **Hub** → 選擇 **Route** → 點擊：**Hub → Data Mine Alpha**
+3. 裝備**鎬子**
+4. 觀察 log — 你會看到 worker 逐步走過每條邊
 
-坐在一個節點上毫無意義 — 它會立刻耗盡。你需要用迴圈**依序訪問所有節點**：
+重點：
+- \`for edge in self.route\` — 沿路徑前進
+- \`reversed(self.route)\` — 反向走回去
+- \`Route\` 可以是任意長度 — 2 個節點、5 個、10 個都行
+
+**目標：** 用路徑到達更遠、產量更高的礦場，挖礦 **20 次**。` },
+  ],
+
+  q_cluster_mining: [
+    { title: '資料礦場叢集', content: `Hub 南方有一個**資料礦場叢集** — 一個中繼節點被多個小型資源節點包圍。
+
+這些節點容量低但補充快。技巧是用 **AdvancedSensor** 掃描附近的邊，找出所有礦場然後逐一訪問。
+
+\`AdvancedSensor\` 是一個 gadget，會掃描相鄰的邊並告訴你每個連接節點的**類型**。` },
+
+    { title: '建立叢集礦工', content: `建立 \`workspace/workers/cluster_miner.py\`：
 
 \`\`\`python
 from netcrawl import WorkerClass, AdvancedSensor, ResourceNode
@@ -407,15 +434,19 @@ class ClusterMiner(WorkerClass):
     sensor = AdvancedSensor()
 
     def on_loop(self):
+        # 掃描當前節點的所有邊
         edges = self.sensor.scan()
 
         for edge in edges:
+            # 只訪問資源節點
             if isinstance(edge.target_node, ResourceNode):
-                self.move_edge(edge.edge_id)
-                self.pickaxe.mine()
-                self.collect()
-                self.move_edge(edge.edge_id)  # 回到中繼站
-                self.deposit()
+                self.move(edge.edge_id)       # 去礦場
+                self.pickaxe.mine_and_collect()
+                self.move(edge.edge_id)       # 回中繼站
+
+        # 訪問完所有礦場後，如果手持好資料就記錄
+        if self.holding and self.holding.type != "bad_data":
+            self.info(f"收集到 {self.holding.type}")
 \`\`\`
 \`\`\`javascript
 import { WorkerClass, AdvancedSensor, ResourceNode, Pickaxe } from '@netcrawl/sdk';
@@ -433,19 +464,24 @@ class ClusterMiner extends WorkerClass {
 
         for (const edge of edges) {
             if (edge.targetNode instanceof ResourceNode) {
-                this.moveEdge(edge.edgeId);
-                this.pickaxe.mine();
-                this.collect();
-                this.moveEdge(edge.edgeId);  // 回到中繼站
-                this.deposit();
+                this.move(edge.edgeId);
+                this.pickaxe.mineAndCollect();
+                this.move(edge.edgeId);
             }
+        }
+
+        if (this.holding?.type !== 'bad_data') {
+            this.info(\`收集到 \${this.holding?.type}\`);
         }
     }
 }
 \`\`\`
 
-**注意：** 叢集中繼站不是 Hub — 你需要先把資料帶回主 Hub。請調整你的程式碼！
+重點：
+- \`AdvancedSensor.scan()\` 回傳帶完整節點類型的邊
+- \`isinstance(edge.target_node, ResourceNode)\` 過濾出可挖掘的節點
+- 不需要 \`Route\` — sensor 動態探索路徑
 
-**目標：** 總共挖礦 **20 次**。叢集是最快達成目標的方式。` },
+**目標：** 總共挖礦 **50 次**。部署到任何靠近礦場叢集的中繼站。` },
   ],
 };

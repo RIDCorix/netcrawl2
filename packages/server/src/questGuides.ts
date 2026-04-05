@@ -332,18 +332,19 @@ onLoop() {
   ],
 
   q_for_loop: [
-    { title: 'Iterating Collections', content: `A \`for\` loop visits every item in a collection:
+    { title: 'Routes & For Loops', content: `So far you've used \`Edge\` — a single connection between two adjacent nodes. But what if the mine is **far away**, separated by relay nodes?
+
+A \`Route\` is a **multi-node path**. At deploy time you click nodes in order. At runtime it becomes an iterable list of edges:
 
 \`\`\`python
-for item in collection:
-    process(item)
-\`\`\`
+route = Route("hub → relay → deep mine")
 
-Unlike \`while\` (repeat until condition), \`for\` iterates a **known set** of things — a list, a route, scan results.` },
+# At runtime, self.route is iterable:
+for edge in self.route:
+    self.move(edge)       # walks one step at a time
+\`\`\`` },
 
-    { title: 'Routes: Multi-Edge Paths', content: `So far you've used \`Edge\` (one connection). A \`Route\` is a **path across multiple nodes**.
-
-At deploy time, you click nodes in order to build the path. At runtime it becomes a list of edge IDs:
+    { title: 'Build a Long-Range Miner', content: `Create \`workspace/workers/long_range_miner.py\`:
 
 \`\`\`python
 from netcrawl import WorkerClass, Route
@@ -357,13 +358,18 @@ class LongRangeMiner(WorkerClass):
     route = Route("hub → relay → deep mine")
 
     def on_loop(self):
-        # Walk forward along the route
+        # Walk forward: hub → relay → mine
         for edge in self.route:
             self.move(edge)
 
         self.pickaxe.mine_and_collect()
 
-        # Walk backward to return
+        # Filter bad data
+        if self.holding and self.holding.type == "bad_data":
+            self.discard()
+            return
+
+        # Walk backward: mine → relay → hub
         for edge in reversed(self.route):
             self.move(edge)
 
@@ -381,26 +387,47 @@ class LongRangeMiner extends WorkerClass {
     };
 
     onLoop() {
-        for (const edge of this.route) {
+        for (const edge of this.route)
             this.move(edge);
-        }
 
         this.pickaxe.mineAndCollect();
 
-        for (const edge of [...this.route].reverse()) {
-            this.move(edge);
+        if (this.holding?.type === 'bad_data') {
+            this.discard();
+            return;
         }
+
+        for (const edge of [...this.route].reverse())
+            this.move(edge);
 
         this.deposit();
     }
 }
 \`\`\`
 
-\`reversed(self.route)\` walks the path backward — perfect for return trips.` },
+Register it in \`main.py\`, then deploy with a route that reaches a distant mine (e.g. Data Mine Alpha or Beta).` },
 
-    { title: 'The Data Mine Cluster', content: `Far south on the map, there's a **Data Mine Cluster**: a relay hub surrounded by 6 tiny resource nodes (capacity 1 each, refills every 5 seconds).
+    { title: 'Deploy & Test', content: `1. Register \`LongRangeMiner\` in \`main.py\`
+2. Deploy to **Hub** → select **Route** → click: **Hub → Data Mine Alpha** (or any far mine)
+3. Equip a **Pickaxe**
+4. Watch the logs — you'll see the worker stepping through each edge
 
-Sitting on one node is pointless — it depletes instantly. You need to **visit them all** in a loop:
+Key concepts:
+- \`for edge in self.route\` — iterate forward through the path
+- \`reversed(self.route)\` — iterate backward to return home
+- A \`Route\` can be any length — 2 nodes, 5 nodes, 10 nodes
+
+**Goal:** Mine **20 times** using routes to reach distant, higher-yield mines.` },
+  ],
+
+  q_cluster_mining: [
+    { title: 'The Data Mine Cluster', content: `South of the Hub, there's a **Data Mine Cluster** — a relay node surrounded by small resource nodes.
+
+These nodes have low capacity but refill fast. The trick is to **scan** for nearby mines and visit them all in a loop.
+
+You'll need an \`AdvancedSensor\` — a gadget that scans adjacent edges and tells you the **type** of each connected node.` },
+
+    { title: 'Build a Cluster Miner', content: `Create \`workspace/workers/cluster_miner.py\`:
 
 \`\`\`python
 from netcrawl import WorkerClass, AdvancedSensor, ResourceNode
@@ -414,15 +441,19 @@ class ClusterMiner(WorkerClass):
     sensor = AdvancedSensor()
 
     def on_loop(self):
+        # Scan all edges from current node
         edges = self.sensor.scan()
 
         for edge in edges:
+            # Only visit resource nodes
             if isinstance(edge.target_node, ResourceNode):
-                self.move_edge(edge.edge_id)
-                self.pickaxe.mine()
-                self.collect()
-                self.move_edge(edge.edge_id)  # back to relay
-                self.deposit()
+                self.move(edge.edge_id)       # go to mine
+                self.pickaxe.mine_and_collect()
+                self.move(edge.edge_id)       # back to relay
+
+        # After visiting all mines, deposit if holding something
+        if self.holding and self.holding.type != "bad_data":
+            self.info(f"Collected {self.holding.type}")
 \`\`\`
 \`\`\`javascript
 import { WorkerClass, AdvancedSensor, ResourceNode, Pickaxe } from '@netcrawl/sdk';
@@ -440,20 +471,25 @@ class ClusterMiner extends WorkerClass {
 
         for (const edge of edges) {
             if (edge.targetNode instanceof ResourceNode) {
-                this.moveEdge(edge.edgeId);
-                this.pickaxe.mine();
-                this.collect();
-                this.moveEdge(edge.edgeId);  // back to relay
-                this.deposit();
+                this.move(edge.edgeId);
+                this.pickaxe.mineAndCollect();
+                this.move(edge.edgeId);
             }
+        }
+
+        if (this.holding?.type !== 'bad_data') {
+            this.info(\`Collected \${this.holding?.type}\`);
         }
     }
 }
 \`\`\`
 
-**Note:** The cluster relay is NOT a hub — you'll need to carry data back to the main hub first. Adapt your code accordingly!
+Key concepts:
+- \`AdvancedSensor.scan()\` returns edges with full node type info
+- \`isinstance(edge.target_node, ResourceNode)\` filters for mineable nodes
+- No \`Route\` needed — the sensor discovers paths dynamically
 
-**Goal:** Mine **20 times total**. The cluster is the fastest way to hit this target.` },
+**Goal:** Mine **50 times** total. Deploy to any relay near a cluster of mines.` },
   ],
 
   q_try_except: [
