@@ -184,10 +184,15 @@ export interface GameState {
   docsOpen: boolean;
   connectOpen: boolean;
   settings: Settings;
-  // Deploy wizard — edge selection mode
+  // Deploy wizard — edge selection mode (for Edge fields)
   edgeSelectMode: {
     fieldName: string;
     onSelect: (edge: { id: string; source: string; target: string }) => void;
+  } | null;
+  // Deploy wizard — node selection mode (for Route fields, click nodes to build path)
+  nodeSelectMode: {
+    fieldName: string;
+    onSelect: (nodeId: string) => void;
   } | null;
   // Multi-layer system
   activeLayer: number;
@@ -215,6 +220,7 @@ interface GameActions {
   addAchievementToast: (toast: { id: string; name: string; description: string; category: string }) => void;
   removeAchievementToast: (id: string) => void;
   setEdgeSelectMode: (mode: GameState['edgeSelectMode']) => void;
+  setNodeSelectMode: (mode: GameState['nodeSelectMode']) => void;
   setInventory: (inventory: InventoryItem[]) => void;
   toggleLevel: () => void;
   addLevelUpToast: (toast: { level: number; title: string; titleZh: string }) => void;
@@ -256,6 +262,7 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   levelOpen: false,
   levelUpToasts: [],
   edgeSelectMode: null,
+  nodeSelectMode: null,
   activeLayer: 0,
   layerMeta: [],
   layerSelectOpen: false,
@@ -266,6 +273,7 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   selectNode: (nodeId) => set({ selectedNodeId: nodeId, selectedWorkerId: null }),
   selectWorker: (workerId) => set({ selectedWorkerId: workerId, selectedNodeId: null }),
   setEdgeSelectMode: (mode) => set({ edgeSelectMode: mode }),
+  setNodeSelectMode: (mode) => set({ nodeSelectMode: mode }),
   toggleInventory: () => set((state) => ({ inventoryOpen: !state.inventoryOpen })),
   toggleAchievements: () => set((state) => ({ achievementsOpen: !state.achievementsOpen })),
   toggleSettings: () => set((state) => ({ settingsOpen: !state.settingsOpen })),

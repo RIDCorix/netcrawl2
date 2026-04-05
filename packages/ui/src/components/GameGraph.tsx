@@ -755,12 +755,13 @@ function toRFEdges(gameEdges: GameEdge[], edgeSelectMode: boolean, gameNodes: Ga
 // ── Main Graph ──────────────────────────────────────────────────────────
 
 export function GameGraph() {
-  const { nodes: gameNodes, edges: gameEdges, selectedNodeId, selectNode, workers, edgeSelectMode, settings } = useGameStore();
+  const { nodes: gameNodes, edges: gameEdges, selectedNodeId, selectNode, workers, edgeSelectMode, nodeSelectMode, settings } = useGameStore();
   const t = useT();
   const tn = useCallback((label: string) => { const k = `n.${label}`; const v = t(k); return v === k ? label : v; }, [t]);
   const [nodes, setNodes] = useNodesState([]);
   const [edges, setEdges] = useEdgesState([]);
   const isEdgeSelecting = !!edgeSelectMode;
+  const isNodeSelecting = !!nodeSelectMode;
   const edgeStyle = settings.edgeStyle;
   const showWorkerDots = settings.showWorkerDots;
 
@@ -802,9 +803,17 @@ export function GameGraph() {
   }, [rfNodes]);
 
   const onNodeClick = useCallback((_: any, node: Node) => {
-    if (isEdgeSelecting) return; // Ignore node clicks during edge selection
+    if (isEdgeSelecting) return;
+    if (nodeSelectMode) {
+      // Route building: only allow unlocked nodes
+      const gn = gameNodes.find(n => n.id === node.id);
+      if (gn?.id === 'hub' || gn?.data?.unlocked) {
+        nodeSelectMode.onSelect(node.id);
+      }
+      return;
+    }
     selectNode(node.id === selectedNodeId ? null : node.id);
-  }, [selectedNodeId, selectNode, isEdgeSelecting]);
+  }, [selectedNodeId, selectNode, isEdgeSelecting, nodeSelectMode, gameNodes]);
 
   const onEdgeClick = useCallback((_: any, edge: Edge) => {
     if (edgeSelectMode) {

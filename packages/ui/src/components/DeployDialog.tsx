@@ -156,7 +156,7 @@ function InvItem({ item, disabled }: { item: InventoryItem; disabled: boolean })
 export function DeployDialog({ nodeId, nodeName, onClose }: {
   nodeId: string; nodeName: string; onClose: () => void;
 }) {
-  const { workers, playerInventory, nodes: gameNodes, setEdgeSelectMode } = useGameStore();
+  const { workers, playerInventory, nodes: gameNodes, edges: gameEdges, setEdgeSelectMode, setNodeSelectMode } = useGameStore();
   const t = useT();
   const [workerClasses, setWorkerClasses] = useState<WorkerClassEntry[]>([]);
   const [selectedClass, setSelectedClass] = useState('');
@@ -171,7 +171,10 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
   const [cpuPerUnit, setCpuPerUnit] = useState<number[]>([0]);
   const [ramPerUnit, setRamPerUnit] = useState<number[]>([0]);
   const [currentUnitIdx, setCurrentUnitIdx] = useState(0);
+  // For Edge fields: stores [{ id, source, target }] (single edge)
+  // For Route fields: stores nodeIds as string[] in routeNodes, resolved to edges at deploy
   const [routes, setRoutes] = useState<Record<string, { id: string; source: string; target: string }[]>>({});
+  const [routeNodes, setRouteNodes] = useState<Record<string, string[]>>({});
   const [step, setStep] = useState(0);
   const [selectingRoute, setSelectingRoute] = useState<string | null>(null);
 
@@ -246,19 +249,27 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
     setCurrentUnitIdx(0);
     setUnitCount(1);
     setRoutes({});
+    setRouteNodes({});
     setStep(0);
     setDeployed(false);
     setMessage('');
   }, [selectedClass]);
 
-  // Clean up edge select mode on unmount
-  useEffect(() => () => setEdgeSelectMode(null), []);
+  // Clean up selection modes on unmount
+  useEffect(() => () => { setEdgeSelectMode(null); setNodeSelectMode(null); }, []);
 
-  // Start edge selection mode
+  // Helper: find edge between two adjacent nodes
+  const findEdgeBetween = useCallback((a: string, b: string) => {
+    return gameEdges.find(e =>
+      (e.source === a && e.target === b) || (e.source === b && e.target === a)
+    );
+  }, [gameEdges]);
+
+  // Start selection mode
   const startRouteSelect = useCallback((fieldName: string, fieldType: 'edge' | 'route') => {
     setSelectingRoute(fieldName);
     if (fieldType === 'edge') {
-      // Edge: single click, auto-done
+      // Edge: single edge click, auto-done
       setEdgeSelectMode({
         fieldName,
         onSelect: (edge) => {
@@ -268,32 +279,51 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
         },
       });
     } else {
-      // Route: multi-click, user builds a path
+      // Route: click nodes to build path
+      setRouteNodes(prev => ({ ...prev, [fieldName]: [] }));
       setRoutes(prev => ({ ...prev, [fieldName]: [] }));
-      setEdgeSelectMode({
+      setNodeSelectMode({
         fieldName,
-        onSelect: (edge) => {
-          setRoutes(prev => {
+        onSelect: (nodeId) => {
+          setRouteNodes(prev => {
             const existing = prev[fieldName] || [];
-            return { ...prev, [fieldName]: [...existing, edge] };
+            // Don't add duplicate consecutive
+            if (existing[existing.length - 1] === nodeId) return prev;
+            const updated = [...existing, nodeId];
+
+            // Resolve edges from node path
+            const edges: { id: string; source: string; target: string }[] = [];
+            for (let i = 0; i < updated.length - 1; i++) {
+              const e = gameEdges.find(e =>
+                (e.source === updated[i] && e.target === updated[i + 1]) ||
+                (e.source === updated[i + 1] && e.target === updated[i])
+              );
+              if (e) edges.push({ id: e.id, source: updated[i], target: updated[i + 1] });
+            }
+            setRoutes(r => ({ ...r, [fieldName]: edges }));
+
+            return { ...prev, [fieldName]: updated };
           });
         },
       });
     }
-  }, [setEdgeSelectMode]);
+  }, [setEdgeSelectMode, setNodeSelectMode, gameEdges]);
 
   const finishRouteSelect = useCallback(() => {
     setSelectingRoute(null);
     setEdgeSelectMode(null);
-  }, [setEdgeSelectMode]);
+    setNodeSelectMode(null);
+  }, [setEdgeSelectMode, setNodeSelectMode]);
 
   const cancelRouteSelect = useCallback(() => {
     if (selectingRoute) {
       setRoutes(prev => { const n = { ...prev }; delete n[selectingRoute]; return n; });
+      setRouteNodes(prev => { const n = { ...prev }; delete n[selectingRoute]; return n; });
     }
     setSelectingRoute(null);
     setEdgeSelectMode(null);
-  }, [setEdgeSelectMode, selectingRoute]);
+    setNodeSelectMode(null);
+  }, [setEdgeSelectMode, setNodeSelectMode, selectingRoute]);
 
   const getNodeLabel = (id: string) => gameNodes.find(n => n.id === id)?.data?.label || id;
 
@@ -393,12 +423,25 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
         }} />
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>
-            Select an edge for: {routeSlot?.name}
+            {routeSlot?.fieldType === 'route'
+              ? `Click nodes to build path: ${routeSlot?.name}`
+              : `Select an edge: ${routeSlot?.name}`}
           </div>
           <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
-            {routeSlot?.description || 'Click on a connection between two nodes'}
+            {routeSlot?.fieldType === 'route'
+              ? `Click nodes in order to define the path (${(routeNodes[selectingRoute!] || []).length} nodes selected)`
+              : (routeSlot?.description || 'Click on a connection between two nodes')}
           </div>
         </div>
+        {routeSlot?.fieldType === 'route' && (routeNodes[selectingRoute!] || []).length >= 2 && (
+          <button onClick={finishRouteSelect} style={{
+            padding: '6px 14px', borderRadius: 'var(--radius-sm)',
+            background: 'var(--accent)', border: 'none',
+            color: '#000', fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 700, cursor: 'pointer',
+          }}>
+            Done
+          </button>
+        )}
         <button onClick={cancelRouteSelect} style={{
           padding: '6px 12px', borderRadius: 'var(--radius-sm)',
           background: 'var(--bg-elevated)', border: '1px solid var(--border)',
@@ -640,14 +683,19 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                       </div>
                       {/* Show selected path */}
                       {filled && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 8, flexWrap: 'wrap' }}>
-                          {edges.map((edge, i) => (
-                            <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>
-                              {i === 0 && <span style={{ fontWeight: 700 }}>{getNodeLabel(edge.source)}</span>}
-                              <span style={{ color: 'var(--text-muted)' }}>→</span>
-                              <span style={{ fontWeight: 700 }}>{getNodeLabel(edge.target)}</span>
-                            </span>
-                          ))}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 8, flexWrap: 'wrap', fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>
+                          {isEdge ? (
+                            // Edge: show source ↔ target
+                            <span><span style={{ fontWeight: 700 }}>{getNodeLabel(edges[0].source)}</span> <span style={{ color: 'var(--text-muted)' }}>↔</span> <span style={{ fontWeight: 700 }}>{getNodeLabel(edges[0].target)}</span></span>
+                          ) : (
+                            // Route: show node path
+                            (routeNodes[slot.name] || []).map((nid, i, arr) => (
+                              <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <span style={{ fontWeight: 700 }}>{getNodeLabel(nid)}</span>
+                                {i < arr.length - 1 && <span style={{ color: 'var(--text-muted)' }}>→</span>}
+                              </span>
+                            ))
+                          )}
                         </div>
                       )}
                     </div>
