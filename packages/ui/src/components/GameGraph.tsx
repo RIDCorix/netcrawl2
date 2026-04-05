@@ -103,24 +103,29 @@ function WorkerDotsRow({ workers, show }: { workers: any[]; show: boolean }) {
               </div>
             )}
             {/* Speech bubble — tech callout style */}
-            {w.lastLog && (Date.now() - (w.lastLog.ts || 0) < 4000) && (
-              <div style={{
-                position: 'absolute', left: 10, top: -8,
-                pointerEvents: 'none', whiteSpace: 'nowrap',
-                animation: 'bubble-fade 4s ease-out forwards',
-              }}>
+            {w.lastLog && (
+              <div
+                key={`bubble-${w.lastLog.ts}`}
+                style={{
+                  position: 'absolute', left: 10, top: -10,
+                  pointerEvents: 'none', whiteSpace: 'nowrap',
+                  animation: 'bubble-fade 4s ease-out forwards',
+                }}
+              >
                 {/* Diagonal + horizontal line */}
-                <svg width="24" height="16" style={{ position: 'absolute', left: 0, top: 6 }}>
-                  <line x1="0" y1="16" x2="12" y2="4" stroke={w.lastLog.level === 'error' ? '#ef4444' : w.lastLog.level === 'warn' ? '#f59e0b' : 'var(--accent)'} strokeWidth="1" />
-                  <line x1="12" y1="4" x2="24" y2="4" stroke={w.lastLog.level === 'error' ? '#ef4444' : w.lastLog.level === 'warn' ? '#f59e0b' : 'var(--accent)'} strokeWidth="1" />
+                <svg width="20" height="14" style={{ position: 'absolute', left: 0, top: 6 }}>
+                  <line x1="0" y1="14" x2="10" y2="3" stroke={w.lastLog.level === 'error' ? '#ef4444' : w.lastLog.level === 'warn' ? '#f59e0b' : 'var(--accent)'} strokeWidth="0.8" opacity="0.7" />
+                  <line x1="10" y1="3" x2="20" y2="3" stroke={w.lastLog.level === 'error' ? '#ef4444' : w.lastLog.level === 'warn' ? '#f59e0b' : 'var(--accent)'} strokeWidth="0.8" opacity="0.7" />
                 </svg>
-                {/* Message */}
+                {/* Message — transparent bg, bottom border only */}
                 <span style={{
-                  position: 'absolute', left: 26, top: 0,
-                  fontSize: 7, fontFamily: 'var(--font-mono)', fontWeight: 600,
+                  position: 'absolute', left: 22, top: -2,
+                  fontSize: 7, fontFamily: 'var(--font-mono)', fontWeight: 600, letterSpacing: '0.02em',
                   color: w.lastLog.level === 'error' ? '#ef4444' : w.lastLog.level === 'warn' ? '#f59e0b' : 'var(--accent)',
-                  background: 'rgba(10,10,15,0.85)', padding: '1px 4px', borderRadius: 2,
-                  maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis',
+                  background: 'transparent',
+                  borderBottom: `1px solid ${w.lastLog.level === 'error' ? 'rgba(239,68,68,0.4)' : w.lastLog.level === 'warn' ? 'rgba(245,158,11,0.4)' : 'rgba(0,212,170,0.3)'}`,
+                  padding: '0 2px 1px',
+                  maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis',
                 }}>
                   {(w.lastLog.message || '').replace(/^\[(INFO|WARN|ERROR)\]\s*/i, '')}
                 </span>
