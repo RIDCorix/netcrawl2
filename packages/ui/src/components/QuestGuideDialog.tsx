@@ -10,8 +10,10 @@ import axios from 'axios';
 import { Markdown } from './ui/markdown';
 import { CHAPTER_COLORS } from '../constants/colors';
 import { useT } from '../hooks/useT';
+import { useGameStore } from '../store/gameStore';
 import { DemoPlayer } from './guide/DemoPlayer';
 import { DEMO_SCRIPTS } from './guide/demoScripts';
+import { getTranslatedGuide } from '../i18n/guides';
 
 function RewardBadge({ reward, color }: { reward: any; color: string }) {
   const text = (() => {
@@ -45,7 +47,9 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
   const [msg, setMsg] = useState('');
 
   const t = useT();
-  const guide = quest.guide || [];
+  const lang = useGameStore(s => s.settings.language);
+  const translatedGuide = getTranslatedGuide(lang, quest.id);
+  const guide = translatedGuide || quest.guide || [];
   const totalPages = guide.length;
   const isLastPage = page === totalPages - 1;
   const isFirstPage = page === 0;
