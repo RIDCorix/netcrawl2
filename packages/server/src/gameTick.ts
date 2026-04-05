@@ -1,22 +1,37 @@
-import { getGameState, saveGameState, getWorkers, incrementStat } from './db.js';
+import { getGameState, saveGameState, getWorkers, incrementStat, getAllActiveUserIds, setCurrentUser } from './db.js';
 import { broadcast } from './websocket.js';
 import { broadcastFullState } from './broadcastHelper.js';
 import { getNeighborIds } from './graphUtils.js';
 import { checkAchievements } from './achievements.js';
 import { tickAPINodes } from './apiNodeEngine.js';
 
+const isMultiUser = () => process.env.NETCRAWL_MULTI_USER === 'true';
+
 export function startGameTick() {
   setInterval(() => {
     try {
-      tick();
+      if (isMultiUser()) {
+        // Tick each active user independently
+        const userIds = getAllActiveUserIds();
+        for (const userId of userIds) {
+          try {
+            setCurrentUser(userId);
+            tickUser(userId);
+          } catch (err) {
+            console.error(`[Tick] Error for user ${userId}:`, err);
+          }
+        }
+      } else {
+        tickUser();
+      }
     } catch (err) {
       console.error('[Tick] Error:', err);
     }
   }, 1000);
 }
 
-function tick() {
-  const state = getGameState();
+function tickUser(userId?: string) {
+  const state = getGameState(userId);
   if (state.gameOver) return;
 
   let { nodes, edges, resources, tick } = state;
@@ -38,7 +53,7 @@ function tick() {
             return n;
           });
           changed = true;
-          console.log(`[Tick] Infection spread to ${neighborId}`);
+          console.log(`[Tick] Infection spread to ${neighborId}${userId ? ` (user ${userId})` : ''}`);
         }
       }
     }
@@ -66,20 +81,20 @@ function tick() {
   // Check if hub is infected → game over
   const hub = nodes.find((n: any) => n.id === 'hub');
   if (hub && (hub.data.infected || hub.type === 'infected')) {
-    saveGameState({ ...state, nodes, edges, resources, tick: tick + 1, gameOver: true });
-    broadcastFullState();
-    incrementStat('total_game_overs', 1);
-    checkAchievements();
-    console.log('[Tick] GAME OVER - Hub infected!');
+    saveGameState({ ...state, nodes, edges, resources, tick: tick + 1, gameOver: true }, userId);
+    broadcastFullState(userId);
+    incrementStat('total_game_overs', 1, userId);
+    checkAchievements(userId);
+    console.log(`[Tick] GAME OVER - Hub infected!${userId ? ` (user ${userId})` : ''}`);
     return;
   }
 
-  saveGameState({ ...state, nodes, edges, resources, tick: tick + 1, gameOver: false });
+  saveGameState({ ...state, nodes, edges, resources, tick: tick + 1, gameOver: false }, userId);
 
   // Generate API requests for API nodes
   tickAPINodes();
 
   if (changed || tick % 5 === 0) {
-    broadcastFullState();
+    broadcastFullState(userId);
   }
 }

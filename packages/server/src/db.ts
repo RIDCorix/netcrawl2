@@ -16,6 +16,13 @@ let DATA_PATH = path.join(_dataDir, 'data', 'netcrawl-state.json');
 const isMultiUser = () => process.env.NETCRAWL_MULTI_USER === 'true';
 let _currentUserId: string | null = null;
 
+/**
+ * Per-user store map for multi-user mode.
+ * Keyed by userId. Each user gets their own Store instance.
+ */
+const userStores = new Map<string, Store>();
+const userDataPaths = new Map<string, string>();
+
 /** Set data directory before calling initDb(). Used by Electron main process. */
 export function setDataDir(dir: string) {
   _dataDir = dir;
@@ -23,32 +30,59 @@ export function setDataDir(dir: string) {
 }
 
 /**
- * In multi-user mode, switch to a specific user's state file.
- * Loads or initializes the state for that user.
+ * In multi-user mode, ensure a specific user's state is loaded.
+ * This is safe to call concurrently — it only loads once per user.
  */
 export function setCurrentUser(userId: string) {
   if (!isMultiUser()) return; // no-op in single-user mode
-  if (_currentUserId === userId) return; // already loaded
-
-  // Persist current user's state before switching
-  if (_currentUserId) {
-    persist();
-  }
 
   _currentUserId = userId;
+
+  // If user store already loaded, no need to reload
+  if (userStores.has(userId)) return;
+
+  // Load this user's store into the per-user map
   const userDir = path.join(_dataDir, 'data', 'users', userId);
   if (!fs.existsSync(userDir)) {
     fs.mkdirSync(userDir, { recursive: true });
   }
-  DATA_PATH = path.join(userDir, 'state.json');
+  const userDataPath = path.join(userDir, 'state.json');
+  userDataPaths.set(userId, userDataPath);
 
-  // Load or create this user's state
+  // Temporarily switch DATA_PATH to load user's state
+  const savedPath = DATA_PATH;
+  const savedStore = store;
+  DATA_PATH = userDataPath;
   _loadStore();
+  userStores.set(userId, store);
+  // Restore previous globals
+  store = savedStore;
+  DATA_PATH = savedPath;
 }
 
 /** Get the current user ID (null in single-user mode) */
 export function getCurrentUserId(): string | null {
   return _currentUserId;
+}
+
+/**
+ * Resolve the store for a given userId.
+ * In multi-user mode: uses explicit userId if provided, otherwise falls back to _currentUserId.
+ * In single-user mode: always returns the default store.
+ */
+function resolveStore(userId?: string): Store {
+  if (isMultiUser()) {
+    const effectiveId = userId || _currentUserId;
+    if (effectiveId && userStores.has(effectiveId)) {
+      return userStores.get(effectiveId)!;
+    }
+  }
+  return store;
+}
+
+/** Get all active user IDs with loaded stores (for game tick). */
+export function getAllActiveUserIds(): string[] {
+  return Array.from(userStores.keys());
 }
 
 // Data directory is created in initDb() after setDataDir() has been called
@@ -685,7 +719,7 @@ export function initDb() {
   _loadStore();
 
   // Persist every 5 seconds
-  setInterval(persist, 5000);
+  setInterval(persistAll, 5000);
 }
 
 function persist() {
@@ -696,10 +730,27 @@ function persist() {
   }
 }
 
+/** Persist all stores — default store + all per-user stores. */
+function persistAll() {
+  // Persist default (single-user) store
+  persist();
+
+  // Persist all per-user stores
+  for (const [userId, userStore] of userStores.entries()) {
+    const userPath = userDataPaths.get(userId);
+    if (!userPath) continue;
+    try {
+      fs.writeFileSync(userPath, JSON.stringify(userStore, null, 2));
+    } catch (err) {
+      console.error(`[DB] Persist failed for user ${userId}:`, err);
+    }
+  }
+}
+
 // ── Game state ────────────────────────────────────────────────────────────────
 
-export function getGameState(): GameStateRow {
-  return store.game_state;
+export function getGameState(userId?: string): GameStateRow {
+  return resolveStore(userId).game_state;
 }
 
 /**
@@ -707,8 +758,8 @@ export function getGameState(): GameStateRow {
  * plus the edges that connect visible nodes.
  * This avoids sending the entire map to the client.
  */
-export function getVisibleState(depth = 2): { nodes: any[]; edges: any[] } {
-  const { nodes, edges } = store.game_state;
+export function getVisibleState(depth = 2, userId?: string): { nodes: any[]; edges: any[] } {
+  const { nodes, edges } = resolveStore(userId).game_state;
 
   // Build adjacency list from edges
   const adj = new Map<string, Set<string>>();
@@ -749,23 +800,37 @@ export function getVisibleState(depth = 2): { nodes: any[]; edges: any[] } {
   };
 }
 
-export function saveGameState(state: GameStateRow) {
-  store.game_state = state;
+export function saveGameState(state: GameStateRow, userId?: string) {
+  const s = resolveStore(userId);
+  s.game_state = state;
+  if (isMultiUser() && userId && userStores.has(userId)) {
+    userStores.set(userId, s);
+  }
 }
 
-export function resetGameState() {
-  store = JSON.parse(JSON.stringify(INITIAL_STORE));
-  persist();
+export function resetGameState(userId?: string) {
+  const fresh = JSON.parse(JSON.stringify(INITIAL_STORE));
+  if (isMultiUser() && userId) {
+    userStores.set(userId, fresh);
+    const userPath = userDataPaths.get(userId);
+    if (userPath) {
+      try { fs.writeFileSync(userPath, JSON.stringify(fresh, null, 2)); } catch {}
+    }
+  } else {
+    store = fresh;
+    persist();
+  }
 }
 
 // ── Player Inventory ──────────────────────────────────────────────────────────
 
-export function getPlayerInventory(): InventoryItem[] {
-  return store.game_state.playerInventory || [];
+export function getPlayerInventory(userId?: string): InventoryItem[] {
+  return resolveStore(userId).game_state.playerInventory || [];
 }
 
-export function addToPlayerInventory(itemType: string, count: number, metadata?: { efficiency?: number }) {
-  const inv = store.game_state.playerInventory || [];
+export function addToPlayerInventory(itemType: string, count: number, metadata?: { efficiency?: number }, userId?: string) {
+  const s = resolveStore(userId);
+  const inv = s.game_state.playerInventory || [];
   const existing = inv.find(i => i.itemType === itemType);
   if (existing) {
     existing.count += count;
@@ -777,16 +842,17 @@ export function addToPlayerInventory(itemType: string, count: number, metadata?:
       metadata,
     });
   }
-  store.game_state.playerInventory = inv;
+  s.game_state.playerInventory = inv;
 }
 
-export function removeFromPlayerInventory(itemType: string, count: number): boolean {
-  const inv = store.game_state.playerInventory || [];
+export function removeFromPlayerInventory(itemType: string, count: number, userId?: string): boolean {
+  const s = resolveStore(userId);
+  const inv = s.game_state.playerInventory || [];
   const existing = inv.find(i => i.itemType === itemType);
   if (!existing || existing.count < count) return false;
   existing.count -= count;
   if (existing.count === 0) {
-    store.game_state.playerInventory = inv.filter(i => i.itemType !== itemType);
+    s.game_state.playerInventory = inv.filter(i => i.itemType !== itemType);
   }
   return true;
 }
@@ -832,23 +898,24 @@ export function getItemComputeCost(itemType: string): number {
 
 // ── Workers ───────────────────────────────────────────────────────────────────
 
-export function getWorkers(): WorkerRow[] {
-  return Object.values(store.workers);
+export function getWorkers(userId?: string): WorkerRow[] {
+  return Object.values(resolveStore(userId).workers);
 }
 
-export function getWorker(id: string): WorkerRow | null {
-  return store.workers[id] || null;
+export function getWorker(id: string, userId?: string): WorkerRow | null {
+  return resolveStore(userId).workers[id] || null;
 }
 
-export function upsertWorker(worker: WorkerRow) {
-  store.workers[worker.id] = {
+export function upsertWorker(worker: WorkerRow, userId?: string) {
+  const s = resolveStore(userId);
+  s.workers[worker.id] = {
     ...worker,
-    deployed_at: store.workers[worker.id]?.deployed_at || new Date().toISOString(),
+    deployed_at: s.workers[worker.id]?.deployed_at || new Date().toISOString(),
   };
 }
 
-export function deleteWorker(id: string) {
-  delete store.workers[id];
+export function deleteWorker(id: string, userId?: string) {
+  delete resolveStore(userId).workers[id];
 }
 
 /**
@@ -856,13 +923,14 @@ export function deleteWorker(id: string) {
  * Moves workers back to their original deploy node and sets status to 'suspended'.
  * The code server will re-register and users can redeploy.
  */
-export function resetAllWorkers(): void {
-  const workers = Object.values(store.workers);
+export function resetAllWorkers(userId?: string): void {
+  const s = resolveStore(userId);
+  const workers = Object.values(s.workers);
   if (workers.length === 0) return;
 
   for (const w of workers) {
     // Reset position to original deploy node
-    store.workers[w.id] = {
+    s.workers[w.id] = {
       ...w,
       current_node: w.node_id,
       status: 'suspended',
@@ -873,42 +941,43 @@ export function resetAllWorkers(): void {
   }
 
   // Reset FLOP — all workers are suspended, none consuming FLOP
-  store.game_state.flop.used = 0;
+  s.game_state.flop.used = 0;
 
   console.log(`[NetCrawl] Reset ${workers.length} workers to suspended state`);
 }
 
 /** Try to allocate FLOP capacity. Returns false if not enough room. */
-export function allocateFlop(cost: number): boolean {
-  const flop = store.game_state.flop;
+export function allocateFlop(cost: number, userId?: string): boolean {
+  const flop = resolveStore(userId).game_state.flop;
   if (flop.used + cost > flop.total) return false;
   flop.used += cost;
   return true;
 }
 
 /** Release FLOP capacity (clamped to 0). */
-export function releaseFlop(cost: number): void {
-  const flop = store.game_state.flop;
+export function releaseFlop(cost: number, userId?: string): void {
+  const flop = resolveStore(userId).game_state.flop;
   flop.used = Math.max(0, flop.used - cost);
 }
 
 // ── Worker logs ───────────────────────────────────────────────────────────────
 
-export function addWorkerLog(workerId: string, message: string) {
-  store.worker_logs.push({
-    id: store.next_log_id++,
+export function addWorkerLog(workerId: string, message: string, userId?: string) {
+  const s = resolveStore(userId);
+  s.worker_logs.push({
+    id: s.next_log_id++,
     worker_id: workerId,
     message,
     created_at: new Date().toISOString(),
   });
   // Keep last 1000 logs
-  if (store.worker_logs.length > 1000) {
-    store.worker_logs = store.worker_logs.slice(-1000);
+  if (s.worker_logs.length > 1000) {
+    s.worker_logs = s.worker_logs.slice(-1000);
   }
 }
 
-export function getWorkerLogs(workerId: string): WorkerLogRow[] {
-  return store.worker_logs
+export function getWorkerLogs(workerId: string, userId?: string): WorkerLogRow[] {
+  return resolveStore(userId).worker_logs
     .filter(l => l.worker_id === workerId)
     .slice(-100)
     .reverse();
@@ -916,17 +985,18 @@ export function getWorkerLogs(workerId: string): WorkerLogRow[] {
 
 // ── Player Chips ─────────────────────────────────────────────────────────────
 
-export function getPlayerChips(): Chip[] {
-  return store.game_state.playerChips || [];
+export function getPlayerChips(userId?: string): Chip[] {
+  return resolveStore(userId).game_state.playerChips || [];
 }
 
-export function addPlayerChip(chip: Chip) {
-  if (!store.game_state.playerChips) store.game_state.playerChips = [];
-  store.game_state.playerChips.push(chip);
+export function addPlayerChip(chip: Chip, userId?: string) {
+  const s = resolveStore(userId);
+  if (!s.game_state.playerChips) s.game_state.playerChips = [];
+  s.game_state.playerChips.push(chip);
 }
 
-export function removePlayerChip(chipId: string): Chip | null {
-  const chips = store.game_state.playerChips || [];
+export function removePlayerChip(chipId: string, userId?: string): Chip | null {
+  const chips = resolveStore(userId).game_state.playerChips || [];
   const idx = chips.findIndex(c => c.id === chipId);
   if (idx === -1) return null;
   const [removed] = chips.splice(idx, 1);
@@ -934,8 +1004,8 @@ export function removePlayerChip(chipId: string): Chip | null {
 }
 
 /** Get aggregated chip effects for a node */
-export function getNodeChipEffects(nodeId: string): Record<string, number> {
-  const state = store.game_state;
+export function getNodeChipEffects(nodeId: string, userId?: string): Record<string, number> {
+  const state = resolveStore(userId).game_state;
   const node = state.nodes.find((n: any) => n.id === nodeId);
   if (!node) return {};
 
@@ -969,84 +1039,86 @@ export function getNodeChipEffects(nodeId: string): Record<string, number> {
 
 // ── Achievement Helpers ──────────────────────────────────────────────────────
 
-export function getAchievementState(): AchievementState {
-  return store.achievement_state;
+export function getAchievementState(userId?: string): AchievementState {
+  return resolveStore(userId).achievement_state;
 }
 
-export function incrementStat(key: string, amount: number = 1): number {
-  const s = store.achievement_state.stats;
+export function incrementStat(key: string, amount: number = 1, userId?: string): number {
+  const s = resolveStore(userId).achievement_state.stats;
   s[key] = (s[key] || 0) + amount;
   return s[key];
 }
 
-export function setStatMax(key: string, value: number): number {
-  const s = store.achievement_state.stats;
+export function setStatMax(key: string, value: number, userId?: string): number {
+  const s = resolveStore(userId).achievement_state.stats;
   s[key] = Math.max(s[key] || 0, value);
   return s[key];
 }
 
-export function getStat(key: string): number {
-  return store.achievement_state.stats[key] || 0;
+export function getStat(key: string, userId?: string): number {
+  return resolveStore(userId).achievement_state.stats[key] || 0;
 }
 
-export function addToStatArray(key: string, value: string): string[] {
-  const a = store.achievement_state.statArrays;
+export function addToStatArray(key: string, value: string, userId?: string): string[] {
+  const a = resolveStore(userId).achievement_state.statArrays;
   if (!a[key]) a[key] = [];
   if (!a[key].includes(value)) a[key].push(value);
   return a[key];
 }
 
-export function getStatArray(key: string): string[] {
-  return store.achievement_state.statArrays[key] || [];
+export function getStatArray(key: string, userId?: string): string[] {
+  return resolveStore(userId).achievement_state.statArrays[key] || [];
 }
 
-export function markAchievementUnlocked(id: string): void {
-  store.achievement_state.unlocked[id] = new Date().toISOString();
+export function markAchievementUnlocked(id: string, userId?: string): void {
+  resolveStore(userId).achievement_state.unlocked[id] = new Date().toISOString();
 }
 
-export function isAchievementUnlocked(id: string): boolean {
-  return !!store.achievement_state.unlocked[id];
+export function isAchievementUnlocked(id: string, userId?: string): boolean {
+  return !!resolveStore(userId).achievement_state.unlocked[id];
 }
 
 // ── Quest Helpers ────────────────────────────────────────────────────────────
 
-export function getQuestState(): QuestState {
-  return store.quest_state;
+export function getQuestState(userId?: string): QuestState {
+  return resolveStore(userId).quest_state;
 }
 
-export function getQuestStatus(questId: string): QuestState['questStatus'][string] | undefined {
-  return store.quest_state.questStatus[questId];
+export function getQuestStatus(questId: string, userId?: string): QuestState['questStatus'][string] | undefined {
+  return resolveStore(userId).quest_state.questStatus[questId];
 }
 
-export function setQuestStatus(questId: string, status: 'locked' | 'available' | 'completed' | 'claimed') {
-  store.quest_state.questStatus[questId] = status;
+export function setQuestStatus(questId: string, status: 'locked' | 'available' | 'completed' | 'claimed', userId?: string) {
+  const s = resolveStore(userId);
+  s.quest_state.questStatus[questId] = status;
   if (status === 'claimed') {
-    store.quest_state.claimedAt[questId] = new Date().toISOString();
+    s.quest_state.claimedAt[questId] = new Date().toISOString();
   }
 }
 
-export function addActivePassive(id: string, description: string, effect: Record<string, number>) {
-  store.quest_state.activePassives[id] = { description, effect };
+export function addActivePassive(id: string, description: string, effect: Record<string, number>, userId?: string) {
+  resolveStore(userId).quest_state.activePassives[id] = { description, effect };
 }
 
-export function getActivePassives(): Record<string, { description: string; effect: Record<string, number> }> {
-  return store.quest_state.activePassives || {};
+export function getActivePassives(userId?: string): Record<string, { description: string; effect: Record<string, number> }> {
+  return resolveStore(userId).quest_state.activePassives || {};
 }
 
-export function addUnlockedRecipe(recipeId: string) {
-  if (!store.quest_state.unlockedRecipes.includes(recipeId)) {
-    store.quest_state.unlockedRecipes.push(recipeId);
+export function addUnlockedRecipe(recipeId: string, userId?: string) {
+  const s = resolveStore(userId);
+  if (!s.quest_state.unlockedRecipes.includes(recipeId)) {
+    s.quest_state.unlockedRecipes.push(recipeId);
   }
 }
 
 // ── Level System ────────────────────────────────────────────────────────────
 
-export function getLevelState(): LevelState {
-  return store.level_state;
+export function getLevelState(userId?: string): LevelState {
+  return resolveStore(userId).level_state;
 }
 
-export function saveLevelState(state: LevelState) {
-  store.level_state = state;
+export function saveLevelState(state: LevelState, userId?: string) {
+  resolveStore(userId).level_state = state;
 }
 
 /**
@@ -1054,20 +1126,21 @@ export function saveLevelState(state: LevelState) {
  * Automatically applies milestone rewards (passives, recipes, items).
  */
 // Lazy-loaded broadcast to avoid circular dependency
-let _broadcast: ((data: any) => void) | null = null;
-export function setLevelBroadcast(fn: (data: any) => void) {
+let _broadcast: ((data: any, userId?: string) => void) | null = null;
+export function setLevelBroadcast(fn: (data: any, userId?: string) => void) {
   _broadcast = fn;
 }
 
-export function awardXp(amount: number): LevelUpResult {
-  const prevFlopBonus = store.level_state.flopBonus;
-  const result = grantXp(store.level_state, amount);
-  store.level_state = result.newState;
+export function awardXp(amount: number, userId?: string): LevelUpResult {
+  const s = resolveStore(userId);
+  const prevFlopBonus = s.level_state.flopBonus;
+  const result = grantXp(s.level_state, amount);
+  s.level_state = result.newState;
 
   // Sync FLOP capacity with level bonus
   const flopDelta = result.newState.flopBonus - prevFlopBonus;
   if (flopDelta > 0) {
-    store.game_state.flop.total += flopDelta;
+    s.game_state.flop.total += flopDelta;
   }
 
   // Apply milestone rewards
@@ -1075,14 +1148,14 @@ export function awardXp(amount: number): LevelUpResult {
     for (const reward of milestone.rewards) {
       switch (reward.kind) {
         case 'passive':
-          addActivePassive(reward.effectId, reward.description, reward.effect);
+          addActivePassive(reward.effectId, reward.description, reward.effect, userId);
           break;
         case 'recipe_unlock':
-          addUnlockedRecipe(reward.recipeId);
+          addUnlockedRecipe(reward.recipeId, userId);
           break;
         case 'items':
           for (const item of reward.items) {
-            addToPlayerInventory(item.itemType, item.count);
+            addToPlayerInventory(item.itemType, item.count, undefined, userId);
           }
           break;
         // flop_bonus and max_workers_bonus are handled in grantXp itself
@@ -1101,14 +1174,14 @@ export function awardXp(amount: number): LevelUpResult {
         titleZh: title.titleZh,
         milestones: result.newMilestones,
       },
-    });
+    }, userId);
   }
 
   return result;
 }
 
-export function getPlayerLevelSummary(): LevelSummary {
-  return getLevelSummary(store.level_state);
+export function getPlayerLevelSummary(userId?: string): LevelSummary {
+  return getLevelSummary(resolveStore(userId).level_state);
 }
 
 // ── Node XP ─────────────────────────────────────────────────────────────────
@@ -1119,8 +1192,8 @@ export function getPlayerLevelSummary(): LevelSummary {
  *
  * Returns true if XP was granted (or auto-upgrade triggered).
  */
-export function grantNodeXp(nodeId: string, action: string): boolean {
-  const state = store.game_state;
+export function grantNodeXp(nodeId: string, action: string, userId?: string): boolean {
+  const state = resolveStore(userId).game_state;
   const nodeIdx = state.nodes.findIndex((n: any) => n.id === nodeId);
   if (nodeIdx === -1) return false;
 
@@ -1230,8 +1303,8 @@ export function sweepNodeAutoUpgrades(): boolean {
   return changed;
 }
 
-export function getUnlockedRecipes(): string[] {
-  return store.quest_state.unlockedRecipes || [];
+export function getUnlockedRecipes(userId?: string): string[] {
+  return resolveStore(userId).quest_state.unlockedRecipes || [];
 }
 
 // ── Cache Node Storage ──────────────────────────────────────────────────────
@@ -1310,80 +1383,80 @@ export function getCacheCapacity(nodeId: string): number {
 
 // ── Layer management ─────────────────────────────────────────────────────────
 
-export function getActiveLayerId(): number {
-  return store.layer_manager?.currentLayer ?? 0;
+export function getActiveLayerId(userId?: string): number {
+  return resolveStore(userId).layer_manager?.currentLayer ?? 0;
 }
 
-export function getLayerManager(): LayerManagerState {
-  return store.layer_manager;
+export function getLayerManager(userId?: string): LayerManagerState {
+  return resolveStore(userId).layer_manager;
 }
 
-export function isLayerUnlocked(layerId: number): boolean {
-  return (store.layer_manager?.unlockedLayers ?? [0]).includes(layerId);
+export function isLayerUnlocked(layerId: number, userId?: string): boolean {
+  return (resolveStore(userId).layer_manager?.unlockedLayers ?? [0]).includes(layerId);
 }
 
-export function unlockLayer(layerId: number): void {
-  if (!isLayerUnlocked(layerId)) {
-    if (!store.layer_manager) {
-      store.layer_manager = { currentLayer: 0, unlockedLayers: [0], snapshots: {} };
+export function unlockLayer(layerId: number, userId?: string): void {
+  if (!isLayerUnlocked(layerId, userId)) {
+    const s = resolveStore(userId);
+    if (!s.layer_manager) {
+      s.layer_manager = { currentLayer: 0, unlockedLayers: [0], snapshots: {} };
     }
-    store.layer_manager.unlockedLayers.push(layerId);
-    persist();
+    s.layer_manager.unlockedLayers.push(layerId);
   }
 }
 
-export function switchActiveLayer(newLayerId: number): { ok: boolean; error?: string } {
-  if (!isLayerUnlocked(newLayerId)) {
+export function switchActiveLayer(newLayerId: number, userId?: string): { ok: boolean; error?: string } {
+  if (!isLayerUnlocked(newLayerId, userId)) {
     return { ok: false, error: `Layer ${newLayerId} is not unlocked` };
   }
 
-  const currentLayerId = store.layer_manager?.currentLayer ?? 0;
+  const s = resolveStore(userId);
+  const currentLayerId = s.layer_manager?.currentLayer ?? 0;
 
   // Save current map state to snapshot
-  if (!store.layer_manager) {
-    store.layer_manager = { currentLayer: 0, unlockedLayers: [0], snapshots: {} };
+  if (!s.layer_manager) {
+    s.layer_manager = { currentLayer: 0, unlockedLayers: [0], snapshots: {} };
   }
-  store.layer_manager.snapshots[currentLayerId] = {
-    nodes: JSON.parse(JSON.stringify(store.game_state.nodes)),
-    edges: JSON.parse(JSON.stringify(store.game_state.edges)),
-    workers: JSON.parse(JSON.stringify(store.workers)),
-    flop: { ...store.game_state.flop },
-    tick: store.game_state.tick,
-    gameOver: store.game_state.gameOver,
+  s.layer_manager.snapshots[currentLayerId] = {
+    nodes: JSON.parse(JSON.stringify(s.game_state.nodes)),
+    edges: JSON.parse(JSON.stringify(s.game_state.edges)),
+    workers: JSON.parse(JSON.stringify(s.workers)),
+    flop: { ...s.game_state.flop },
+    tick: s.game_state.tick,
+    gameOver: s.game_state.gameOver,
   };
 
   // Load new layer (from snapshot or initialize)
-  if (store.layer_manager.snapshots[newLayerId]) {
-    const snap = store.layer_manager.snapshots[newLayerId];
-    store.game_state.nodes = snap.nodes;
-    store.game_state.edges = snap.edges;
-    store.workers = snap.workers as Record<string, WorkerRow>;
-    store.game_state.flop = snap.flop;
-    store.game_state.tick = snap.tick;
-    store.game_state.gameOver = snap.gameOver;
+  if (s.layer_manager.snapshots[newLayerId]) {
+    const snap = s.layer_manager.snapshots[newLayerId];
+    s.game_state.nodes = snap.nodes;
+    s.game_state.edges = snap.edges;
+    s.workers = snap.workers as Record<string, WorkerRow>;
+    s.game_state.flop = snap.flop;
+    s.game_state.tick = snap.tick;
+    s.game_state.gameOver = snap.gameOver;
   } else {
     const snap = getLayerInitialSnapshot(newLayerId);
-    store.game_state.nodes = snap.nodes;
-    store.game_state.edges = snap.edges;
-    store.workers = {};
-    store.game_state.flop = snap.flop;
-    store.game_state.tick = snap.tick;
-    store.game_state.gameOver = snap.gameOver;
+    s.game_state.nodes = snap.nodes;
+    s.game_state.edges = snap.edges;
+    s.workers = {};
+    s.game_state.flop = snap.flop;
+    s.game_state.tick = snap.tick;
+    s.game_state.gameOver = snap.gameOver;
   }
 
-  store.layer_manager.currentLayer = newLayerId;
-  persist();
+  s.layer_manager.currentLayer = newLayerId;
   return { ok: true };
 }
 
-export function checkLayerUnlocks(): number[] {
-  const state = getGameState();
-  const stats = store.achievement_state?.stats || {};
+export function checkLayerUnlocks(userId?: string): number[] {
+  const state = getGameState(userId);
+  const stats = resolveStore(userId).achievement_state?.stats || {};
   const newlyUnlocked: number[] = [];
 
   for (const def of LAYER_DEFS) {
     if (def.id === 0) continue;
-    if (isLayerUnlocked(def.id)) continue;
+    if (isLayerUnlocked(def.id, userId)) continue;
 
     const thresh = def.unlockThresholds;
     const dataMet = !thresh.total_data_deposited || (stats['total_data_deposited'] || 0) >= thresh.total_data_deposited;
@@ -1391,7 +1464,7 @@ export function checkLayerUnlocks(): number[] {
     const creditsMet = !thresh.credits || state.resources.credits >= thresh.credits;
 
     if (dataMet && rpMet && creditsMet) {
-      unlockLayer(def.id);
+      unlockLayer(def.id, userId);
       newlyUnlocked.push(def.id);
     }
   }

@@ -19,8 +19,8 @@ import { handleWorkerAction } from './workerActions.js';
 import { spawnWorker, killWorker, suspendWorker, getActiveProcesses } from './workerSpawner.js';
 import { checkCost, deductCost } from './stateHelpers.js';
 import {
-  WorkerClassEntry, registerWorkerClass, getWorkerClass, getAllWorkerClasses,
-  DeployRequest, enqueueDeploy, drainDeployQueue, removeFromDeployQueue,
+  type WorkerClassEntry, registerWorkerClass, getWorkerClass, getAllWorkerClasses,
+  type DeployRequest, enqueueDeploy, drainDeployQueue, removeFromDeployQueue,
 } from './workerRegistry.js';
 import { broadcastFullState } from './broadcastHelper.js';
 import {
@@ -47,11 +47,18 @@ if (process.env.NETCRAWL_MULTI_USER === 'true') {
     authMiddleware(req as AuthenticatedRequest, res, () => {
       const authReq = req as AuthenticatedRequest;
       if (authReq.user) {
+        // Set global userId for backward compat AND store it on request
         setCurrentUser(authReq.user.userId);
+        (req as any)._userId = authReq.user.userId;
       }
       next();
     });
   });
+}
+
+/** Extract userId from request (set by auth middleware in multi-user mode). */
+function getUserId(req: Request): string | undefined {
+  return (req as any)._userId || undefined;
 }
 
 // Resolve workspace path
@@ -68,16 +75,18 @@ function getWorkspacePath(): string {
 
 // GET /api/state
 router.get('/state', (req: Request, res: Response) => {
-  const state = getGameState();
-  const { nodes, edges } = getVisibleState(2);
-  const workers = getWorkers();
+  const uid = getUserId(req);
+  const state = getGameState(uid);
+  const { nodes, edges } = getVisibleState(2, uid);
+  const workers = getWorkers(uid);
   res.json({ ...state, nodes, edges, workers });
 });
 
 // POST /api/gather
 router.post('/gather', (req: Request, res: Response) => {
+  const uid = getUserId(req);
   const { nodeId } = req.body;
-  const state = getGameState();
+  const state = getGameState(uid);
   const node = state.nodes.find((n: any) => n.id === nodeId);
   if (!node) return res.status(404).json({ error: 'Node not found' });
   if (!node.data.unlocked) return res.status(400).json({ error: 'Node not unlocked' });
@@ -87,16 +96,17 @@ router.post('/gather', (req: Request, res: Response) => {
 
   const newResources = { ...state.resources };
   (newResources as any)[resourceType] = ((newResources as any)[resourceType] || 0) + 10;
-  saveGameState({ ...state, resources: newResources });
-  grantNodeXp(nodeId, 'harvest');
-  broadcastFullState();
+  saveGameState({ ...state, resources: newResources }, uid);
+  grantNodeXp(nodeId, 'harvest', uid);
+  broadcastFullState(uid);
   res.json({ ok: true, resources: newResources });
 });
 
 // POST /api/unlock
 router.post('/unlock', (req: Request, res: Response) => {
+  const uid = getUserId(req);
   const { nodeId } = req.body;
-  const state = getGameState();
+  const state = getGameState(uid);
   const node = state.nodes.find((n: any) => n.id === nodeId);
   if (!node) return res.status(404).json({ error: 'Node not found' });
   if (node.data.unlocked) return res.status(400).json({ error: 'Already unlocked' });
@@ -118,24 +128,26 @@ router.post('/unlock', (req: Request, res: Response) => {
     return n;
   });
 
-  saveGameState({ ...state, nodes: newNodes, resources: newResources as any });
-  broadcastFullState();
-  incrementStat('total_nodes_unlocked', 1);
-  awardXp(XP_REWARDS.unlock_node);
-  checkAchievements();
-  checkQuests();
+  saveGameState({ ...state, nodes: newNodes, resources: newResources as any }, uid);
+  broadcastFullState(uid);
+  incrementStat('total_nodes_unlocked', 1, uid);
+  awardXp(XP_REWARDS.unlock_node, uid);
+  checkAchievements(uid);
+  checkQuests(uid);
   res.json({ ok: true, resources: newResources });
 });
 
 // GET /api/inventory
 router.get('/inventory', (req: Request, res: Response) => {
-  const inventory = getPlayerInventory();
+  const uid = getUserId(req);
+  const inventory = getPlayerInventory(uid);
   res.json({ inventory, recipes: RECIPES });
 });
 
 // GET /api/recipes
 router.get('/recipes', (req: Request, res: Response) => {
-  const state = getGameState();
+  const uid = getUserId(req);
+  const state = getGameState(uid);
   const resources = state.resources as unknown as Record<string, number>;
   const recipesWithAffordable = RECIPES.map(recipe => {
     const affordable = Object.entries(recipe.cost).every(([resource, amount]) => {
@@ -148,13 +160,14 @@ router.get('/recipes', (req: Request, res: Response) => {
 
 // POST /api/craft
 router.post('/craft', (req: Request, res: Response) => {
+  const uid = getUserId(req);
   const { recipeId } = req.body;
   const recipe = RECIPES.find(r => r.id === recipeId);
   if (!recipe) {
     return res.status(404).json({ error: 'Recipe not found' });
   }
 
-  const state = getGameState();
+  const state = getGameState(uid);
   const resources = state.resources as unknown as Record<string, number>;
 
   const costError = checkCost(resources, recipe.cost as Record<string, number>);
@@ -162,42 +175,43 @@ router.post('/craft', (req: Request, res: Response) => {
   const newResources = deductCost(resources, recipe.cost as Record<string, number>);
 
   // Add item to player inventory
-  addToPlayerInventory(recipe.output.itemType, recipe.output.count, recipe.output.metadata);
+  addToPlayerInventory(recipe.output.itemType, recipe.output.count, recipe.output.metadata, uid);
 
-  saveGameState({ ...state, resources: newResources as any });
-  broadcastFullState();
+  saveGameState({ ...state, resources: newResources as any }, uid);
+  broadcastFullState(uid);
 
-  incrementStat('total_crafts', 1);
-  addToStatArray('crafted_recipes', recipe.id);
-  awardXp(XP_REWARDS.craft_item);
-  checkAchievements();
-  checkQuests();
+  incrementStat('total_crafts', 1, uid);
+  addToStatArray('crafted_recipes', recipe.id, uid);
+  awardXp(XP_REWARDS.craft_item, uid);
+  checkAchievements(uid);
+  checkQuests(uid);
 
-  const inventory = getPlayerInventory();
+  const inventory = getPlayerInventory(uid);
   const newItem = inventory.find(i => i.itemType === recipe.output.itemType);
   res.json({ ok: true, item: newItem, resources: newResources });
 });
 
 // POST /api/deploy — queues a deploy request for the code server to pick up
 router.post('/deploy', async (req: Request, res: Response) => {
+  const uid = getUserId(req);
   const { nodeId, classId, equippedItems, routes } = req.body;
   if (!nodeId || !classId) {
     return res.status(400).json({ error: 'nodeId and classId are required' });
   }
 
   // Verify class is registered
-  const workerClass = getWorkerClass(classId);
+  const workerClass = getWorkerClass(classId, uid);
   if (!workerClass) {
     return res.status(400).json({ error: `Unknown worker class: ${classId}` });
   }
 
-  const state = getGameState();
+  const state = getGameState(uid);
   const node = state.nodes.find((n: any) => n.id === nodeId);
   if (!node) return res.status(404).json({ error: 'Node not found' });
 
   // Check FLOP capacity
   const flopCost = FLOP_COSTS.worker;
-  if (!allocateFlop(flopCost)) {
+  if (!allocateFlop(flopCost, uid)) {
     const { used, total } = state.flop;
     return res.status(400).json({ ok: false, error: `Not enough FLOP capacity. Current: ${used}/${total}` });
   }
@@ -207,9 +221,9 @@ router.post('/deploy', async (req: Request, res: Response) => {
   const cpuItemType: string = equippedItems?.cpuType || 'cpu_basic';
   let equippedCpu: { itemType: string; computePoints: number; count: number } | null = null;
   if (cpuCount > 0) {
-    const removed = removeFromPlayerInventory(cpuItemType, cpuCount);
+    const removed = removeFromPlayerInventory(cpuItemType, cpuCount, uid);
     if (!removed) {
-      releaseFlop(flopCost);
+      releaseFlop(flopCost, uid);
       return res.status(400).json({ error: `Not enough ${cpuItemType} (need ${cpuCount})` });
     }
     equippedCpu = { itemType: cpuItemType, computePoints: getCpuComputePoints(cpuItemType) * cpuCount, count: cpuCount };
@@ -220,10 +234,10 @@ router.post('/deploy', async (req: Request, res: Response) => {
   const ramItemType: string = equippedItems?.ramType || 'ram_basic';
   let equippedRam: { itemType: string; capacityBonus: number; count: number } | null = null;
   if (ramCount > 0) {
-    const removed = removeFromPlayerInventory(ramItemType, ramCount);
+    const removed = removeFromPlayerInventory(ramItemType, ramCount, uid);
     if (!removed) {
-      releaseFlop(flopCost);
-      if (equippedCpu) addToPlayerInventory(equippedCpu.itemType, equippedCpu.count);
+      releaseFlop(flopCost, uid);
+      if (equippedCpu) addToPlayerInventory(equippedCpu.itemType, equippedCpu.count, undefined, uid);
       return res.status(400).json({ error: `Not enough ${ramItemType} (need ${ramCount})` });
     }
     equippedRam = { itemType: ramItemType, capacityBonus: getRamCapacityBonus(ramItemType) * ramCount, count: ramCount };
@@ -238,16 +252,16 @@ router.post('/deploy', async (req: Request, res: Response) => {
     // Sum compute costs of all equipped items
     let totalCost = getItemComputeCost(pickaxeItemType);
     if (totalCost > totalCompute) {
-      releaseFlop(flopCost);
-      if (equippedCpu) addToPlayerInventory(equippedCpu.itemType, equippedCpu.count);
-      if (equippedRam) addToPlayerInventory(equippedRam.itemType, equippedRam.count);
+      releaseFlop(flopCost, uid);
+      if (equippedCpu) addToPlayerInventory(equippedCpu.itemType, equippedCpu.count, undefined, uid);
+      if (equippedRam) addToPlayerInventory(equippedRam.itemType, equippedRam.count, undefined, uid);
       return res.status(400).json({ error: `Not enough compute (need ${totalCost}, have ${totalCompute}). Add more CPU.` });
     }
-    const removed = removeFromPlayerInventory(pickaxeItemType, 1);
+    const removed = removeFromPlayerInventory(pickaxeItemType, 1, uid);
     if (!removed) {
-      releaseFlop(flopCost);
-      if (equippedCpu) addToPlayerInventory(equippedCpu.itemType, equippedCpu.count);
-      if (equippedRam) addToPlayerInventory(equippedRam.itemType, equippedRam.count);
+      releaseFlop(flopCost, uid);
+      if (equippedCpu) addToPlayerInventory(equippedCpu.itemType, equippedCpu.count, undefined, uid);
+      if (equippedRam) addToPlayerInventory(equippedRam.itemType, equippedRam.count, undefined, uid);
       return res.status(400).json({ error: `Not enough ${pickaxeItemType} in inventory` });
     }
     equippedPickaxe = { itemType: pickaxeItemType, efficiency: getItemEfficiency(pickaxeItemType) };
@@ -289,7 +303,7 @@ router.post('/deploy', async (req: Request, res: Response) => {
     equippedPickaxe,
     equippedCpu,
     equippedRam,
-  });
+  }, uid);
 
   // Queue for code server
   enqueueDeploy({
@@ -300,71 +314,74 @@ router.post('/deploy', async (req: Request, res: Response) => {
     equippedItems: equippedItems || {},
     injectedFields,
     createdAt: new Date().toISOString(),
-  });
+  }, uid);
 
-  broadcastFullState();
-  incrementStat('total_workers_deployed', 1);
-  awardXp(XP_REWARDS.deploy_worker);
-  checkAchievements();
-  checkQuests();
+  broadcastFullState(uid);
+  incrementStat('total_workers_deployed', 1, uid);
+  awardXp(XP_REWARDS.deploy_worker, uid);
+  checkAchievements(uid);
+  checkQuests(uid);
   res.json({ ok: true, workerId, status: 'queued' });
 });
 
 // GET /api/deploy-queue — code server polls this to pick up deploy requests
 router.get('/deploy-queue', (req: Request, res: Response) => {
-  const pending = drainDeployQueue();
+  const uid = getUserId(req);
+  const pending = drainDeployQueue(uid);
   res.json({ requests: pending });
 });
 
 // POST /api/deploy-ack — code server reports that a worker was spawned
 router.post('/deploy-ack', (req: Request, res: Response) => {
+  const uid = getUserId(req);
   const { workerId, pid, error: spawnError } = req.body;
   if (!workerId) return res.status(400).json({ error: 'workerId required' });
 
-  const worker = getWorker(workerId);
+  const worker = getWorker(workerId, uid);
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
 
   if (spawnError) {
     // Spawn failed — return equipped items and release FLOP
     if (worker.equippedPickaxe) {
-      addToPlayerInventory(worker.equippedPickaxe.itemType, 1);
+      addToPlayerInventory(worker.equippedPickaxe.itemType, 1, undefined, uid);
     }
-    releaseFlop(FLOP_COSTS.worker);
-    upsertWorker({ ...worker, status: 'crashed' });
-    addWorkerLog(workerId, `[ERROR] Spawn failed: ${spawnError}`);
+    releaseFlop(FLOP_COSTS.worker, uid);
+    upsertWorker({ ...worker, status: 'crashed' }, uid);
+    addWorkerLog(workerId, `[ERROR] Spawn failed: ${spawnError}`, uid);
   } else {
-    upsertWorker({ ...worker, status: 'running', pid: pid || null });
-    addWorkerLog(workerId, `[INFO] Worker spawned (PID ${pid})`);
+    upsertWorker({ ...worker, status: 'running', pid: pid || null }, uid);
+    addWorkerLog(workerId, `[INFO] Worker spawned (PID ${pid})`, uid);
   }
 
-  broadcastFullState();
+  broadcastFullState(uid);
   res.json({ ok: true });
 });
 
 // POST /api/recall
 router.post('/recall', (req: Request, res: Response) => {
+  const uid = getUserId(req);
   const { workerId } = req.body;
   if (!workerId) return res.status(400).json({ error: 'workerId required' });
 
-  const worker = getWorker(workerId);
+  const worker = getWorker(workerId, uid);
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
 
   // Return equipped items
   if (worker.equippedPickaxe) {
-    addToPlayerInventory(worker.equippedPickaxe.itemType, 1);
+    addToPlayerInventory(worker.equippedPickaxe.itemType, 1, undefined, uid);
   }
   if (worker.holding) {
-    addToPlayerInventory(worker.holding.type, worker.holding.amount);
+    addToPlayerInventory(worker.holding.type, worker.holding.amount, undefined, uid);
   }
 
   // For deploying/suspended/crashed/error workers — just delete, no process to kill
   if (['deploying', 'suspended', 'crashed', 'error'].includes(worker.status)) {
     // Remove from deploy queue if still pending
-    removeFromDeployQueue(workerId);
+    removeFromDeployQueue(workerId, uid);
 
-    releaseFlop(FLOP_COSTS.worker);
-    deleteWorker(workerId);
-    broadcastFullState();
+    releaseFlop(FLOP_COSTS.worker, uid);
+    deleteWorker(workerId, uid);
+    broadcastFullState(uid);
     return res.json({ ok: true });
   }
 
@@ -372,24 +389,25 @@ router.post('/recall', (req: Request, res: Response) => {
   const result = killWorker(workerId);
   if (!result.ok) {
     // Process not found but worker exists — just clean up
-    releaseFlop(FLOP_COSTS.worker);
-    deleteWorker(workerId);
-    broadcastFullState();
+    releaseFlop(FLOP_COSTS.worker, uid);
+    deleteWorker(workerId, uid);
+    broadcastFullState(uid);
     return res.json({ ok: true });
   }
 
   // Process killed — exit handler will set status to suspended/crashed.
   // FLOP released when worker is eventually recalled (deleteWorker path above).
-  broadcastFullState();
+  broadcastFullState(uid);
   res.json({ ok: true });
 });
 
 // POST /api/worker/reset — reset worker to deploy position, return items, allow restart
 router.post('/worker/reset', (req: Request, res: Response) => {
+  const uid = getUserId(req);
   const { workerId } = req.body;
   if (!workerId) return res.status(400).json({ error: 'workerId required' });
 
-  const worker = getWorker(workerId);
+  const worker = getWorker(workerId, uid);
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
 
   // Kill process if running
@@ -399,12 +417,12 @@ router.post('/worker/reset', (req: Request, res: Response) => {
 
   // Return held items to player inventory
   if (worker.holding && worker.holding.type !== 'bad_data') {
-    addToPlayerInventory(worker.holding.type, worker.holding.amount);
+    addToPlayerInventory(worker.holding.type, worker.holding.amount, undefined, uid);
   }
 
   // Return equipped items to player inventory
   if (worker.equippedPickaxe) {
-    addToPlayerInventory(worker.equippedPickaxe.itemType, 1);
+    addToPlayerInventory(worker.equippedPickaxe.itemType, 1, undefined, uid);
   }
 
   // Reset worker state
@@ -418,64 +436,66 @@ router.post('/worker/reset', (req: Request, res: Response) => {
     equippedPickaxe: null,
     equippedCpu: null,
     equippedRam: null,
-  });
+  }, uid);
 
-  releaseFlop(FLOP_COSTS.worker);
-  broadcastFullState();
+  releaseFlop(FLOP_COSTS.worker, uid);
+  broadcastFullState(uid);
   res.json({ ok: true });
 });
 
 // POST /api/worker/suspend
 router.post('/worker/suspend', (req: Request, res: Response) => {
+  const uid = getUserId(req);
   const { workerId } = req.body;
   if (!workerId) return res.status(400).json({ error: 'workerId required' });
 
-  const worker = getWorker(workerId);
+  const worker = getWorker(workerId, uid);
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
   if (worker.status !== 'running') {
     return res.status(400).json({ error: `Worker is not running (status: ${worker.status})` });
   }
 
   // Mark as suspending
-  upsertWorker({ ...worker, status: 'suspending' });
+  upsertWorker({ ...worker, status: 'suspending' }, uid);
 
   // Send SIGTERM to the child process
   const result = suspendWorker(workerId);
   if (!result.ok) {
     // If no process found, mark as suspended anyway and return items
     if (worker.equippedPickaxe) {
-      addToPlayerInventory(worker.equippedPickaxe.itemType, 1);
+      addToPlayerInventory(worker.equippedPickaxe.itemType, 1, undefined, uid);
     }
     if (worker.holding) {
-      addToPlayerInventory(worker.holding.type, worker.holding.amount);
+      addToPlayerInventory(worker.holding.type, worker.holding.amount, undefined, uid);
     }
-    upsertWorker({ ...worker, status: 'suspended', pid: null, equippedPickaxe: null, holding: null });
+    upsertWorker({ ...worker, status: 'suspended', pid: null, equippedPickaxe: null, holding: null }, uid);
   }
 
-  broadcastFullState();
+  broadcastFullState(uid);
   res.json({ ok: true });
 });
 
 // POST /api/worker/suspend-all
 router.post('/worker/suspend-all', (req: Request, res: Response) => {
-  const workers = getWorkers();
+  const uid = getUserId(req);
+  const workers = getWorkers(uid);
   const running = workers.filter(w => w.status === 'running');
 
   for (const worker of running) {
-    upsertWorker({ ...worker, status: 'suspending' });
+    upsertWorker({ ...worker, status: 'suspending' }, uid);
     const result = suspendWorker(worker.id);
     if (!result.ok) {
       if (worker.equippedPickaxe) {
-        addToPlayerInventory(worker.equippedPickaxe.itemType, 1);
+        addToPlayerInventory(worker.equippedPickaxe.itemType, 1, undefined, uid);
       }
       if (worker.holding) {
-        addToPlayerInventory(worker.holding.type, worker.holding.amount);
+        addToPlayerInventory(worker.holding.type, worker.holding.amount, undefined, uid);
       }
-      upsertWorker({ ...worker, status: 'suspended', pid: null, equippedPickaxe: null, holding: null });
+      upsertWorker({ ...worker, status: 'suspended', pid: null, equippedPickaxe: null, holding: null }, uid);
     }
   }
 
-  broadcastFullState();
+  broadcastFullState(uid);
   res.json({ ok: true, count: running.length });
 });
 
@@ -502,13 +522,15 @@ router.get('/revisions', async (req: Request, res: Response) => {
 
 // GET /api/workers
 router.get('/workers', (req: Request, res: Response) => {
-  const workers = getWorkers();
+  const uid = getUserId(req);
+  const workers = getWorkers(uid);
   res.json({ workers });
 });
 
 // GET /api/worker/:id/logs
 router.get('/worker/:id/logs', (req: Request, res: Response) => {
-  const logs = getWorkerLogs(req.params.id as string);
+  const uid = getUserId(req);
+  const logs = getWorkerLogs(req.params.id as string, uid);
   res.json({ logs });
 });
 
@@ -537,6 +559,7 @@ router.get('/classes', (req: Request, res: Response) => {
 
 // POST /api/reset
 router.post('/reset', (req: Request, res: Response) => {
+  const uid = getUserId(req);
   // Kill all active processes first
   const activeProcesses = getActiveProcesses();
   for (const [id, child] of activeProcesses) {
@@ -544,8 +567,8 @@ router.post('/reset', (req: Request, res: Response) => {
   }
   activeProcesses.clear();
 
-  resetGameState();
-  broadcastFullState();
+  resetGameState(uid);
+  broadcastFullState(uid);
   res.json({ ok: true });
 });
 
@@ -553,6 +576,7 @@ router.post('/reset', (req: Request, res: Response) => {
 // Body: { classes: [{ class_id, class_name, fields, docstring, file }] }
 // Called by the Python code server on startup to register available worker classes
 router.post('/worker-classes/register', (req: Request, res: Response) => {
+  const uid = getUserId(req);
   const { classes } = req.body as { classes: Omit<WorkerClassEntry, 'language'>[] };
   if (!Array.isArray(classes)) {
     return res.status(400).json({ error: 'classes must be an array' });
@@ -560,12 +584,12 @@ router.post('/worker-classes/register', (req: Request, res: Response) => {
 
   for (const entry of classes) {
     if (!entry.class_id) continue;
-    registerWorkerClass({ ...entry, language: 'python' });
+    registerWorkerClass({ ...entry, language: 'python' }, uid);
   }
 
   // Mark code server as connected (triggers q_setup quest)
-  incrementStat('code_server_connected', 1);
-  checkQuests();
+  incrementStat('code_server_connected', 1, uid);
+  checkQuests(uid);
 
   res.json({ ok: true, registered: classes.length });
 });
@@ -573,7 +597,8 @@ router.post('/worker-classes/register', (req: Request, res: Response) => {
 // GET /api/worker-classes
 // Returns all registered worker classes (for UI deploy dropdown)
 router.get('/worker-classes', (req: Request, res: Response) => {
-  const classes = getAllWorkerClasses();
+  const uid = getUserId(req);
+  const classes = getAllWorkerClasses(uid);
   res.json({ classes });
 });
 
@@ -585,13 +610,14 @@ const BUILD_COSTS: Record<string, Record<string, number>> = {
 };
 
 router.post('/node/build', (req: Request, res: Response) => {
+  const uid = getUserId(req);
   const { nodeId, structureType } = req.body;
   if (!nodeId || !structureType) return res.status(400).json({ error: 'nodeId and structureType required' });
 
   const cost = BUILD_COSTS[structureType];
   if (!cost) return res.status(400).json({ error: `Unknown structure type: ${structureType}` });
 
-  const state = getGameState();
+  const state = getGameState(uid);
   const node = state.nodes.find((n: any) => n.id === nodeId);
   if (!node) return res.status(404).json({ error: 'Node not found' });
   if (node.type !== 'empty') return res.status(400).json({ error: 'Can only build on empty nodes' });
@@ -621,18 +647,19 @@ router.post('/node/build', (req: Request, res: Response) => {
     return n;
   });
 
-  saveGameState({ ...state, nodes: newNodes, resources: newResources as any });
-  broadcastFullState();
-  incrementStat('total_structures_built', 1);
-  awardXp(XP_REWARDS.build_structure);
-  checkAchievements();
-  checkQuests();
+  saveGameState({ ...state, nodes: newNodes, resources: newResources as any }, uid);
+  broadcastFullState(uid);
+  incrementStat('total_structures_built', 1, uid);
+  awardXp(XP_REWARDS.build_structure, uid);
+  checkAchievements(uid);
+  checkQuests(uid);
   res.json({ ok: true, nodeId, structureType });
 });
 
 // GET /api/node/build-options — what can be built on an empty node
 router.get('/node/build-options', (req: Request, res: Response) => {
-  const state = getGameState();
+  const uid = getUserId(req);
+  const state = getGameState(uid);
   const resources = state.resources as unknown as Record<string, number>;
   const options = Object.entries(BUILD_COSTS).map(([type, cost]) => ({
     type,
@@ -646,10 +673,11 @@ router.get('/node/build-options', (req: Request, res: Response) => {
 
 // GET /api/node/upgrades?nodeId=X — returns upgrade tree + current state
 router.get('/node/upgrades', (req: Request, res: Response) => {
+  const uid = getUserId(req);
   const nodeId = req.query.nodeId as string;
   if (!nodeId) return res.status(400).json({ error: 'nodeId required' });
 
-  const state = getGameState();
+  const state = getGameState(uid);
   const node = state.nodes.find((n: any) => n.id === nodeId);
   if (!node) return res.status(404).json({ error: 'Node not found' });
 
@@ -690,10 +718,11 @@ router.get('/node/upgrades', (req: Request, res: Response) => {
 
 // POST /api/node/stat/allocate — spend enhancement points on a node stat
 router.post('/node/stat/allocate', (req: Request, res: Response) => {
+  const uid = getUserId(req);
   const { nodeId, statKey, delta } = req.body; // delta: +1 or -1
   if (!nodeId || !statKey || delta === undefined) return res.status(400).json({ error: 'nodeId, statKey, delta required' });
 
-  const state = getGameState();
+  const state = getGameState(uid);
   const node = state.nodes.find((n: any) => n.id === nodeId);
   if (!node) return res.status(404).json({ error: 'Node not found' });
   if (!node.data.unlocked && node.type !== 'hub') return res.status(400).json({ error: 'Node is locked' });
@@ -729,9 +758,9 @@ router.post('/node/stat/allocate', (req: Request, res: Response) => {
   if (statKey === 'chipSlots') data.chipSlots = (data.baseChipSlots || 1) + (statAlloc.chipSlots || 0) * statDef.perPoint;
 
   const newNodes = state.nodes.map((n: any) => n.id === nodeId ? { ...n, data } : n);
-  saveGameState({ ...state, nodes: newNodes });
-  broadcastFullState();
-  checkQuests();
+  saveGameState({ ...state, nodes: newNodes }, uid);
+  broadcastFullState(uid);
+  checkQuests(uid);
 
   res.json({
     ok: true,
@@ -742,10 +771,11 @@ router.post('/node/stat/allocate', (req: Request, res: Response) => {
 
 // POST /api/node/chip/insert — install a chip into a node slot
 router.post('/node/chip/insert', (req: Request, res: Response) => {
+  const uid = getUserId(req);
   const { nodeId, chipId } = req.body;
   if (!nodeId || !chipId) return res.status(400).json({ error: 'nodeId and chipId required' });
 
-  const state = getGameState();
+  const state = getGameState(uid);
   const node = state.nodes.find((n: any) => n.id === nodeId);
   if (!node) return res.status(404).json({ error: 'Node not found' });
 
@@ -754,7 +784,7 @@ router.post('/node/chip/insert', (req: Request, res: Response) => {
   if (installed.length >= slots) return res.status(400).json({ error: 'No free chip slots' });
 
   // Remove chip from player inventory
-  const chip = removePlayerChip(chipId);
+  const chip = removePlayerChip(chipId, uid);
   if (!chip) return res.status(400).json({ error: 'Chip not found in inventory' });
 
   // Install on node (store full chip object)
@@ -763,21 +793,22 @@ router.post('/node/chip/insert', (req: Request, res: Response) => {
     return { ...n, data: { ...n.data, installedChips: [...installed, chip] } };
   });
 
-  saveGameState({ ...state, nodes: newNodes });
-  broadcastFullState();
-  incrementStat('total_chips_installed', 1);
-  awardXp(XP_REWARDS.install_chip);
-  checkAchievements();
-  checkQuests();
+  saveGameState({ ...state, nodes: newNodes }, uid);
+  broadcastFullState(uid);
+  incrementStat('total_chips_installed', 1, uid);
+  awardXp(XP_REWARDS.install_chip, uid);
+  checkAchievements(uid);
+  checkQuests(uid);
   res.json({ ok: true });
 });
 
 // POST /api/node/chip/remove — remove a chip from a node
 router.post('/node/chip/remove', (req: Request, res: Response) => {
+  const uid = getUserId(req);
   const { nodeId, chipId } = req.body;
   if (!nodeId || !chipId) return res.status(400).json({ error: 'nodeId and chipId required' });
 
-  const state = getGameState();
+  const state = getGameState(uid);
   const node = state.nodes.find((n: any) => n.id === nodeId);
   if (!node) return res.status(404).json({ error: 'Node not found' });
 
@@ -788,44 +819,46 @@ router.post('/node/chip/remove', (req: Request, res: Response) => {
   const [removed] = installed.splice(chipIdx, 1);
 
   // Return to player inventory
-  addPlayerChip(removed);
+  addPlayerChip(removed, uid);
 
   const newNodes = state.nodes.map((n: any) => {
     if (n.id !== nodeId) return n;
     return { ...n, data: { ...n.data, installedChips: [...installed] } };
   });
 
-  saveGameState({ ...state, nodes: newNodes });
-  broadcastFullState();
+  saveGameState({ ...state, nodes: newNodes }, uid);
+  broadcastFullState(uid);
   res.json({ ok: true });
 });
 
 // POST /api/chip-pack/buy — buy a chip pack with resources
 router.post('/chip-pack/buy', (req: Request, res: Response) => {
+  const uid = getUserId(req);
   const { packType } = req.body;
   const packDef = CHIP_PACK_DEFS.find(p => p.packType === packType);
   if (!packDef) return res.status(400).json({ error: 'Unknown pack type' });
 
-  const state = getGameState();
+  const state = getGameState(uid);
   const resources = state.resources as unknown as Record<string, number>;
 
   const costError = checkCost(resources, packDef.cost as Record<string, number>);
   if (costError) return res.status(400).json({ error: costError });
   const newResources = deductCost(resources, packDef.cost as Record<string, number>);
 
-  addToPlayerInventory(packType, 1);
-  saveGameState({ ...state, resources: newResources as any });
-  broadcastFullState();
+  addToPlayerInventory(packType, 1, undefined, uid);
+  saveGameState({ ...state, resources: newResources as any }, uid);
+  broadcastFullState(uid);
   res.json({ ok: true });
 });
 
 // POST /api/chip-pack/open — open a chip pack, get random chips
 router.post('/chip-pack/open', (req: Request, res: Response) => {
+  const uid = getUserId(req);
   const { packType } = req.body;
   const packDef = CHIP_PACK_DEFS.find(p => p.packType === packType);
   if (!packDef) return res.status(400).json({ error: 'Unknown pack type' });
 
-  if (!removeFromPlayerInventory(packType, 1)) {
+  if (!removeFromPlayerInventory(packType, 1, uid)) {
     return res.status(400).json({ error: 'No pack in inventory' });
   }
 
@@ -839,90 +872,98 @@ router.post('/chip-pack/open', (req: Request, res: Response) => {
       rarity: def.rarity,
       effect: { ...def.effect },
     };
-    addPlayerChip(chip);
+    addPlayerChip(chip, uid);
     newChips.push(chip);
   }
 
-  broadcastFullState();
-  incrementStat('total_packs_opened', 1);
-  awardXp(XP_REWARDS.open_chip_pack);
+  broadcastFullState(uid);
+  incrementStat('total_packs_opened', 1, uid);
+  awardXp(XP_REWARDS.open_chip_pack, uid);
   for (const c of newChips) {
-    setStatMax('highest_rarity', RARITY_ORDINAL[c.rarity] ?? 0);
+    setStatMax('highest_rarity', RARITY_ORDINAL[c.rarity] ?? 0, uid);
   }
-  checkAchievements();
-  checkQuests();
+  checkAchievements(uid);
+  checkQuests(uid);
   res.json({ ok: true, chips: newChips });
 });
 
 // GET /api/chip-packs — list available packs with affordability
 router.get('/chip-packs', (req: Request, res: Response) => {
-  const state = getGameState();
+  const uid = getUserId(req);
+  const state = getGameState(uid);
   const resources = state.resources as unknown as Record<string, number>;
 
   const packs = CHIP_PACK_DEFS.map(p => ({
     ...p,
     affordable: Object.entries(p.cost).every(([k, v]) => (resources[k] || 0) >= (v as number)),
-    owned: (getPlayerInventory().find(i => i.itemType === p.packType)?.count) || 0,
+    owned: (getPlayerInventory(uid).find(i => i.itemType === p.packType)?.count) || 0,
   }));
 
-  res.json({ packs, playerChips: getPlayerChips() });
+  res.json({ packs, playerChips: getPlayerChips(uid) });
 });
 
 // GET /api/achievements
 router.get('/achievements', (req: Request, res: Response) => {
-  res.json({ achievements: getAchievementList() });
+  const uid = getUserId(req);
+  res.json({ achievements: getAchievementList(uid) });
 });
 
 // ── Quest System ─────────────────────────────────────────────────────────────
 
 // GET /api/quests — full quest tree with status and progress
 router.get('/quests', (req: Request, res: Response) => {
-  res.json({ quests: getQuestList(), edges: getQuestEdges() });
+  const uid = getUserId(req);
+  res.json({ quests: getQuestList(uid), edges: getQuestEdges() });
 });
 
 // POST /api/quests/:questId/claim — claim quest reward
 router.post('/quests/:questId/claim', (req: Request, res: Response) => {
+  const uid = getUserId(req);
   const questId = req.params.questId as string;
-  const result = claimQuestReward(questId);
+  const result = claimQuestReward(questId, uid);
   if (!result.ok) return res.status(400).json({ error: result.error });
-  broadcastFullState();
+  broadcastFullState(uid);
   res.json({ ok: true });
 });
 
 // GET /api/passives — active passive effects
 router.get('/passives', (req: Request, res: Response) => {
-  res.json({ passives: getActivePassives() });
+  const uid = getUserId(req);
+  res.json({ passives: getActivePassives(uid) });
 });
 
 // ── Level System ─────────────────────────────────────────────────────────────
 
 // GET /api/level — player level summary
 router.get('/level', (req: Request, res: Response) => {
-  res.json(getPlayerLevelSummary());
+  const uid = getUserId(req);
+  res.json(getPlayerLevelSummary(uid));
 });
 
 // POST /api/worker/action (called by worker subprocesses)
 router.post('/worker/action', async (req: Request, res: Response) => {
+  const uid = getUserId(req);
   const { workerId, action, payload } = req.body;
   if (!workerId || !action) {
     return res.status(400).json({ error: 'workerId and action required' });
   }
-  const result = await handleWorkerAction(workerId, action, payload || {});
+  const result = await handleWorkerAction(workerId, action, payload || {}, uid);
   res.json(result);
 });
 
 // GET /api/layers
 router.get('/layers', (req: Request, res: Response) => {
-  const state = getGameState();
-  const layerManager = getLayerManager();
+  const uid = getUserId(req);
+  const state = getGameState(uid);
+  const layerManager = getLayerManager(uid);
 
   const layers = LAYER_DEFS.map(def => {
-    const unlocked = isLayerUnlocked(def.id);
+    const unlocked = isLayerUnlocked(def.id, uid);
     const isActive = (layerManager?.currentLayer ?? 0) === def.id;
     const progress: Record<string, number> = {};
     const thresh = def.unlockThresholds;
     if (thresh) {
-      if (thresh.total_data_deposited !== undefined) progress.total_data_deposited = getStat('total_data_deposited');
+      if (thresh.total_data_deposited !== undefined) progress.total_data_deposited = getStat('total_data_deposited', uid);
       if (thresh.rp !== undefined) progress.rp = state.resources.rp;
       if (thresh.credits !== undefined) progress.credits = state.resources.credits;
     }
@@ -934,12 +975,13 @@ router.get('/layers', (req: Request, res: Response) => {
 
 // POST /api/layer/switch
 router.post('/layer/switch', (req: Request, res: Response) => {
+  const uid = getUserId(req);
   const { layerId } = req.body;
   if (layerId === undefined || typeof layerId !== 'number') {
     return res.status(400).json({ error: 'layerId (number) required' });
   }
 
-  const activeWorkers = getWorkers().filter((w: any) =>
+  const activeWorkers = getWorkers(uid).filter((w: any) =>
     ['running', 'moving', 'harvesting'].includes(w.status)
   );
   if (activeWorkers.length > 0) {
@@ -950,9 +992,9 @@ router.post('/layer/switch', (req: Request, res: Response) => {
     });
   }
 
-  const result = switchActiveLayer(layerId);
+  const result = switchActiveLayer(layerId, uid);
   if (!result.ok) return res.status(400).json({ error: result.error });
 
-  broadcastFullState();
+  broadcastFullState(uid);
   res.json({ ok: true, layerId });
 });

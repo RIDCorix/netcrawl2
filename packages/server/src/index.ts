@@ -71,6 +71,7 @@ export async function startServer(options: ServerOptions = {}): Promise<{
   // Send visible state on WS connect
   wss.on('connection', (ws: any, req: any) => {
     const isMultiUser = process.env.NETCRAWL_MULTI_USER === 'true';
+    let userId: string | undefined;
 
     if (isMultiUser) {
       // Extract token from query parameter: ws://host/ws?token=xxx
@@ -86,14 +87,16 @@ export async function startServer(options: ServerOptions = {}): Promise<{
         return;
       }
       // Scope this connection to the authenticated user
-      (ws as any)._userId = payload.userId;
-      setCurrentUser(payload.userId);
+      userId = payload.userId;
+      (ws as any)._userId = userId;
+      setCurrentUser(userId);
     }
 
-    const state = getGameState();
-    const { nodes, edges } = getVisibleState(2);
-    const workers = getWorkers();
-    ws.send(JSON.stringify({ type: 'STATE_UPDATE', payload: { ...state, nodes, edges, workers, levelSummary: getPlayerLevelSummary() } }));
+    // Pass explicit userId to avoid race conditions with global state
+    const state = getGameState(userId);
+    const { nodes, edges } = getVisibleState(2, userId);
+    const workers = getWorkers(userId);
+    ws.send(JSON.stringify({ type: 'STATE_UPDATE', payload: { ...state, nodes, edges, workers, levelSummary: getPlayerLevelSummary(userId) } }));
   });
 
   // Start game tick

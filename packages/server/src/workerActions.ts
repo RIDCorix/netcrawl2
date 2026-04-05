@@ -85,44 +85,47 @@ function calcDropAmount(efficiency: number): number {
 
 // ── Main handler ────────────────────────────────────────────────────────────
 
-export async function handleWorkerAction(workerId: string, action: string, payload: any): Promise<any> {
+export async function handleWorkerAction(workerId: string, action: string, payload: any, userId?: string): Promise<any> {
+  // Resolve effective userId for all db/broadcast calls
+  const uid = userId || getCurrentUserId() || undefined;
+
   // Log action doesn't need a lock
   if (action === 'log') {
-    addWorkerLog(workerId, payload.message);
+    addWorkerLog(workerId, payload.message, uid);
     // Update lastLog on worker for speech bubble display (no full broadcast — too spammy)
-    const w = getWorker(workerId);
+    const w = getWorker(workerId, uid);
     if (w) {
-      upsertWorker({ ...w, lastLog: { message: payload.message, level: payload.level || 'info', ts: Date.now() } });
+      upsertWorker({ ...w, lastLog: { message: payload.message, level: payload.level || 'info', ts: Date.now() } }, uid);
       // Send lightweight message instead of full state
-      broadcast({ type: 'WORKER_LOG', payload: { workerId, message: payload.message, level: payload.level || 'info', ts: Date.now(), nodeId: w.current_node || w.node_id } }, getCurrentUserId() || undefined);
+      broadcast({ type: 'WORKER_LOG', payload: { workerId, message: payload.message, level: payload.level || 'info', ts: Date.now(), nodeId: w.current_node || w.node_id } }, uid);
     }
     return { ok: true };
   }
 
   // Report error — sets worker to 'error' status and returns equipped items
   if (action === 'report_error') {
-    const w = getWorker(workerId);
+    const w = getWorker(workerId, uid);
     if (!w) return { ok: false, error: 'Worker not found' };
-    addWorkerLog(workerId, `[ERROR] ${payload.message || 'Unknown error'}`);
+    addWorkerLog(workerId, `[ERROR] ${payload.message || 'Unknown error'}`, uid);
     // Return equipped items to player inventory
     if (w.equippedPickaxe) {
-      addToPlayerInventory(w.equippedPickaxe.itemType, 1);
+      addToPlayerInventory(w.equippedPickaxe.itemType, 1, undefined, uid);
     }
     if (w.holding) {
-      addToPlayerInventory(w.holding.type, w.holding.amount);
+      addToPlayerInventory(w.holding.type, w.holding.amount, undefined, uid);
     }
-    upsertWorker({ ...w, status: 'error', pid: null, equippedPickaxe: null, holding: null });
-    broadcastFullState();
+    upsertWorker({ ...w, status: 'error', pid: null, equippedPickaxe: null, holding: null }, uid);
+    broadcastFullState(uid);
     return { ok: true };
   }
 
   // Acquire per-worker lock (serializes actions)
   await acquireLock(workerId);
 
-  const worker = getWorker(workerId);
+  const worker = getWorker(workerId, uid);
   if (!worker) return { ok: false, error: 'Worker not found' };
 
-  const state = getGameState();
+  const state = getGameState(uid);
   const { nodes, edges, resources } = state;
 
   switch (action) {
@@ -140,21 +143,21 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       else if (edge.target === currentNodeE) targetNodeE = edge.source;
       else return { ok: false, error: `Edge '${edgeId}' is not connected to current node '${currentNodeE}'` };
 
-      const moveEffectsE = getNodeChipEffects(targetNodeE);
+      const moveEffectsE = getNodeChipEffects(targetNodeE, uid);
       const moveDelayE = Math.round(MOVE_DELAY * (moveEffectsE['move_speed_mult'] || 1));
 
-      upsertWorker({ ...worker, status: 'moving', current_node: targetNodeE, previous_node: currentNodeE, move_id: Date.now() } as any);
-      grantNodeXp(targetNodeE, 'pass_through');
-      broadcastFullState();
+      upsertWorker({ ...worker, status: 'moving', current_node: targetNodeE, previous_node: currentNodeE, move_id: Date.now() } as any, uid);
+      grantNodeXp(targetNodeE, 'pass_through', uid);
+      broadcastFullState(uid);
       setLock(workerId, moveDelayE);
       await workerLocks.get(workerId);
 
-      const wE = getWorker(workerId);
+      const wE = getWorker(workerId, uid);
       if (wE && wE.status === 'moving') {
         const updatedE = { ...wE, status: 'running' } as any;
         delete updatedE.previous_node;
-        upsertWorker(updatedE);
-        broadcastFullState();
+        upsertWorker(updatedE, uid);
+        broadcastFullState(uid);
       }
 
       return { ok: true, travelTime: moveDelayE, edgeId, from: currentNodeE, to: targetNodeE };
@@ -168,23 +171,23 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       }
 
       // Apply move speed chip effects from target node
-      const moveEffects = getNodeChipEffects(targetNodeId);
+      const moveEffects = getNodeChipEffects(targetNodeId, uid);
       const moveDelay = Math.round(MOVE_DELAY * (moveEffects['move_speed_mult'] || 1));
 
-      upsertWorker({ ...worker, status: 'moving', current_node: targetNodeId, previous_node: currentNode, move_id: Date.now() } as any);
-      grantNodeXp(targetNodeId, 'pass_through');
-      broadcastFullState();
+      upsertWorker({ ...worker, status: 'moving', current_node: targetNodeId, previous_node: currentNode, move_id: Date.now() } as any, uid);
+      grantNodeXp(targetNodeId, 'pass_through', uid);
+      broadcastFullState(uid);
 
       setLock(workerId, moveDelay);
       await workerLocks.get(workerId);
 
       // Arrive
-      const w = getWorker(workerId);
+      const w = getWorker(workerId, uid);
       if (w && w.status === 'moving') {
         const updated = { ...w, status: 'running' } as any;
         delete updated.previous_node;
-        upsertWorker(updated);
-        broadcastFullState();
+        upsertWorker(updated, uid);
+        broadcastFullState(uid);
       }
 
       return { ok: true, travelTime: MOVE_DELAY };
@@ -196,7 +199,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       if (!node || node.type !== 'resource') {
         return { ok: false, error: 'Not at a resource node' };
       }
-      const chipEffects = getNodeChipEffects(currentNode);
+      const chipEffects = getNodeChipEffects(currentNode, uid);
       const passiveEffects = getPassiveEffects();
       const resourceType = node.data.resource as keyof Resources;
       const baseRate = node.data.rate || 1;
@@ -210,8 +213,8 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const canCarry = Math.min(rate, (50 + capacityBonus) - totalCarrying);
       if (canCarry <= 0) return { ok: false, error: 'Carrying capacity full' };
 
-      upsertWorker({ ...worker, status: 'harvesting' });
-      broadcastFullState();
+      upsertWorker({ ...worker, status: 'harvesting' }, uid);
+      broadcastFullState(uid);
 
       carrying[resourceType] = (carrying[resourceType] || 0) + canCarry;
 
@@ -219,10 +222,10 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       setLock(workerId, harvestDelay);
       await workerLocks.get(workerId);
 
-      const w2 = getWorker(workerId);
+      const w2 = getWorker(workerId, uid);
       if (w2) {
-        upsertWorker({ ...w2, carrying: carrying as any, status: 'running' });
-        broadcastFullState();
+        upsertWorker({ ...w2, carrying: carrying as any, status: 'running' }, uid);
+        broadcastFullState(uid);
       }
 
       return { ok: true, harvested: { [resourceType]: canCarry } };
@@ -242,27 +245,27 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         if (node.data.mineCount >= node.data.capacity && !node.data.depleted) {
           // Auto-deplete with refillMs timer
           const refillMs = node.data.refillMs || 5000;
-          const freshS = getGameState();
+          const freshS = getGameState(uid);
           const newN = freshS.nodes.map((n: any) => {
             if (n.id === node.id) {
               return { ...n, data: { ...n.data, depleted: true, depletedUntil: Date.now() + refillMs, mineCount: 0 } };
             }
             return n;
           });
-          saveGameState({ ...freshS, nodes: newN });
-          broadcastFullState();
+          saveGameState({ ...freshS, nodes: newN }, uid);
+          broadcastFullState(uid);
           return { ok: false, error: 'Node is depleted (refilling)', reason: 'node_depleted', depletedUntil: Date.now() + refillMs };
         }
       }
       if (!worker.equippedPickaxe) return { ok: false, error: 'No pickaxe equipped' };
 
-      const mineChipEffects = getNodeChipEffects(currentNode);
+      const mineChipEffects = getNodeChipEffects(currentNode, uid);
       const minePassives = getPassiveEffects();
       const mineMult = (mineChipEffects['harvest_speed_mult'] || 1) * (minePassives['global_harvest_speed_mult'] || 1);
       const mineDelay = Math.round(MINE_DELAY / mineMult);
 
-      upsertWorker({ ...worker, status: 'harvesting' });
-      broadcastFullState();
+      upsertWorker({ ...worker, status: 'harvesting' }, uid);
+      broadcastFullState(uid);
 
       setLock(workerId, mineDelay);
       await workerLocks.get(workerId);
@@ -285,7 +288,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       }
 
       // Re-read state (might have changed during delay)
-      const freshState = getGameState();
+      const freshState = getGameState(uid);
       const newNodes = freshState.nodes.map((n: any, i: number) => {
         if (n.id === node.id) {
           return {
@@ -302,15 +305,15 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         return n;
       });
 
-      const w3 = getWorker(workerId);
-      if (w3) upsertWorker({ ...w3, status: 'running' });
-      saveGameState({ ...freshState, nodes: newNodes });
-      broadcastFullState();
-      incrementStat('total_mines', 1);
-      awardXp(XP_REWARDS.mine_node);
-      grantNodeXp(currentNode, 'mine');
-      checkAchievements();
-      checkQuests();
+      const w3 = getWorker(workerId, uid);
+      if (w3) upsertWorker({ ...w3, status: 'running' }, uid);
+      saveGameState({ ...freshState, nodes: newNodes }, uid);
+      broadcastFullState(uid);
+      incrementStat('total_mines', 1, uid);
+      awardXp(XP_REWARDS.mine_node, uid);
+      grantNodeXp(currentNode, 'mine', uid);
+      checkAchievements(uid);
+      checkQuests(uid);
       return { ok: true, drop: { type: dropType, amount } };
     }
 
@@ -330,7 +333,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       await workerLocks.get(workerId);
 
       // Re-read (drops might have changed)
-      const freshState2 = getGameState();
+      const freshState2 = getGameState(uid);
       const freshNode = freshState2.nodes.find((n: any) => n.id === currentNode);
       const freshDrops = freshNode && Array.isArray(freshNode.data.drops) ? [...freshNode.data.drops] : [];
       if (freshDrops.length === 0) return { ok: false, error: 'nothing_here', reason: 'nothing_here' };
@@ -343,10 +346,10 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         return n;
       });
 
-      const w4 = getWorker(workerId);
-      if (w4) upsertWorker({ ...w4, holding: pickedUp });
-      saveGameState({ ...freshState2, nodes: newNodes2 });
-      broadcastFullState();
+      const w4 = getWorker(workerId, uid);
+      if (w4) upsertWorker({ ...w4, holding: pickedUp }, uid);
+      saveGameState({ ...freshState2, nodes: newNodes2 }, uid);
+      broadcastFullState(uid);
       return { ok: true, item: pickedUp };
     }
 
@@ -357,26 +360,26 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       setLock(workerId, ACTION_DELAY);
       await workerLocks.get(workerId);
 
-      const w5 = getWorker(workerId);
+      const w5 = getWorker(workerId, uid);
       if (!w5) return { ok: false, error: 'Worker not found' };
 
       // New-style: deposit held drop → convert to resources
       if (w5.holding !== null) {
         const held = w5.holding;
-        const freshState = getGameState();
+        const freshState = getGameState(uid);
         const newResources = { ...freshState.resources } as Record<string, number>;
 
         if (held.type === 'bad_data') {
           // Bad data SUBTRACTS resources as a penalty
           const penalty = held.amount;
           newResources['data'] = Math.max(0, (newResources['data'] || 0) - penalty);
-          saveGameState({ ...freshState, resources: newResources as any });
-          upsertWorker({ ...w5, holding: null, carrying: {}, status: 'running' });
-          broadcastFullState();
-          incrementStat('total_bad_data_deposited', penalty);
-          incrementStat('total_deposits', 1);
-          checkAchievements();
-          checkQuests();
+          saveGameState({ ...freshState, resources: newResources as any }, uid);
+          upsertWorker({ ...w5, holding: null, carrying: {}, status: 'running' }, uid);
+          broadcastFullState(uid);
+          incrementStat('total_bad_data_deposited', penalty, uid);
+          incrementStat('total_deposits', 1, uid);
+          checkAchievements(uid);
+          checkQuests(uid);
           return { ok: true, deposited: held, penalty, warning: `Bad data! Lost ${penalty} data.` };
         }
 
@@ -387,39 +390,39 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         const resourceKey = dropToResource[held.type];
         if (resourceKey) {
           newResources[resourceKey] = (newResources[resourceKey] || 0) + held.amount;
-          saveGameState({ ...freshState, resources: newResources as any });
+          saveGameState({ ...freshState, resources: newResources as any }, uid);
         }
-        upsertWorker({ ...w5, holding: null, carrying: {}, status: 'running' });
-        broadcastFullState();
+        upsertWorker({ ...w5, holding: null, carrying: {}, status: 'running' }, uid);
+        broadcastFullState(uid);
         if (resourceKey) {
-          incrementStat(`total_${resourceKey}_deposited`, held.amount);
-          incrementStat('total_deposits', 1);
-          awardXp(XP_REWARDS.deposit_resources);
-          grantNodeXp('hub', 'deposit');
+          incrementStat(`total_${resourceKey}_deposited`, held.amount, uid);
+          incrementStat('total_deposits', 1, uid);
+          awardXp(XP_REWARDS.deposit_resources, uid);
+          grantNodeXp('hub', 'deposit', uid);
         }
-        checkAchievements();
-        checkQuests();
+        checkAchievements(uid);
+        checkQuests(uid);
         return { ok: true, deposited: held };
       }
 
       // Backward compat: deposit carrying
       const carrying = w5.carrying as Record<string, number>;
-      const freshState3 = getGameState();
+      const freshState3 = getGameState(uid);
       const newResources = { ...freshState3.resources } as Record<string, number>;
       Object.keys(carrying).forEach(k => {
         newResources[k] = (newResources[k] || 0) + (carrying[k] || 0);
       });
-      upsertWorker({ ...w5, carrying: {}, status: 'running' });
-      saveGameState({ ...freshState3, resources: newResources as any });
-      broadcastFullState();
+      upsertWorker({ ...w5, carrying: {}, status: 'running' }, uid);
+      saveGameState({ ...freshState3, resources: newResources as any }, uid);
+      broadcastFullState(uid);
       for (const [k, v] of Object.entries(carrying)) {
-        if (v > 0) incrementStat(`total_${k}_deposited`, v);
+        if (v > 0) incrementStat(`total_${k}_deposited`, v, uid);
       }
-      incrementStat('total_deposits', 1);
-      awardXp(XP_REWARDS.deposit_resources);
-      grantNodeXp('hub', 'deposit');
-      checkAchievements();
-      checkQuests();
+      incrementStat('total_deposits', 1, uid);
+      awardXp(XP_REWARDS.deposit_resources, uid);
+      grantNodeXp('hub', 'deposit', uid);
+      checkAchievements(uid);
+      checkQuests(uid);
       return { ok: true, deposited: carrying };
     }
 
@@ -446,7 +449,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       setLock(workerId, ACTION_DELAY);
       await workerLocks.get(workerId);
 
-      const freshState4 = getGameState();
+      const freshState4 = getGameState(uid);
       const newNodes3 = freshState4.nodes.map((n: any) => {
         if (n.id === nodeId) {
           return { ...n, type: n.type === 'infected' ? 'resource' : n.type, data: { ...n.data, infected: false, infectionValue: 0 } };
@@ -454,12 +457,12 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         return n;
       });
       const newResources2 = { ...(freshState4.resources as any), data: (freshState4.resources as any).data - 500 };
-      saveGameState({ ...freshState4, nodes: newNodes3, resources: newResources2 });
-      broadcastFullState();
-      incrementStat('total_repairs', 1);
-      awardXp(XP_REWARDS.repair_infection);
-      checkAchievements();
-      checkQuests();
+      saveGameState({ ...freshState4, nodes: newNodes3, resources: newResources2 }, uid);
+      broadcastFullState(uid);
+      incrementStat('total_repairs', 1, uid);
+      awardXp(XP_REWARDS.repair_infection, uid);
+      checkAchievements(uid);
+      checkQuests(uid);
       return { ok: true };
     }
 
@@ -581,10 +584,10 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         const reward = (config?.baseReward || 5) * (template?.rewardMultiplier || 1);
         const rewardType = sNode.data.rewardResource || 'rp';
 
-        const freshState = getGameState();
+        const freshState = getGameState(uid);
         const newRes = { ...freshState.resources } as Record<string, number>;
         newRes[rewardType] = (newRes[rewardType] || 0) + reward;
-        saveGameState({ ...freshState, resources: newRes as any });
+        saveGameState({ ...freshState, resources: newRes as any }, uid);
 
         // Update node solve count
         const newNodes = freshState.nodes.map((n: any) => {
@@ -593,16 +596,16 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
           }
           return n;
         });
-        saveGameState({ ...getGameState(), nodes: newNodes });
+        saveGameState({ ...getGameState(uid), nodes: newNodes }, uid);
 
-        broadcastFullState();
+        broadcastFullState(uid);
         totalSolves++;
-        incrementStat('total_puzzles_solved', 1);
+        incrementStat('total_puzzles_solved', 1, uid);
         const puzzleDiff = sNode.data.difficulty || 'easy';
-        awardXp(XP_REWARDS[`solve_puzzle_${puzzleDiff}`] || XP_REWARDS.solve_puzzle_easy);
-        grantNodeXp(submitNode, 'solve_puzzle');
-        checkAchievements();
-        checkQuests();
+        awardXp(XP_REWARDS[`solve_puzzle_${puzzleDiff}`] || XP_REWARDS.solve_puzzle_easy, uid);
+        grantNodeXp(submitNode, 'solve_puzzle', uid);
+        checkAchievements(uid);
+        checkQuests(uid);
 
         return { ok: true, correct: true, reward: { type: rewardType, amount: reward } };
       } else {
@@ -703,7 +706,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
 
       const val = cacheGet(cacheNodeId, cacheKey);
       if (val === undefined) return { ok: true, hit: false, value: null };
-      grantNodeXp(cacheNodeId, 'cache_hit');
+      grantNodeXp(cacheNodeId, 'cache_hit', uid);
       return { ok: true, hit: true, value: val };
     }
 
@@ -792,16 +795,16 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
 
     case 'discard': {
       // Discard the currently held item without depositing
-      const w6 = getWorker(workerId);
+      const w6 = getWorker(workerId, uid);
       if (!w6 || w6.holding === null) {
         return { ok: false, error: 'Nothing to discard', reason: 'nothing_held' };
       }
       const discarded = w6.holding;
-      upsertWorker({ ...w6, holding: null });
-      broadcastFullState();
+      upsertWorker({ ...w6, holding: null }, uid);
+      broadcastFullState(uid);
       if (discarded.type === 'bad_data') {
-        incrementStat('total_bad_data_discarded', 1);
-        checkQuests();
+        incrementStat('total_bad_data_discarded', 1, uid);
+        checkQuests(uid);
       }
       return { ok: true, discarded };
     }

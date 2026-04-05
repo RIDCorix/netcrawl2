@@ -1,10 +1,13 @@
 /**
  * Achievement definitions and checker.
+ *
+ * All public functions accept optional userId for multi-user isolation.
  */
 
 import {
   getAchievementState, getStat, getStatArray, getGameState,
   isAchievementUnlocked, markAchievementUnlocked, awardXp,
+  getCurrentUserId,
 } from './db.js';
 import { broadcast } from './websocket.js';
 import { XP_REWARDS } from './levelSystem.js';
@@ -123,15 +126,16 @@ export const RARITY_ORDINAL: Record<string, number> = {
 // ── Checker ─────────────────────────────────────────────────────────────────
 
 /** Check all achievements, return newly unlocked ones, broadcast each. */
-export function checkAchievements(): AchievementDef[] {
+export function checkAchievements(userId?: string): AchievementDef[] {
+  const effectiveUserId = userId || getCurrentUserId() || undefined;
   const newlyUnlocked: AchievementDef[] = [];
 
   for (const ach of ACHIEVEMENTS) {
-    if (isAchievementUnlocked(ach.id)) continue;
+    if (isAchievementUnlocked(ach.id, effectiveUserId)) continue;
     try {
       if (ach.check()) {
-        markAchievementUnlocked(ach.id);
-        awardXp(XP_REWARDS.unlock_achievement);
+        markAchievementUnlocked(ach.id, effectiveUserId);
+        awardXp(XP_REWARDS.unlock_achievement, effectiveUserId);
         newlyUnlocked.push(ach);
         broadcast({
           type: 'ACHIEVEMENT_UNLOCKED',
@@ -142,7 +146,7 @@ export function checkAchievements(): AchievementDef[] {
             category: ach.category,
             secret: ach.secret,
           },
-        });
+        }, effectiveUserId);
         console.log(`[Achievement] Unlocked: ${ach.name}`);
       }
     } catch {}
@@ -152,9 +156,10 @@ export function checkAchievements(): AchievementDef[] {
 }
 
 /** Get full achievement list for API response. */
-export function getAchievementList() {
+export function getAchievementList(userId?: string) {
+  const effectiveUserId = userId || getCurrentUserId() || undefined;
   return ACHIEVEMENTS.map(a => {
-    const unlocked = isAchievementUnlocked(a.id);
+    const unlocked = isAchievementUnlocked(a.id, effectiveUserId);
     return {
       id: a.id,
       name: a.secret && !unlocked ? '???' : a.name,
@@ -162,15 +167,16 @@ export function getAchievementList() {
       category: a.category,
       secret: a.secret,
       unlocked,
-      unlockedAt: unlocked ? getAchievementState().unlocked[a.id] : null,
+      unlockedAt: unlocked ? getAchievementState(effectiveUserId).unlocked[a.id] : null,
       progress: a.progress ? a.progress() : null,
     };
   });
 }
 
 /** Summary for broadcast payloads. */
-export function getAchievementSummary() {
-  const state = getAchievementState();
+export function getAchievementSummary(userId?: string) {
+  const effectiveUserId = userId || getCurrentUserId() || undefined;
+  const state = getAchievementState(effectiveUserId);
   return {
     unlocked: state.unlocked,
     stats: state.stats,
