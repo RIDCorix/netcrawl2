@@ -171,7 +171,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
   const [cpuPerUnit, setCpuPerUnit] = useState<number[]>([0]);
   const [ramPerUnit, setRamPerUnit] = useState<number[]>([0]);
   const [currentUnitIdx, setCurrentUnitIdx] = useState(0);
-  const [routes, setRoutes] = useState<Record<string, { id: string; source: string; target: string }>>({});
+  const [routes, setRoutes] = useState<Record<string, { id: string; source: string; target: string }[]>>({});
   const [step, setStep] = useState(0);
   const [selectingRoute, setSelectingRoute] = useState<string | null>(null);
 
@@ -182,7 +182,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
     : [];
   const itemSlots = classItemSlots;
   const routeSlots = selectedClassEntry
-    ? Object.entries(selectedClassEntry.fields).filter(([, f]) => f.type === 'route' || f.type === 'edge').map(([name, f]) => ({ name, description: f.description }))
+    ? Object.entries(selectedClassEntry.fields).filter(([, f]) => f.type === 'route' || f.type === 'edge').map(([name, f]) => ({ name, description: f.description, fieldType: f.type as 'route' | 'edge' }))
     : [];
 
   const hasRoutes = routeSlots.length > 0;
@@ -230,7 +230,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
 
   // Only class-defined item slots are required; CPU/RAM hardware slots are optional
   const allSlotsFilled = equippedPerUnit.every(ue => classItemSlots.every(s => !!ue[s.name]));
-  const allRoutesFilled = routeSlots.every(s => !!routes[s.name]);
+  const allRoutesFilled = routeSlots.every(s => routes[s.name]?.length > 0);
 
   useEffect(() => {
     axios.get('/api/worker-classes').then(r => {
@@ -254,23 +254,46 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
   // Clean up edge select mode on unmount
   useEffect(() => () => setEdgeSelectMode(null), []);
 
-  // Start edge selection mode for a route field
-  const startRouteSelect = useCallback((fieldName: string) => {
+  // Start edge selection mode
+  const startRouteSelect = useCallback((fieldName: string, fieldType: 'edge' | 'route') => {
     setSelectingRoute(fieldName);
-    setEdgeSelectMode({
-      fieldName,
-      onSelect: (edge) => {
-        setRoutes(prev => ({ ...prev, [fieldName]: edge }));
-        setSelectingRoute(null);
-        setEdgeSelectMode(null);
-      },
-    });
+    if (fieldType === 'edge') {
+      // Edge: single click, auto-done
+      setEdgeSelectMode({
+        fieldName,
+        onSelect: (edge) => {
+          setRoutes(prev => ({ ...prev, [fieldName]: [edge] }));
+          setSelectingRoute(null);
+          setEdgeSelectMode(null);
+        },
+      });
+    } else {
+      // Route: multi-click, user builds a path
+      setRoutes(prev => ({ ...prev, [fieldName]: [] }));
+      setEdgeSelectMode({
+        fieldName,
+        onSelect: (edge) => {
+          setRoutes(prev => {
+            const existing = prev[fieldName] || [];
+            return { ...prev, [fieldName]: [...existing, edge] };
+          });
+        },
+      });
+    }
   }, [setEdgeSelectMode]);
 
-  const cancelRouteSelect = useCallback(() => {
+  const finishRouteSelect = useCallback(() => {
     setSelectingRoute(null);
     setEdgeSelectMode(null);
   }, [setEdgeSelectMode]);
+
+  const cancelRouteSelect = useCallback(() => {
+    if (selectingRoute) {
+      setRoutes(prev => { const n = { ...prev }; delete n[selectingRoute]; return n; });
+    }
+    setSelectingRoute(null);
+    setEdgeSelectMode(null);
+  }, [setEdgeSelectMode, selectingRoute]);
 
   const getNodeLabel = (id: string) => gameNodes.find(n => n.id === id)?.data?.label || id;
 
@@ -279,9 +302,16 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
     setDeploying(true);
     setMessage('');
 
-    const routePayload: Record<string, string> = {};
-    for (const [field, edge] of Object.entries(routes)) {
-      routePayload[field] = edge.id; // Send edge ID
+    const routePayload: Record<string, string | string[]> = {};
+    for (const [field, edges] of Object.entries(routes)) {
+      if (!edges?.length) continue;
+      // Find the slot to know if it's edge (single) or route (multi)
+      const slot = routeSlots.find(s => s.name === field);
+      if (slot?.fieldType === 'edge') {
+        routePayload[field] = edges[0].id; // single edge ID
+      } else {
+        routePayload[field] = edges.map(e => e.id); // array of edge IDs
+      }
     }
 
     try {
@@ -561,36 +591,65 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>{t('ui.configure_routes')}</div>
                 {routeSlots.map(slot => {
-                  const selected = routes[slot.name];
+                  const edges = routes[slot.name] || [];
+                  const isEdge = slot.fieldType === 'edge';
+                  const isSelecting = selectingRoute === slot.name;
+                  const filled = edges.length > 0;
                   return (
                     <div key={slot.name} style={{
                       padding: '12px 14px', borderRadius: 'var(--radius-md)',
-                      background: 'var(--bg-elevated)', border: `1px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                      background: 'var(--bg-elevated)',
+                      border: `1px solid ${isSelecting ? '#f59e0b' : filled ? 'var(--accent)' : 'var(--border)'}`,
                     }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{slot.name}</div>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>{slot.description}</div>
-                        {selected && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
-                            <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)' }}>
-                              {getNodeLabel(selected.source)} <ArrowLeftRight size={12} style={{ display: 'inline', verticalAlign: 'middle' }} /> {getNodeLabel(selected.target)}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{slot.name}</span>
+                            <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 4, background: isEdge ? 'rgba(96,165,250,0.15)' : 'rgba(167,139,250,0.15)', color: isEdge ? '#60a5fa' : '#a78bfa', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                              {isEdge ? 'Edge' : 'Route'}
                             </span>
                           </div>
+                          <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>{slot.description}</div>
+                        </div>
+                        {!isSelecting ? (
+                          <button
+                            onClick={() => startRouteSelect(slot.name, slot.fieldType)}
+                            style={{
+                              padding: '8px 14px', borderRadius: 'var(--radius-sm)',
+                              background: filled ? 'var(--bg-primary)' : 'var(--accent)',
+                              border: filled ? '1px solid var(--border)' : 'none',
+                              color: filled ? 'var(--text-secondary)' : '#000',
+                              fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)', cursor: 'pointer',
+                            }}
+                          >
+                            {filled ? t('ui.change') : t('ui.select_on_map')}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={finishRouteSelect}
+                            style={{
+                              padding: '8px 14px', borderRadius: 'var(--radius-sm)',
+                              background: '#f59e0b', border: 'none', color: '#000',
+                              fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)', cursor: 'pointer',
+                              animation: 'pulse-connect 1.5s ease-in-out infinite',
+                            }}
+                          >
+                            Done ({edges.length})
+                          </button>
                         )}
                       </div>
-                      <button
-                        onClick={() => startRouteSelect(slot.name)}
-                        style={{
-                          padding: '8px 14px', borderRadius: 'var(--radius-sm)',
-                          background: selected ? 'var(--bg-primary)' : 'var(--accent)',
-                          border: selected ? '1px solid var(--border)' : 'none',
-                          color: selected ? 'var(--text-secondary)' : '#000',
-                          fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)', cursor: 'pointer',
-                        }}
-                      >
-                        {selected ? t('ui.change') : t('ui.select_on_map')}
-                      </button>
+                      {/* Show selected path */}
+                      {filled && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 8, flexWrap: 'wrap' }}>
+                          {edges.map((edge, i) => (
+                            <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>
+                              {i === 0 && <span style={{ fontWeight: 700 }}>{getNodeLabel(edge.source)}</span>}
+                              <span style={{ color: 'var(--text-muted)' }}>→</span>
+                              <span style={{ fontWeight: 700 }}>{getNodeLabel(edge.target)}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -766,10 +825,12 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
                     <span style={{ color: 'var(--text-muted)' }}>Node: </span>
                     <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{nodeName}</span>
                   </div>
-                  {Object.entries(routes).map(([name, edge]) => (
+                  {Object.entries(routes).map(([name, edges]) => (
                     <div key={name} style={{ fontSize: 12, fontFamily: 'var(--font-mono)' }}>
                       <span style={{ color: 'var(--text-muted)' }}>{name}: </span>
-                      <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{getNodeLabel(edge.source)} <ArrowLeftRight size={12} style={{ display: 'inline', verticalAlign: 'middle' }} /> {getNodeLabel(edge.target)}</span>
+                      <span style={{ color: 'var(--accent)', fontWeight: 700 }}>
+                        {edges.map((e, i) => (i === 0 ? getNodeLabel(e.source) + ' → ' : '') + getNodeLabel(e.target)).join(' → ')}
+                      </span>
                     </div>
                   ))}
                   {Object.entries(equipped).map(([name, itemType]) => (
