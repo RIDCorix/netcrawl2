@@ -7,6 +7,7 @@
  */
 
 import { getGameState, getVisibleState, getWorkers, getPlayerLevelSummary, getLayerManager, isLayerUnlocked, checkLayerUnlocks, getActiveLayerId, getStat, getCurrentUserId } from './db.js';
+import { isCodeServerConnected } from './codeServerTracker.js';
 import { LAYER_DEFS } from './layerDefinitions.js';
 import { broadcast } from './websocket.js';
 import { getAchievementSummary } from './achievements.js';
@@ -66,6 +67,7 @@ export function broadcastFullState(userId?: string) {
       levelSummary: getPlayerLevelSummary(effectiveUserId),
       activeLayer: getActiveLayerId(effectiveUserId),
       layerMeta,
+      codeServerConnected: isCodeServerConnected(effectiveUserId),
     },
   }, effectiveUserId);
 }

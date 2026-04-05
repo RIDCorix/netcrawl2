@@ -1,9 +1,10 @@
-import { getGameState, saveGameState, getWorkers, incrementStat, getAllActiveUserIds, setCurrentUser } from './db.js';
+import { getGameState, saveGameState, getWorkers, incrementStat, getAllActiveUserIds, setCurrentUser, resetAllWorkers } from './db.js';
 import { broadcast } from './websocket.js';
 import { broadcastFullState } from './broadcastHelper.js';
 import { getNeighborIds } from './graphUtils.js';
 import { checkAchievements } from './achievements.js';
 import { tickAPINodes } from './apiNodeEngine.js';
+import { checkCodeServerDisconnected } from './codeServerTracker.js';
 
 const isMultiUser = () => process.env.NETCRAWL_MULTI_USER === 'true';
 
@@ -31,6 +32,13 @@ export function startGameTick() {
 }
 
 function tickUser(userId?: string) {
+  // Auto-detect code server disconnect → reset all workers
+  if (checkCodeServerDisconnected(userId)) {
+    console.log(`[Tick] Code server disconnected${userId ? ` for user ${userId}` : ''} — resetting workers`);
+    resetAllWorkers(userId);
+    broadcastFullState(userId);
+  }
+
   const state = getGameState(userId);
   if (state.gameOver) return;
 

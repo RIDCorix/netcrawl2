@@ -18,6 +18,7 @@ import { LAYER_DEFS } from './layerDefinitions.js';
 import { handleWorkerAction } from './workerActions.js';
 import { spawnWorker, killWorker, suspendWorker, getActiveProcesses } from './workerSpawner.js';
 import { checkCost, deductCost } from './stateHelpers.js';
+import { markCodeServerSeen, isCodeServerConnected } from './codeServerTracker.js';
 import {
   type WorkerClassEntry, registerWorkerClass, getWorkerClass, getAllWorkerClasses,
   type DeployRequest, enqueueDeploy, drainDeployQueue, removeFromDeployQueue,
@@ -327,6 +328,7 @@ router.post('/deploy', async (req: Request, res: Response) => {
 // GET /api/deploy-queue — code server polls this to pick up deploy requests
 router.get('/deploy-queue', (req: Request, res: Response) => {
   const uid = getUserId(req);
+  markCodeServerSeen(uid);
   const pending = drainDeployQueue(uid);
   res.json({ requests: pending });
 });
@@ -577,6 +579,7 @@ router.post('/reset', (req: Request, res: Response) => {
 // Called by the Python code server on startup to register available worker classes
 router.post('/worker-classes/register', (req: Request, res: Response) => {
   const uid = getUserId(req);
+  markCodeServerSeen(uid);
   const { classes } = req.body as { classes: Omit<WorkerClassEntry, 'language'>[] };
   if (!Array.isArray(classes)) {
     return res.status(400).json({ error: 'classes must be an array' });
