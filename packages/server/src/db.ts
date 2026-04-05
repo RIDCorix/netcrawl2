@@ -13,10 +13,42 @@ import { getLayerInitialSnapshot, LAYER_DEFS, type LayerSnapshot } from './layer
 let _dataDir = process.env.NETCRAWL_DATA_DIR || process.cwd();
 let DATA_PATH = path.join(_dataDir, 'data', 'netcrawl-state.json');
 
+const isMultiUser = () => process.env.NETCRAWL_MULTI_USER === 'true';
+let _currentUserId: string | null = null;
+
 /** Set data directory before calling initDb(). Used by Electron main process. */
 export function setDataDir(dir: string) {
   _dataDir = dir;
   DATA_PATH = path.join(_dataDir, 'data', 'netcrawl-state.json');
+}
+
+/**
+ * In multi-user mode, switch to a specific user's state file.
+ * Loads or initializes the state for that user.
+ */
+export function setCurrentUser(userId: string) {
+  if (!isMultiUser()) return; // no-op in single-user mode
+  if (_currentUserId === userId) return; // already loaded
+
+  // Persist current user's state before switching
+  if (_currentUserId) {
+    persist();
+  }
+
+  _currentUserId = userId;
+  const userDir = path.join(_dataDir, 'data', 'users', userId);
+  if (!fs.existsSync(userDir)) {
+    fs.mkdirSync(userDir, { recursive: true });
+  }
+  DATA_PATH = path.join(userDir, 'state.json');
+
+  // Load or create this user's state
+  _loadStore();
+}
+
+/** Get the current user ID (null in single-user mode) */
+export function getCurrentUserId(): string | null {
+  return _currentUserId;
 }
 
 // Data directory is created in initDb() after setDataDir() has been called
@@ -493,7 +525,8 @@ const INITIAL_STORE: Store = {
 
 let store: Store;
 
-export function initDb() {
+/** Load (or create) the store from the current DATA_PATH. Runs all migrations. */
+function _loadStore() {
   // Ensure data directory exists
   const dataDir = path.dirname(DATA_PATH);
   if (!fs.existsSync(dataDir)) {
@@ -645,6 +678,10 @@ export function initDb() {
   } else {
     store = JSON.parse(JSON.stringify(INITIAL_STORE));
   }
+}
+
+export function initDb() {
+  _loadStore();
 
   // Persist every 5 seconds
   setInterval(persist, 5000);

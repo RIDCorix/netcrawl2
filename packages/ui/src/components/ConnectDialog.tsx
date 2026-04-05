@@ -3,6 +3,7 @@ import { X, Copy, Check, Terminal, Globe } from 'lucide-react';
 import { useState, useCallback } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useT } from '../hooks/useT';
+import { SERVER_URL, WS_URL } from '../lib/api';
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -57,8 +58,8 @@ export function ConnectDialog() {
   const { connectOpen, toggleConnect, connected } = useGameStore();
   const t = useT();
 
-  const serverUrl = `http://${window.location.host}`;
-  const wsUrl = `ws://${window.location.host}/ws`;
+  const serverUrl = SERVER_URL;
+  const wsUrl = WS_URL;
 
   const pythonCode = `app = NetCrawl(server="${serverUrl}")`;
   const jsCode = `const app = new NetCrawl({ server: '${serverUrl}' });`;

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useGameStore } from '../store/gameStore';
-
-const WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
+import { WS_URL, apiFetch } from '../lib/api';
 
 export function useGameState() {
   const wsRef = useRef<WebSocket | null>(null);
@@ -11,8 +10,12 @@ export function useGameState() {
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
+    // Append auth token to WS URL if available
+    const token = localStorage.getItem('netcrawl-token');
+    const wsUrl = token ? `${WS_URL}?token=${encodeURIComponent(token)}` : WS_URL;
+
     console.log('[WS] Connecting to', WS_URL);
-    const ws = new WebSocket(WS_URL);
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -62,7 +65,7 @@ export function useGameState() {
     connect();
 
     // Initial fetch
-    fetch('/api/state')
+    apiFetch('/api/state')
       .then(r => r.json())
       .then(data => updateFromServer(data))
       .catch(err => console.error('[API] State fetch failed:', err));

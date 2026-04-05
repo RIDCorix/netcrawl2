@@ -10,7 +10,7 @@ import { playTrack } from '../audio/bgm';
 export function useAudioInit() {
   const { settings } = useGameStore();
   const initialized = useRef(false);
-  const currentTrack = useRef('');
+  const currentTrack = useRef<string | null>(null);
 
   // Sync volume whenever settings change
   useEffect(() => {
@@ -18,30 +18,36 @@ export function useAudioInit() {
     audioEngine.setSfxVolume(settings.sfxVolume / 100);
   }, [settings.bgmVolume, settings.sfxVolume]);
 
-  // Start/change BGM track
+  // Start BGM on first user interaction
   useEffect(() => {
-    if (settings.currentTrack !== currentTrack.current) {
-      currentTrack.current = settings.currentTrack;
-      // Start BGM on first user interaction (click anywhere)
-      if (!initialized.current) {
-        const startAudio = () => {
-          audioEngine.ensureContext();
-          audioEngine.setBgmVolume(settings.bgmVolume / 100);
-          audioEngine.setSfxVolume(settings.sfxVolume / 100);
-          playTrack(settings.currentTrack);
-          initialized.current = true;
-          document.removeEventListener('click', startAudio);
-          document.removeEventListener('keydown', startAudio);
-        };
-        document.addEventListener('click', startAudio, { once: false });
-        document.addEventListener('keydown', startAudio, { once: false });
-        return () => {
-          document.removeEventListener('click', startAudio);
-          document.removeEventListener('keydown', startAudio);
-        };
-      } else {
+    if (initialized.current) {
+      // Already initialized — just change track if needed
+      if (settings.currentTrack !== currentTrack.current) {
+        currentTrack.current = settings.currentTrack;
         playTrack(settings.currentTrack);
       }
+      return;
     }
+
+    const startAudio = () => {
+      if (initialized.current) return;
+      initialized.current = true;
+      currentTrack.current = settings.currentTrack;
+
+      audioEngine.ensureContext();
+      audioEngine.setBgmVolume(settings.bgmVolume / 100);
+      audioEngine.setSfxVolume(settings.sfxVolume / 100);
+      playTrack(settings.currentTrack);
+
+      document.removeEventListener('click', startAudio);
+      document.removeEventListener('keydown', startAudio);
+    };
+
+    document.addEventListener('click', startAudio);
+    document.addEventListener('keydown', startAudio);
+    return () => {
+      document.removeEventListener('click', startAudio);
+      document.removeEventListener('keydown', startAudio);
+    };
   }, [settings.currentTrack, settings.bgmVolume, settings.sfxVolume]);
 }

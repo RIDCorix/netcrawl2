@@ -1,0 +1,8 @@
+{
+  "experimentalServices": {
+    "web": {
+      "routePrefix": "/",
+      "buildCommand": "npm run build"
+    }
+  }
+}

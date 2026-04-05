@@ -2,10 +2,11 @@ import express, { Express } from 'express';
 import cors from 'cors';
 import http from 'http';
 import path from 'path';
-import { initDb, getGameState, getVisibleState, getWorkers, setLevelBroadcast, getPlayerLevelSummary, setDataDir } from './db.js';
+import { initDb, getGameState, getVisibleState, getWorkers, setLevelBroadcast, getPlayerLevelSummary, setDataDir, setCurrentUser } from './db.js';
 import { initWebSocket, broadcast } from './websocket.js';
 import { router } from './routes.js';
 import { startGameTick } from './gameTick.js';
+import { initUserStore, setAuthDataDir, verifyToken } from './auth.js';
 
 export interface ServerOptions {
   port?: number;
@@ -22,12 +23,23 @@ export async function startServer(options: ServerOptions = {}): Promise<{
 
   if (options.dataDir) {
     setDataDir(options.dataDir);
+    setAuthDataDir(options.dataDir);
+  }
+
+  // Initialize user store for multi-user mode
+  if (process.env.NETCRAWL_MULTI_USER === 'true') {
+    initUserStore();
+    console.log('[NetCrawl Server] Multi-user mode enabled');
   }
 
   const app: Express = express();
 
   // Middleware
-  app.use(cors({ origin: true }));
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(s => s.trim());
+  app.use(cors({
+    origin: allowedOrigins?.length ? allowedOrigins : true,
+    credentials: true,
+  }));
   app.use(express.json());
 
   // Routes
@@ -56,7 +68,27 @@ export async function startServer(options: ServerOptions = {}): Promise<{
   const wss = initWebSocket(server);
 
   // Send visible state on WS connect
-  wss.on('connection', (ws: any) => {
+  wss.on('connection', (ws: any, req: any) => {
+    const isMultiUser = process.env.NETCRAWL_MULTI_USER === 'true';
+
+    if (isMultiUser) {
+      // Extract token from query parameter: ws://host/ws?token=xxx
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const token = url.searchParams.get('token');
+      if (!token) {
+        ws.close(4001, 'Authentication required');
+        return;
+      }
+      const payload = verifyToken(token);
+      if (!payload) {
+        ws.close(4001, 'Invalid or expired token');
+        return;
+      }
+      // Scope this connection to the authenticated user
+      (ws as any)._userId = payload.userId;
+      setCurrentUser(payload.userId);
+    }
+
     const state = getGameState();
     const { nodes, edges } = getVisibleState(2);
     const workers = getWorkers();

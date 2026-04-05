@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import path from 'path';
 import fs from 'fs';
 import { simpleGit } from 'simple-git';
@@ -11,6 +11,7 @@ import {
   getPlayerInventory, addToPlayerInventory, removeFromPlayerInventory, getItemEfficiency, getCpuComputePoints, getRamCapacityBonus, getItemComputeCost,
   getPlayerChips, addPlayerChip, removePlayerChip,
   getLayerManager, isLayerUnlocked, switchActiveLayer, getStat,
+  setCurrentUser,
 } from './db.js';
 import { LAYER_DEFS } from './layerDefinitions.js';
 import { handleWorkerAction } from './workerActions.js';
@@ -29,8 +30,28 @@ import { checkQuests, claimQuestReward, getQuestList, getQuestEdges } from './qu
 import { getActivePassives, getUnlockedRecipes } from './db.js';
 import { incrementStat, addToStatArray, setStatMax, awardXp, getPlayerLevelSummary, grantNodeXp } from './db.js';
 import { XP_REWARDS } from './levelSystem.js';
+import { authMiddleware, AuthenticatedRequest } from './auth.js';
+import { authRouter } from './authRoutes.js';
 
 export const router: Router = Router();
+
+// ── Auth routes (always public) ─────────────────────────────────────────────
+router.use('/auth', authRouter);
+
+// ── Multi-user auth middleware ──────────────────────────────────────────────
+// In cloud mode (NETCRAWL_MULTI_USER=true), require auth and scope state per user.
+// In local mode, skip auth entirely — single-user, no login needed.
+if (process.env.NETCRAWL_MULTI_USER === 'true') {
+  router.use((req: Request, res: Response, next: NextFunction) => {
+    authMiddleware(req as AuthenticatedRequest, res, () => {
+      const authReq = req as AuthenticatedRequest;
+      if (authReq.user) {
+        setCurrentUser(authReq.user.userId);
+      }
+      next();
+    });
+  });
+}
 
 // Resolve workspace path
 function getWorkspacePath(): string {

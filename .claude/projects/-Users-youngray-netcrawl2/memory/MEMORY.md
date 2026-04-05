@@ -1,0 +1,1 @@
+- [Ch1 Quest Redesign](project_ch1_quest_redesign.md) — sensor equipment tree, learning progression, data mine cluster, new SDK APIs needed
