@@ -436,6 +436,8 @@ export const en: Record<string, string> = {
   'ui.tab_equipment':    'Equipment',
   'ui.tab_materials':    'Materials',
   'ui.tab_packs':        'Packs',
+  'ui.tab_chips':        'Chips',
+  'ui.tab_shop':         'Shop',
   'ui.no_items_craft':   'No items. Craft some in Inventory.',
   'ui.confirm_deploy':   'CONFIRM DEPLOYMENT',
   'ui.back':             'Back',

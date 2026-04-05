@@ -21,6 +21,7 @@ const INV_TABS_DEF = [
   { key: 'all', labelKey: 'ui.tab_all' },
   { key: 'equipment', labelKey: 'ui.tab_equipment', types: ['pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond', 'shield', 'beacon'] },
   { key: 'materials', labelKey: 'ui.tab_materials', types: ['data_fragment', 'rp_shard'] },
+  { key: 'chips', labelKey: 'ui.tab_chips' },
   { key: 'packs', labelKey: 'ui.tab_packs', types: ['chip_pack_basic', 'chip_pack_premium'] },
 ];
 
@@ -28,6 +29,7 @@ const CRAFT_TABS_DEF = [
   { key: 'all', labelKey: 'ui.tab_all' },
   { key: 'tools', labelKey: 'ui.tab_tools', ids: ['pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond'] },
   { key: 'gear', labelKey: 'ui.tab_gear', ids: ['shield', 'beacon'] },
+  { key: 'shop', labelKey: 'ui.tab_shop' },
 ];
 
 // ── Recipe type ─────────────────────────────────────────────────────────────
@@ -554,12 +556,16 @@ export function InventoryPanel() {
                     {craftMsg}
                   </div>
                 )}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                  {filteredRecipes.map(r => (
-                    <CraftSlot key={r.id} recipe={r} dimmed={isRecipeDimmed(r)} onCraft={() => setConfirmRecipe(r)} />
-                  ))}
-                  {filteredRecipes.length % GRID_COLS !== 0 && Array.from({ length: craftEmptySlots }).map((_, i) => <EmptySlot key={`ce-${i}`} />)}
-                </div>
+                {craftTab === 'shop' ? (
+                  <ChipPackSection />
+                ) : (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {filteredRecipes.map(r => (
+                      <CraftSlot key={r.id} recipe={r} dimmed={isRecipeDimmed(r)} onCraft={() => setConfirmRecipe(r)} />
+                    ))}
+                    {filteredRecipes.length % GRID_COLS !== 0 && Array.from({ length: craftEmptySlots }).map((_, i) => <EmptySlot key={`ce-${i}`} />)}
+                  </div>
+                )}
               </div>
 
               {/* Divider */}
@@ -575,27 +581,27 @@ export function InventoryPanel() {
                   </div>
                   <TabBar tabs={INV_TABS} active={invTab} onChange={setInvTab} hasResults={invTabResults} />
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                  {filteredItems.length === 0 ? (
-                    <div style={{ width: '100%', textAlign: 'center', padding: '16px 0', fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                      {search ? t('ui.no_items_match') : t('ui.no_items_yet')}
-                    </div>
-                  ) : (
-                    <>
-                      {filteredItems.map(item => (
-                        <ItemSlot key={item.itemType} item={item} dimmed={isItemDimmed(item.itemType)} />
-                      ))}
-                      {filteredItems.length % GRID_COLS !== 0 && Array.from({ length: emptySlots }).map((_, i) => <EmptySlot key={`ie-${i}`} />)}
-                    </>
-                  )}
-                </div>
+                {invTab === 'chips' ? (
+                  <OwnedChipsSection search={search} />
+                ) : (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {filteredItems.length === 0 ? (
+                      <div style={{ width: '100%', textAlign: 'center', padding: '16px 0', fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                        {search ? t('ui.no_items_match') : t('ui.no_items_yet')}
+                      </div>
+                    ) : (
+                      <>
+                        {filteredItems.map(item => (
+                          <ItemSlot key={item.itemType} item={item} dimmed={isItemDimmed(item.itemType)} />
+                        ))}
+                        {filteredItems.length % GRID_COLS !== 0 && Array.from({ length: emptySlots }).map((_, i) => <EmptySlot key={`ie-${i}`} />)}
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* ── Chip Packs ── */}
-              <ChipPackSection />
-
-              {/* ── Owned Chips ── */}
-              <OwnedChipsSection search={search} />
+              {/* Chips shown inline via Items "Chips" tab — no separate sections */}
 
               {/* ── Resources bar ── */}
               <div style={{

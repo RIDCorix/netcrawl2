@@ -436,6 +436,8 @@ export const ja: Record<string, string> = {
   'ui.tab_equipment':    '装備品',
   'ui.tab_materials':    '素材',
   'ui.tab_packs':        'パック',
+  'ui.tab_chips':        'チップ',
+  'ui.tab_shop':         'ショップ',
   'ui.no_items_craft':   'アイテムなし。インベントリでクラフトしてください。',
   'ui.confirm_deploy':   'デプロイ確認',
   'ui.back':             '戻る',

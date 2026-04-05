@@ -436,6 +436,8 @@ export const zhTW: Record<string, string> = {
   'ui.tab_equipment':    '裝備品',
   'ui.tab_materials':    '素材',
   'ui.tab_packs':        '包裹',
+  'ui.tab_chips':        '晶片',
+  'ui.tab_shop':         '商店',
   'ui.no_items_craft':   '沒有物品。請在背包中製作。',
   'ui.confirm_deploy':   '確認部署',
   'ui.back':             '返回',
