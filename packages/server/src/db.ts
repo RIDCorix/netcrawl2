@@ -283,7 +283,7 @@ export const INITIAL_NODES = [
   // ═══════════════════════════════════════════════════════════════════════════
   // NORTH — Mining District (easy start, main data income)
   // ═══════════════════════════════════════════════════════════════════════════
-  { id: 'n_relay1', type: 'resource', position: { x: 0,    y: -300 },  data: R('Data Mine Nano', 30, { data: 20 }) },
+  { id: 'n_relay1', type: 'resource', position: { x: 0,    y: -300 },  data: { ...R('Data Mine Nano', 30, { data: 20 }), unlocked: true } },
   { id: 'n_mine1',  type: 'resource', position: { x: -220, y: -500 },  data: R('Data Mine Alpha', 50, { data: 100 }) },
   { id: 'n_mine2',  type: 'resource', position: { x: 220,  y: -500 },  data: R('Data Mine Beta', 40, { data: 150 }) },
   { id: 'n_relay2', type: 'empty',    position: { x: 0,    y: -700 },  data: Y('Relay N2', { data: 200 }) },
