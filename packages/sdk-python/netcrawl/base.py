@@ -122,7 +122,7 @@ class WorkerClass(metaclass=WorkerMeta):
     _holding = None   # Drop | None — the 1-slot internal inventory
     _client = None  # ApiClient instance
 
-    def __init__(self, worker_id: str, api_url: str, injected_fields: dict):
+    def __init__(self, worker_id: str, api_url: str, injected_fields: dict, api_key: str = ""):
         self._worker_id = worker_id
         self._api_url = api_url
         self._current_node = "hub"
@@ -131,7 +131,7 @@ class WorkerClass(metaclass=WorkerMeta):
 
         # Import here to avoid circular imports at module load time
         from netcrawl.client import ApiClient
-        self._client = ApiClient(api_url=api_url, worker_id=worker_id)
+        self._client = ApiClient(api_url=api_url, worker_id=worker_id, api_key=api_key)
 
         # Inject field values (replace descriptor instances with actual values)
         for field_name, value in injected_fields.items():

@@ -29,8 +29,9 @@ signal.signal(signal.SIGINT, _on_sigterm)  # also handle Ctrl+C
 
 
 def main():
-    worker_id = os.environ.get("NETCRAWL_WORKER_ID") or os.environ.get("NETCRAWL_WORKER_ID", "")
+    worker_id = os.environ.get("NETCRAWL_WORKER_ID", "")
     api_url = os.environ.get("NETCRAWL_API_URL", "http://localhost:4800")
+    api_key = os.environ.get("NETCRAWL_API_KEY", "")
     script_path = os.environ["NETCRAWL_SCRIPT_PATH"]
     class_name = os.environ["NETCRAWL_CLASS_NAME"]
     injected_raw = os.environ.get("NETCRAWL_INJECTED", "{}")
@@ -92,6 +93,7 @@ def main():
         worker_id=worker_id,
         api_url=api_url,
         injected_fields=injected_fields,
+        api_key=api_key,
     )
 
     print(f"[{worker_id}] Starting {class_name}...")
