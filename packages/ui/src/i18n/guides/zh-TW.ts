@@ -96,7 +96,7 @@ this.deposit();    // 呼叫存入方法
     { title: '寫你的第一個 Worker', content: `開啟 \`workspace/workers/miner.py\`（或 \`miner.js\`）並寫入：
 
 \`\`\`python
-from netcrawl import WorkerClass, Edge
+from netcrawl import WorkerClass, Route
 from netcrawl.items.equipment import Pickaxe
 
 class Miner(WorkerClass):
@@ -104,37 +104,51 @@ class Miner(WorkerClass):
     class_id = "miner"
 
     pickaxe = Pickaxe()
-    route = Edge("mining route")
+    route = Route("hub → 礦場 → hub")
 
     def on_loop(self):
-        self.move_edge(self.route)   # hub → 礦場
-        self.pickaxe.mine()          # 產生掉落物
-        self.collect()               # 撿起來
-        self.move_edge(self.route)   # 礦場 → hub
-        self.deposit()               # 轉換為資源
+        # 沿路線前進（hub → 礦場）
+        for edge in self.route:
+            self.move(edge)
+
+        self.pickaxe.mine_and_collect()
+
+        # 沿路線返回（礦場 → hub）
+        for edge in reversed(self.route):
+            self.move(edge)
+
+        self.deposit()
 \`\`\`
 \`\`\`javascript
-import { WorkerClass, Edge, Pickaxe } from '@netcrawl/sdk';
+import { WorkerClass, Route, Pickaxe } from '@netcrawl/sdk';
 
 class Miner extends WorkerClass {
     static classId = 'miner';
     static className = 'Miner';
     static fields = {
         pickaxe: new Pickaxe(),
-        route: new Edge('mining route'),
+        route: new Route('hub → 礦場 → hub'),
     };
 
     onLoop() {
-        this.moveEdge(this.route);   // hub → 礦場
-        this.pickaxe.mine();         // 產生掉落物
-        this.collect();              // 撿起來
-        this.moveEdge(this.route);   // 礦場 → hub
-        this.deposit();              // 轉換為資源
+        // 沿路線前進（hub → 礦場）
+        for (const edge of this.route) {
+            this.move(edge);
+        }
+
+        this.pickaxe.mineAndCollect();
+
+        // 沿路線返回（礦場 → hub）
+        for (const edge of [...this.route].reverse()) {
+            this.move(edge);
+        }
+
+        this.deposit();
     }
 }
 \`\`\`
 
-每一行都是一個**方法呼叫**。Worker 會按順序一個一個執行。` },
+\`Route\` 是部署時透過點擊節點建立的路徑。執行時會變成邊 ID 的列表，可以用 \`for\` 遍歷。用 \`reversed()\` 來走回去。` },
 
     { title: '部署並觀察', content: `1. 點擊 **Hub** 節點 → **部署 Worker**
 2. 從下拉選單選擇 **Miner**

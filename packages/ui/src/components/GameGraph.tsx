@@ -114,7 +114,7 @@ function WorkerDotsRow({ workers, show }: { workers: any[]; show: boolean }) {
 const HANDLE_STYLE_HIDDEN = { opacity: 0 } as const;
 const HANDLE_STYLE_CENTER = { opacity: 0, top: '50%', left: '50%', transform: 'translate(-50%, -50%)' } as const;
 
-function NodeWrapper({ children, selected, glowColor, style = {}, workers: nodeWorkers, showWorkerDots, edgeStyle: currentEdgeStyle, fadeIn, routeIndex }: {
+function NodeWrapper({ children, selected, glowColor, style = {}, workers: nodeWorkers, showWorkerDots, edgeStyle: currentEdgeStyle, fadeIn, routeIndices }: {
   children: React.ReactNode;
   selected?: boolean;
   glowColor?: string;
@@ -123,9 +123,9 @@ function NodeWrapper({ children, selected, glowColor, style = {}, workers: nodeW
   showWorkerDots?: boolean;
   edgeStyle?: string;
   fadeIn?: boolean;
-  routeIndex?: number;
+  routeIndices?: number[];
 }) {
-  const isOnRoute = routeIndex !== undefined && routeIndex >= 0;
+  const isOnRoute = routeIndices && routeIndices.length > 0;
   const borderColor = isOnRoute ? '#f59e0b' : selected ? 'var(--accent)' : glowColor || 'var(--border-bright)';
 
   return (
@@ -148,17 +148,23 @@ function NodeWrapper({ children, selected, glowColor, style = {}, workers: nodeW
       animation: fadeIn ? 'node-fade-in 0.5s ease-out' : undefined,
       ...style,
     }}>
-      {/* Route sequence badge */}
+      {/* Route sequence badges */}
       {isOnRoute && (
         <div style={{
           position: 'absolute', top: -10, right: -10, zIndex: 10,
-          width: 20, height: 20, borderRadius: '50%',
-          background: '#f59e0b', color: '#000',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 10, fontWeight: 800, fontFamily: 'var(--font-mono)',
-          boxShadow: '0 0 8px rgba(245,158,11,0.5)',
+          display: 'flex', gap: 2,
         }}>
-          {routeIndex + 1}
+          {routeIndices!.map(idx => (
+            <div key={idx} style={{
+              width: 18, height: 18, borderRadius: '50%',
+              background: '#f59e0b', color: '#000',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 9, fontWeight: 800, fontFamily: 'var(--font-mono)',
+              boxShadow: '0 0 8px rgba(245,158,11,0.5)',
+            }}>
+              {idx + 1}
+            </div>
+          ))}
         </div>
       )}
       {currentEdgeStyle === 'straight' ? (
@@ -273,7 +279,7 @@ function DepletedOverlay({ depletedUntil }: { depletedUntil?: number }) {
 
 function HubNode({ data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} glowColor="var(--accent)" workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndex={data.routeIndex} style={{
+    <NodeWrapper selected={selected} glowColor="var(--accent)" workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{
       animation: 'hub-pulse 3s ease-in-out infinite',
       padding: '14px 20px',
       borderRadius: 'var(--radius-lg)',
@@ -301,7 +307,7 @@ function ResourceNode({ data, selected }: any) {
       workers={data.workers}
       showWorkerDots={data.showWorkerDots}
       edgeStyle={data.edgeStyle}
-      fadeIn={data.fadeIn} routeIndex={data.routeIndex}
+      fadeIn={data.fadeIn} routeIndices={data.routeIndices}
       style={{
         opacity: data.unlocked ? (isDepleted ? 0.7 : 1) : 0.5,
         filter: isDepleted ? 'grayscale(60%)' : undefined,
@@ -328,7 +334,7 @@ function ResourceNode({ data, selected }: any) {
 
 function InfectedNode({ data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} glowColor="var(--danger)" workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndex={data.routeIndex} style={{
+    <NodeWrapper selected={selected} glowColor="var(--danger)" workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{
       animation: 'infected-pulse 1.5s ease-in-out infinite',
       borderColor: 'var(--danger)',
     }}>
@@ -339,7 +345,7 @@ function InfectedNode({ data, selected }: any) {
 
 function LockedNode({ data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndex={data.routeIndex} style={{
+    <NodeWrapper selected={selected} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{
       opacity: 0.4,
       border: '1px dashed var(--border-bright)',
     }}>
@@ -357,7 +363,7 @@ const DIFFICULTY_COLORS: Record<string, string> = {
 function ComputeNode({ data, selected }: any) {
   const color = DIFFICULTY_COLORS[data.difficulty] || '#a78bfa';
   return (
-    <NodeWrapper selected={selected} glowColor={data.unlocked ? color : undefined} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndex={data.routeIndex} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
+    <NodeWrapper selected={selected} glowColor={data.unlocked ? color : undefined} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
       <NodeLabel
         label={data.label}
         icon={Cpu}
@@ -384,7 +390,7 @@ function AuthNodeComponent({ data, selected }: any) {
   const unlocked = data.data?.unlocked || false;
 
   return (
-    <NodeWrapper selected={selected} glowColor="#a78bfa" workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndex={data.routeIndex} style={{ opacity: unlocked ? 1 : 0.5 }}>
+    <NodeWrapper selected={selected} glowColor="#a78bfa" workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{ opacity: unlocked ? 1 : 0.5 }}>
       <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
       <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
       <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
@@ -439,7 +445,7 @@ function APINodeComponent({ data, selected }: any) {
     : '#4ade80';
 
   return (
-    <NodeWrapper selected={selected} glowColor={slaColor} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndex={data.routeIndex} style={{ opacity: unlocked ? 1 : 0.5 }}>
+    <NodeWrapper selected={selected} glowColor={slaColor} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{ opacity: unlocked ? 1 : 0.5 }}>
       <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
       <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
       <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
@@ -509,7 +515,7 @@ function APINodeComponent({ data, selected }: any) {
 
 function EmptyNode({ data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndex={data.routeIndex} style={{
+    <NodeWrapper selected={selected} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{
       opacity: data.unlocked ? 0.8 : 0.4,
       border: '1px dashed var(--border-bright)',
     }}>
@@ -525,7 +531,7 @@ function EmptyNode({ data, selected }: any) {
 
 function CacheNode({ data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} glowColor={data.unlocked ? '#a78bfa' : undefined} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndex={data.routeIndex} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
+    <NodeWrapper selected={selected} glowColor={data.unlocked ? '#a78bfa' : undefined} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
       <NodeLabel
         label={data.label}
         icon={HardDrive}
@@ -710,7 +716,10 @@ function toRFNodes(gameNodes: GameNode[], selectedId: string | null, workers: Wo
       id: n.id,
       type: n.type,
       position: n.position,
-      data: { ...n.data, label: tn(n.data.label), selected: n.id === selectedId, workers: nodeWorkers, showWorkerDots, edgeStyle, fadeIn: fadeInIds.has(n.id), routeIndex: routePath.indexOf(n.id) },
+      data: {
+        ...n.data, label: tn(n.data.label), selected: n.id === selectedId, workers: nodeWorkers, showWorkerDots, edgeStyle, fadeIn: fadeInIds.has(n.id),
+        routeIndices: routePath.reduce<number[]>((acc, id, i) => { if (id === n.id) acc.push(i); return acc; }, []),
+      },
       selected: n.id === selectedId,
     };
   });

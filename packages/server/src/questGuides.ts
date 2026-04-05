@@ -103,7 +103,7 @@ Each method call tells your worker to **do something**. Methods are how you inte
     { title: 'Write Your First Worker', content: `Open \`workspace/workers/miner.py\` (or \`miner.js\`) and write:
 
 \`\`\`python
-from netcrawl import WorkerClass, Edge
+from netcrawl import WorkerClass, Route
 from netcrawl.items.equipment import Pickaxe
 
 class Miner(WorkerClass):
@@ -111,37 +111,51 @@ class Miner(WorkerClass):
     class_id = "miner"
 
     pickaxe = Pickaxe()
-    route = Edge("mining route")
+    route = Route("hub → mine → hub")
 
     def on_loop(self):
-        self.move_edge(self.route)   # hub → mine
-        self.pickaxe.mine()          # create a drop
-        self.collect()               # pick it up
-        self.move_edge(self.route)   # mine → hub
-        self.deposit()               # convert to resources
+        # Walk the route forward (hub → mine)
+        for edge in self.route:
+            self.move(edge)
+
+        self.pickaxe.mine_and_collect()
+
+        # Walk the route backward (mine → hub)
+        for edge in reversed(self.route):
+            self.move(edge)
+
+        self.deposit()
 \`\`\`
 \`\`\`javascript
-import { WorkerClass, Edge, Pickaxe } from '@netcrawl/sdk';
+import { WorkerClass, Route, Pickaxe } from '@netcrawl/sdk';
 
 class Miner extends WorkerClass {
     static classId = 'miner';
     static className = 'Miner';
     static fields = {
         pickaxe: new Pickaxe(),
-        route: new Edge('mining route'),
+        route: new Route('hub → mine → hub'),
     };
 
     onLoop() {
-        this.moveEdge(this.route);   // hub → mine
-        this.pickaxe.mine();         // create a drop
-        this.collect();              // pick it up
-        this.moveEdge(this.route);   // mine → hub
-        this.deposit();              // convert to resources
+        // Walk the route forward (hub → mine)
+        for (const edge of this.route) {
+            this.move(edge);
+        }
+
+        this.pickaxe.mineAndCollect();
+
+        // Walk the route backward (mine → hub)
+        for (const edge of [...this.route].reverse()) {
+            this.move(edge);
+        }
+
+        this.deposit();
     }
 }
 \`\`\`
 
-Each line is a **method call**. The worker executes them one by one, in order.` },
+A \`Route\` is a path you build at deploy time by clicking nodes. At runtime it becomes a list of edge IDs that you can iterate with \`for\`. Use \`reversed()\` to walk back.` },
 
     { title: 'Deploy and Watch', content: `1. Click the **Hub** node → **Deploy Worker**
 2. Select **Miner** from the dropdown
