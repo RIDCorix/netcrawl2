@@ -39,22 +39,31 @@ This creates a \`workspace/\` folder with:
 - \`main.py\` — entry point (registers your workers)
 - \`workers/\` — your worker classes go here` },
 
-    { title: 'Configure main.py', content: `Open \`workspace/main.py\` and make sure the server URL is correct.
+    { title: 'Configure main.py', content: `Open \`workspace/main.py\` in your editor. Find the \`NetCrawl(...)\` section and update the **server URL**.
 
-Click the **Connect** button (terminal icon) in the top-right toolbar to find your server URL, then update \`main.py\`:
+Click the **Connect** button (terminal icon, top-right) to get your server URL, then edit:
 
-\`\`\`python
-from netcrawl import NetCrawl
-from workers.miner import Miner
-
-app = NetCrawl(
-    server="http://localhost:4800",  # ← paste your server URL here
-)
-app.register(Miner)
-app.run()
+\`\`\`diff
+  app = NetCrawl(
+-     api_key="sk-local",
+-     server="http://localhost:4800",
++     api_key="sk-local",                        # keep for local
++     server="http://localhost:4800",             # ← paste URL from Connect dialog
+  )
 \`\`\`
 
-> **Tip:** The Connect dialog has a copy button — use it to get the exact URL for your setup.` },
+> **How to find your URL:** Click the pulsing **Connect** button in the toolbar → copy the **Server URL**.
+
+If you're on the **cloud version**, also replace the \`api_key\` with the API Key shown in the Connect dialog:
+
+\`\`\`diff
+  app = NetCrawl(
+-     api_key="sk-local",
+-     server="http://localhost:4800",
++     api_key="eyJhbG...",                       # ← from Connect dialog
++     server="https://netcrawl-server-....app",   # ← from Connect dialog
+  )
+\`\`\`` },
 
     { title: 'Run Your Code Server', content: `Now start your Python code server. In the \`workspace/\` folder:
 

@@ -79,10 +79,10 @@ export function ConnectDialog() {
   const apiKey = localStorage.getItem('netcrawl-token') || '';
 
   const pythonCode = isCloud
-    ? `app = NetCrawl(\n    server="${serverUrl}",\n    api_key="${apiKey}",\n)`
+    ? `app = NetCrawl(server="${serverUrl}", api_key="${apiKey}")`
     : `app = NetCrawl(server="${serverUrl}")`;
   const jsCode = isCloud
-    ? `const app = new NetCrawl({\n  server: '${serverUrl}',\n  apiKey: '${apiKey}',\n});`
+    ? `const app = new NetCrawl({ server: '${serverUrl}', apiKey: '${apiKey}' });`
     : `const app = new NetCrawl({ server: '${serverUrl}' });`;
 
   return (
@@ -104,7 +104,7 @@ export function ConnectDialog() {
             transition={{ type: 'spring', damping: 25, stiffness: 350 }}
             onClick={(e) => e.stopPropagation()}
             style={{
-              width: 460, maxWidth: 'calc(100vw - 40px)',
+              width: 580, maxWidth: 'calc(100vw - 40px)',
               background: 'var(--bg-glass-heavy)',
               border: '1px solid var(--border-bright)',
               borderRadius: 'var(--radius-lg)',
