@@ -243,15 +243,21 @@ export function TutorialOverlay() {
         onClick={(e) => e.stopPropagation()}
       />
 
-      {/* Pass-through click zone for the highlighted target */}
-      {currentStep.allowTargetClick && highlightRect && (
-        <div style={{
-          position: 'fixed',
-          top: highlightRect.top, left: highlightRect.left,
-          width: highlightRect.width, height: highlightRect.height,
-          zIndex: 91, borderRadius: 'var(--radius-md)',
-          cursor: 'pointer',
-        }} />
+      {/* Click zone that forwards click to the highlighted target element */}
+      {currentStep.allowTargetClick && highlightRect && currentStep.target && (
+        <div
+          onClick={() => {
+            const el = document.querySelector(currentStep.target!) as HTMLElement;
+            if (el) el.click();
+          }}
+          style={{
+            position: 'fixed',
+            top: highlightRect.top, left: highlightRect.left,
+            width: highlightRect.width, height: highlightRect.height,
+            zIndex: 91, borderRadius: 'var(--radius-md)',
+            cursor: 'pointer',
+          }}
+        />
       )}
 
       <div style={{ position: 'fixed', inset: 0, zIndex: 90, pointerEvents: 'none' }}>
