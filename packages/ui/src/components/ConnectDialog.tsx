@@ -1,9 +1,9 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Copy, Check, Terminal, Globe } from 'lucide-react';
-import { useState, useCallback } from 'react';
+import { X, Copy, Check, Terminal, Globe, Loader } from 'lucide-react';
+import { useState, useCallback, useEffect } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useT } from '../hooks/useT';
-import { SERVER_URL, WS_URL } from '../lib/api';
+import { SERVER_URL, WS_URL, apiFetch } from '../lib/api';
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -55,8 +55,23 @@ function CodeBlock({ label, code }: { label: string; code: string }) {
 }
 
 export function ConnectDialog() {
-  const { connectOpen, toggleConnect, connected } = useGameStore();
+  const { connectOpen, toggleConnect } = useGameStore();
   const t = useT();
+  const [codeServerConnected, setCodeServerConnected] = useState(false);
+
+  // Poll for code server registration status
+  useEffect(() => {
+    if (!connectOpen) return;
+    let alive = true;
+    const check = () => {
+      apiFetch('/api/worker-classes').then(r => r.json()).then(data => {
+        if (alive) setCodeServerConnected(Array.isArray(data) && data.length > 0);
+      }).catch(() => {});
+    };
+    check();
+    const interval = setInterval(check, 3000);
+    return () => { alive = false; clearInterval(interval); };
+  }, [connectOpen]);
 
   const serverUrl = SERVER_URL;
   const wsUrl = WS_URL;
@@ -119,10 +134,10 @@ export function ConnectDialog() {
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16,
                 fontSize: 11, fontFamily: 'var(--font-mono)',
-                color: connected ? 'var(--success)' : 'var(--text-muted)',
+                color: codeServerConnected ? 'var(--success)' : 'var(--text-muted)',
               }}>
-                <Globe size={12} />
-                <span>{connected ? 'Code server connected' : 'Waiting for code server...'}</span>
+                {codeServerConnected ? <Globe size={12} /> : <Loader size={12} style={{ animation: 'spin 1.5s linear infinite' }} />}
+                <span>{codeServerConnected ? 'Code server connected' : 'Waiting for code server...'}</span>
               </div>
 
               {/* Description */}

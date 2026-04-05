@@ -1,8 +1,6 @@
 /**
  * TutorialOverlay — inline step-by-step onboarding guide.
- * Points to specific UI elements with a highlight + floating tooltip.
- * BLOCKS all other interactions during the tutorial.
- * Persisted to localStorage. Skippable at any time.
+ * BLOCKS all other interactions. Some steps require the user to click specific UI elements.
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -13,13 +11,17 @@ import { useT } from '../hooks/useT';
 
 interface TutorialStep {
   id: string;
-  target?: string; // CSS selector for element to highlight
+  target?: string;
   placement: 'top' | 'bottom' | 'left' | 'right' | 'center';
   icon: any;
   title: string;
   content: string;
   nextLabel?: string;
-  action?: () => void; // action to execute when advancing FROM this step
+  /** If set, the "Next" button is hidden. Step advances when this condition is met. */
+  waitFor?: 'questsOpen' | 'selectedQuest' | 'workerDeployed';
+  /** Allow clicking only the target element (pass-through clicks to it). */
+  allowTargetClick?: boolean;
+  action?: () => void;
 }
 
 const TUTORIAL_STEPS: TutorialStep[] = [
@@ -30,33 +32,39 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     title: 'tutorial.welcome.title',
     content: 'tutorial.welcome.content',
     nextLabel: 'tutorial.btn.start',
-    action: () => {
-      // Open the quest book when user clicks "Start"
-      const state = useGameStore.getState();
-      if (!state.questsOpen) state.toggleQuests();
-    },
   },
   {
-    id: 'quest_book',
+    id: 'open_quests',
     target: '[data-tutorial="quests-btn"]',
     placement: 'bottom',
     icon: BookOpen,
     title: 'tutorial.quests.title',
     content: 'tutorial.quests.content',
-    nextLabel: 'tutorial.btn.next',
-    action: () => {
-      // Select the first quest (Dev Setup / q_setup)
-      useGameStore.getState().selectQuest('q_setup');
-    },
+    waitFor: 'questsOpen',
+    allowTargetClick: true,
+  },
+  {
+    id: 'click_first_quest',
+    target: '[data-id="q_setup"]',
+    placement: 'right',
+    icon: BookOpen,
+    title: 'tutorial.quest_select.title',
+    content: 'tutorial.quest_select.content',
+    waitFor: 'selectedQuest',
+    allowTargetClick: true,
   },
   {
     id: 'setup_code',
-    target: '[data-tutorial="quests-btn"]',
-    placement: 'bottom',
+    placement: 'center',
     icon: Terminal,
     title: 'tutorial.setup.title',
     content: 'tutorial.setup.content',
     nextLabel: 'tutorial.btn.next',
+    action: () => {
+      // Close quest tree so user can see the game
+      const state = useGameStore.getState();
+      if (state.questsOpen) state.toggleQuests();
+    },
   },
   {
     id: 'deploy_worker',
@@ -93,18 +101,11 @@ function saveTutorialState(state: { step: number; dismissed: boolean }) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-interface HighlightRect {
-  top: number;
-  left: number;
-  width: number;
-  height: number;
-}
-
 export function TutorialOverlay() {
   const t = useT();
-  const { workers } = useGameStore();
+  const { workers, questsOpen, selectedQuestId } = useGameStore();
   const [tutState, setTutState] = useState(loadTutorialState);
-  const [highlightRect, setHighlightRect] = useState<HighlightRect | null>(null);
+  const [highlightRect, setHighlightRect] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -114,9 +115,7 @@ export function TutorialOverlay() {
 
   const advance = useCallback(() => {
     const cs = TUTORIAL_STEPS[tutState.step];
-    // Execute step action before advancing
     if (cs?.action) cs.action();
-
     setTutState(s => {
       const next = { step: s.step + 1, dismissed: s.step + 1 >= TUTORIAL_STEPS.length };
       saveTutorialState(next);
@@ -130,10 +129,17 @@ export function TutorialOverlay() {
     setTutState(next);
   }, [step]);
 
-  // Update highlight rect for current step's target
+  // Auto-advance on waitFor conditions
+  useEffect(() => {
+    if (!isActive || !currentStep?.waitFor) return;
+    if (currentStep.waitFor === 'questsOpen' && questsOpen) advance();
+    if (currentStep.waitFor === 'selectedQuest' && selectedQuestId) advance();
+    if (currentStep.waitFor === 'workerDeployed' && workers.length > 0) advance();
+  }, [isActive, currentStep?.waitFor, questsOpen, selectedQuestId, workers.length, advance]);
+
+  // Update highlight rect
   useEffect(() => {
     if (!isActive || !currentStep) return;
-
     const updateRect = () => {
       if (!currentStep.target) {
         setHighlightRect(null);
@@ -141,50 +147,26 @@ export function TutorialOverlay() {
         return;
       }
       const el = document.querySelector(currentStep.target);
-      if (!el) {
-        setHighlightRect(null);
-        setTooltipPos(null);
-        return;
-      }
+      if (!el) { setHighlightRect(null); setTooltipPos(null); return; }
       const rect = el.getBoundingClientRect();
       const pad = 6;
-      setHighlightRect({
-        top: rect.top - pad,
-        left: rect.left - pad,
-        width: rect.width + pad * 2,
-        height: rect.height + pad * 2,
-      });
-
-      const placement = currentStep.placement;
+      setHighlightRect({ top: rect.top - pad, left: rect.left - pad, width: rect.width + pad * 2, height: rect.height + pad * 2 });
       const gap = 16;
-      if (placement === 'bottom') {
-        setTooltipPos({ top: rect.bottom + gap, left: rect.left + rect.width / 2 });
-      } else if (placement === 'top') {
-        setTooltipPos({ top: rect.top - gap, left: rect.left + rect.width / 2 });
-      } else if (placement === 'right') {
-        setTooltipPos({ top: rect.top + rect.height / 2, left: rect.right + gap });
-      } else if (placement === 'left') {
-        setTooltipPos({ top: rect.top + rect.height / 2, left: rect.left - gap });
-      }
+      if (currentStep.placement === 'bottom') setTooltipPos({ top: rect.bottom + gap, left: rect.left + rect.width / 2 });
+      else if (currentStep.placement === 'top') setTooltipPos({ top: rect.top - gap, left: rect.left + rect.width / 2 });
+      else if (currentStep.placement === 'right') setTooltipPos({ top: rect.top + rect.height / 2, left: rect.right + gap });
+      else if (currentStep.placement === 'left') setTooltipPos({ top: rect.top + rect.height / 2, left: rect.left - gap });
     };
-
     updateRect();
     intervalRef.current = setInterval(updateRect, 300);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [isActive, currentStep, step]);
 
-  // Auto-advance on worker deployed
-  useEffect(() => {
-    if (!isActive || !currentStep) return;
-    if (currentStep.id === 'deploy_worker' && workers.length > 0) {
-      advance();
-    }
-  }, [workers.length, isActive, currentStep?.id, advance]);
-
   if (!isActive || !currentStep) return null;
 
   const Icon = currentStep.icon;
   const isCenter = currentStep.placement === 'center' || !currentStep.target || !tooltipPos;
+  const hasNextButton = !currentStep.waitFor;
 
   const tooltipCard = (
     <motion.div
@@ -194,16 +176,11 @@ export function TutorialOverlay() {
       exit={{ opacity: 0, scale: 0.9, y: 8 }}
       transition={{ type: 'spring', damping: 24, stiffness: 300 }}
       style={{
-        background: 'var(--bg-glass-heavy)',
-        backdropFilter: 'blur(20px)',
-        border: '1px solid var(--border-bright)',
-        borderRadius: 'var(--radius-lg)',
+        background: 'var(--bg-glass-heavy)', backdropFilter: 'blur(20px)',
+        border: '1px solid var(--border-bright)', borderRadius: 'var(--radius-lg)',
         boxShadow: '0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,212,170,0.1)',
-        width: 320,
-        padding: '16px 20px',
-        display: 'flex',
-        flexDirection: 'column' as const,
-        gap: 10,
+        width: 320, padding: '16px 20px',
+        display: 'flex', flexDirection: 'column' as const, gap: 10,
         pointerEvents: 'auto' as const,
       }}
     >
@@ -216,29 +193,16 @@ export function TutorialOverlay() {
           }}>
             <Icon size={14} style={{ color: 'var(--accent)' }} />
           </div>
-          <span style={{
-            fontSize: 11, fontWeight: 800, color: 'var(--text-primary)',
-            fontFamily: 'var(--font-mono)', letterSpacing: '0.05em',
-          }}>
+          <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}>
             {t(currentStep.title) || currentStep.title}
           </span>
         </div>
-        <button
-          onClick={dismiss}
-          title="Skip tutorial"
-          style={{
-            color: 'var(--text-muted)', background: 'none', border: 'none',
-            cursor: 'pointer', padding: 2, display: 'flex', borderRadius: 4,
-          }}
-        >
+        <button onClick={dismiss} title="Skip tutorial" style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', borderRadius: 4 }}>
           <X size={12} />
         </button>
       </div>
 
-      <p style={{
-        fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)',
-        lineHeight: 1.7, margin: 0,
-      }}>
+      <p style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', lineHeight: 1.7, margin: 0 }}>
         {t(currentStep.content) || currentStep.content}
       </p>
 
@@ -253,27 +217,19 @@ export function TutorialOverlay() {
           ))}
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
-          <button
-            onClick={dismiss}
-            style={{
-              fontSize: 9, fontFamily: 'var(--font-mono)', fontWeight: 600,
-              color: 'var(--text-muted)', background: 'none', border: 'none',
-              cursor: 'pointer', padding: '4px 6px', borderRadius: 'var(--radius-sm)',
-            }}
-          >
+          <button onClick={dismiss} style={{ fontSize: 9, fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px' }}>
             {t('tutorial.btn.skip')}
           </button>
-          <button
-            onClick={advance}
-            style={{
+          {hasNextButton && (
+            <button onClick={advance} style={{
               display: 'flex', alignItems: 'center', gap: 4,
               fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 800,
               color: '#000', background: 'var(--accent)', border: 'none',
               cursor: 'pointer', padding: '5px 12px', borderRadius: 'var(--radius-sm)',
-            }}
-          >
-            {t(currentStep.nextLabel || 'tutorial.btn.next')} <ChevronRight size={10} />
-          </button>
+            }}>
+              {t(currentStep.nextLabel || 'tutorial.btn.next')} <ChevronRight size={10} />
+            </button>
+          )}
         </div>
       </div>
     </motion.div>
@@ -281,70 +237,67 @@ export function TutorialOverlay() {
 
   return (
     <>
-      {/* Full-screen blocker — prevents clicking anything except the tutorial card */}
+      {/* Full-screen blocker */}
       <div
-        style={{
-          position: 'fixed', inset: 0, zIndex: 89,
-          background: 'rgba(0,0,0,0.45)',
-          cursor: 'not-allowed',
-        }}
+        style={{ position: 'fixed', inset: 0, zIndex: 89, background: 'rgba(0,0,0,0.45)' }}
         onClick={(e) => e.stopPropagation()}
       />
 
+      {/* Pass-through click zone for the highlighted target */}
+      {currentStep.allowTargetClick && highlightRect && (
+        <div style={{
+          position: 'fixed',
+          top: highlightRect.top, left: highlightRect.left,
+          width: highlightRect.width, height: highlightRect.height,
+          zIndex: 91, borderRadius: 'var(--radius-md)',
+          cursor: 'pointer',
+        }} />
+      )}
+
       <div style={{ position: 'fixed', inset: 0, zIndex: 90, pointerEvents: 'none' }}>
-        {/* Highlight ring around target */}
+        {/* Highlight ring */}
         <AnimatePresence>
           {highlightRect && (
             <motion.div
               key={`highlight-${step}`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               style={{
-                position: 'fixed',
-                top: highlightRect.top,
-                left: highlightRect.left,
-                width: highlightRect.width,
-                height: highlightRect.height,
+                position: 'fixed', ...highlightRect,
                 borderRadius: 'var(--radius-md)',
                 border: '2px solid var(--accent)',
                 boxShadow: '0 0 20px rgba(0,212,170,0.4)',
-                pointerEvents: 'none',
-                zIndex: 91,
+                pointerEvents: 'none', zIndex: 91,
+                animation: currentStep.waitFor ? 'pulse-ring 1.5s ease-in-out infinite' : undefined,
               }}
             />
           )}
         </AnimatePresence>
 
-        {/* Tooltip card */}
+        {/* Tooltip */}
         <AnimatePresence mode="wait">
           {isCenter ? (
-            <div key={`center-${step}`} style={{
-              position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              pointerEvents: 'none', zIndex: 92,
-            }}>
+            <div key={`center-${step}`} style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 92 }}>
               {tooltipCard}
             </div>
           ) : tooltipPos ? (
-            <div
-              key={`pos-${step}`}
-              style={{
-                position: 'fixed',
-                top: currentStep.placement === 'bottom' ? tooltipPos.top
-                  : currentStep.placement === 'top' ? tooltipPos.top - 180
-                  : tooltipPos.top - 90,
-                left: currentStep.placement === 'right' ? tooltipPos.left
-                  : currentStep.placement === 'left' ? tooltipPos.left - 336
-                  : tooltipPos.left - 160,
-                zIndex: 92,
-                pointerEvents: 'none',
-              }}
-            >
+            <div key={`pos-${step}`} style={{
+              position: 'fixed',
+              top: currentStep.placement === 'bottom' ? tooltipPos.top : currentStep.placement === 'top' ? tooltipPos.top - 180 : tooltipPos.top - 90,
+              left: currentStep.placement === 'right' ? tooltipPos.left : currentStep.placement === 'left' ? tooltipPos.left - 336 : tooltipPos.left - 160,
+              zIndex: 92, pointerEvents: 'none',
+            }}>
               {tooltipCard}
             </div>
           ) : null}
         </AnimatePresence>
       </div>
+
+      <style>{`
+        @keyframes pulse-ring {
+          0%, 100% { box-shadow: 0 0 20px rgba(0,212,170,0.4); }
+          50% { box-shadow: 0 0 30px rgba(0,212,170,0.7), 0 0 60px rgba(0,212,170,0.2); }
+        }
+      `}</style>
     </>
   );
 }

@@ -34,6 +34,7 @@ function QuestNode({ data }: any) {
 
   return (
     <div
+      data-id={q.id}
       onClick={() => selectQuest(q.id)}
       style={{
         padding: !q.mainline ? '10px 14px' : '14px 18px',
