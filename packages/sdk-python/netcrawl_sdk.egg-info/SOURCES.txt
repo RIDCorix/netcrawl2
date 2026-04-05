@@ -6,6 +6,7 @@ netcrawl/base.py
 netcrawl/client.py
 netcrawl/fields.py
 netcrawl/icons.py
+netcrawl/models.py
 netcrawl/nodes.py
 netcrawl/runner.py
 netcrawl/runtime.py

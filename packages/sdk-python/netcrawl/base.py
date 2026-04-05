@@ -6,18 +6,12 @@ WorkerMeta metaclass and WorkerClass base class.
 
 import inspect
 import time
+from typing import Optional, List
 from netcrawl.fields import WorkerField, ItemField
-
-
-class DotDict(dict):
-    """Dict subclass that supports dot notation access (d.key == d['key'])."""
-    def __getattr__(self, key):
-        try:
-            return self[key]
-        except KeyError:
-            raise AttributeError(f"No attribute '{key}'")
-    def __setattr__(self, key, value):
-        self[key] = value
+from netcrawl.models import (
+    Drop, CollectResult, DepositResult, DiscardResult, MoveResult,
+    ScannedNode, EdgeInfo, NodeInfo, APIRequestModel, TokenValidation,
+)
 
 
 class APIRequest:
@@ -238,30 +232,29 @@ class WorkerClass(metaclass=WorkerMeta):
         else:
             raise ValueError(f"Cannot move to {target}: {result.get('error')}")
 
-    def move_edge(self, edge_id: str) -> dict:
+    def move_edge(self, edge_id: str) -> MoveResult:
         """
-        Move along a specific edge. The worker travels to the other end
-        of the edge from their current position.
+        Move along a specific edge.
 
-        Raises ValueError if the edge doesn't connect to the current node.
-
-        Returns: { ok, travelTime, edgeId, from, to }
+        Returns MoveResult with .ok, .from_node, .to_node, .edge_id
+        Raises ValueError if the edge doesn't connect to current node.
         """
-        result = self._client.action("move_edge", {"edgeId": edge_id})
-        if result.get("ok"):
-            self._current_node = result.get("to", self._current_node)
+        data = self._client.action("move_edge", {"edgeId": edge_id})
+        result = MoveResult(**data)
+        if result.ok:
+            self._current_node = result.to_node or self._current_node
             return result
         else:
-            raise ValueError(f"Cannot move along edge {edge_id}: {result.get('error')}")
+            raise ValueError(f"Cannot move along edge {edge_id}: {result.error}")
 
-    def get_edges(self) -> list:
+    def get_edges(self) -> List[EdgeInfo]:
         """
         Get all edges connected to the current node.
 
-        Returns: list of { id: str, otherNode: str }
+        Returns list of EdgeInfo with .id, .other_node
         """
         result = self._client.action("get_edges", {})
-        return result.get("edges", [])
+        return [EdgeInfo(**e) for e in result.get("edges", [])]
 
     def move_through(self, route) -> None:
         """
@@ -276,45 +269,51 @@ class WorkerClass(metaclass=WorkerMeta):
 
     # ── Resource actions ─────────────────────────────────────────────────────
 
-    def collect(self) -> dict:
+    def collect(self) -> CollectResult:
         """
         Pick up a drop from the current node into the 1-slot internal inventory.
-        Returns: { ok: True, item: { type, amount } }
-        Fails if: slot is full ('slot_full'), or nothing to collect ('nothing_here').
+
+        Returns CollectResult with .ok, .item (Drop with .type, .amount)
+        Fails if: slot is full or nothing to collect.
+
+        Example:
+            result = self.collect()
+            if result.ok:
+                print(result.item.type)  # "data_fragment" or "bad_data"
         """
-        result = self._client.action("collect", {})
-        if result.get("ok"):
-            item = result.get("item")
-            self._holding = DotDict(item) if isinstance(item, dict) else item
+        data = self._client.action("collect", {})
+        result = CollectResult(**data)
+        if result.ok and result.item:
+            self._holding = result.item
         return result
 
-    def deposit(self) -> dict:
+    def deposit(self) -> DepositResult:
         """
-        Deposit the held item (or old-style carrying resources) into player inventory.
-        Must be at Hub node.
-        Returns: { ok: True, deposited: { type, amount } }
+        Deposit the held item at Hub. Bad data subtracts resources!
+
+        Returns DepositResult with .ok, .deposited (Drop), .penalty, .warning
         """
-        result = self._client.action("deposit", {})
-        if result.get("ok"):
+        data = self._client.action("deposit", {})
+        result = DepositResult(**data)
+        if result.ok:
             self._holding = None
             self._inventory = {}
         return result
 
-    def discard(self, item=None) -> dict:
+    def discard(self) -> DiscardResult:
         """
         Discard the currently held item without depositing.
-        Use this to throw away bad drops (e.g. bad_data).
+        Use this to throw away bad_data drops.
 
-        Returns: { ok: True, discarded: { type, amount } }
-        Fails if: nothing is held ('nothing_held').
+        Returns DiscardResult with .ok, .discarded (Drop)
 
         Example:
-            item = self.collect()
-            if item.get('item', {}).get('type') == 'bad_data':
+            if self.holding and self.holding.type == "bad_data":
                 self.discard()
         """
-        result = self._client.action("discard", {})
-        if result.get("ok"):
+        data = self._client.action("discard", {})
+        result = DiscardResult(**data)
+        if result.ok:
             self._holding = None
         return result
 
@@ -348,13 +347,14 @@ class WorkerClass(metaclass=WorkerMeta):
 
     # ── Scanning ─────────────────────────────────────────────────────────────
 
-    def scan(self) -> list:
+    def scan(self) -> List[ScannedNode]:
         """
         Scan adjacent nodes.
-        Returns list of: { id, type, resources, infected, adjacent: bool }
+
+        Returns list of ScannedNode with .id, .type, .label, .infected
         """
         result = self._client.action("scan", {})
-        return result.get("nodes", [])
+        return [ScannedNode(**n) for n in result.get("nodes", [])]
 
     # ── Repair ───────────────────────────────────────────────────────────────
 
@@ -444,7 +444,7 @@ class WorkerClass(metaclass=WorkerMeta):
         result = self._client.action("validate_token", {"token": token})
         if not result.get("ok"):
             raise RuntimeError(result.get("error", "validate_token failed"))
-        return {"valid": result.get("valid", False), "ttl": result.get("ttl", 0)}
+        return TokenValidation(valid=result.get("valid", False), ttl=result.get("ttl", 0))
 
     # ── Logging ──────────────────────────────────────────────────────────────
 
@@ -466,8 +466,13 @@ class WorkerClass(metaclass=WorkerMeta):
     # ── Inventory ─────────────────────────────────────────────────────────────
 
     @property
-    def holding(self):
-        """Currently held item in the 1-slot internal inventory. None if empty."""
+    def holding(self) -> Optional[Drop]:
+        """Currently held item in the 1-slot internal inventory. None if empty.
+
+        Example:
+            if self.holding and self.holding.type == "bad_data":
+                self.discard()
+        """
         return self._holding
 
     @property
