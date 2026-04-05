@@ -5,7 +5,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronRight, BookOpen, Terminal, Cpu, Package, Zap } from 'lucide-react';
+import { X, ChevronRight, BookOpen, Terminal, Zap } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useT } from '../hooks/useT';
 
@@ -54,34 +54,11 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     allowTargetClick: true,
   },
   {
-    id: 'setup_code',
+    id: 'follow_quest',
     placement: 'center',
     icon: Terminal,
-    title: 'tutorial.setup.title',
-    content: 'tutorial.setup.content',
-    nextLabel: 'tutorial.btn.next',
-    action: () => {
-      // Close quest tree so user can see the game
-      const state = useGameStore.getState();
-      if (state.questsOpen) state.toggleQuests();
-    },
-  },
-  {
-    id: 'deploy_worker',
-    target: '[data-tutorial="hub-node"]',
-    placement: 'right',
-    icon: Cpu,
-    title: 'tutorial.deploy.title',
-    content: 'tutorial.deploy.content',
-    nextLabel: 'tutorial.btn.next',
-  },
-  {
-    id: 'inventory',
-    target: '[data-tutorial="inventory-btn"]',
-    placement: 'bottom',
-    icon: Package,
-    title: 'tutorial.inventory.title',
-    content: 'tutorial.inventory.content',
+    title: 'tutorial.follow_quest.title',
+    content: 'tutorial.follow_quest.content',
     nextLabel: 'tutorial.btn.done',
   },
 ];
