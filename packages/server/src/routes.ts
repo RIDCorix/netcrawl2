@@ -4,7 +4,7 @@ import fs from 'fs';
 import { simpleGit } from 'simple-git';
 import {
   getGameState, getVisibleState, saveGameState, resetGameState,
-  getWorkers, getWorker, upsertWorker, deleteWorker,
+  getWorkers, getWorker, upsertWorker, deleteWorker, resetAllWorkers,
   addWorkerLog, getWorkerLogs,
   INITIAL_NODES, INITIAL_EDGES, INITIAL_RESOURCES, INITIAL_PLAYER_INVENTORY,
   RECIPES, Recipe, Chip,
@@ -591,7 +591,53 @@ router.post('/worker-classes/register', (req: Request, res: Response) => {
   incrementStat('code_server_connected', 1, uid);
   checkQuests(uid);
 
-  res.json({ ok: true, registered: classes.length });
+  // Auto-resume suspended workers: re-enqueue them for deployment
+  const allWorkers = getWorkers(uid);
+  const allClasses = getAllWorkerClasses(uid);
+  const classNameToId = new Map(allClasses.map(c => [c.class_name, c.class_id]));
+  let resumed = 0;
+  for (const w of allWorkers) {
+    if (w.status !== 'suspended') continue;
+    const classId = classNameToId.get(w.class_name);
+    if (!classId) continue; // class not registered — skip
+
+    // Re-allocate FLOP for this worker
+    if (!allocateFlop(FLOP_COSTS.worker, uid)) {
+      console.log(`[NetCrawl] Cannot resume worker ${w.id}: not enough FLOP`);
+      continue;
+    }
+
+    // Mark as deploying
+    upsertWorker({ ...w, status: 'deploying' }, uid);
+
+    // Enqueue for code server pickup
+    enqueueDeploy({
+      id: w.id,
+      workerId: w.id,
+      nodeId: w.node_id,
+      classId,
+      equippedItems: {},
+      injectedFields: {},
+      createdAt: new Date().toISOString(),
+    }, uid);
+    resumed++;
+  }
+  if (resumed > 0) {
+    console.log(`[NetCrawl] Auto-resumed ${resumed} suspended workers`);
+  }
+
+  broadcastFullState(uid);
+  res.json({ ok: true, registered: classes.length, resumed });
+});
+
+// POST /api/code-server/disconnect
+// Called by the Python code server on shutdown to reset all workers
+router.post('/code-server/disconnect', (req: Request, res: Response) => {
+  const uid = getUserId(req);
+  resetAllWorkers(uid);
+  broadcastFullState(uid);
+  console.log('[NetCrawl] Code server disconnected — all workers reset to suspended');
+  res.json({ ok: true });
 });
 
 // GET /api/worker-classes

@@ -57,14 +57,15 @@ function WorkerDotsRow({ workers, show }: { workers: any[]; show: boolean }) {
       position: 'absolute', top: -14, left: '50%',
       transform: 'translateX(-50%)', display: 'flex', gap: 4,
     }}>
-      {/* Worker dots */}
-      {workers.map((w: any) => {
+      {workers.map((w: any, wi: number) => {
         const c = CLASS_COLORS[w.class_name] || '#a78bfa';
         const isActive = ['running', 'harvesting', 'idle'].includes(w.status);
         const isSelected = w.id === selectedWorkerId;
         const isLeaving = w.leaving;
         const isEntering = enteringIds.has(w.id);
         const showAction = !isLeaving && !isEntering && (w.status === 'harvesting' || w.holding);
+        // Show bubble if lastLog exists and is recent (< 2 seconds)
+        const showBubble = w.lastLog && !isLeaving && (Date.now() - (w.lastLog.ts || 0) < 2000);
 
         return (
           <div
@@ -101,51 +102,37 @@ function WorkerDotsRow({ workers, show }: { workers: any[]; show: boolean }) {
                 {w.status === 'harvesting' ? <Pickaxe size={10} /> : <Package size={10} />}
               </div>
             )}
-          </div>
-        );
-      })}
-      {/* Speech bubbles — stacked above dots, one per worker with lastLog */}
-      {(() => {
-        const bubbles = workers.filter((w: any) => w.lastLog && !w.leaving);
-        if (bubbles.length === 0) return null;
-        return (
-          <div style={{
-            position: 'absolute', right: -8, bottom: 12,
-            pointerEvents: 'none', display: 'flex', flexDirection: 'column-reverse', gap: 2,
-          }}>
-            {bubbles.map((w: any, i: number) => {
-              const lc = w.lastLog.level === 'error' ? '#ef4444' : w.lastLog.level === 'warn' ? '#f59e0b' : 'var(--accent)';
-              const bc = w.lastLog.level === 'error' ? 'rgba(239,68,68,0.4)' : w.lastLog.level === 'warn' ? 'rgba(245,158,11,0.4)' : 'rgba(0,212,170,0.3)';
+            {/* Speech bubble — grows from this dot, offset by worker index */}
+            {showBubble && (() => {
+              const lc = w.lastLog.level === 'error' ? '#ef4444' : w.lastLog.level === 'warn' ? '#f59e0b' : c;
+              const bc = w.lastLog.level === 'error' ? 'rgba(239,68,68,0.35)' : w.lastLog.level === 'warn' ? 'rgba(245,158,11,0.35)' : `${c}40`;
               const msg = (w.lastLog.message || '').replace(/^\[(INFO|WARN|ERROR)\]\s*/i, '');
+              const yOff = -(20 + wi * 14); // stack upward per worker index
               return (
-                <div key={`${w.id}-${w.lastLog.ts}`} style={{
-                  display: 'flex', alignItems: 'flex-end', gap: 0,
-                  whiteSpace: 'nowrap',
-                  animation: 'bubble-fade 4s ease-out forwards',
+                <div key={`b-${w.lastLog.ts}`} style={{
+                  position: 'absolute', left: 6, top: yOff,
+                  pointerEvents: 'none', whiteSpace: 'nowrap',
+                  animation: 'bubble-fade 2s ease-out forwards',
+                  display: 'flex', alignItems: 'flex-end',
                 }}>
-                  {/* Callout line — only on bottom bubble */}
-                  {i === 0 && (
-                    <svg width="14" height="14" style={{ flexShrink: 0 }}>
-                      <line x1="2" y1="14" x2="8" y2="3" stroke={lc} strokeWidth="0.8" opacity="0.5" />
-                      <line x1="8" y1="3" x2="14" y2="3" stroke={lc} strokeWidth="0.8" opacity="0.5" />
-                    </svg>
-                  )}
-                  {i > 0 && <div style={{ width: 14, flexShrink: 0 }} />}
+                  <svg width="12" height="12" style={{ flexShrink: 0 }}>
+                    <line x1="1" y1="12" x2="6" y2="2" stroke={lc} strokeWidth="0.7" opacity="0.5" />
+                    <line x1="6" y1="2" x2="12" y2="2" stroke={lc} strokeWidth="0.7" opacity="0.5" />
+                  </svg>
                   <span style={{
-                    fontSize: 7, fontFamily: 'var(--font-mono)', fontWeight: 600, letterSpacing: '0.02em',
-                    color: lc, background: 'transparent',
-                    borderBottom: `1px solid ${bc}`,
-                    padding: '0 2px 1px',
-                    maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis',
+                    fontSize: 7, fontFamily: 'var(--font-mono)', fontWeight: 600,
+                    color: lc, borderBottom: `1px solid ${bc}`,
+                    padding: '0 2px 1px', maxWidth: 120,
+                    overflow: 'hidden', textOverflow: 'ellipsis',
                   }}>
                     {msg}
                   </span>
                 </div>
               );
-            })}
+            })()}
           </div>
         );
-      })()}
+      })}
     </div>
   );
 }
