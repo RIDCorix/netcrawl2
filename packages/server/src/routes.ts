@@ -384,6 +384,47 @@ router.post('/recall', (req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
+// POST /api/worker/reset — reset worker to deploy position, return items, allow restart
+router.post('/worker/reset', (req: Request, res: Response) => {
+  const { workerId } = req.body;
+  if (!workerId) return res.status(400).json({ error: 'workerId required' });
+
+  const worker = getWorker(workerId);
+  if (!worker) return res.status(404).json({ error: 'Worker not found' });
+
+  // Kill process if running
+  if (['running', 'moving', 'harvesting', 'idle'].includes(worker.status)) {
+    killWorker(workerId);
+  }
+
+  // Return held items to player inventory
+  if (worker.holding && worker.holding.type !== 'bad_data') {
+    addToPlayerInventory(worker.holding.type, worker.holding.amount);
+  }
+
+  // Return equipped items to player inventory
+  if (worker.equippedPickaxe) {
+    addToPlayerInventory(worker.equippedPickaxe.itemType, 1);
+  }
+
+  // Reset worker state
+  upsertWorker({
+    ...worker,
+    current_node: worker.node_id,
+    status: 'suspended',
+    pid: null,
+    holding: null,
+    carrying: {},
+    equippedPickaxe: null,
+    equippedCpu: null,
+    equippedRam: null,
+  });
+
+  releaseFlop(FLOP_COSTS.worker);
+  broadcastFullState();
+  res.json({ ok: true });
+});
+
 // POST /api/worker/suspend
 router.post('/worker/suspend', (req: Request, res: Response) => {
   const { workerId } = req.body;

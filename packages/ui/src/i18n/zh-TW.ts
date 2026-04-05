@@ -400,6 +400,7 @@ export const zhTW: Record<string, string> = {
   'ui.holding':          '持有:',
   'ui.suspend':          '暫停',
   'ui.suspending':       '暫停中...',
+  'ui.reset':            '重置',
   'ui.dismiss':          '解散',
   'ui.err':              '錯誤',
   'ui.click_node_deploy': '點擊節點來部署',

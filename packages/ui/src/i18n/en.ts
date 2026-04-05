@@ -400,6 +400,7 @@ export const en: Record<string, string> = {
   'ui.holding':          'Holding:',
   'ui.suspend':          'Suspend',
   'ui.suspending':       'Suspending...',
+  'ui.reset':            'Reset',
   'ui.dismiss':          'Dismiss',
   'ui.err':              'err',
   'ui.click_node_deploy': 'Click a node to deploy.',

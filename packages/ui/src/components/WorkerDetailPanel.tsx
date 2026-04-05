@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, PauseCircle, Square, MapPin, Clock, Pickaxe, Package, Database, Cpu, Star, MemoryStick, Maximize2, AlertTriangle } from 'lucide-react';
+import { X, PauseCircle, Square, MapPin, Clock, Pickaxe, Package, Database, Cpu, Star, MemoryStick, Maximize2, AlertTriangle, RotateCcw } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -40,6 +40,14 @@ export function WorkerDetailPanel() {
     if (!worker) return;
     setBusy(true);
     try { await axios.post('/api/worker/suspend', { workerId: worker.id }); } catch {} finally { setBusy(false); }
+  };
+
+  const handleReset = async () => {
+    if (!worker) return;
+    setBusy(true);
+    try {
+      await axios.post('/api/worker/reset', { workerId: worker.id });
+    } catch {} finally { setBusy(false); }
   };
 
   const handleDismiss = async () => {
@@ -289,15 +297,26 @@ export function WorkerDetailPanel() {
             )}
 
             {!['running', 'suspending'].includes(worker.status) && (
-              <button onClick={handleDismiss} disabled={busy} style={{
-                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                padding: '10px', borderRadius: 'var(--radius-sm)',
-                background: 'var(--danger-dim)', border: '1px solid rgba(255,71,87,0.25)',
-                color: 'var(--danger)', fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)',
-                cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.5 : 1,
-              }}>
-                <X size={14} /> {t('ui.dismiss')}
-              </button>
+              <>
+                <button onClick={handleReset} disabled={busy} style={{
+                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  padding: '10px', borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(96,165,250,0.1)', border: '1px solid rgba(96,165,250,0.25)',
+                  color: '#60a5fa', fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)',
+                  cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.5 : 1,
+                }}>
+                  <RotateCcw size={14} /> {t('ui.reset')}
+                </button>
+                <button onClick={handleDismiss} disabled={busy} style={{
+                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  padding: '10px', borderRadius: 'var(--radius-sm)',
+                  background: 'var(--danger-dim)', border: '1px solid rgba(255,71,87,0.25)',
+                  color: 'var(--danger)', fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)',
+                  cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.5 : 1,
+                }}>
+                  <X size={14} /> {t('ui.dismiss')}
+                </button>
+              </>
             )}
           </div>
         </motion.div>

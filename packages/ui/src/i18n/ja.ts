@@ -400,6 +400,7 @@ export const ja: Record<string, string> = {
   'ui.holding':          '所持:',
   'ui.suspend':          '一時停止',
   'ui.suspending':       '停止中...',
+  'ui.reset':            'リセット',
   'ui.dismiss':          '解散',
   'ui.err':              'エラー',
   'ui.click_node_deploy': 'ノードをクリックしてデプロイ',
