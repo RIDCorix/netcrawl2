@@ -1,6 +1,21 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter';
+import python from 'react-syntax-highlighter/dist/esm/languages/prism/python';
+import javascript from 'react-syntax-highlighter/dist/esm/languages/prism/javascript';
+import typescript from 'react-syntax-highlighter/dist/esm/languages/prism/typescript';
+import bash from 'react-syntax-highlighter/dist/esm/languages/prism/bash';
+import powershell from 'react-syntax-highlighter/dist/esm/languages/prism/powershell';
+import diff from 'react-syntax-highlighter/dist/esm/languages/prism/diff';
+
+SyntaxHighlighter.registerLanguage('python', python);
+SyntaxHighlighter.registerLanguage('javascript', javascript);
+SyntaxHighlighter.registerLanguage('js', javascript);
+SyntaxHighlighter.registerLanguage('typescript', typescript);
+SyntaxHighlighter.registerLanguage('bash', bash);
+SyntaxHighlighter.registerLanguage('sh', bash);
+SyntaxHighlighter.registerLanguage('powershell', powershell);
+SyntaxHighlighter.registerLanguage('diff', diff);
 import { useState, useEffect, useRef, createContext, useContext } from 'react';
 import { Copy, Check } from 'lucide-react';
 
@@ -10,8 +25,10 @@ const codeTheme: Record<string, React.CSSProperties> = {
   'pre[class*="language-"]': { color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: '1.6', background: 'var(--bg-primary)', padding: '12px 14px', borderRadius: '8px', overflow: 'auto' },
   comment: { color: 'var(--text-muted)' },
   string: { color: 'var(--color-positive, #4ade80)' },
+  'triple-quoted-string': { color: 'var(--color-positive, #4ade80)' },
   keyword: { color: 'var(--accent)' },
   function: { color: 'var(--color-warning, #fbbf24)' },
+  'function-variable': { color: 'var(--color-warning, #fbbf24)' },
   number: { color: 'var(--color-warning, #f59e0b)' },
   operator: { color: 'var(--text-secondary)' },
   'class-name': { color: 'var(--accent)' },
@@ -19,6 +36,13 @@ const codeTheme: Record<string, React.CSSProperties> = {
   punctuation: { color: 'var(--text-secondary)' },
   decorator: { color: 'var(--color-warning, #f59e0b)' },
   boolean: { color: 'var(--color-warning, #f59e0b)' },
+  // Python-specific tokens
+  'attr-name': { color: 'var(--accent)' },
+  'attr-value': { color: 'var(--color-positive, #4ade80)' },
+  property: { color: '#c9d1d9' },
+  'method': { color: 'var(--color-warning, #fbbf24)' },
+  'self': { color: '#ff7b72' },
+  'constant': { color: 'var(--color-warning, #f59e0b)' },
 };
 
 // Platform tab groups — consecutive code blocks with these languages become tabs
