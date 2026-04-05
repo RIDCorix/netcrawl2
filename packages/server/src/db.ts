@@ -850,6 +850,33 @@ export function deleteWorker(id: string) {
   delete store.workers[id];
 }
 
+/**
+ * Reset all workers on server startup.
+ * Moves workers back to their original deploy node and sets status to 'suspended'.
+ * The code server will re-register and users can redeploy.
+ */
+export function resetAllWorkers(): void {
+  const workers = Object.values(store.workers);
+  if (workers.length === 0) return;
+
+  for (const w of workers) {
+    // Reset position to original deploy node
+    store.workers[w.id] = {
+      ...w,
+      current_node: w.node_id,
+      status: 'suspended',
+      pid: null,
+      holding: null,
+      carrying: {},
+    };
+  }
+
+  // Reset FLOP — all workers are suspended, none consuming FLOP
+  store.game_state.flop.used = 0;
+
+  console.log(`[NetCrawl] Reset ${workers.length} workers to suspended state`);
+}
+
 /** Try to allocate FLOP capacity. Returns false if not enough room. */
 export function allocateFlop(cost: number): boolean {
   const flop = store.game_state.flop;

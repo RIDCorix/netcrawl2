@@ -2,7 +2,7 @@ import express, { Express } from 'express';
 import cors from 'cors';
 import http from 'http';
 import path from 'path';
-import { initDb, getGameState, getVisibleState, getWorkers, setLevelBroadcast, getPlayerLevelSummary, setDataDir, setCurrentUser } from './db.js';
+import { initDb, getGameState, getVisibleState, getWorkers, setLevelBroadcast, getPlayerLevelSummary, setDataDir, setCurrentUser, resetAllWorkers } from './db.js';
 import { initWebSocket, broadcast } from './websocket.js';
 import { router } from './routes.js';
 import { startGameTick } from './gameTick.js';
@@ -60,6 +60,7 @@ export async function startServer(options: ServerOptions = {}): Promise<{
 
   // Initialize DB
   initDb();
+  resetAllWorkers();
   setLevelBroadcast(broadcast);
   console.log('[NetCrawl Server] Database initialized');
 
