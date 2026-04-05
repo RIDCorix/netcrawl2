@@ -1,8 +1,9 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Database, Cpu, Star, Wifi, WifiOff, ShieldAlert, Activity, Package, Trophy, BookOpen, Settings, Zap, Layers, X, FileText, Terminal } from 'lucide-react';
+import { Database, Cpu, Star, Wifi, WifiOff, ShieldAlert, Activity, Package, Trophy, BookOpen, Settings, Zap, Layers, X, FileText, Terminal, PlugZap } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { apiFetch } from '../lib/api';
 import { useT } from '../hooks/useT';
 
 function formatBytes(n: number): string {
@@ -168,7 +169,20 @@ export function ResourceBar() {
   const totalItems = playerInventory.reduce((sum, i) => sum + i.count, 0);
   const prevRef = useRef(resources);
   const [prev, setPrev] = useState(resources);
+  const [codeServerUp, setCodeServerUp] = useState(false);
   const t = useT();
+
+  // Poll code server registration status
+  useEffect(() => {
+    const check = () => {
+      apiFetch('/api/worker-classes').then(r => r.json())
+        .then(data => setCodeServerUp(Array.isArray(data) && data.length > 0))
+        .catch(() => setCodeServerUp(false));
+    };
+    check();
+    const interval = setInterval(check, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     setPrev(prevRef.current);
@@ -426,20 +440,24 @@ export function ResourceBar() {
       <motion.button
         onClick={toggleConnect}
         whileTap={{ scale: 0.96 }}
-        title={t('hud.connect')}
+        title={codeServerUp ? t('hud.connect') : 'Code server not connected — click to see setup instructions'}
         style={{
           display: 'flex', alignItems: 'center', gap: 4,
-          background: 'var(--bg-elevated)',
-          border: `1px solid ${connected ? 'var(--success)' : 'var(--border)'}`,
+          background: codeServerUp ? 'var(--bg-elevated)' : 'rgba(239,68,68,0.08)',
+          border: `1px solid ${codeServerUp ? 'var(--success)' : 'rgba(239,68,68,0.4)'}`,
           borderRadius: 'var(--radius-sm)',
           padding: '5px 8px',
-          color: connected ? 'var(--success)' : 'var(--text-muted)',
+          color: codeServerUp ? 'var(--success)' : '#ef4444',
           cursor: 'pointer', flexShrink: 0,
           fontSize: 10, fontFamily: 'var(--font-mono)',
+          animation: codeServerUp ? 'none' : 'pulse-connect 2s ease-in-out infinite',
         }}
       >
-        <Terminal size={12} />
-        {window.location.port && <span>:{window.location.port}</span>}
+        {codeServerUp ? <Terminal size={12} /> : <PlugZap size={12} />}
+        {codeServerUp
+          ? window.location.port && <span>:{window.location.port}</span>
+          : <span>Connect</span>
+        }
       </motion.button>
 
       {/* Docs */}

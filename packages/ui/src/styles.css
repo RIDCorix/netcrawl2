@@ -399,6 +399,11 @@ body::after {
   100% { opacity: 1; transform: scale(1); }
 }
 
+@keyframes pulse-connect {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 @keyframes worker-action-bounce {
   0%, 100% { transform: translateX(-50%) translateY(0); }
   50% { transform: translateX(-50%) translateY(-3px); }
