@@ -79,6 +79,89 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+/** Side-by-side diff view for ```diff code blocks */
+function DiffView({ code }: { code: string }) {
+  const lines = code.split('\n');
+  const removed: string[] = [];
+  const added: string[] = [];
+  const context: string[] = [];
+
+  for (const line of lines) {
+    if (line.startsWith('-')) {
+      removed.push(line.slice(1));
+    } else if (line.startsWith('+')) {
+      added.push(line.slice(1));
+    } else {
+      // Context lines go to both sides
+      removed.push(line);
+      added.push(line);
+      context.push(line.trim());
+    }
+  }
+
+  const lineStyle = (type: 'remove' | 'add' | 'context'): React.CSSProperties => ({
+    padding: '1px 8px',
+    fontFamily: 'var(--font-mono)',
+    fontSize: 11,
+    lineHeight: '1.7',
+    whiteSpace: 'pre',
+    background: type === 'remove' ? 'rgba(239,68,68,0.08)' : type === 'add' ? 'rgba(74,222,128,0.08)' : 'transparent',
+    color: type === 'remove' ? '#f87171' : type === 'add' ? '#4ade80' : 'var(--text-secondary)',
+  });
+
+  const colStyle: React.CSSProperties = {
+    flex: 1,
+    overflow: 'auto',
+    minWidth: 0,
+  };
+
+  const headerStyle: React.CSSProperties = {
+    padding: '4px 8px',
+    fontSize: 9,
+    fontFamily: 'var(--font-mono)',
+    fontWeight: 700,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    borderBottom: '1px solid var(--border)',
+  };
+
+  return (
+    <div style={{
+      display: 'flex',
+      border: '1px solid var(--border)',
+      borderRadius: '8px',
+      overflow: 'hidden',
+      margin: '8px 0',
+      fontSize: 11,
+    }}>
+      {/* Before */}
+      <div style={colStyle}>
+        <div style={{ ...headerStyle, color: '#f87171', background: 'rgba(239,68,68,0.05)' }}>Before</div>
+        <div style={{ padding: '4px 0' }}>
+          {removed.map((line, i) => {
+            const isCtx = context.includes(line.trim());
+            return <div key={i} style={lineStyle(isCtx ? 'context' : 'remove')}>{line || '\u00A0'}</div>;
+          })}
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div style={{ width: 1, background: 'var(--border)', flexShrink: 0 }} />
+
+      {/* After */}
+      <div style={colStyle}>
+        <div style={{ ...headerStyle, color: '#4ade80', background: 'rgba(74,222,128,0.05)' }}>After</div>
+        <div style={{ padding: '4px 0' }}>
+          {added.map((line, i) => {
+            const isCtx = context.includes(line.trim());
+            return <div key={i} style={lineStyle(isCtx ? 'context' : 'add')}>{line || '\u00A0'}</div>;
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CodeBlockInner({ language, code }: { language: string; code: string }) {
   return (
     <div style={{ position: 'relative' }}>
@@ -279,6 +362,11 @@ function MarkdownBlock({ content }: { content: string }) {
                 {children}
               </code>
             );
+          }
+
+          // Diff blocks → side-by-side view
+          if (match?.[1] === 'diff') {
+            return <DiffView code={codeString} />;
           }
 
           return (
