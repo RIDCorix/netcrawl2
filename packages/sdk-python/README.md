@@ -78,3 +78,4 @@ print(Collector.get_schema())
 cd packages/sdk-python
 python examples/test_sdk.py
 ```
+
