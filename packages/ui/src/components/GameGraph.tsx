@@ -121,14 +121,16 @@ function WorkerDotsRow({ workers, show }: { workers: any[]; show: boolean }) {
                     <line x1="1" y1={totalH} x2="1" y2={12} stroke={lc} strokeWidth="0.7" opacity="0.4" />
                     {/* Diagonal kick right */}
                     <line x1="1" y1={12} x2="14" y2={1} stroke={lc} strokeWidth="0.7" opacity="0.4" />
-                    {/* Horizontal underline — text sits above this */}
-                    <line x1="14" y1={1} x2="140" y2={1} stroke={lc} strokeWidth="0.7" opacity="0.25" />
+                    {/* Short horizontal connector to text */}
+                    <line x1="14" y1={1} x2="24" y2={1} stroke={lc} strokeWidth="0.7" opacity="0.25" />
                   </svg>
-                  {/* Text — bottom-aligned to sit just above the horizontal line */}
+                  {/* Text — sits above the horizontal line, underline trims to text width */}
                   <span style={{
-                    position: 'absolute', left: 16, bottom: totalH - 2,
+                    position: 'absolute', left: 14, bottom: totalH + 1,
                     fontSize: 7, fontFamily: 'var(--font-mono)', fontWeight: 600,
                     color: lc, lineHeight: 1,
+                    borderBottom: `0.7px solid ${lc}40`,
+                    padding: '0 1px 2px',
                     maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis',
                   }}>
                     {msg}
