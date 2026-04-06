@@ -162,6 +162,8 @@ export interface WorkerRow {
   equippedCpu: { itemType: string; computePoints: number; count: number } | null;
   equippedRam: { itemType: string; capacityBonus: number; count: number } | null;
   lastLog?: { message: string; level: string; ts: number } | null;
+  /** Original deploy configuration — used for auto-resume after disconnect */
+  deployConfig?: { classId: string; equippedItems: Record<string, any>; injectedFields: Record<string, any> } | null;
 }
 
 export interface WorkerLogRow {

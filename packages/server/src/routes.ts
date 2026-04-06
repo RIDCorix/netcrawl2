@@ -304,6 +304,7 @@ router.post('/deploy', async (req: Request, res: Response) => {
     equippedPickaxe,
     equippedCpu,
     equippedRam,
+    deployConfig: { classId, equippedItems: equippedItems || {}, injectedFields },
   }, uid);
 
   // Queue for code server
@@ -594,33 +595,34 @@ router.post('/worker-classes/register', (req: Request, res: Response) => {
   incrementStat('code_server_connected', 1, uid);
   checkQuests(uid);
 
-  // Auto-resume suspended workers: re-enqueue them for deployment
+  // Auto-resume suspended workers: re-enqueue them with original deploy config
   const allWorkers = getWorkers(uid);
-  const allClasses = getAllWorkerClasses(uid);
-  const classNameToId = new Map(allClasses.map(c => [c.class_name, c.class_id]));
   let resumed = 0;
   for (const w of allWorkers) {
     if (w.status !== 'suspended') continue;
-    const classId = classNameToId.get(w.class_name);
-    if (!classId) continue; // class not registered — skip
+    if (!w.deployConfig) continue; // no config saved — can't resume
 
-    // Re-allocate FLOP for this worker
+    // Verify class is registered
+    const wc = getWorkerClass(w.deployConfig.classId, uid);
+    if (!wc) continue;
+
+    // Re-allocate FLOP
     if (!allocateFlop(FLOP_COSTS.worker, uid)) {
       console.log(`[NetCrawl] Cannot resume worker ${w.id}: not enough FLOP`);
       continue;
     }
 
-    // Mark as deploying
+    // Mark as deploying (keep equipment intact)
     upsertWorker({ ...w, status: 'deploying' }, uid);
 
-    // Enqueue for code server pickup
+    // Re-enqueue with original config
     enqueueDeploy({
       id: w.id,
       workerId: w.id,
       nodeId: w.node_id,
-      classId,
-      equippedItems: {},
-      injectedFields: {},
+      classId: w.deployConfig.classId,
+      equippedItems: w.deployConfig.equippedItems,
+      injectedFields: w.deployConfig.injectedFields,
       createdAt: new Date().toISOString(),
     }, uid);
     resumed++;
