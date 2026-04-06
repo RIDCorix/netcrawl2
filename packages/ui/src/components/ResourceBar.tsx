@@ -172,11 +172,22 @@ export function ResourceBar() {
   const [codeServerUp, setCodeServerUp] = useState(false);
   const t = useT();
 
-  // Poll code server registration status
+  // Poll code server registration status + refetch state on reconnect
+  const prevCodeServerUp = useRef(false);
   useEffect(() => {
     const check = () => {
       apiFetch('/api/worker-classes').then(r => r.json())
-        .then(data => setCodeServerUp(Array.isArray(data?.classes) && data.classes.length > 0))
+        .then(data => {
+          const up = Array.isArray(data?.classes) && data.classes.length > 0;
+          setCodeServerUp(up);
+          // When code server reconnects, refetch full state (workers may have been auto-resumed)
+          if (up && !prevCodeServerUp.current) {
+            apiFetch('/api/state').then(r => r.json())
+              .then(state => useGameStore.getState().updateFromServer(state))
+              .catch(() => {});
+          }
+          prevCodeServerUp.current = up;
+        })
         .catch(() => setCodeServerUp(false));
     };
     check();
