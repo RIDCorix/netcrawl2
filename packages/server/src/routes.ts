@@ -441,22 +441,34 @@ router.post('/worker/reset', (req: Request, res: Response) => {
     equippedRam: null,
   }, uid);
 
-  // Re-enqueue for code server pickup (if deployConfig exists)
-  if (worker.deployConfig) {
-    enqueueDeploy({
-      id: worker.id,
-      workerId: worker.id,
-      nodeId: worker.node_id,
-      classId: worker.deployConfig.classId,
-      equippedItems: worker.deployConfig.equippedItems,
-      injectedFields: worker.deployConfig.injectedFields,
-      createdAt: new Date().toISOString(),
-    }, uid);
-  } else {
-    // No config — just suspend, can't auto-redeploy
-    upsertWorker({ ...worker, current_node: worker.node_id, status: 'suspended', pid: null, holding: null, carrying: {}, equippedPickaxe: null, equippedCpu: null, equippedRam: null }, uid);
-    releaseFlop(FLOP_COSTS.worker, uid);
+  // Rebuild deployConfig if missing (for workers deployed before this feature)
+  const config = worker.deployConfig || {
+    classId: (() => {
+      const allClasses = getAllWorkerClasses(uid);
+      const match = allClasses.find(c => c.class_name === worker.class_name);
+      return match?.class_id || worker.class_name.toLowerCase();
+    })(),
+    equippedItems: {},
+    injectedFields: {},
+  };
+
+  // Allocate FLOP for the redeploying worker
+  if (!allocateFlop(FLOP_COSTS.worker, uid)) {
+    upsertWorker({ ...worker, current_node: worker.node_id, status: 'suspended', pid: null, holding: null, carrying: {} }, uid);
+    broadcastFullState(uid);
+    return res.status(400).json({ ok: false, error: 'Not enough FLOP' });
   }
+
+  // Enqueue for code server pickup
+  enqueueDeploy({
+    id: worker.id,
+    workerId: worker.id,
+    nodeId: worker.node_id,
+    classId: config.classId,
+    equippedItems: config.equippedItems,
+    injectedFields: config.injectedFields,
+    createdAt: new Date().toISOString(),
+  }, uid);
   broadcastFullState(uid);
   res.json({ ok: true });
 });
