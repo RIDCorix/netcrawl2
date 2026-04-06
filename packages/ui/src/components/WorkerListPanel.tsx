@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Users, ChevronDown, ChevronRight, X, PauseCircle, Square,
+  Users, ChevronDown, ChevronRight, X, PauseCircle, Square, Loader, Play,
 } from 'lucide-react';
 import { useGameStore, Worker } from '../store/gameStore';
 import { useState } from 'react';
@@ -146,14 +146,17 @@ function WorkerRow({ worker, onSuspend, onDismiss }: {
         onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
       >
-        {/* Status dot */}
-        <span style={{ width: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              className={config.spin ? 'animate-pulse' : ''}>
-          <svg width={8} height={8} viewBox="0 0 8 8">
-            {config.dot === 'filled' && <circle cx={4} cy={4} r={3.5} fill={config.color} />}
-            {config.dot === 'ring' && <circle cx={4} cy={4} r={3} fill="none" stroke={config.color} strokeWidth={1.5} />}
-            {config.dot === 'x' && <><line x1={1.5} y1={1.5} x2={6.5} y2={6.5} stroke={config.color} strokeWidth={1.5} /><line x1={6.5} y1={1.5} x2={1.5} y2={6.5} stroke={config.color} strokeWidth={1.5} /></>}
-          </svg>
+        {/* Status dot / spinner */}
+        <span style={{ width: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {config.spin ? (
+            <Loader size={10} style={{ color: config.color, animation: 'spin 1.2s linear infinite' }} />
+          ) : (
+            <svg width={8} height={8} viewBox="0 0 8 8">
+              {config.dot === 'filled' && <circle cx={4} cy={4} r={3.5} fill={config.color} />}
+              {config.dot === 'ring' && <circle cx={4} cy={4} r={3} fill="none" stroke={config.color} strokeWidth={1.5} />}
+              {config.dot === 'x' && <><line x1={1.5} y1={1.5} x2={6.5} y2={6.5} stroke={config.color} strokeWidth={1.5} /><line x1={6.5} y1={1.5} x2={1.5} y2={6.5} stroke={config.color} strokeWidth={1.5} /></>}
+            </svg>
+          )}
         </span>
 
         {/* Node location */}
@@ -246,12 +249,20 @@ export function WorkerListPanel() {
     groups[key].push(w);
   }
 
+  const suspendedWorkers = workers.filter(w => w.status === 'suspended');
+
   const handleSuspend = async (workerId: string) => {
     try { await axios.post('/api/worker/suspend', { workerId }); } catch {}
   };
 
   const handleDismiss = async (workerId: string) => {
     try { await axios.post('/api/recall', { workerId }); } catch {}
+  };
+
+  const handleDeployAllSuspended = async () => {
+    for (const w of suspendedWorkers) {
+      try { await axios.post('/api/worker/reset', { workerId: w.id }); } catch {}
+    }
   };
 
   return (
@@ -334,15 +345,32 @@ export function WorkerListPanel() {
                   <span style={{ color: 'var(--text-secondary)' }}>{t('ui.click_node_deploy')}</span>
                 </div>
               ) : (
-                Object.entries(groups).map(([className, classWorkers]) => (
-                  <ClassGroup
-                    key={className}
-                    className={className}
-                    workers={classWorkers}
-                    onSuspend={handleSuspend}
-                    onDismiss={handleDismiss}
-                  />
-                ))
+                <>
+                  {Object.entries(groups).map(([className, classWorkers]) => (
+                    <ClassGroup
+                      key={className}
+                      className={className}
+                      workers={classWorkers}
+                      onSuspend={handleSuspend}
+                      onDismiss={handleDismiss}
+                    />
+                  ))}
+                  {suspendedWorkers.length > 0 && (
+                    <button
+                      onClick={handleDeployAllSuspended}
+                      style={{
+                        width: 'calc(100% - 8px)', margin: '4px 4px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                        padding: '6px 0', borderRadius: 'var(--radius-sm)',
+                        background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.25)',
+                        color: '#4ade80', fontSize: 10, fontWeight: 700,
+                        fontFamily: 'var(--font-mono)', cursor: 'pointer',
+                      }}
+                    >
+                      <Play size={10} /> Deploy All ({suspendedWorkers.length})
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </motion.div>

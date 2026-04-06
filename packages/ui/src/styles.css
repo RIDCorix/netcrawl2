@@ -399,6 +399,11 @@ body::after {
   100% { opacity: 1; transform: scale(1); }
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 @keyframes bubble-fade {
   0% { opacity: 0; transform: translateY(3px); }
   15% { opacity: 1; transform: translateY(0); }

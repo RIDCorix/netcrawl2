@@ -8,10 +8,10 @@ export interface StatusConfig {
 }
 
 export const STATUS_CONFIG: Record<string, StatusConfig> = {
-  running:    { color: '#4ade80', dot: 'filled', label: 'Running' },
-  moving:     { color: '#60a5fa', dot: 'ring',   label: 'Moving' },
+  running:    { color: '#4ade80', dot: 'filled', label: 'Active' },
+  moving:     { color: '#4ade80', dot: 'filled', label: 'Active' },
   idle:       { color: '#4ade80', dot: 'filled', label: 'Active' },
-  harvesting: { color: '#fde68a', dot: 'filled', label: 'Harvesting' },
+  harvesting: { color: '#4ade80', dot: 'filled', label: 'Active' },
   deploying:  { color: '#60a5fa', dot: 'ring',   label: 'Deploying', spin: true },
   suspending: { color: '#facc15', dot: 'ring',   label: 'Suspending', spin: true },
   suspended:  { color: '#9ca3af', dot: 'ring',   label: 'Suspended' },
