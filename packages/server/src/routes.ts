@@ -428,11 +428,11 @@ router.post('/worker/reset', (req: Request, res: Response) => {
     addToPlayerInventory(worker.equippedPickaxe.itemType, 1, undefined, uid);
   }
 
-  // Reset worker state
+  // Reset worker state and re-deploy
   upsertWorker({
     ...worker,
     current_node: worker.node_id,
-    status: 'suspended',
+    status: 'deploying',
     pid: null,
     holding: null,
     carrying: {},
@@ -441,7 +441,22 @@ router.post('/worker/reset', (req: Request, res: Response) => {
     equippedRam: null,
   }, uid);
 
-  releaseFlop(FLOP_COSTS.worker, uid);
+  // Re-enqueue for code server pickup (if deployConfig exists)
+  if (worker.deployConfig) {
+    enqueueDeploy({
+      id: worker.id,
+      workerId: worker.id,
+      nodeId: worker.node_id,
+      classId: worker.deployConfig.classId,
+      equippedItems: worker.deployConfig.equippedItems,
+      injectedFields: worker.deployConfig.injectedFields,
+      createdAt: new Date().toISOString(),
+    }, uid);
+  } else {
+    // No config — just suspend, can't auto-redeploy
+    upsertWorker({ ...worker, current_node: worker.node_id, status: 'suspended', pid: null, holding: null, carrying: {}, equippedPickaxe: null, equippedCpu: null, equippedRam: null }, uid);
+    releaseFlop(FLOP_COSTS.worker, uid);
+  }
   broadcastFullState(uid);
   res.json({ ok: true });
 });
