@@ -622,15 +622,22 @@ router.post('/worker-classes/register', (req: Request, res: Response) => {
   incrementStat('code_server_connected', 1, uid);
   checkQuests(uid);
 
-  // Auto-resume suspended workers: re-enqueue them with original deploy config
+  // Auto-resume suspended workers: re-enqueue them with deploy config
   const allWorkers = getWorkers(uid);
+  const allClasses = getAllWorkerClasses(uid);
   let resumed = 0;
   for (const w of allWorkers) {
     if (w.status !== 'suspended') continue;
-    if (!w.deployConfig) continue; // no config saved — can't resume
+
+    // Rebuild config if missing (for workers deployed before deployConfig feature)
+    const config = w.deployConfig || {
+      classId: allClasses.find(c => c.class_name === w.class_name)?.class_id || w.class_name.toLowerCase(),
+      equippedItems: {},
+      injectedFields: {},
+    };
 
     // Verify class is registered
-    const wc = getWorkerClass(w.deployConfig.classId, uid);
+    const wc = getWorkerClass(config.classId, uid);
     if (!wc) continue;
 
     // Re-allocate FLOP
@@ -639,17 +646,17 @@ router.post('/worker-classes/register', (req: Request, res: Response) => {
       continue;
     }
 
-    // Mark as deploying (keep equipment intact)
-    upsertWorker({ ...w, status: 'deploying' }, uid);
+    // Mark as deploying
+    upsertWorker({ ...w, status: 'deploying', deployConfig: config }, uid);
 
-    // Re-enqueue with original config
+    // Re-enqueue
     enqueueDeploy({
       id: w.id,
       workerId: w.id,
       nodeId: w.node_id,
-      classId: w.deployConfig.classId,
-      equippedItems: w.deployConfig.equippedItems,
-      injectedFields: w.deployConfig.injectedFields,
+      classId: config.classId,
+      equippedItems: config.equippedItems,
+      injectedFields: config.injectedFields,
       createdAt: new Date().toISOString(),
     }, uid);
     resumed++;
