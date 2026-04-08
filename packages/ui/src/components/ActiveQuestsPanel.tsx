@@ -114,6 +114,40 @@ export function ActiveQuestsPanel() {
               style={{ overflow: 'hidden' }}
             >
               <div style={{ padding: '6px 4px', overflowY: 'auto', maxHeight: 'calc(50vh - 130px)' }}>
+                {/* Claim All button */}
+                {(() => {
+                  const claimable = quests.filter(q => q.status === 'completed' && !claimedIds.has(q.id));
+                  if (claimable.length < 2) return null;
+                  return (
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try {
+                          await axios.post('/api/quests/claim-all');
+                          for (const q of claimable) {
+                            setClaimedSnapshots(prev => ({ ...prev, [q.id]: q }));
+                            setClaimedIds(prev => new Set([...prev, q.id]));
+                          }
+                          setTimeout(() => {
+                            for (const q of claimable) {
+                              setClaimedIds(prev => { const n = new Set(prev); n.delete(q.id); return n; });
+                              setClaimedSnapshots(prev => { const n = { ...prev }; delete n[q.id]; return n; });
+                            }
+                          }, 1300);
+                        } catch {}
+                      }}
+                      style={{
+                        width: 'calc(100% - 8px)', margin: '0 4px 4px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                        padding: '5px 0', borderRadius: 'var(--radius-sm)',
+                        background: 'var(--accent)', border: 'none', color: '#000',
+                        fontSize: 9, fontWeight: 800, fontFamily: 'var(--font-mono)', cursor: 'pointer',
+                      }}
+                    >
+                      <Gift size={9} /> {t('quest.claim_all')} ({claimable.length})
+                    </button>
+                  );
+                })()}
                 {displayQuests.map(q => {
                   const color = CHAPTER_COLORS[q.chapter] || '#9ca3af';
                   const allMet = q.objectives.every((o: any) => o.met);

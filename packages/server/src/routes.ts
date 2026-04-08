@@ -31,7 +31,7 @@ import { checkAchievements, getAchievementList, RARITY_ORDINAL } from './achieve
 import { checkQuests, claimQuestReward, getQuestList, getQuestEdges } from './quests.js';
 import { getQuestStatus, setQuestStatus } from './db.js';
 import { getActivePassives, getUnlockedRecipes } from './db.js';
-import { incrementStat, addToStatArray, setStatMax, awardXp, getPlayerLevelSummary, grantNodeXp } from './db.js';
+import { incrementStat, addToStatArray, getStatArray, setStatMax, awardXp, getPlayerLevelSummary, grantNodeXp } from './db.js';
 import { XP_REWARDS } from './levelSystem.js';
 import { authMiddleware, AuthenticatedRequest } from './auth.js';
 import { authRouter } from './authRoutes.js';
@@ -321,6 +321,8 @@ router.post('/deploy', async (req: Request, res: Response) => {
 
   broadcastFullState(uid);
   incrementStat('total_workers_deployed', 1, uid);
+  addToStatArray('deployed_class_ids', classId, uid);
+  setStatMax('total_worker_classes_deployed', getStatArray('deployed_class_ids', uid).length, uid);
   awardXp(XP_REWARDS.deploy_worker, uid);
   checkAchievements(uid);
   checkQuests(uid);
@@ -1010,6 +1012,21 @@ router.post('/quests/:questId/claim', (req: Request, res: Response) => {
   if (!result.ok) return res.status(400).json({ error: result.error });
   broadcastFullState(uid);
   res.json({ ok: true });
+});
+
+// POST /api/quests/claim-all — claim all completed quests at once
+router.post('/quests/claim-all', (req: Request, res: Response) => {
+  const uid = getUserId(req);
+  const questList = getQuestList(uid);
+  let claimed = 0;
+  for (const q of questList) {
+    if (q.status === 'completed') {
+      const result = claimQuestReward(q.id, uid);
+      if (result.ok) claimed++;
+    }
+  }
+  broadcastFullState(uid);
+  res.json({ ok: true, claimed });
 });
 
 // POST /api/quests/:questId/skip — skip quest (mark completed + claim rewards)

@@ -46,6 +46,8 @@ export interface QuestDef {
   rewards: RewardType[];
   position: { x: number; y: number };
   guide?: GuideStep[];
+  /** If set, claiming this quest auto-completes+claims all quests in this chapter */
+  skipChapter?: number;
 }
 
 // ── Chapter metadata ───────────────────────────────────────────────────────
@@ -175,6 +177,22 @@ export const QUESTS: QuestDef[] = [
     objectives: [{ id: 'o1', description: 'Craft 1 item', statKey: 'total_crafts', target: 1, type: 'stat_gte' }],
     rewards: [{ kind: 'resources', resources: { data: 200 } }],
     position: { x: 0, y: 200 },
+  },
+  {
+    id: 'q_ch1_challenge', chapter: 1, name: 'Chapter 1 Challenge', codeConcept: 'Skip Exam',
+    description: 'Already know Python basics? Complete this challenge to skip all Chapter 1 quests.',
+    mainline: false, prerequisites: ['q_setup'],
+    objectives: [
+      { id: 'o1', description: 'Mine and deposit 500 data (with bad data filtering)', statKey: 'total_data_deposited', target: 500, type: 'stat_gte' },
+      { id: 'o2', description: 'Deploy 3 different worker classes', statKey: 'total_worker_classes_deployed', target: 3, type: 'stat_gte' },
+    ],
+    rewards: [
+      { kind: 'resources', resources: { data: 2000, rp: 10 } },
+      { kind: 'items', items: [{ itemType: 'pickaxe_iron', count: 2, metadata: { efficiency: 1.5 } }, { itemType: 'shield', count: 1 }] },
+      { kind: 'passive', effectId: 'ch1_skip_bonus', description: 'Chapter 1 mastery: +10% harvest speed', effect: { global_harvest_speed_mult: 1.1 } },
+    ],
+    position: { x: 800, y: 0 },
+    skipChapter: 1,
   },
   {
     id: 'q_try_except', chapter: 1, name: 'Try / Except', codeConcept: 'Error Handling',

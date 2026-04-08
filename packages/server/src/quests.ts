@@ -165,6 +165,19 @@ export function claimQuestReward(questId: string, userId?: string): { ok: boolea
   const xpKey = `claim_quest_ch${quest.chapter}` as keyof typeof XP_REWARDS;
   awardXp(XP_REWARDS[xpKey] || 100, uid);
 
+  // Skip chapter: auto-complete+claim all other quests in the same chapter
+  if (quest.skipChapter) {
+    const chapterQuests = QUESTS.filter(q => q.chapter === quest.skipChapter && q.id !== questId);
+    for (const cq of chapterQuests) {
+      const cqStatus = getQuestStatus(cq.id, uid);
+      if (cqStatus === 'claimed') continue; // already done
+      // Force complete + claim (grant rewards)
+      setQuestStatus(cq.id, 'completed', uid);
+      claimQuestReward(cq.id, uid); // recursive but safe — no skipChapter on regular quests
+    }
+    console.log(`[Quests] Chapter ${quest.skipChapter} skipped — ${chapterQuests.length} quests auto-completed`);
+  }
+
   // Cascade: claiming may unlock new quests
   checkAvailability();
   checkCompletion();

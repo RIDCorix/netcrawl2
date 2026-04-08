@@ -147,7 +147,9 @@ export const ja: Record<string, string> = {
   'quest.q_setup.name': '開発セットアップ',
   'quest.q_setup.desc': 'VSCodeをダウンロードし、workspace_exampleをコピーして、コードサーバーを接続してゲームを開始しましょう。',
 
-  'quest.skip':              'もう知ってる — スキップして報酬を受け取る',
+  'quest.claim_all':         'すべて受け取る',
+  'quest.q_ch1_challenge.name': '第1章チャレンジ',
+  'quest.q_ch1_challenge.desc': 'Pythonを知ってる？チャレンジ完了で第1章全スキップ。',
   'quest.q_hello_world.name': 'Hello World',
   'quest.q_hello_world.desc': 'on_startup()は一度だけ、on_loop()はずっと繰り返す — 最初のワーカーをデプロイ。',
   'quest.q_method_call.name': 'メソッド呼び出し',

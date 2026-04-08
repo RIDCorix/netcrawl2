@@ -147,7 +147,9 @@ export const en: Record<string, string> = {
   'quest.q_setup.name': 'Dev Setup',
   'quest.q_setup.desc': 'Download VSCode, copy workspace_example, and connect your code server to start the game.',
 
-  'quest.skip':              'I already know this — skip & claim rewards',
+  'quest.claim_all':         'Claim All',
+  'quest.q_ch1_challenge.name': 'Chapter 1 Challenge',
+  'quest.q_ch1_challenge.desc': 'Already know Python? Complete this to skip all Chapter 1 quests.',
   'quest.q_hello_world.name': 'Hello World',
   'quest.q_hello_world.desc': 'on_startup() runs once, on_loop() repeats forever — deploy your first worker.',
   'quest.q_method_call.name': 'Method Call',
