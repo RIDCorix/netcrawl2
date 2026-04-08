@@ -147,6 +147,7 @@ export const zhTW: Record<string, string> = {
   'quest.q_setup.name': '開發設定',
   'quest.q_setup.desc': '下載 VSCode、複製 workspace_example，並連接 code server 以開始遊戲。',
 
+  'quest.skip':              '我已經會了 — 跳過並領取獎勵',
   'quest.q_hello_world.name': 'Hello World',
   'quest.q_hello_world.desc': 'on_startup() 執行一次，on_loop() 永遠重複 — 部署你的第一個 Worker。',
   'quest.q_method_call.name': '方法呼叫',

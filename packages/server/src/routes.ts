@@ -29,6 +29,7 @@ import {
 } from './upgradeDefinitions.js';
 import { checkAchievements, getAchievementList, RARITY_ORDINAL } from './achievements.js';
 import { checkQuests, claimQuestReward, getQuestList, getQuestEdges } from './quests.js';
+import { getQuestStatus, setQuestStatus } from './db.js';
 import { getActivePassives, getUnlockedRecipes } from './db.js';
 import { incrementStat, addToStatArray, setStatMax, awardXp, getPlayerLevelSummary, grantNodeXp } from './db.js';
 import { XP_REWARDS } from './levelSystem.js';
@@ -1009,6 +1010,21 @@ router.post('/quests/:questId/claim', (req: Request, res: Response) => {
   if (!result.ok) return res.status(400).json({ error: result.error });
   broadcastFullState(uid);
   res.json({ ok: true });
+});
+
+// POST /api/quests/:questId/skip — skip quest (mark completed + claim rewards)
+router.post('/quests/:questId/skip', (req: Request, res: Response) => {
+  const uid = getUserId(req);
+  const questId = req.params.questId as string;
+  const status = getQuestStatus(questId, uid);
+  if (status === 'claimed') return res.status(400).json({ error: 'Already claimed' });
+
+  // Force-complete: set status to completed, then claim
+  setQuestStatus(questId, 'completed', uid);
+  const result = claimQuestReward(questId, uid);
+  if (!result.ok) return res.status(400).json({ error: result.error });
+  broadcastFullState(uid);
+  res.json({ ok: true, skipped: true });
 });
 
 // GET /api/passives — active passive effects

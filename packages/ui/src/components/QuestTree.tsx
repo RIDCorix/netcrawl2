@@ -226,6 +226,33 @@ function QuestDetail({ quest, onClose }: { quest: any; onClose: () => void }) {
         </button>
       )}
 
+      {quest.status === 'available' && (
+        <button
+          onClick={async () => {
+            setClaiming(true);
+            try {
+              await axios.post(`/api/quests/${quest.id}/skip`);
+              setMsg('Skipped!');
+              setTimeout(onClose, 800);
+            } catch (err: any) {
+              setMsg(err.response?.data?.error || 'Failed');
+            } finally {
+              setClaiming(false);
+            }
+          }}
+          disabled={claiming}
+          style={{
+            padding: '8px', borderRadius: 'var(--radius-sm)',
+            background: 'transparent', border: '1px solid var(--border)',
+            color: 'var(--text-muted)', fontSize: 10, fontFamily: 'var(--font-mono)',
+            cursor: claiming ? 'not-allowed' : 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+          }}
+        >
+          {t('quest.skip')}
+        </button>
+      )}
+
       {quest.status === 'claimed' && (
         <div style={{ fontSize: 10, color: 'var(--success)', fontFamily: 'var(--font-mono)', textAlign: 'center', padding: '8px' }}>
           Claimed {quest.claimedAt ? new Date(quest.claimedAt).toLocaleString() : ''}
