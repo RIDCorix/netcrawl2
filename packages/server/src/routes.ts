@@ -63,6 +63,24 @@ function getUserId(req: Request): string | undefined {
   return (req as any)._userId || undefined;
 }
 
+/** Return all equipment + held items from a worker to player inventory */
+function returnWorkerItems(worker: any, uid?: string) {
+  if (worker.equippedPickaxe) {
+    addToPlayerInventory(worker.equippedPickaxe.itemType, 1, undefined, uid);
+  }
+  if (worker.equippedCpu) {
+    addToPlayerInventory(worker.equippedCpu.itemType, worker.equippedCpu.count || 1, undefined, uid);
+  }
+  if (worker.equippedRam) {
+    addToPlayerInventory(worker.equippedRam.itemType, worker.equippedRam.count || 1, undefined, uid);
+  }
+  for (const item of (worker.holding || [])) {
+    if (item.type !== 'bad_data') {
+      addToPlayerInventory(item.type, item.count, undefined, uid);
+    }
+  }
+}
+
 // Resolve workspace path
 function getWorkspacePath(): string {
   const configPath = path.join(process.cwd(), 'netcrawl.config.json');
@@ -347,10 +365,8 @@ router.post('/deploy-ack', (req: Request, res: Response) => {
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
 
   if (spawnError) {
-    // Spawn failed — return equipped items and release FLOP
-    if (worker.equippedPickaxe) {
-      addToPlayerInventory(worker.equippedPickaxe.itemType, 1, undefined, uid);
-    }
+    // Spawn failed — return all equipment and release FLOP
+    returnWorkerItems(worker, uid);
     releaseFlop(FLOP_COSTS.worker, uid);
     upsertWorker({ ...worker, status: 'crashed' }, uid);
     addWorkerLog(workerId, `[ERROR] Spawn failed: ${spawnError}`, uid);
@@ -372,13 +388,8 @@ router.post('/recall', (req: Request, res: Response) => {
   const worker = getWorker(workerId, uid);
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
 
-  // Return equipped items
-  if (worker.equippedPickaxe) {
-    addToPlayerInventory(worker.equippedPickaxe.itemType, 1, undefined, uid);
-  }
-  for (const item of (worker.holding || [])) {
-    addToPlayerInventory(item.type, item.count, undefined, uid);
-  }
+  // Return all equipment + held items to player inventory
+  returnWorkerItems(worker, uid);
 
   // For deploying/suspended/crashed/error workers — just delete, no process to kill
   if (['deploying', 'suspended', 'crashed', 'error'].includes(worker.status)) {
@@ -421,17 +432,8 @@ router.post('/worker/reset', (req: Request, res: Response) => {
     killWorker(workerId);
   }
 
-  // Return held items to player inventory (skip bad_data)
-  for (const item of (worker.holding || [])) {
-    if (item.type !== 'bad_data') {
-      addToPlayerInventory(item.type, item.count, undefined, uid);
-    }
-  }
-
-  // Return equipped items to player inventory
-  if (worker.equippedPickaxe) {
-    addToPlayerInventory(worker.equippedPickaxe.itemType, 1, undefined, uid);
-  }
+  // Return all equipment + held items
+  returnWorkerItems(worker, uid);
 
   // Reset worker state and re-deploy
   upsertWorker({
@@ -497,13 +499,8 @@ router.post('/worker/suspend', (req: Request, res: Response) => {
   const result = suspendWorker(workerId);
   if (!result.ok) {
     // If no process found, mark as suspended anyway and return items
-    if (worker.equippedPickaxe) {
-      addToPlayerInventory(worker.equippedPickaxe.itemType, 1, undefined, uid);
-    }
-    for (const item of (worker.holding || [])) {
-      addToPlayerInventory(item.type, item.count, undefined, uid);
-    }
-    upsertWorker({ ...worker, status: 'suspended', pid: null, equippedPickaxe: null, holding: [] }, uid);
+    returnWorkerItems(worker, uid);
+    upsertWorker({ ...worker, status: 'suspended', pid: null, equippedPickaxe: null, equippedCpu: null, equippedRam: null, holding: [] }, uid);
   }
 
   broadcastFullState(uid);
@@ -520,13 +517,8 @@ router.post('/worker/suspend-all', (req: Request, res: Response) => {
     upsertWorker({ ...worker, status: 'suspending' }, uid);
     const result = suspendWorker(worker.id);
     if (!result.ok) {
-      if (worker.equippedPickaxe) {
-        addToPlayerInventory(worker.equippedPickaxe.itemType, 1, undefined, uid);
-      }
-      for (const item of (worker.holding || [])) {
-        addToPlayerInventory(item.type, item.count, undefined, uid);
-      }
-      upsertWorker({ ...worker, status: 'suspended', pid: null, equippedPickaxe: null, holding: [] }, uid);
+      returnWorkerItems(worker, uid);
+      upsertWorker({ ...worker, status: 'suspended', pid: null, equippedPickaxe: null, equippedCpu: null, equippedRam: null, holding: [] }, uid);
     }
   }
 

@@ -103,15 +103,15 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
     const w = getWorker(workerId, uid);
     if (!w) return { ok: false, error: 'Worker not found' };
     addWorkerLog(workerId, `[ERROR] ${payload.message || 'Unknown error'}`, uid);
-    // Return equipped items to player inventory
-    if (w.equippedPickaxe) {
-      addToPlayerInventory(w.equippedPickaxe.itemType, 1, undefined, uid);
-    }
+    // Return all equipment + held items to player inventory
+    if (w.equippedPickaxe) addToPlayerInventory(w.equippedPickaxe.itemType, 1, undefined, uid);
+    if (w.equippedCpu) addToPlayerInventory(w.equippedCpu.itemType, w.equippedCpu.count || 1, undefined, uid);
+    if (w.equippedRam) addToPlayerInventory(w.equippedRam.itemType, w.equippedRam.count || 1, undefined, uid);
     for (const item of (w.holding || [])) {
-      addToPlayerInventory(item.type, item.count, undefined, uid);
+      if (item.type !== 'bad_data') addToPlayerInventory(item.type, item.count, undefined, uid);
     }
     const errorMsg = payload.message || 'Unknown error';
-    upsertWorker({ ...w, status: 'error', pid: null, equippedPickaxe: null, holding: [], lastLog: { message: `[ERROR] ${errorMsg}`, level: 'error', ts: Date.now() } }, uid);
+    upsertWorker({ ...w, status: 'error', pid: null, equippedPickaxe: null, equippedCpu: null, equippedRam: null, holding: [], lastLog: { message: `[ERROR] ${errorMsg}`, level: 'error', ts: Date.now() } }, uid);
     broadcastFullState(uid);
     return { ok: true };
   }
