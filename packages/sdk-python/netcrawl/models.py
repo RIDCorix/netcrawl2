@@ -14,6 +14,7 @@ from typing import Optional, Any
 
 class Drop(BaseModel):
     """An item drop from mining. Can be data_fragment, rp_shard, or bad_data."""
+    id: str = ''       # unique drop ID (uuid)
     type: str          # 'data_fragment' | 'rp_shard' | 'bad_data'
     amount: int = 1
 
