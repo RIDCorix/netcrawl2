@@ -73,10 +73,13 @@ function getItemTypeForNode(node: any): Item['type'] {
   return 'data_fragment';
 }
 
-function calcItemCount(efficiency: number): number {
-  if (efficiency >= 2.5) return 2 + (Math.random() < 0.5 ? 1 : 0);
-  if (efficiency >= 1.5) return 1 + (Math.random() < 0.5 ? 1 : 0);
-  return 1;
+function calcItemCount(baseRate: number, efficiency: number): number {
+  // Base count from node rate, scaled by pickaxe efficiency
+  // efficiency 1.0 = 100% of rate, 1.5 = 150%, 2.5 = 250%
+  const base = Math.max(1, Math.floor(baseRate * efficiency));
+  // Small random variance: ±10%
+  const variance = Math.floor(base * 0.1 * (Math.random() * 2 - 1));
+  return Math.max(1, base + variance);
 }
 
 // ── Main handler ────────────────────────────────────────────────────────────
@@ -236,7 +239,8 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
 
       const itemType = getItemTypeForNode(node);
       const efficiency = worker.equippedPickaxe.efficiency;
-      const count = calcItemCount(efficiency);
+      const baseRate = node.data.rate || 1;
+      const count = calcItemCount(baseRate, efficiency);
       const minedItem: Item = { type: itemType, count };
 
       const currentItems: Item[] = Array.isArray(node.data.items) ? [...node.data.items] : [];
