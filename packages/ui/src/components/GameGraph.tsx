@@ -26,10 +26,18 @@ import { motion } from 'framer-motion';
 
 // ── Worker Dots Row (with enter/leave animations) ───────────────────────────
 
-function WorkerDotsRow({ workers, show }: { workers: any[]; show: boolean }) {
-  const { selectWorker, selectedWorkerId } = useGameStore();
+function WorkerDotsRow({ nodeId, show }: { nodeId: string; show: boolean }) {
+  const selectWorker = useGameStore(s => s.selectWorker);
+  const selectedWorkerId = useGameStore(s => s.selectedWorkerId);
+  // Subscribe to workers directly; only this component re-renders per tick,
+  // not the owning NodeWrapper/custom-node tree.
+  const allWorkers = useGameStore(s => s.workers);
+  const workers = allWorkers.filter((w: any) => {
+    const at = w.current_node || w.node_id;
+    return at === nodeId;
+  });
 
-  if (!show || !workers || workers.length === 0) return null;
+  if (!show || workers.length === 0) return null;
 
   return (
     <div style={{
@@ -160,12 +168,12 @@ function WorkerDotsRow({ workers, show }: { workers: any[]; show: boolean }) {
 const HANDLE_STYLE_HIDDEN = { opacity: 0 } as const;
 const HANDLE_STYLE_CENTER = { opacity: 0, top: '50%', left: '50%', transform: 'translate(-50%, -50%)' } as const;
 
-function NodeWrapper({ children, selected, glowColor, style = {}, workers: nodeWorkers, showWorkerDots, edgeStyle: currentEdgeStyle, fadeIn, routeIndices }: {
+function NodeWrapper({ children, selected, glowColor, style = {}, nodeId, showWorkerDots, edgeStyle: currentEdgeStyle, fadeIn, routeIndices }: {
   children: React.ReactNode;
   selected?: boolean;
   glowColor?: string;
   style?: React.CSSProperties;
-  workers?: any[];
+  nodeId: string;
   showWorkerDots?: boolean;
   edgeStyle?: string;
   fadeIn?: boolean;
@@ -231,7 +239,7 @@ function NodeWrapper({ children, selected, glowColor, style = {}, workers: nodeW
         </>
       )}
       {children}
-      <WorkerDotsRow workers={nodeWorkers || []} show={!!showWorkerDots} />
+      <WorkerDotsRow nodeId={nodeId} show={!!showWorkerDots} />
     </div>
   );
 }
@@ -323,9 +331,9 @@ function DepletedOverlay({ depletedUntil }: { depletedUntil?: number }) {
   );
 }
 
-function HubNode({ data, selected }: any) {
+function HubNode({ id, data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} glowColor="var(--accent)" workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{
+    <NodeWrapper selected={selected} glowColor="var(--accent)" nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{
       animation: 'hub-pulse 3s ease-in-out infinite',
       padding: '14px 20px',
       borderRadius: 'var(--radius-lg)',
@@ -340,7 +348,7 @@ function HubNode({ data, selected }: any) {
   );
 }
 
-function ResourceNode({ data, selected }: any) {
+function ResourceNode({ id, data, selected }: any) {
   const Icon = Database;
   const color = 'var(--data-color)';
   const floorItems = Array.isArray(data.items) ? data.items : (Array.isArray(data.drops) ? data.drops : []);
@@ -351,7 +359,7 @@ function ResourceNode({ data, selected }: any) {
     <NodeWrapper
       selected={selected}
       glowColor={data.unlocked && !isDepleted ? color : undefined}
-      workers={data.workers}
+      nodeId={id}
       showWorkerDots={data.showWorkerDots}
       edgeStyle={data.edgeStyle}
       fadeIn={data.fadeIn} routeIndices={data.routeIndices}
@@ -379,9 +387,9 @@ function ResourceNode({ data, selected }: any) {
 }
 
 
-function InfectedNode({ data, selected }: any) {
+function InfectedNode({ id, data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} glowColor="var(--danger)" workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{
+    <NodeWrapper selected={selected} glowColor="var(--danger)" nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{
       animation: 'infected-pulse 1.5s ease-in-out infinite',
       borderColor: 'var(--danger)',
     }}>
@@ -390,9 +398,9 @@ function InfectedNode({ data, selected }: any) {
   );
 }
 
-function LockedNode({ data, selected }: any) {
+function LockedNode({ id, data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{
+    <NodeWrapper selected={selected} nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{
       opacity: 0.4,
       border: '1px dashed var(--border-bright)',
     }}>
@@ -407,10 +415,10 @@ const DIFFICULTY_COLORS: Record<string, string> = {
   hard: '#f59e0b',
 };
 
-function ComputeNode({ data, selected }: any) {
+function ComputeNode({ id, data, selected }: any) {
   const color = DIFFICULTY_COLORS[data.difficulty] || '#a78bfa';
   return (
-    <NodeWrapper selected={selected} glowColor={data.unlocked ? color : undefined} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
+    <NodeWrapper selected={selected} glowColor={data.unlocked ? color : undefined} nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
       <NodeLabel
         label={data.label}
         icon={Cpu}
@@ -432,12 +440,12 @@ function ComputeNode({ data, selected }: any) {
   );
 }
 
-function AuthNodeComponent({ data, selected }: any) {
+function AuthNodeComponent({ id, data, selected }: any) {
   const label = data.data?.label || 'Auth';
   const unlocked = data.data?.unlocked || false;
 
   return (
-    <NodeWrapper selected={selected} glowColor="#a78bfa" workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{ opacity: unlocked ? 1 : 0.5 }}>
+    <NodeWrapper selected={selected} glowColor="#a78bfa" nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{ opacity: unlocked ? 1 : 0.5 }}>
       <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
       <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
       <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
@@ -468,7 +476,7 @@ function AuthNodeComponent({ data, selected }: any) {
   );
 }
 
-function APINodeComponent({ data, selected }: any) {
+function APINodeComponent({ id, data, selected }: any) {
   const infectionValue = data.data?.infectionValue || 0;
   const pendingReqs = data.data?.pendingRequests || 0;
   const infected = data.data?.infected || false;
@@ -492,7 +500,7 @@ function APINodeComponent({ data, selected }: any) {
     : '#4ade80';
 
   return (
-    <NodeWrapper selected={selected} glowColor={slaColor} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{ opacity: unlocked ? 1 : 0.5 }}>
+    <NodeWrapper selected={selected} glowColor={slaColor} nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{ opacity: unlocked ? 1 : 0.5 }}>
       <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
       <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
       <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
@@ -560,9 +568,9 @@ function APINodeComponent({ data, selected }: any) {
   );
 }
 
-function EmptyNode({ data, selected }: any) {
+function EmptyNode({ id, data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{
+    <NodeWrapper selected={selected} nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{
       opacity: data.unlocked ? 0.8 : 0.4,
       border: '1px dashed var(--border-bright)',
     }}>
@@ -576,9 +584,9 @@ function EmptyNode({ data, selected }: any) {
   );
 }
 
-function CacheNode({ data, selected }: any) {
+function CacheNode({ id, data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} glowColor={data.unlocked ? '#a78bfa' : undefined} workers={data.workers} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
+    <NodeWrapper selected={selected} glowColor={data.unlocked ? '#a78bfa' : undefined} nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
       <NodeLabel
         label={data.label}
         icon={HardDrive}
@@ -739,32 +747,17 @@ import { CLASS_COLORS } from '../constants/colors';
 
 // ── Conversion helpers ──────────────────────────────────────────────────
 
-function toRFNodes(gameNodes: GameNode[], selectedId: string | null, workers: Worker[], showWorkerDots: boolean, edgeStyle: string, fadeInIds: Set<string>, tn: (label: string) => string, routePath: string[] = []): Node[] {
-  // Pre-build worker lookup by node id to avoid O(nodes × workers) filtering
-  const workersByNode = new Map<string, any[]>();
-  for (const w of workers) {
-    const nodeId = w.status === 'moving' && w.previous_node ? w.previous_node : (w.current_node || w.node_id);
-    if (!workersByNode.has(nodeId)) workersByNode.set(nodeId, []);
-    workersByNode.get(nodeId)!.push({
-      ...w,
-      leaving: w.status === 'moving' && w.previous_node === nodeId,
-    });
-    // Also add to destination node if moving
-    if (w.status === 'moving' && w.previous_node && w.current_node !== w.previous_node) {
-      const destId = w.current_node || w.node_id;
-      if (!workersByNode.has(destId)) workersByNode.set(destId, []);
-      workersByNode.get(destId)!.push({ ...w, leaving: false });
-    }
-  }
-
+function toRFNodes(gameNodes: GameNode[], selectedId: string | null, showWorkerDots: boolean, edgeStyle: string, fadeInIds: Set<string>, tn: (label: string) => string, routePath: string[] = []): Node[] {
+  // Workers are intentionally NOT included here — WorkerDotsRow subscribes to
+  // the store directly by nodeId. This keeps the React Flow node list stable
+  // across polling ticks so nodes don't re-render on every worker update.
   return gameNodes.map(n => {
-    const nodeWorkers = workersByNode.get(n.id) || [];
     return {
       id: n.id,
       type: n.type,
       position: n.position,
       data: {
-        ...n.data, label: tn(n.data.label), selected: n.id === selectedId, workers: nodeWorkers, showWorkerDots, edgeStyle, fadeIn: fadeInIds.has(n.id),
+        ...n.data, label: tn(n.data.label), selected: n.id === selectedId, showWorkerDots, edgeStyle, fadeIn: fadeInIds.has(n.id),
         routeIndices: routePath.reduce<number[]>((acc, id, i) => { if (id === n.id) acc.push(i); return acc; }, []),
       },
       selected: n.id === selectedId,
@@ -837,10 +830,12 @@ function toRFEdges(gameEdges: GameEdge[], edgeSelectMode: boolean, gameNodes: Ga
 // ── Off-screen Error Indicators ─────────────────────────────────────────
 
 /** Must be rendered inside <ReactFlow> so useReactFlow() works. */
-function ErrorOffscreenIndicators({ workers, gameNodes }: { workers: Worker[]; gameNodes: GameNode[] }) {
+function ErrorOffscreenIndicators({ gameNodes }: { gameNodes: GameNode[] }) {
   const reactFlow = useReactFlow();
   const viewport = useViewport();
   const wrapperRef = useRef<HTMLDivElement>(null);
+  // Subscribe here locally so the parent GameGraph doesn't re-render every tick.
+  const workers = useGameStore(s => s.workers);
 
   // Compute indicators on every render (viewport changes frequently)
   const errorWorkers = workers.filter(w => w.status === 'error' || w.status === 'crashed');
@@ -944,7 +939,7 @@ function ErrorOffscreenIndicators({ workers, gameNodes }: { workers: Worker[]; g
 // ── Main Graph ──────────────────────────────────────────────────────────
 
 export function GameGraph() {
-  const { nodes: gameNodes, edges: gameEdges, selectedNodeId, selectNode, workers, edgeSelectMode, nodeSelectMode, routePath, settings } = useGameStore();
+  const { nodes: gameNodes, edges: gameEdges, selectedNodeId, selectNode, edgeSelectMode, nodeSelectMode, routePath, settings } = useGameStore();
   const t = useT();
   const tn = useCallback((label: string) => { const k = `n.${label}`; const v = t(k); return v === k ? label : v; }, [t]);
   const [nodes, setNodes] = useNodesState([]);
@@ -970,8 +965,8 @@ export function GameGraph() {
     // Merge new fade-in IDs (will be cleared after animation completes)
     for (const id of newIds) fadeInIdsRef.current.add(id);
 
-    return toRFNodes(gameNodes, selectedNodeId, workers, showWorkerDots, edgeStyle, fadeInIdsRef.current, tn, routePath);
-  }, [gameNodes, selectedNodeId, workers, showWorkerDots, edgeStyle, tn, routePath]);
+    return toRFNodes(gameNodes, selectedNodeId, showWorkerDots, edgeStyle, fadeInIdsRef.current, tn, routePath);
+  }, [gameNodes, selectedNodeId, showWorkerDots, edgeStyle, tn, routePath]);
 
   const rfEdges = useMemo(
     () => toRFEdges(gameEdges, isEdgeSelecting, gameNodes, edgeStyle, routePath),
@@ -1065,7 +1060,7 @@ if (node.type === 'cache') return '#a78bfa';
           pannable
           zoomable
         />
-        <ErrorOffscreenIndicators workers={workers} gameNodes={gameNodes} />
+        <ErrorOffscreenIndicators gameNodes={gameNodes} />
       </ReactFlow>
     </div>
   );

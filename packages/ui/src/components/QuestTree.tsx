@@ -265,11 +265,17 @@ export function QuestTree() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
+  // Subscribe to primitive fields so new object refs from polling don't retrigger effects
+  const questTotal = useGameStore(s => s.questSummary.total);
+  const questClaimed = useGameStore(s => s.questSummary.claimed);
+  const questCompleted = useGameStore(s => s.questSummary.completed);
+  const questAvailable = useGameStore(s => s.questSummary.available);
+
   // Fetch quest data
   useEffect(() => {
     if (!questsOpen) return;
     axios.get('/api/quests').then(r => setQuestData(r.data)).catch(() => {});
-  }, [questsOpen, useGameStore.getState().questSummary]);
+  }, [questsOpen, questTotal, questClaimed, questCompleted, questAvailable]);
 
   // Get chapters that have quests
   const chapters = questData
