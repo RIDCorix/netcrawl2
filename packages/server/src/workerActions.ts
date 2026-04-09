@@ -1,6 +1,6 @@
 import {
   getGameState, saveGameState, getWorker, upsertWorker,
-  addWorkerLog, Resources, Item, mergeItemStacks,
+  addWorkerLog, Item, mergeItemStacks,
   getNodeChipEffects, incrementStat, setStatMax,
   addToPlayerInventory, awardXp, grantNodeXp,
   cacheGet, cacheSet, cacheKeys, getCacheRange, getCacheCapacity,
@@ -191,41 +191,8 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
     }
 
     case 'harvest': {
-      const currentNode = worker.current_node || worker.node_id;
-      const node = nodes.find((n: any) => n.id === currentNode);
-      if (!node || node.type !== 'resource') {
-        return { ok: false, error: 'Not at a resource node' };
-      }
-      const chipEffects = getNodeChipEffects(currentNode, uid);
-      const passiveEffects = getPassiveEffects();
-      const resourceType = node.data.resource as keyof Resources;
-      const baseRate = node.data.rate || 1;
-      const rateBonus = chipEffects['production_rate'] || 0;
-      const harvestMult = (chipEffects['harvest_speed_mult'] || 1) * (passiveEffects['global_harvest_speed_mult'] || 1);
-      const rate = Math.floor((baseRate + rateBonus) * harvestMult);
-      const carrying = { ...worker.carrying } as Record<string, number>;
-      const totalCarrying = Object.values(carrying).reduce((a, b) => a + b, 0);
-      const ramBonus = worker.equippedRam?.capacityBonus || 0;
-      const capacityBonus = ramBonus + (chipEffects['capacity_bonus'] || 0) + (passiveEffects['global_capacity_bonus'] || 0);
-      const canCarry = Math.min(rate, (50 + capacityBonus) - totalCarrying);
-      if (canCarry <= 0) return { ok: false, error: 'Carrying capacity full' };
-
-      upsertWorker({ ...worker, status: 'harvesting' }, uid);
-      broadcastFullState(uid);
-
-      carrying[resourceType] = (carrying[resourceType] || 0) + canCarry;
-
-      const harvestDelay = Math.round(ACTION_DELAY / harvestMult);
-      setLock(workerId, harvestDelay);
-      await workerLocks.get(workerId);
-
-      const w2 = getWorker(workerId, uid);
-      if (w2) {
-        upsertWorker({ ...w2, carrying: carrying as any, status: 'running' }, uid);
-        broadcastFullState(uid);
-      }
-
-      return { ok: true, harvested: { [resourceType]: canCarry } };
+      // Legacy — redirect to mine+collect flow
+      return { ok: false, error: 'harvest() is deprecated. Use mine() + collect() instead.' };
     }
 
     case 'mine': {
@@ -413,68 +380,41 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const w5 = getWorker(workerId, uid);
       if (!w5) return { ok: false, error: 'Worker not found' };
 
-      // Deposit held items → convert to resources
+      // Deposit all held items → convert to resources
       const held = w5.holding || [];
-      if (held.length > 0) {
-        const freshState = getGameState(uid);
-        const newResources = { ...freshState.resources } as Record<string, number>;
+      if (held.length === 0) {
+        return { ok: false, error: 'Nothing to deposit' };
+      }
 
-        let totalData = 0, totalRp = 0, penalty = 0;
-        const dropToResource: Record<string, string> = {
-          data_fragment: 'data',
-          rp_shard: 'rp',
-        };
+      const freshState = getGameState(uid);
+      const newResources = { ...freshState.resources } as Record<string, number>;
 
-        for (const item of held) {
-          if (item.type === 'bad_data') {
-            penalty += item.count;
-            incrementStat('total_bad_data_deposited', item.count, uid);
-          } else {
-            const resourceKey = dropToResource[item.type];
-            if (resourceKey === 'data') {
-              totalData += item.count;
-            } else if (resourceKey === 'rp') {
-              totalRp += item.count;
-            }
-            if (resourceKey) {
-              incrementStat(`total_${resourceKey}_deposited`, item.count, uid);
-            }
-          }
+      let totalData = 0, totalRp = 0, penalty = 0;
+      for (const item of held) {
+        if (item.type === 'bad_data') {
+          penalty += item.count;
+          incrementStat('total_bad_data_deposited', item.count, uid);
+        } else if (item.type === 'data_fragment') {
+          totalData += item.count;
+          incrementStat('total_data_deposited', item.count, uid);
+        } else if (item.type === 'rp_shard') {
+          totalRp += item.count;
+          incrementStat('total_rp_deposited', item.count, uid);
         }
-
-        newResources['data'] = Math.max(0, (newResources['data'] || 0) + totalData - penalty);
-        if (totalRp > 0) newResources['rp'] = (newResources['rp'] || 0) + totalRp;
-
-        saveGameState({ ...freshState, resources: newResources as any }, uid);
-        upsertWorker({ ...w5, holding: [], carrying: {}, status: 'running' }, uid);
-        broadcastFullState(uid);
-        incrementStat('total_deposits', 1, uid);
-        awardXp(XP_REWARDS.deposit_resources, uid);
-        grantNodeXp('hub', 'deposit', uid);
-        checkAchievements(uid);
-        checkQuests(uid);
-        return { ok: true, deposited: held, totalData, penalty };
       }
 
-      // Backward compat: deposit carrying
-      const carrying = w5.carrying as Record<string, number>;
-      const freshState3 = getGameState(uid);
-      const newResources = { ...freshState3.resources } as Record<string, number>;
-      Object.keys(carrying).forEach(k => {
-        newResources[k] = (newResources[k] || 0) + (carrying[k] || 0);
-      });
-      upsertWorker({ ...w5, carrying: {}, status: 'running' }, uid);
-      saveGameState({ ...freshState3, resources: newResources as any }, uid);
+      newResources['data'] = Math.max(0, (newResources['data'] || 0) + totalData - penalty);
+      if (totalRp > 0) newResources['rp'] = (newResources['rp'] || 0) + totalRp;
+
+      saveGameState({ ...freshState, resources: newResources as any }, uid);
+      upsertWorker({ ...w5, holding: [], status: 'running' }, uid);
       broadcastFullState(uid);
-      for (const [k, v] of Object.entries(carrying)) {
-        if (v > 0) incrementStat(`total_${k}_deposited`, v, uid);
-      }
       incrementStat('total_deposits', 1, uid);
       awardXp(XP_REWARDS.deposit_resources, uid);
       grantNodeXp('hub', 'deposit', uid);
       checkAchievements(uid);
       checkQuests(uid);
-      return { ok: true, deposited: carrying };
+      return { ok: true, deposited: held, totalData, penalty };
     }
 
     case 'scan': {
