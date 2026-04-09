@@ -110,7 +110,8 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
     for (const item of (w.holding || [])) {
       addToPlayerInventory(item.type, item.count, undefined, uid);
     }
-    upsertWorker({ ...w, status: 'error', pid: null, equippedPickaxe: null, holding: [] }, uid);
+    const errorMsg = payload.message || 'Unknown error';
+    upsertWorker({ ...w, status: 'error', pid: null, equippedPickaxe: null, holding: [], lastLog: { message: `[ERROR] ${errorMsg}`, level: 'error', ts: Date.now() } }, uid);
     broadcastFullState(uid);
     return { ok: true };
   }
@@ -314,7 +315,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
     }
 
     case 'collect': {
-      // Capacity = max number of different item types (slots)
+      // Capacity = max total item count (not types)
       const capacity = 1 + (worker.equippedRam?.capacityBonus || 0);
       const currentNode = worker.current_node || worker.node_id;
       const nodeIdx = nodes.findIndex((n: any) => n.id === currentNode);
@@ -324,10 +325,16 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const nodeItems: Item[] = Array.isArray(node.data.items) ? [...node.data.items] : [];
       if (nodeItems.length === 0) return { ok: false, error: 'nothing_here', reason: 'nothing_here' };
 
+      // Check current total count
+      const currentHoldingCount = (worker.holding || []).reduce((s: number, h: Item) => s + h.count, 0);
+      if (currentHoldingCount >= capacity) {
+        return { ok: false, error: 'inventory_full', reason: 'inventory_full', holdingCount: currentHoldingCount, capacity };
+      }
+
       setLock(workerId, ACTION_DELAY);
       await workerLocks.get(workerId);
 
-      // Re-read (items might have changed)
+      // Re-read
       const freshState2 = getGameState(uid);
       const freshNode = freshState2.nodes.find((n: any) => n.id === currentNode);
       const freshItems: Item[] = freshNode && Array.isArray(freshNode.data.items) ? [...freshNode.data.items] : [];
@@ -335,18 +342,23 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
 
       const w4 = getWorker(workerId, uid);
       const currentHolding: Item[] = w4?.holding || [];
-      const currentTypes = new Set(currentHolding.map(h => h.type));
+      let holdingTotal = currentHolding.reduce((s, h) => s + h.count, 0);
+      const spaceLeft = capacity - holdingTotal;
+      if (spaceLeft <= 0) {
+        return { ok: false, error: 'inventory_full', reason: 'inventory_full', holdingCount: holdingTotal, capacity };
+      }
 
       const collected: Item[] = [];
       const remaining: Item[] = [];
 
       if (payload.itemType) {
-        // Pick up a specific type
+        // Pick up items of specific type, up to space left
         for (const d of freshItems) {
-          if (d.type === payload.itemType && collected.length === 0) {
-            if (currentTypes.has(d.type) || currentTypes.size < capacity) {
-              collected.push(d);
-              currentTypes.add(d.type);
+          if (d.type === payload.itemType) {
+            const take = Math.min(d.count, spaceLeft - collected.reduce((s, c) => s + c.count, 0));
+            if (take > 0) {
+              collected.push({ type: d.type, count: take });
+              if (take < d.count) remaining.push({ type: d.type, count: d.count - take });
             } else {
               remaining.push(d);
             }
@@ -356,13 +368,16 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         }
         if (collected.length === 0) return { ok: false, error: 'item_not_found' };
       } else {
-        // Pick up all — merge same types, respect slot capacity
+        // Pick up all, respect total capacity
+        let taken = 0;
         for (const d of freshItems) {
-          if (currentTypes.has(d.type) || currentTypes.size < capacity) {
-            collected.push(d);
-            currentTypes.add(d.type);
+          const canTake = Math.min(d.count, spaceLeft - taken);
+          if (canTake > 0) {
+            collected.push({ type: d.type, count: canTake });
+            taken += canTake;
+            if (canTake < d.count) remaining.push({ type: d.type, count: d.count - canTake });
           } else {
-            remaining.push(d); // skip — would exceed slot capacity
+            remaining.push(d);
           }
         }
       }
@@ -385,7 +400,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
 
     case 'deposit': {
       const currentNode = worker.current_node || worker.node_id;
-      if (currentNode !== 'hub') return { ok: false, error: 'Must be at hub to deposit' };
+      if (currentNode !== 'hub') return { ok: false, error: 'Must be at Hub to deposit. Use drop() to leave items on the ground, or move to Hub first.', reason: 'not_at_hub' };
 
       setLock(workerId, ACTION_DELAY);
       await workerLocks.get(workerId);
