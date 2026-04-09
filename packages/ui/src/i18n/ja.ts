@@ -630,4 +630,8 @@ export const ja: Record<string, string> = {
   'n.Monitor API': '監視 API',
   'n.Log Collector': 'ログ収集',
   'n.Auth Service': '認証サービス',
+
+  // === Auto-generated placeholders ===
+  'n.Relay NW1': '[TODO] Relay NW1',
+  'n.Relay NW2': '[TODO] Relay NW2',
 }

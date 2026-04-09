@@ -630,4 +630,8 @@ export const zhTW: Record<string, string> = {
   'n.Monitor API': '監控 API',
   'n.Log Collector': '日誌收集器',
   'n.Auth Service': '認證服務',
+
+  // === Auto-generated placeholders ===
+  'n.Relay NW1': '[TODO] Relay NW1',
+  'n.Relay NW2': '[TODO] Relay NW2',
 }

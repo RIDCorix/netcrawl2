@@ -630,4 +630,8 @@ export const en: Record<string, string> = {
   'n.Monitor API': 'Monitor API',
   'n.Log Collector': 'Log Collector',
   'n.Auth Service': 'Auth Service',
+
+  // === Auto-generated placeholders ===
+  'n.Relay NW1': 'Relay NW1',
+  'n.Relay NW2': 'Relay NW2',
 }
