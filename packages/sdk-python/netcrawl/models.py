@@ -10,13 +10,12 @@ from pydantic import BaseModel, Field
 from typing import Optional, Any
 
 
-# ── Drop ────────────────────────────────────────────────────────────────────
+# ── Item (stacked, Minecraft-style) ─────────────────────────────────────────
 
-class Drop(BaseModel):
-    """An item drop from mining. Can be data_fragment, rp_shard, or bad_data."""
-    id: str = ''       # unique drop ID (uuid)
+class Item(BaseModel):
+    """An item stack. Can be data_fragment, rp_shard, or bad_data."""
     type: str          # 'data_fragment' | 'rp_shard' | 'bad_data'
-    amount: int = 1
+    count: int = 1
 
 
 # ── Action results ──────────────────────────────────────────────────────────
@@ -24,7 +23,7 @@ class Drop(BaseModel):
 class CollectResult(BaseModel):
     """Result of collect() action."""
     ok: bool = False
-    items: list[Drop] = Field(default_factory=list)
+    items: list[Item] = Field(default_factory=list)
     holding_count: int = Field(0, alias='holdingCount')
     capacity: int = 1
     error: Optional[str] = None
@@ -36,7 +35,7 @@ class CollectResult(BaseModel):
 class DepositResult(BaseModel):
     """Result of deposit() action."""
     ok: bool = False
-    deposited: list[Drop] = Field(default_factory=list)
+    deposited: list[Item] = Field(default_factory=list)
     total_data: int = Field(0, alias='totalData')
     penalty: int = 0
     error: Optional[str] = None
@@ -47,7 +46,7 @@ class DepositResult(BaseModel):
 class DiscardResult(BaseModel):
     """Result of discard() action."""
     ok: bool = False
-    discarded: Any = None  # Drop or list[Drop]
+    discarded: Any = None  # Item or list[Item]
     error: Optional[str] = None
 
 

@@ -109,11 +109,20 @@ export const FLOP_COSTS = {
 
 export const INITIAL_FLOP: FlopState = { total: 50, used: 0 };
 
-// === Drop System ===
-export interface Drop {
-  id: string;           // uuid
+// === Item Stack System (Minecraft-style) ===
+export interface Item {
   type: 'data_fragment' | 'rp_shard' | 'bad_data';
-  amount: number;
+  count: number;
+}
+
+export const MAX_STACK_SIZE = 64;
+
+/** Merge two lists of item stacks, combining counts for matching types. */
+export function mergeItemStacks(a: Item[], b: Item[]): Item[] {
+  const map = new Map<string, number>();
+  for (const item of a) map.set(item.type, (map.get(item.type) || 0) + item.count);
+  for (const item of b) map.set(item.type, (map.get(item.type) || 0) + item.count);
+  return Array.from(map.entries()).map(([type, count]) => ({ type, count } as Item));
 }
 
 // === Player Inventory ===
@@ -157,7 +166,7 @@ export interface WorkerRow {
   carrying: Partial<Resources>;
   pid: number | null;
   deployed_at: string;
-  holding: Drop[];
+  holding: Item[];
   equippedPickaxe: { itemType: string; efficiency: number } | null;
   equippedCpu: { itemType: string; computePoints: number; count: number } | null;
   equippedRam: { itemType: string; capacityBonus: number; count: number } | null;
@@ -199,14 +208,14 @@ export const RECIPES: Recipe[] = [
   {
     id: 'pickaxe_iron',
     name: 'Iron Pickaxe',
-    description: 'Stronger pick. efficiency 1.5×. Yields 1-2 drops.',
+    description: 'Stronger pick. efficiency 1.5×. Yields 1-2 items.',
     output: { itemType: 'pickaxe_iron', count: 1, metadata: { efficiency: 1.5 } },
     cost: { data: 500, rp: 5 },
   },
   {
     id: 'pickaxe_diamond',
     name: 'Diamond Pickaxe',
-    description: 'Finest tool. efficiency 2.5×. Yields 2-3 drops.',
+    description: 'Finest tool. efficiency 2.5×. Yields 2-3 items.',
     output: { itemType: 'pickaxe_diamond', count: 1, metadata: { efficiency: 2.5 } },
     cost: { data: 2000, rp: 20 },
   },
@@ -294,7 +303,7 @@ interface Store {
 
 // Helper to create typed node data
 const R = (label: string, rate: number, cost: Record<string, number>, badDataChance: number = 0.2) =>
-  ({ label, resource: 'data' as const, rate, baseRate: rate, unlocked: false, unlockCost: cost, mineable: true, drops: [] as any[], mineCount: 0, upgradeLevel: 0, chipSlots: 1, baseChipSlots: 1, installedChips: [] as string[], enhancementPoints: 0, statAlloc: {} as Record<string, number>, baseDefense: 0, bad_data_chance: badDataChance });
+  ({ label, resource: 'data' as const, rate, baseRate: rate, unlocked: false, unlockCost: cost, mineable: true, items: [] as any[], mineCount: 0, upgradeLevel: 0, chipSlots: 1, baseChipSlots: 1, installedChips: [] as string[], enhancementPoints: 0, statAlloc: {} as Record<string, number>, baseDefense: 0, bad_data_chance: badDataChance });
 const C = (label: string, diff: 'easy' | 'medium' | 'hard', cost: Record<string, number>) =>
   ({ label, unlocked: false, unlockCost: cost, difficulty: diff, rewardResource: 'rp' as const, solveCount: 0, upgradeLevel: 0, chipSlots: 0, baseChipSlots: 0, installedChips: [] as string[], enhancementPoints: 0, statAlloc: {} as Record<string, number>, baseDefense: 0 });
 const Y = (label: string, cost: Record<string, number>) =>
@@ -308,7 +317,7 @@ const AU = (label: string, cost: Record<string, number>) =>
 
 // Data Mine Cluster node: capacity=1, 5s refill, optional bad_data chance
 const MC = (label: string, rate: number, cost: Record<string, number>, badDataChance: number = 0) =>
-  ({ label, resource: 'data' as const, rate, baseRate: rate, unlocked: false, unlockCost: cost, mineable: true, drops: [] as any[], mineCount: 0, upgradeLevel: 0, chipSlots: 0, baseChipSlots: 0, installedChips: [] as string[], enhancementPoints: 0, statAlloc: {} as Record<string, number>, baseDefense: 0, capacity: 1, refillMs: 5000, bad_data_chance: badDataChance });
+  ({ label, resource: 'data' as const, rate, baseRate: rate, unlocked: false, unlockCost: cost, mineable: true, items: [] as any[], mineCount: 0, upgradeLevel: 0, chipSlots: 0, baseChipSlots: 0, installedChips: [] as string[], enhancementPoints: 0, statAlloc: {} as Record<string, number>, baseDefense: 0, capacity: 1, refillMs: 5000, bad_data_chance: badDataChance });
 
 export const INITIAL_NODES = [
   // ═══════════════════════════════════════════════════════════════════════════
@@ -580,7 +589,7 @@ function _loadStore() {
       if (!store.game_state.playerInventory) {
         store.game_state.playerInventory = JSON.parse(JSON.stringify(INITIAL_PLAYER_INVENTORY));
       }
-      // Migrate existing nodes to add mineable/drops
+      // Migrate existing nodes to add mineable/items
       store.game_state.nodes = store.game_state.nodes.map((n: any) => {
         const init = INITIAL_NODES.find(in_ => in_.id === n.id);
         if (init && (init.data as any).mineable && !n.data.mineable) {
@@ -589,13 +598,33 @@ function _loadStore() {
             data: {
               ...n.data,
               mineable: true,
-              drops: n.data.drops || [],
+              items: n.data.items || [],
               mineCount: n.data.mineCount || 0,
             },
           };
         }
         return n;
       });
+      // Migrate: drops → items, amount → count (backward compat for saved state)
+      for (const node of store.game_state.nodes) {
+        if (node.data.drops && !node.data.items) {
+          node.data.items = (node.data.drops as any[]).map((d: any) => ({ type: d.type, count: d.amount || d.count || 1 }));
+          delete node.data.drops;
+        } else if (node.data.drops && node.data.items) {
+          // Both exist (shouldn't happen) — prefer items, delete drops
+          delete node.data.drops;
+        }
+        // Also migrate any items that still use `amount` instead of `count`
+        if (Array.isArray(node.data.items)) {
+          node.data.items = node.data.items.map((d: any) => ({ type: d.type, count: d.amount || d.count || 1 }));
+        }
+      }
+      // Migrate worker holding: amount → count
+      for (const w of Object.values(store.workers)) {
+        if (Array.isArray(w.holding)) {
+          w.holding = w.holding.map((h: any) => ({ type: h.type, count: h.amount || h.count || 1 }));
+        }
+      }
       // Migrate: convert legacy 'relay' type to 'empty'
       store.game_state.nodes = store.game_state.nodes.map((n: any) =>
         n.type === 'relay' ? { ...n, type: 'empty' } : n
@@ -620,10 +649,10 @@ function _loadStore() {
           if (w.equippedCpu) addToPlayerInventory(w.equippedCpu.itemType, w.equippedCpu.count || 1);
           if (w.equippedRam) addToPlayerInventory(w.equippedRam.itemType, w.equippedRam.count || 1);
           const held = w.holding || [];
-          for (const drop of held) {
+          for (const heldItem of held) {
             const inv = store.game_state.playerInventory || [];
-            const existing = inv.find((i: any) => i.itemType === drop.type);
-            if (existing) existing.count += (drop as any).amount || 1;
+            const existing = inv.find((i: any) => i.itemType === heldItem.type);
+            if (existing) existing.count += heldItem.count || 1;
           }
           w.status = 'suspended';
           w.pid = null;

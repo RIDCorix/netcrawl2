@@ -12,7 +12,7 @@ from netcrawl.nodes import (
 )
 from netcrawl.sensors import EdgeInfo, AdvancedEdgeInfo
 from netcrawl.models import (
-    Drop, CollectResult, DepositResult, DiscardResult, MoveResult,
+    Item, CollectResult, DepositResult, DiscardResult, MoveResult,
     ScannedNode, TokenValidation,
 )
 
@@ -24,6 +24,6 @@ __all__ = [
     "ComputeNode", "ComputeTask", "APINode", "APIRequestObj",
     "LockedNode", "InfectedNode", "NodeEdge",
     "EdgeInfo", "AdvancedEdgeInfo",
-    "Drop", "CollectResult", "DepositResult", "DiscardResult", "MoveResult",
+    "Item", "CollectResult", "DepositResult", "DiscardResult", "MoveResult",
     "ScannedNode", "TokenValidation",
 ]

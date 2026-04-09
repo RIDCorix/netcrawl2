@@ -38,9 +38,9 @@ export interface NodeData {
 }
 
 export interface Drop {
-  id: string;
   type: 'data_fragment' | 'rp_shard' | 'bad_data';
-  amount: number;
+  count: number;
+  amount?: number; // legacy compat
 }
 
 export interface GameNode {

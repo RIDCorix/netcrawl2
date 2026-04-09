@@ -222,7 +222,7 @@ export function WorkerDetailPanel() {
           {(() => {
             const items: { type: string; count: number }[] = [];
             const holdingArr = Array.isArray(worker.holding) ? worker.holding : worker.holding ? [worker.holding] : [];
-            for (const h of holdingArr) items.push({ type: h.type, count: h.amount });
+            for (const h of holdingArr) items.push({ type: h.type, count: h.count ?? h.amount ?? 1 });
             const carrying = worker.carrying || {};
             if ((carrying as any).data > 0) items.push({ type: 'data', count: (carrying as any).data });
             if ((carrying as any).rp > 0) items.push({ type: 'rp', count: (carrying as any).rp });

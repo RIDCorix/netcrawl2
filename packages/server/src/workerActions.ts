@@ -1,6 +1,6 @@
 import {
   getGameState, saveGameState, getWorker, upsertWorker,
-  addWorkerLog, Resources, Drop,
+  addWorkerLog, Resources, Item, mergeItemStacks,
   getNodeChipEffects, incrementStat, setStatMax,
   addToPlayerInventory, awardXp, grantNodeXp,
   cacheGet, cacheSet, cacheKeys, getCacheRange, getCacheCapacity,
@@ -64,12 +64,8 @@ function getPassiveEffects(): Record<string, number> {
   return agg;
 }
 
-function generateUuid(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function getDropTypeForNode(node: any): Drop['type'] {
-  // Some nodes have a chance to drop bad_data (used in Ch1 while-loop quest)
+function getItemTypeForNode(node: any): Item['type'] {
+  // Some nodes have a chance to produce bad_data (used in Ch1 while-loop quest)
   const badDataChance = node.data.bad_data_chance || 0;
   if (badDataChance > 0 && Math.random() < badDataChance) {
     return 'bad_data';
@@ -77,7 +73,7 @@ function getDropTypeForNode(node: any): Drop['type'] {
   return 'data_fragment';
 }
 
-function calcDropAmount(efficiency: number): number {
+function calcItemCount(efficiency: number): number {
   if (efficiency >= 2.5) return 2 + (Math.random() < 0.5 ? 1 : 0);
   if (efficiency >= 1.5) return 1 + (Math.random() < 0.5 ? 1 : 0);
   return 1;
@@ -111,8 +107,8 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
     if (w.equippedPickaxe) {
       addToPlayerInventory(w.equippedPickaxe.itemType, 1, undefined, uid);
     }
-    for (const drop of (w.holding || [])) {
-      addToPlayerInventory(drop.type, drop.amount, undefined, uid);
+    for (const item of (w.holding || [])) {
+      addToPlayerInventory(item.type, item.count, undefined, uid);
     }
     upsertWorker({ ...w, status: 'error', pid: null, equippedPickaxe: null, holding: [] }, uid);
     broadcastFullState(uid);
@@ -241,7 +237,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       if (node.data.depleted) return { ok: false, error: 'Node is depleted', reason: 'node_depleted', depletedUntil: node.data.depletedUntil };
       // Cluster nodes: capacity-based depletion with timed refill
       if (node.data.capacity !== undefined) {
-        const currentDrops = Array.isArray(node.data.drops) ? node.data.drops.length : 0;
+        const currentItems = Array.isArray(node.data.items) ? node.data.items.length : 0;
         if (node.data.mineCount >= node.data.capacity && !node.data.depleted) {
           // Auto-deplete with refillMs timer
           const refillMs = node.data.refillMs || 5000;
@@ -270,12 +266,12 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       setLock(workerId, mineDelay);
       await workerLocks.get(workerId);
 
-      const dropType = getDropTypeForNode(node);
+      const itemType = getItemTypeForNode(node);
       const efficiency = worker.equippedPickaxe.efficiency;
-      const amount = calcDropAmount(efficiency);
-      const drop: Drop = { id: generateUuid(), type: dropType, amount };
+      const count = calcItemCount(efficiency);
+      const minedItem: Item = { type: itemType, count };
 
-      const currentDrops = Array.isArray(node.data.drops) ? [...node.data.drops] : [];
+      const currentItems: Item[] = Array.isArray(node.data.items) ? [...node.data.items] : [];
       const currentMineCount = (node.data.mineCount || 0) + 1;
       let depleted = false;
       let depletedUntil: number | undefined;
@@ -295,7 +291,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
             ...n,
             data: {
               ...n.data,
-              drops: [...(Array.isArray(n.data.drops) ? n.data.drops : []), drop],
+              items: mergeItemStacks(Array.isArray(n.data.items) ? n.data.items : [], [minedItem]),
               mineCount: finalMineCount,
               depleted,
               depletedUntil,
@@ -314,20 +310,18 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       grantNodeXp(currentNode, 'mine', uid);
       checkAchievements(uid);
       checkQuests(uid);
-      return { ok: true, drop: { type: dropType, amount } };
+      return { ok: true, drop: { type: dropType, count: amount } };
     }
 
     case 'collect': {
+      // Capacity = max number of different item types (slots)
       const capacity = 1 + (worker.equippedRam?.capacityBonus || 0);
-      if ((worker.holding || []).length >= capacity) {
-        return { ok: false, error: 'inventory_full', reason: 'inventory_full' };
-      }
       const currentNode = worker.current_node || worker.node_id;
       const nodeIdx = nodes.findIndex((n: any) => n.id === currentNode);
       if (nodeIdx === -1) return { ok: false, error: 'Node not found' };
       const node = nodes[nodeIdx];
 
-      const drops = Array.isArray(node.data.drops) ? [...node.data.drops] : [];
+      const drops: Item[] = Array.isArray(node.data.drops) ? [...node.data.drops] : [];
       if (drops.length === 0) return { ok: false, error: 'nothing_here', reason: 'nothing_here' };
 
       setLock(workerId, ACTION_DELAY);
@@ -336,28 +330,45 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       // Re-read (drops might have changed)
       const freshState2 = getGameState(uid);
       const freshNode = freshState2.nodes.find((n: any) => n.id === currentNode);
-      const freshDrops = freshNode && Array.isArray(freshNode.data.drops) ? [...freshNode.data.drops] : [];
+      const freshDrops: Item[] = freshNode && Array.isArray(freshNode.data.drops) ? [...freshNode.data.drops] : [];
       if (freshDrops.length === 0) return { ok: false, error: 'nothing_here', reason: 'nothing_here' };
 
       const w4 = getWorker(workerId, uid);
-      const currentHolding = w4?.holding || [];
-      const spaceLeft = capacity - currentHolding.length;
-      if (spaceLeft <= 0) return { ok: false, error: 'inventory_full', reason: 'inventory_full' };
+      const currentHolding: Item[] = w4?.holding || [];
+      const currentTypes = new Set(currentHolding.map(h => h.type));
 
-      const collected: any[] = [];
-      const remaining = [...freshDrops];
+      const collected: Item[] = [];
+      const remaining: Item[] = [];
 
-      if (payload.itemId) {
-        // Pick up specific item
-        const idx = remaining.findIndex((d: any) => d.id === payload.itemId);
-        if (idx === -1) return { ok: false, error: 'item_not_found' };
-        collected.push(remaining.splice(idx, 1)[0]);
+      if (payload.itemType) {
+        // Pick up a specific type
+        for (const d of freshDrops) {
+          if (d.type === payload.itemType && collected.length === 0) {
+            if (currentTypes.has(d.type) || currentTypes.size < capacity) {
+              collected.push(d);
+              currentTypes.add(d.type);
+            } else {
+              remaining.push(d);
+            }
+          } else {
+            remaining.push(d);
+          }
+        }
+        if (collected.length === 0) return { ok: false, error: 'item_not_found' };
       } else {
-        // Pick up all until full
-        while (remaining.length > 0 && collected.length < spaceLeft) {
-          collected.push(remaining.shift()!);
+        // Pick up all — merge same types, respect slot capacity
+        for (const d of freshDrops) {
+          if (currentTypes.has(d.type) || currentTypes.size < capacity) {
+            collected.push(d);
+            currentTypes.add(d.type);
+          } else {
+            remaining.push(d); // skip — would exceed slot capacity
+          }
         }
       }
+
+      // Merge collected into holding
+      const newHolding = mergeItemStacks(currentHolding, collected);
 
       const newNodes2 = freshState2.nodes.map((n: any) => {
         if (n.id === currentNode) {
@@ -366,10 +377,10 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         return n;
       });
 
-      if (w4) upsertWorker({ ...w4, holding: [...currentHolding, ...collected] }, uid);
+      if (w4) upsertWorker({ ...w4, holding: newHolding }, uid);
       saveGameState({ ...freshState2, nodes: newNodes2 }, uid);
       broadcastFullState(uid);
-      return { ok: true, items: collected, holdingCount: currentHolding.length + collected.length, capacity };
+      return { ok: true, items: newHolding, holdingCount: newHolding.length, capacity };
     }
 
     case 'deposit': {
@@ -396,17 +407,17 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
 
         for (const item of held) {
           if (item.type === 'bad_data') {
-            penalty += item.amount;
-            incrementStat('total_bad_data_deposited', item.amount, uid);
+            penalty += item.count;
+            incrementStat('total_bad_data_deposited', item.count, uid);
           } else {
             const resourceKey = dropToResource[item.type];
             if (resourceKey === 'data') {
-              totalData += item.amount;
+              totalData += item.count;
             } else if (resourceKey === 'rp') {
-              totalRp += item.amount;
+              totalRp += item.count;
             }
             if (resourceKey) {
-              incrementStat(`total_${resourceKey}_deposited`, item.amount, uid);
+              incrementStat(`total_${resourceKey}_deposited`, item.count, uid);
             }
           }
         }
@@ -820,15 +831,15 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         return { ok: false, error: 'Nothing to discard', reason: 'nothing_held' };
       }
 
-      if (payload.itemId) {
-        // Discard specific item
-        const idx = (w6.holding || []).findIndex((d: any) => d.id === payload.itemId);
-        if (idx === -1) return { ok: false, error: 'Item not found', reason: 'item_not_found' };
+      if (payload.itemType) {
+        // Discard specific type's stack
+        const idx = (w6.holding || []).findIndex((d: any) => d.type === payload.itemType);
+        if (idx === -1) return { ok: false, error: 'Item type not found', reason: 'item_not_found' };
         const discarded = w6.holding[idx];
         upsertWorker({ ...w6, holding: w6.holding.filter((_: any, i: number) => i !== idx) }, uid);
         broadcastFullState(uid);
         if (discarded.type === 'bad_data') {
-          incrementStat('total_bad_data_discarded', 1, uid);
+          incrementStat('total_bad_data_discarded', discarded.count, uid);
           checkQuests(uid);
         }
         return { ok: true, discarded };
@@ -837,7 +848,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         const discarded = w6.holding;
         for (const item of discarded) {
           if (item.type === 'bad_data') {
-            incrementStat('total_bad_data_discarded', 1, uid);
+            incrementStat('total_bad_data_discarded', item.count, uid);
           }
         }
         upsertWorker({ ...w6, holding: [] }, uid);
@@ -858,10 +869,10 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const dropNode = freshStateDrop.nodes.find((n: any) => n.id === dropNodeId);
       if (!dropNode) return { ok: false, error: 'Node not found' };
 
-      let dropped: any[];
-      if (payload.itemId) {
-        const idx = (w7.holding || []).findIndex((d: any) => d.id === payload.itemId);
-        if (idx === -1) return { ok: false, error: 'Item not found' };
+      let dropped: Item[];
+      if (payload.itemType) {
+        const idx = (w7.holding || []).findIndex((d: any) => d.type === payload.itemType);
+        if (idx === -1) return { ok: false, error: 'Item type not found' };
         dropped = [w7.holding[idx]];
         upsertWorker({ ...w7, holding: w7.holding.filter((_: any, i: number) => i !== idx) }, uid);
       } else {
@@ -869,11 +880,11 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         upsertWorker({ ...w7, holding: [] }, uid);
       }
 
-      // Add to node floor
-      const existingDrops = Array.isArray(dropNode.data.drops) ? [...dropNode.data.drops] : [];
+      // Merge with existing floor stacks
+      const existingDrops: Item[] = Array.isArray(dropNode.data.drops) ? [...dropNode.data.drops] : [];
       const newNodes = freshStateDrop.nodes.map((n: any) => {
         if (n.id === dropNodeId) {
-          return { ...n, data: { ...n.data, drops: [...existingDrops, ...dropped] } };
+          return { ...n, data: { ...n.data, drops: mergeItemStacks(existingDrops, dropped) } };
         }
         return n;
       });

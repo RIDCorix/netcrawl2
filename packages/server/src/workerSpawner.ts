@@ -160,8 +160,8 @@ export async function spawnWorker(options: {
       if (w.equippedPickaxe) addToPlayerInventory(w.equippedPickaxe.itemType, 1);
       if (w.equippedCpu) addToPlayerInventory(w.equippedCpu.itemType, w.equippedCpu.count);
       if (w.equippedRam) addToPlayerInventory(w.equippedRam.itemType, w.equippedRam.count);
-      for (const drop of (w.holding || [])) {
-        addToPlayerInventory(drop.type, drop.amount);
+      for (const item of (w.holding || [])) {
+        addToPlayerInventory(item.type, item.count);
       }
       const status = code === 0 ? 'suspended' : 'crashed';
       upsertWorker({ ...w, status, pid: null, equippedPickaxe: null, equippedCpu: null, equippedRam: null, holding: [] });

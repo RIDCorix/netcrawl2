@@ -376,8 +376,8 @@ router.post('/recall', (req: Request, res: Response) => {
   if (worker.equippedPickaxe) {
     addToPlayerInventory(worker.equippedPickaxe.itemType, 1, undefined, uid);
   }
-  for (const drop of (worker.holding || [])) {
-    addToPlayerInventory(drop.type, drop.amount, undefined, uid);
+  for (const item of (worker.holding || [])) {
+    addToPlayerInventory(item.type, item.count, undefined, uid);
   }
 
   // For deploying/suspended/crashed/error workers — just delete, no process to kill
@@ -422,9 +422,9 @@ router.post('/worker/reset', (req: Request, res: Response) => {
   }
 
   // Return held items to player inventory (skip bad_data)
-  for (const drop of (worker.holding || [])) {
-    if (drop.type !== 'bad_data') {
-      addToPlayerInventory(drop.type, drop.amount, undefined, uid);
+  for (const item of (worker.holding || [])) {
+    if (item.type !== 'bad_data') {
+      addToPlayerInventory(item.type, item.count, undefined, uid);
     }
   }
 
@@ -500,8 +500,8 @@ router.post('/worker/suspend', (req: Request, res: Response) => {
     if (worker.equippedPickaxe) {
       addToPlayerInventory(worker.equippedPickaxe.itemType, 1, undefined, uid);
     }
-    for (const drop of (worker.holding || [])) {
-      addToPlayerInventory(drop.type, drop.amount, undefined, uid);
+    for (const item of (worker.holding || [])) {
+      addToPlayerInventory(item.type, item.count, undefined, uid);
     }
     upsertWorker({ ...worker, status: 'suspended', pid: null, equippedPickaxe: null, holding: [] }, uid);
   }
@@ -523,8 +523,8 @@ router.post('/worker/suspend-all', (req: Request, res: Response) => {
       if (worker.equippedPickaxe) {
         addToPlayerInventory(worker.equippedPickaxe.itemType, 1, undefined, uid);
       }
-      for (const drop of (worker.holding || [])) {
-        addToPlayerInventory(drop.type, drop.amount, undefined, uid);
+      for (const item of (worker.holding || [])) {
+        addToPlayerInventory(item.type, item.count, undefined, uid);
       }
       upsertWorker({ ...worker, status: 'suspended', pid: null, equippedPickaxe: null, holding: [] }, uid);
     }

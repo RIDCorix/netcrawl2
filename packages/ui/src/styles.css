@@ -421,6 +421,25 @@ body::after {
   50% { transform: translateX(-50%) translateY(-3px); }
 }
 
+/* Error bubble: gentle float + periodic micro-shake */
+@keyframes error-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes error-shake {
+  0%, 90%, 100% { transform: translateX(0); }
+  92% { transform: translateX(-1.5px); }
+  94% { transform: translateX(1.5px); }
+  96% { transform: translateX(-1px); }
+  98% { transform: translateX(1px); }
+}
+
+@keyframes error-indicator-pulse {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.12); }
+}
+
 .pulse {
   animation: pulse-glow 2s ease-in-out infinite;
 }

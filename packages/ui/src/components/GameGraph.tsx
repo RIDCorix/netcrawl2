@@ -14,10 +14,12 @@ import ReactFlow, {
   BaseEdge,
   getSmoothStepPath,
   getBezierPath,
+  useReactFlow,
+  useViewport,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useGameStore, GameNode, GameEdge, Worker } from '../store/gameStore';
-import React, { useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import { useT } from '../hooks/useT';
 import { Database, Shield, Lock, AlertTriangle, Pickaxe, Package, Cpu, Box, HardDrive, Globe, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -66,7 +68,10 @@ function WorkerDotsRow({ workers, show }: { workers: any[]; show: boolean }) {
         const hasHolding = Array.isArray(w.holding) ? w.holding.length > 0 : !!w.holding;
         const showAction = !isLeaving && !isEntering && (w.status === 'harvesting' || hasHolding);
         // Show bubble if lastLog exists and is recent (< 2 seconds)
-        const showBubble = w.lastLog && !isLeaving && (Date.now() - (w.lastLog.ts || 0) < 2000);
+        // Error bubble: always show if status is error/crashed. Info bubble: 2s fade.
+        const isError = w.status === 'error' || w.status === 'crashed';
+        const showInfoBubble = w.lastLog && !isLeaving && !isError && (Date.now() - (w.lastLog.ts || 0) < 2000);
+        const showErrorBubble = isError && w.lastLog && !isLeaving;
 
         return (
           <div
@@ -78,11 +83,13 @@ function WorkerDotsRow({ workers, show }: { workers: any[]; show: boolean }) {
               width: isSelected ? 12 : 8,
               height: isSelected ? 12 : 8,
               borderRadius: '50%',
-              background: c,
+              background: isError ? '#ef4444' : c,
               border: isSelected ? '2px solid #fff' : '1.5px solid rgba(0,0,0,0.5)',
               boxShadow: isSelected
                 ? `0 0 8px ${c}, 0 0 16px ${c}`
-                : isActive ? `0 0 6px ${c}, 0 0 12px ${c}40` : `0 0 4px ${c}60`,
+                : isError
+                  ? '0 0 6px #ef4444, 0 0 14px #ef444480'
+                  : isActive ? `0 0 6px ${c}, 0 0 12px ${c}40` : `0 0 4px ${c}60`,
               cursor: isLeaving ? 'default' : 'pointer',
               opacity: isLeaving ? 0 : isEntering ? 0 : 1,
               transform: isLeaving
@@ -92,6 +99,7 @@ function WorkerDotsRow({ workers, show }: { workers: any[]; show: boolean }) {
                   : 'scale(1) translateY(0)',
               transition: 'opacity 0.4s ease-out, transform 0.4s ease-out',
               pointerEvents: isLeaving ? 'none' : 'auto',
+              animation: isError ? 'error-shake 3s ease-in-out infinite' : undefined,
             }}
           >
             {showAction && (
@@ -103,8 +111,40 @@ function WorkerDotsRow({ workers, show }: { workers: any[]; show: boolean }) {
                 {w.status === 'harvesting' ? <Pickaxe size={10} /> : <Package size={10} />}
               </div>
             )}
-            {/* Speech bubble — vertical up, diagonal kick right, text sits ON the line */}
-            {showBubble && (() => {
+            {/* Error speech bubble — persistent, with float + shake animations */}
+            {showErrorBubble && (() => {
+              const lc = '#ef4444';
+              const msg = (w.lastLog.message || '').replace(/^\[(INFO|WARN|ERROR)\]\s*/i, '');
+              const vLen = 28 + (workers.length - 1 - wi) * 13;
+              const totalH = vLen + 12;
+              return (
+                <div style={{
+                  position: 'absolute', left: 2, bottom: 6,
+                  pointerEvents: 'none', whiteSpace: 'nowrap',
+                  animation: 'error-float 2.5s ease-in-out infinite',
+                  width: 0, height: 0, zIndex: 100,
+                }}>
+                  <svg width={140} height={totalH} style={{ position: 'absolute', left: 0, bottom: 0, overflow: 'visible' }}>
+                    <line x1="1" y1={totalH} x2="1" y2={12} stroke={lc} strokeWidth="0.7" opacity="0.5" />
+                    <line x1="1" y1={12} x2="14" y2={1} stroke={lc} strokeWidth="0.7" opacity="0.5" />
+                    <line x1="14" y1={1} x2="24" y2={1} stroke={lc} strokeWidth="0.7" opacity="0.3" />
+                  </svg>
+                  <span style={{
+                    position: 'absolute', left: 14, bottom: totalH + 1,
+                    fontSize: 7, fontFamily: 'var(--font-mono)', fontWeight: 700,
+                    color: lc, lineHeight: 1,
+                    borderBottom: `0.7px solid ${lc}60`,
+                    padding: '0 2px 2px',
+                    maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis',
+                    textShadow: '0 0 6px rgba(239,68,68,0.4)',
+                  }}>
+                    ⚠ {msg}
+                  </span>
+                </div>
+              );
+            })()}
+            {/* Info speech bubble — 2s fade as before */}
+            {showInfoBubble && (() => {
               const lc = w.lastLog.level === 'error' ? '#ef4444' : w.lastLog.level === 'warn' ? '#f59e0b' : c;
               const msg = (w.lastLog.message || '').replace(/^\[(INFO|WARN|ERROR)\]\s*/i, '');
               // Right-most workers get shorter lines (lower height)
@@ -334,7 +374,7 @@ function HubNode({ data, selected }: any) {
 function ResourceNode({ data, selected }: any) {
   const Icon = Database;
   const color = 'var(--data-color)';
-  const dropsCount = Array.isArray(data.drops) ? data.drops.length : 0;
+  const dropsCount = Array.isArray(data.drops) ? data.drops.reduce((s: number, d: any) => s + (d.count ?? d.amount ?? 1), 0) : 0;
   const isDepleted = !!data.depleted;
 
   return (

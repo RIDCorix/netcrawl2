@@ -9,7 +9,7 @@ import time
 from typing import Optional, List
 from netcrawl.fields import WorkerField, ItemField
 from netcrawl.models import (
-    Drop, CollectResult, DepositResult, DiscardResult, MoveResult,
+    Item, CollectResult, DepositResult, DiscardResult, MoveResult,
     ScannedNode, EdgeInfo, NodeInfo, APIRequestModel, TokenValidation,
 )
 
@@ -124,7 +124,7 @@ class WorkerClass(metaclass=WorkerMeta):
     _api_url: str = ""
     _current_node: str = "hub"
     _inventory: dict = {}
-    _holding: list = []  # List[Drop] — inventory (capacity = 1 + RAM bonus)
+    _holding: list = []  # List[Item] — inventory (capacity = 1 + RAM bonus)
     _client = None  # ApiClient instance
 
     def __init__(self, worker_id: str, api_url: str, injected_fields: dict, api_key: str = ""):
@@ -270,36 +270,35 @@ class WorkerClass(metaclass=WorkerMeta):
 
     # ── Resource actions ─────────────────────────────────────────────────────
 
-    def collect(self, item_id: str = None) -> CollectResult:
+    def collect(self, item_type: str = None) -> CollectResult:
         """
-        Pick up drops from the current node into inventory.
+        Pick up item stacks from the current node into inventory.
 
-        - collect() → pick up ALL drops (until inventory full)
-        - collect(item_id) → pick up a specific drop by ID
+        - collect() → pick up ALL stacks (until slots full)
+        - collect(item_type) → pick up a specific type
 
-        Capacity = 1 + RAM bonus. Returns CollectResult.
+        Capacity = number of different type slots (1 + RAM bonus). Returns CollectResult.
 
         Example:
             result = self.collect()  # grab everything
             for item in self.holding:
                 if item.type == "bad_data":
-                    self.discard(item.id)
+                    self.discard("bad_data")
         """
-        payload = {"itemId": item_id} if item_id else {}
+        payload = {"itemType": item_type} if item_type else {}
         data = self._client.action("collect", payload)
         result = CollectResult(**data)
         if result.ok:
-            # Server returns items collected — rebuild holding from response
+            # Server returns full holding state after merge
             items = data.get("items", [])
-            for item in items:
-                self._holding.append(Drop(**item) if isinstance(item, dict) else item)
+            self._holding = [Item(**item) if isinstance(item, dict) else item for item in items]
         return result
 
     def deposit(self) -> DepositResult:
         """
         Deposit ALL held items at Hub. Bad data subtracts resources!
 
-        Returns DepositResult with .ok, .deposited (list of Drop)
+        Returns DepositResult with .ok, .deposited (list of Item)
         """
         data = self._client.action("deposit", {})
         result = DepositResult(**data)
@@ -308,46 +307,46 @@ class WorkerClass(metaclass=WorkerMeta):
             self._inventory = {}
         return result
 
-    def discard(self, item_id: str = None) -> DiscardResult:
+    def discard(self, item_type: str = None) -> DiscardResult:
         """
         Discard items without depositing.
 
         - discard() → discard ALL held items
-        - discard(item_id) → discard a specific item by ID
+        - discard(item_type) → discard a specific type's stack
 
         Example:
             for item in self.holding:
                 if item.type == "bad_data":
-                    self.discard(item.id)
+                    self.discard("bad_data")
         """
-        payload = {"itemId": item_id} if item_id else {}
+        payload = {"itemType": item_type} if item_type else {}
         data = self._client.action("discard", payload)
         result = DiscardResult(**data)
         if result.ok:
-            if item_id:
-                self._holding = [h for h in self._holding if h.id != item_id]
+            if item_type:
+                self._holding = [h for h in self._holding if h.type != item_type]
             else:
                 self._holding = []
         return result
 
-    def drop(self, item_id: str = None):
+    def drop(self, item_type: str = None):
         """
         Drop held items onto the current node's floor.
         Other workers at this node can collect() them.
 
         - drop() → drop ALL held items
-        - drop(item_id) → drop a specific item
+        - drop(item_type) → drop a specific type's stack
 
         Example:
             self.collect()          # pick up from mine
             self.move(self.route)   # walk to relay
             self.drop()             # leave items at relay for another worker
         """
-        payload = {"itemId": item_id} if item_id else {}
+        payload = {"itemType": item_type} if item_type else {}
         data = self._client.action("drop", payload)
         if data.get("ok"):
-            if item_id:
-                self._holding = [h for h in self._holding if h.id != item_id]
+            if item_type:
+                self._holding = [h for h in self._holding if h.type != item_type]
             else:
                 self._holding = []
         return data
@@ -501,13 +500,13 @@ class WorkerClass(metaclass=WorkerMeta):
     # ── Inventory ─────────────────────────────────────────────────────────────
 
     @property
-    def holding(self) -> List[Drop]:
-        """Currently held items. Capacity = 1 + RAM bonus.
+    def holding(self) -> List[Item]:
+        """Currently held item stacks. Capacity = number of type slots (1 + RAM bonus).
 
         Example:
             for item in self.holding:
                 if item.type == "bad_data":
-                    self.discard(item.id)
+                    self.discard("bad_data")
         """
         return self._holding
 

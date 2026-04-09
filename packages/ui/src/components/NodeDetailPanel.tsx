@@ -787,10 +787,10 @@ if (n.type === 'cache') return '#a78bfa';
 
             {/* Ground Items — inventory grid */}
             {Array.isArray(node.data.drops) && node.data.drops.length > 0 && (() => {
-              // Aggregate drops by type
+              // Aggregate drops by type (items are already stacked, but be safe)
               const dropCounts: Record<string, number> = {};
               for (const d of node.data.drops) {
-                dropCounts[d.type] = (dropCounts[d.type] || 0) + d.amount;
+                dropCounts[d.type] = (dropCounts[d.type] || 0) + (d.count ?? d.amount ?? 1);
               }
               const totalItems = Object.values(dropCounts).reduce((s, v) => s + v, 0);
               const DROP_ICONS: Record<string, any> = { data_fragment: Database, rp_shard: Cpu, bad_data: AlertTriangle };
