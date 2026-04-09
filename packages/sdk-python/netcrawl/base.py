@@ -330,6 +330,28 @@ class WorkerClass(metaclass=WorkerMeta):
                 self._holding = []
         return result
 
+    def drop(self, item_id: str = None):
+        """
+        Drop held items onto the current node's floor.
+        Other workers at this node can collect() them.
+
+        - drop() → drop ALL held items
+        - drop(item_id) → drop a specific item
+
+        Example:
+            self.collect()          # pick up from mine
+            self.move(self.route)   # walk to relay
+            self.drop()             # leave items at relay for another worker
+        """
+        payload = {"itemId": item_id} if item_id else {}
+        data = self._client.action("drop", payload)
+        if data.get("ok"):
+            if item_id:
+                self._holding = [h for h in self._holding if h.id != item_id]
+            else:
+                self._holding = []
+        return data
+
     def has_dropped_items(self) -> bool:
         """
         Check if the current node has any dropped items waiting to be collected.

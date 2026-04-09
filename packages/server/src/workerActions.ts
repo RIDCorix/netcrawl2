@@ -847,6 +847,41 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       }
     }
 
+    case 'drop': {
+      // Drop held items onto the current node's floor (other workers can collect)
+      const w7 = getWorker(workerId, uid);
+      if (!w7 || (w7.holding || []).length === 0) {
+        return { ok: false, error: 'Nothing to drop', reason: 'nothing_held' };
+      }
+      const dropNodeId = w7.current_node || w7.node_id;
+      const freshStateDrop = getGameState(uid);
+      const dropNode = freshStateDrop.nodes.find((n: any) => n.id === dropNodeId);
+      if (!dropNode) return { ok: false, error: 'Node not found' };
+
+      let dropped: any[];
+      if (payload.itemId) {
+        const idx = (w7.holding || []).findIndex((d: any) => d.id === payload.itemId);
+        if (idx === -1) return { ok: false, error: 'Item not found' };
+        dropped = [w7.holding[idx]];
+        upsertWorker({ ...w7, holding: w7.holding.filter((_: any, i: number) => i !== idx) }, uid);
+      } else {
+        dropped = [...(w7.holding || [])];
+        upsertWorker({ ...w7, holding: [] }, uid);
+      }
+
+      // Add to node floor
+      const existingDrops = Array.isArray(dropNode.data.drops) ? [...dropNode.data.drops] : [];
+      const newNodes = freshStateDrop.nodes.map((n: any) => {
+        if (n.id === dropNodeId) {
+          return { ...n, data: { ...n.data, drops: [...existingDrops, ...dropped] } };
+        }
+        return n;
+      });
+      saveGameState({ ...freshStateDrop, nodes: newNodes }, uid);
+      broadcastFullState(uid);
+      return { ok: true, dropped, nodeId: dropNodeId };
+    }
+
     case 'has_dropped_items': {
       // Check if the current node has any drops
       const curNodeHDI = worker.current_node || worker.node_id;
