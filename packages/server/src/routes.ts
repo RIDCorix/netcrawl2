@@ -13,6 +13,7 @@ import {
   getLayerManager, isLayerUnlocked, switchActiveLayer, getStat,
   setCurrentUser,
   allocateFlop, releaseFlop, FLOP_COSTS,
+  getAutosave, restoreAutosave,
 } from './db.js';
 import { LAYER_DEFS } from './layerDefinitions.js';
 import { handleWorkerAction } from './workerActions.js';
@@ -582,6 +583,30 @@ router.get('/classes', (req: Request, res: Response) => {
   }
 
   res.json({ classes });
+});
+
+// GET /api/autosave — metadata about the latest healthy snapshot
+router.get('/autosave', (req: Request, res: Response) => {
+  const uid = getUserId(req);
+  const snap = getAutosave(uid);
+  if (!snap) return res.json({ exists: false });
+  res.json({ exists: true, ts: snap.ts, tick: snap.tick });
+});
+
+// POST /api/autosave/restore — roll the world back to the latest autosave
+router.post('/autosave/restore', (req: Request, res: Response) => {
+  const uid = getUserId(req);
+  // Kill any running worker processes — they'd be orphaned by the rollback
+  const activeProcesses = getActiveProcesses();
+  for (const [id, child] of activeProcesses) {
+    child.kill('SIGTERM');
+  }
+  activeProcesses.clear();
+
+  const ok = restoreAutosave(uid);
+  if (!ok) return res.status(404).json({ ok: false, error: 'no_autosave' });
+  broadcastFullState(uid);
+  res.json({ ok: true });
 });
 
 // POST /api/reset

@@ -297,6 +297,18 @@ export interface LayerManagerState {
   snapshots: Record<number, LayerSnapshot>;
 }
 
+/** Snapshot of game progress used by the "return to autosave" recovery flow. */
+export interface AutosaveSnapshot {
+  ts: number;
+  tick: number;
+  game_state: GameStateRow;
+  workers: Record<string, WorkerRow>;
+  achievement_state: AchievementState;
+  quest_state: QuestState;
+  level_state: import('./levelSystem.js').LevelState;
+  layer_manager: LayerManagerState;
+}
+
 interface Store {
   game_state: GameStateRow;
   workers: Record<string, WorkerRow>;
@@ -306,6 +318,8 @@ interface Store {
   quest_state: QuestState;
   level_state: import('./levelSystem.js').LevelState;
   layer_manager: LayerManagerState;
+  /** Latest healthy snapshot — refreshed periodically by gameTick while game is alive. */
+  autosave?: AutosaveSnapshot;
 }
 
 // ── Initial data ──────────────────────────────────────────────────────────────
@@ -847,6 +861,67 @@ export function saveGameState(state: GameStateRow, userId?: string) {
   if (isMultiUser() && userId && userStores.has(userId)) {
     userStores.set(userId, s);
   }
+}
+
+/**
+ * Capture a snapshot of the current healthy game state into `autosave`.
+ * Called from gameTick on a cadence; silently skips if the game is already over
+ * so a bad state can't overwrite a good one.
+ */
+export function takeAutosave(userId?: string): AutosaveSnapshot | null {
+  const s = resolveStore(userId);
+  if (s.game_state.gameOver) return null;
+  // Bail if hub is infected — don't snapshot a dead state.
+  const hub = s.game_state.nodes.find((n: any) => n.id === 'hub');
+  if (hub && (hub.data?.infected || hub.type === 'infected')) return null;
+
+  const snap: AutosaveSnapshot = {
+    ts: Date.now(),
+    tick: s.game_state.tick,
+    game_state: JSON.parse(JSON.stringify(s.game_state)),
+    workers: JSON.parse(JSON.stringify(s.workers)),
+    achievement_state: JSON.parse(JSON.stringify(s.achievement_state)),
+    quest_state: JSON.parse(JSON.stringify(s.quest_state)),
+    level_state: JSON.parse(JSON.stringify(s.level_state)),
+    layer_manager: JSON.parse(JSON.stringify(s.layer_manager)),
+  };
+  s.autosave = snap;
+  if (isMultiUser() && userId && userStores.has(userId)) {
+    userStores.set(userId, s);
+  }
+  return snap;
+}
+
+export function getAutosave(userId?: string): AutosaveSnapshot | null {
+  return resolveStore(userId).autosave ?? null;
+}
+
+/**
+ * Restore the store from its autosave snapshot. Returns true on success.
+ * Leaves `autosave` intact so the player can restore again if needed.
+ */
+export function restoreAutosave(userId?: string): boolean {
+  const s = resolveStore(userId);
+  const snap = s.autosave;
+  if (!snap) return false;
+  s.game_state = JSON.parse(JSON.stringify(snap.game_state));
+  // Force gameOver off — the snapshot is a healthy state by definition, but be defensive.
+  s.game_state.gameOver = false;
+  s.workers = JSON.parse(JSON.stringify(snap.workers));
+  s.achievement_state = JSON.parse(JSON.stringify(snap.achievement_state));
+  s.quest_state = JSON.parse(JSON.stringify(snap.quest_state));
+  s.level_state = JSON.parse(JSON.stringify(snap.level_state));
+  s.layer_manager = JSON.parse(JSON.stringify(snap.layer_manager));
+  if (isMultiUser() && userId && userStores.has(userId)) {
+    userStores.set(userId, s);
+    const userPath = userDataPaths.get(userId);
+    if (userPath) {
+      try { fs.writeFileSync(userPath, JSON.stringify(s, null, 2)); } catch {}
+    }
+  } else {
+    persist();
+  }
+  return true;
 }
 
 export function resetGameState(userId?: string) {

@@ -23,6 +23,7 @@ import { LevelUpToast } from './components/LevelUpToast';
 import { TutorialOverlay } from './components/TutorialOverlay';
 import { LayerSelectScreen } from './components/LayerSelectScreen';
 import { LayerUnlockToast } from './components/LayerUnlockToast';
+import { GameOverDialog } from './components/GameOverDialog';
 import { useAudioInit } from './hooks/useAudio';
 import { apiFetch } from './lib/api';
 
@@ -116,6 +117,7 @@ function GameView() {
       <TutorialOverlay />
       <LayerSelectScreen />
       <LayerUnlockToast />
+      <GameOverDialog />
     </div>
   );
 }

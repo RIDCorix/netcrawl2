@@ -1,4 +1,4 @@
-import { getGameState, saveGameState, getWorkers, incrementStat, getAllActiveUserIds, setCurrentUser, resetAllWorkers } from './db.js';
+import { getGameState, saveGameState, getWorkers, incrementStat, getAllActiveUserIds, setCurrentUser, resetAllWorkers, takeAutosave } from './db.js';
 import { broadcast } from './websocket.js';
 import { broadcastFullState } from './broadcastHelper.js';
 import { getNeighborIds } from './graphUtils.js';
@@ -115,6 +115,16 @@ function tickUser(userId?: string) {
   }
 
   saveGameState({ ...state, nodes, edges, resources, tick: tick + 1, gameOver: false }, userId);
+
+  // Autosave cadence: snapshot every ~30 ticks (~30s) while the game is healthy.
+  // Also take one at tick 1 so there's always something to restore to even if
+  // the player dies in the first 30 seconds after a reset.
+  const nextTick = tick + 1;
+  if (nextTick === 1 || nextTick % 30 === 0) {
+    try { takeAutosave(userId); } catch (err) {
+      console.error('[Tick] Autosave failed:', err);
+    }
+  }
 
   // Generate API requests for API nodes
   tickAPINodes();
