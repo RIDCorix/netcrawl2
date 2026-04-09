@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { CATEGORY_COLORS } from '../constants/colors';
 import { useT } from '../hooks/useT';
+import { formatBytes } from '../lib/format';
 
 const CATEGORY_LABEL_KEYS: Record<string, string> = {
   all: 'ui.cat.all',
@@ -164,7 +165,9 @@ export function AchievementsPanel() {
                       </div>
                       {item.progress && (
                         <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
-                          {item.progress.current}/{item.progress.target}
+                          {item.id.startsWith('data_') || item.id === 'first_data'
+                            ? `${formatBytes(item.progress.current)}/${formatBytes(item.progress.target)}`
+                            : `${item.progress.current}/${item.progress.target}`}
                         </span>
                       )}
                     </div>

@@ -40,7 +40,7 @@ export const LAYER_DEFS: LayerDef[] = [
     color: '#60a5fa',
     emoji: '🏢',
     unlockThresholds: {
-      total_data_deposited: 5000,
+      total_data_deposited: 500000,
       rp: 50,
       credits: 20,
     },
@@ -53,7 +53,7 @@ export const LAYER_DEFS: LayerDef[] = [
     color: '#a78bfa',
     emoji: '🌑',
     unlockThresholds: {
-      total_data_deposited: 25000,
+      total_data_deposited: 2500000,
       rp: 200,
       credits: 100,
     },
@@ -66,7 +66,7 @@ export const LAYER_DEFS: LayerDef[] = [
     color: '#ef4444',
     emoji: '⚡',
     unlockThresholds: {
-      total_data_deposited: 100000,
+      total_data_deposited: 10000000,
       rp: 1000,
       credits: 500,
     },
@@ -95,38 +95,38 @@ export const LAYER_1_INITIAL_NODES = [
     data: { label: 'HQ Terminal', unlocked: true, upgradeLevel: 0, chipSlots: 2, installedChips: [] as string[] } },
 
   // Entry Zone — lightly defended lobby
-  { id: 'l1_n_relay1', type: 'empty',    position: { x: 0,    y: -240 }, data: Y1('Internal DNS',   { data: 100 }) },
-  { id: 'l1_n_api1',   type: 'api',      position: { x: -200, y: -400 }, data: P1('REST Gateway',   1, { data: 200 }) },
-  { id: 'l1_n_api2',   type: 'api',      position: { x: 200,  y: -400 }, data: P1('Auth Service',   1, { data: 200, rp: 2 }) },
-  { id: 'l1_n_auth1',  type: 'auth',     position: { x: 0,    y: -560 }, data: A1('LDAP Auth',          { data: 400, rp: 5 }) },
+  { id: 'l1_n_relay1', type: 'empty',    position: { x: 0,    y: -240 }, data: Y1('Internal DNS',   { data: 10000 }) },
+  { id: 'l1_n_api1',   type: 'api',      position: { x: -200, y: -400 }, data: P1('REST Gateway',   1, { data: 20000 }) },
+  { id: 'l1_n_api2',   type: 'api',      position: { x: 200,  y: -400 }, data: P1('Auth Service',   1, { data: 20000, rp: 2 }) },
+  { id: 'l1_n_auth1',  type: 'auth',     position: { x: 0,    y: -560 }, data: A1('LDAP Auth',          { data: 40000, rp: 5 }) },
 
   // East Wing — Dev / CI
-  { id: 'l1_e_relay1', type: 'empty',    position: { x: 380,  y: -120 }, data: Y1('Dev VLAN',       { data: 300 }) },
-  { id: 'l1_e_comp1',  type: 'compute',  position: { x: 600,  y: -280 }, data: C1('CI Runner',      'easy',   { data: 500 }) },
-  { id: 'l1_e_api3',   type: 'api',      position: { x: 600,  y: 40   }, data: P1('Build API',      1, { data: 400 }) },
-  { id: 'l1_e_relay2', type: 'empty',    position: { x: 860,  y: -120 }, data: Y1('QA VLAN',        { data: 800 }) },
-  { id: 'l1_e_comp2',  type: 'compute',  position: { x: 1060, y: -280 }, data: C1('Test Cluster',   'medium', { data: 1000, rp: 8 }) },
-  { id: 'l1_e_api4',   type: 'api',      position: { x: 1060, y: 40   }, data: P1('Deploy API',     2, { data: 1200, rp: 5 }) },
-  { id: 'l1_e_auth2',  type: 'auth',     position: { x: 1300, y: -120 }, data: A1('DevOps IAM',         { data: 1500, rp: 10 }) },
+  { id: 'l1_e_relay1', type: 'empty',    position: { x: 380,  y: -120 }, data: Y1('Dev VLAN',       { data: 30000 }) },
+  { id: 'l1_e_comp1',  type: 'compute',  position: { x: 600,  y: -280 }, data: C1('CI Runner',      'easy',   { data: 50000 }) },
+  { id: 'l1_e_api3',   type: 'api',      position: { x: 600,  y: 40   }, data: P1('Build API',      1, { data: 40000 }) },
+  { id: 'l1_e_relay2', type: 'empty',    position: { x: 860,  y: -120 }, data: Y1('QA VLAN',        { data: 80000 }) },
+  { id: 'l1_e_comp2',  type: 'compute',  position: { x: 1060, y: -280 }, data: C1('Test Cluster',   'medium', { data: 100000, rp: 8 }) },
+  { id: 'l1_e_api4',   type: 'api',      position: { x: 1060, y: 40   }, data: P1('Deploy API',     2, { data: 120000, rp: 5 }) },
+  { id: 'l1_e_auth2',  type: 'auth',     position: { x: 1300, y: -120 }, data: A1('DevOps IAM',         { data: 150000, rp: 10 }) },
 
   // North Wing — Finance
-  { id: 'l1_nn_relay1',type: 'empty',    position: { x: -200, y: -760 }, data: Y1('Finance VLAN',   { data: 600, rp: 3 }) },
-  { id: 'l1_nn_comp1', type: 'compute',  position: { x: -450, y: -960 }, data: C1('ERP Node',       'medium', { data: 900, rp: 6 }) },
-  { id: 'l1_nn_api5',  type: 'api',      position: { x: 80,   y: -960 }, data: P1('Billing API',    2, { data: 1100, rp: 8 }) },
-  { id: 'l1_nn_locked',type: 'empty',    position: { x: -200, y: -1180},  data: E1('Finance Vault',      { data: 4000, rp: 30 }) },
+  { id: 'l1_nn_relay1',type: 'empty',    position: { x: -200, y: -760 }, data: Y1('Finance VLAN',   { data: 60000, rp: 3 }) },
+  { id: 'l1_nn_comp1', type: 'compute',  position: { x: -450, y: -960 }, data: C1('ERP Node',       'medium', { data: 90000, rp: 6 }) },
+  { id: 'l1_nn_api5',  type: 'api',      position: { x: 80,   y: -960 }, data: P1('Billing API',    2, { data: 110000, rp: 8 }) },
+  { id: 'l1_nn_locked',type: 'empty',    position: { x: -200, y: -1180},  data: E1('Finance Vault',      { data: 400000, rp: 30 }) },
 
   // South Wing — HR / CRM (data-rich)
-  { id: 'l1_s_relay1', type: 'empty',    position: { x: 0,    y: 320  }, data: Y1('HR VLAN',        { data: 400 }) },
-  { id: 'l1_s_mine1',  type: 'resource', position: { x: 200,  y: 480  }, data: R1('Employee DB',    40, { data: 600 }) },
-  { id: 'l1_s_api7',   type: 'api',      position: { x: -200, y: 480  }, data: P1('HR Portal API',  1, { data: 500, rp: 3 }) },
-  { id: 'l1_s_mine2',  type: 'resource', position: { x: 200,  y: 700  }, data: R1('Customer DB',    60, { data: 1300, rp: 6 }) },
-  { id: 'l1_s_comp1',  type: 'compute',  position: { x: -200, y: 700  }, data: C1('Analytics',      'hard',   { data: 2000, rp: 12 }) },
+  { id: 'l1_s_relay1', type: 'empty',    position: { x: 0,    y: 320  }, data: Y1('HR VLAN',        { data: 40000 }) },
+  { id: 'l1_s_mine1',  type: 'resource', position: { x: 200,  y: 480  }, data: R1('Employee DB',    40, { data: 60000 }) },
+  { id: 'l1_s_api7',   type: 'api',      position: { x: -200, y: 480  }, data: P1('HR Portal API',  1, { data: 50000, rp: 3 }) },
+  { id: 'l1_s_mine2',  type: 'resource', position: { x: 200,  y: 700  }, data: R1('Customer DB',    60, { data: 130000, rp: 6 }) },
+  { id: 'l1_s_comp1',  type: 'compute',  position: { x: -200, y: 700  }, data: C1('Analytics',      'hard',   { data: 200000, rp: 12 }) },
 
   // West Wing — NOC / Infra
-  { id: 'l1_w_relay1', type: 'empty',    position: { x: -400, y: 40   }, data: Y1('NOC VLAN',       { data: 350 }) },
-  { id: 'l1_w_api8',   type: 'api',      position: { x: -640, y: -140 }, data: P1('Monitor API',    1, { data: 500 }) },
-  { id: 'l1_w_comp2',  type: 'compute',  position: { x: -640, y: 220  }, data: C1('Log Collector',  'easy',   { data: 700, rp: 4 }) },
-  { id: 'l1_w_auth3',  type: 'auth',     position: { x: -900, y: 40   }, data: A1('SOC Gateway',        { data: 1200, rp: 10 }) },
+  { id: 'l1_w_relay1', type: 'empty',    position: { x: -400, y: 40   }, data: Y1('NOC VLAN',       { data: 35000 }) },
+  { id: 'l1_w_api8',   type: 'api',      position: { x: -640, y: -140 }, data: P1('Monitor API',    1, { data: 50000 }) },
+  { id: 'l1_w_comp2',  type: 'compute',  position: { x: -640, y: 220  }, data: C1('Log Collector',  'easy',   { data: 70000, rp: 4 }) },
+  { id: 'l1_w_auth3',  type: 'auth',     position: { x: -900, y: 40   }, data: A1('SOC Gateway',        { data: 120000, rp: 10 }) },
 ];
 
 export const LAYER_1_INITIAL_EDGES = [

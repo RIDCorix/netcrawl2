@@ -4,6 +4,7 @@ import { useGameStore } from '../store/gameStore';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useT } from '../hooks/useT';
+import { formatBytes } from '../lib/format';
 
 interface Recipe {
   id: string;
@@ -89,7 +90,7 @@ function RecipeCard({
         {recipe.cost.data !== undefined && (
           <div className="flex items-center gap-1 px-2 py-0.5 rounded text-xs" style={{ background: 'rgba(69,170,242,0.08)', color: 'var(--data-color)', fontFamily: 'var(--font-mono)' }}>
             <Database size={10} />
-            {recipe.cost.data}
+            {formatBytes(recipe.cost.data)}
           </div>
         )}
         {recipe.cost.rp !== undefined && (
@@ -193,7 +194,7 @@ function ConfirmDialog({
         <div className="flex flex-wrap gap-2">
           {recipe.cost.data !== undefined && (
             <div className="flex items-center gap-1 px-2 py-0.5 rounded text-xs" style={{ background: 'rgba(69,170,242,0.08)', color: 'var(--data-color)', fontFamily: 'var(--font-mono)' }}>
-              <Database size={10} /> -{recipe.cost.data} data
+              <Database size={10} /> -{formatBytes(recipe.cost.data)}
             </div>
           )}
           {recipe.cost.rp !== undefined && (

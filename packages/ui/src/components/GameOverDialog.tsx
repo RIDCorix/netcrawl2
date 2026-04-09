@@ -30,10 +30,17 @@ export function GameOverDialog() {
   const [info, setInfo] = useState<AutosaveInfo | null>(null);
   const [busy, setBusy] = useState<'restore' | 'reset' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Inline two-step confirmation for "重新開始" — no browser confirm() dialog.
+  const [confirmReset, setConfirmReset] = useState(false);
 
   // Fetch autosave metadata whenever the dialog opens
   useEffect(() => {
-    if (!gameOver) { setInfo(null); setError(null); return; }
+    if (!gameOver) {
+      setInfo(null);
+      setError(null);
+      setConfirmReset(false);
+      return;
+    }
     axios.get('/api/autosave')
       .then(r => setInfo(r.data))
       .catch(() => setInfo({ exists: false }));
@@ -55,7 +62,10 @@ export function GameOverDialog() {
   };
 
   const handleReset = async () => {
-    if (!confirm('Reset the game? All progress will be lost.')) return;
+    if (!confirmReset) {
+      setConfirmReset(true);
+      return;
+    }
     setBusy('reset');
     setError(null);
     try {
@@ -185,19 +195,39 @@ export function GameOverDialog() {
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                   padding: '10px 16px',
-                  background: 'transparent',
-                  color: 'var(--text-muted)',
-                  border: '1px solid var(--border)',
+                  background: confirmReset ? 'rgba(239,68,68,0.15)' : 'transparent',
+                  color: confirmReset ? 'var(--danger)' : 'var(--text-muted)',
+                  border: `1px solid ${confirmReset ? 'var(--danger)' : 'var(--border)'}`,
                   borderRadius: 'var(--radius-sm)',
                   fontFamily: 'var(--font-mono)',
                   fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
                   cursor: busy !== null ? 'not-allowed' : 'pointer',
                   opacity: busy !== null ? 0.5 : 1,
+                  transition: 'background 0.15s, color 0.15s, border-color 0.15s',
                 }}
               >
                 <Power size={12} />
-                {busy === 'reset' ? 'RESETTING…' : '重新開始'}
+                {busy === 'reset'
+                  ? 'RESETTING…'
+                  : confirmReset ? '確定要重新開始?進度將清空' : '重新開始'}
               </button>
+              {confirmReset && busy === null && (
+                <button
+                  onClick={() => setConfirmReset(false)}
+                  style={{
+                    padding: '6px 12px',
+                    background: 'transparent',
+                    color: 'var(--text-muted)',
+                    border: 'none',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 10,
+                    cursor: 'pointer',
+                    letterSpacing: '0.08em',
+                  }}
+                >
+                  取消
+                </button>
+              )}
             </div>
           </motion.div>
         </motion.div>

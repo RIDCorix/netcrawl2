@@ -14,6 +14,7 @@ import { useGameStore } from '../store/gameStore';
 import { DemoPlayer } from './guide/DemoPlayer';
 import { DEMO_SCRIPTS } from './guide/demoScripts';
 import { getTranslatedGuide } from '../i18n/guides';
+import { formatResource } from '../lib/format';
 
 function RewardBadge({ reward, color }: { reward: any; color: string }) {
   const text = (() => {
@@ -181,7 +182,9 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
                 fontSize: 9, fontWeight: 700, fontFamily: 'var(--font-mono)',
                 color: obj.met ? color : 'var(--text-muted)',
               }}>
-                {obj.current}/{obj.target}
+                {obj.statKey === 'total_data_deposited'
+                  ? `${formatResource('data', obj.current)}/${formatResource('data', obj.target)}`
+                  : `${obj.current}/${obj.target}`}
               </span>
             </div>
           ))}

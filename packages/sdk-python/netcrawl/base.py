@@ -555,7 +555,10 @@ class WorkerClass(metaclass=WorkerMeta):
 
     @property
     def holding(self) -> List[Item]:
-        """Currently held item stacks. Capacity = number of type slots (1 + RAM bonus).
+        """Currently held item stacks (Minecraft-style).
+
+        Capacity is measured in STACKS — each stack holds up to 64 items of the
+        same type. Base capacity is 1 stack; RAM adds more stack slots.
 
         Example:
             for item in self.holding:
@@ -566,8 +569,11 @@ class WorkerClass(metaclass=WorkerMeta):
 
     @property
     def is_full(self) -> bool:
-        """True if inventory is at capacity."""
-        # Server tracks capacity; client approximates
+        """True if inventory is at capacity.
+
+        The server is the source of truth — this is a conservative client-side
+        approximation based on number of stacks held.
+        """
         return len(self._holding) >= 1  # conservative default
 
     @property

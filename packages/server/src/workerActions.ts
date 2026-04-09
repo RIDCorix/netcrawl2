@@ -1,6 +1,6 @@
 import {
   getGameState, saveGameState, getWorker, upsertWorker,
-  addWorkerLog, Item, mergeItemStacks,
+  addWorkerLog, Item, mergeItemStacks, MAX_STACK_SIZE,
   getNodeChipEffects, incrementStat, setStatMax,
   addToPlayerInventory, awardXp, grantNodeXp,
   cacheGet, cacheSet, cacheKeys, getCacheRange, getCacheCapacity,
@@ -290,7 +290,9 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
     }
 
     case 'collect': {
-      // Capacity = max total item count (not types)
+      // Capacity is measured in STACKS (Minecraft-style).
+      // Each stack holds up to MAX_STACK_SIZE items of the same type.
+      // Base capacity = 1 stack, RAM adds more stack slots.
       const capacity = 1 + (worker.equippedRam?.capacityBonus || 0);
       const currentNode = worker.current_node || worker.node_id;
       const nodeIdx = nodes.findIndex((n: any) => n.id === currentNode);
@@ -300,70 +302,83 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const nodeItems: Item[] = Array.isArray(node.data.items) ? [...node.data.items] : [];
       if (nodeItems.length === 0) return { ok: false, error: 'nothing_here', reason: 'nothing_here' };
 
-      // Check current total count
-      const currentHoldingCount = (worker.holding || []).reduce((s: number, h: Item) => s + h.count, 0);
-      if (currentHoldingCount >= capacity) {
-        return { ok: false, error: 'inventory_full', reason: 'inventory_full', holdingCount: currentHoldingCount, capacity };
-      }
-
       setLock(workerId, ACTION_DELAY);
       await workerLocks.get(workerId);
 
-      // Re-read
+      // Re-read (state may have changed during delay)
       const freshState2 = getGameState(uid);
       const freshNode = freshState2.nodes.find((n: any) => n.id === currentNode);
       const freshItems: Item[] = freshNode && Array.isArray(freshNode.data.items) ? [...freshNode.data.items] : [];
       if (freshItems.length === 0) return { ok: false, error: 'nothing_here', reason: 'nothing_here' };
 
       const w4 = getWorker(workerId, uid);
-      const currentHolding: Item[] = w4?.holding || [];
-      let holdingTotal = currentHolding.reduce((s, h) => s + h.count, 0);
-      const spaceLeft = capacity - holdingTotal;
-      if (spaceLeft <= 0) {
-        return { ok: false, error: 'inventory_full', reason: 'inventory_full', holdingCount: holdingTotal, capacity };
+      const currentHolding: Item[] = (w4?.holding || []).map(h => ({ ...h }));
+
+      // Helper: try to absorb up to `wanted` items of `itemType` into holding,
+      // respecting stack size and max stack count. Mutates holding, returns absorbed.
+      const absorbInto = (holding: Item[], itemType: string, wanted: number): number => {
+        let left = wanted;
+        // 1. Top up existing stacks of the same type
+        for (const h of holding) {
+          if (left <= 0) break;
+          if (h.type === itemType && h.count < MAX_STACK_SIZE) {
+            const room = MAX_STACK_SIZE - h.count;
+            const take = Math.min(room, left);
+            h.count += take;
+            left -= take;
+          }
+        }
+        // 2. Spill into new stacks while we have stack budget
+        while (left > 0 && holding.length < capacity) {
+          const take = Math.min(MAX_STACK_SIZE, left);
+          holding.push({ type: itemType, count: take } as Item);
+          left -= take;
+        }
+        return wanted - left;
+      };
+
+      // Reject early if already full AND no existing stack can be topped up by any floor item
+      const alreadyFullOfStacks = currentHolding.length >= capacity;
+      const hasRoomInExisting = freshItems.some(fi =>
+        currentHolding.some(h => h.type === fi.type && h.count < MAX_STACK_SIZE)
+      );
+      if (alreadyFullOfStacks && !hasRoomInExisting) {
+        return { ok: false, error: 'inventory_full', reason: 'inventory_full', holdingCount: currentHolding.length, capacity };
       }
 
       const collected: Item[] = [];
       const remaining: Item[] = [];
 
-      // payload.count = max items to pick up (optional)
-      const maxCollect = payload.count ? Math.min(payload.count, spaceLeft) : spaceLeft;
+      // payload.count = max items to pick up (optional, applies across all types)
+      let budget = payload.count ?? Infinity;
 
-      if (payload.itemType) {
-        // Pick up items of specific type
-        let taken = 0;
-        for (const d of freshItems) {
-          if (d.type === payload.itemType && taken < maxCollect) {
-            const canTake = Math.min(d.count, maxCollect - taken);
-            if (canTake > 0) {
-              collected.push({ type: d.type, count: canTake });
-              taken += canTake;
-              if (canTake < d.count) remaining.push({ type: d.type, count: d.count - canTake });
-            } else {
-              remaining.push(d);
-            }
-          } else {
-            remaining.push(d);
-          }
+      for (const floor of freshItems) {
+        if (budget <= 0) {
+          remaining.push(floor);
+          continue;
         }
-        if (collected.length === 0) return { ok: false, error: 'item_not_found' };
-      } else {
-        // Pick up all types, respect capacity + optional count limit
-        let taken = 0;
-        for (const d of freshItems) {
-          const canTake = Math.min(d.count, maxCollect - taken);
-          if (canTake > 0) {
-            collected.push({ type: d.type, count: canTake });
-            taken += canTake;
-            if (canTake < d.count) remaining.push({ type: d.type, count: d.count - canTake });
-          } else {
-            remaining.push(d);
-          }
+        if (payload.itemType && floor.type !== payload.itemType) {
+          remaining.push(floor);
+          continue;
         }
+        const wanted = Math.min(floor.count, budget);
+        const absorbed = absorbInto(currentHolding, floor.type, wanted);
+        if (absorbed > 0) {
+          collected.push({ type: floor.type, count: absorbed });
+          budget -= absorbed;
+        }
+        const leftover = floor.count - absorbed;
+        if (leftover > 0) remaining.push({ type: floor.type, count: leftover });
       }
 
-      // Merge collected into holding
-      const newHolding = mergeItemStacks(currentHolding, collected);
+      if (payload.itemType && collected.length === 0) {
+        return { ok: false, error: 'item_not_found' };
+      }
+      if (collected.length === 0) {
+        return { ok: false, error: 'inventory_full', reason: 'inventory_full', holdingCount: currentHolding.length, capacity };
+      }
+
+      const newHolding = currentHolding;
 
       const newNodes2 = freshState2.nodes.map((n: any) => {
         if (n.id === currentNode) {

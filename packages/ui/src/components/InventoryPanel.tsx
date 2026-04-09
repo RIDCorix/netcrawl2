@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { ITEM_LABELS, ITEM_COLORS, RARITY_COLORS } from '../constants/colors';
 import { useT } from '../hooks/useT';
+import { formatBytes, formatResource } from '../lib/format';
 import {
   PickaxeBasic, PickaxeIron, PickaxeDiamond,
   CpuBasic, CpuAdvanced, RamBasic, RamAdvanced,
@@ -259,7 +260,7 @@ function CraftConfirm({ recipe, onConfirm, onCancel, crafting }: {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {recipe.cost.data !== undefined && <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--data-color)', background: 'rgba(69,170,242,0.08)', padding: '2px 8px', borderRadius: 'var(--radius-sm)' }}>-{recipe.cost.data} data</span>}
+          {recipe.cost.data !== undefined && <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--data-color)', background: 'rgba(69,170,242,0.08)', padding: '2px 8px', borderRadius: 'var(--radius-sm)' }}>-{formatBytes(recipe.cost.data)}</span>}
           {recipe.cost.rp !== undefined && <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--rp-color)', background: 'rgba(167,139,250,0.08)', padding: '2px 8px', borderRadius: 'var(--radius-sm)' }}>-{recipe.cost.rp} RP</span>}
           {recipe.cost.credits !== undefined && <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--credits-color)', background: 'rgba(245,158,11,0.08)', padding: '2px 8px', borderRadius: 'var(--radius-sm)' }}>-{recipe.cost.credits} credits</span>}
         </div>
@@ -671,13 +672,13 @@ export function InventoryPanel() {
                 background: 'var(--bg-primary)', border: '1px solid var(--border)',
               }}>
                 {[
-                  { icon: Database, label: 'Data', value: resources.data, color: 'var(--data-color)' },
-                  { icon: Cpu, label: 'RP', value: resources.rp, color: 'var(--rp-color)' },
-                  { icon: Star, label: t('ui.credits'), value: resources.credits, color: 'var(--credits-color)' },
+                  { icon: Database, label: 'Data', value: resources.data, kind: 'data', color: 'var(--data-color)' },
+                  { icon: Cpu, label: 'RP', value: resources.rp, kind: 'rp', color: 'var(--rp-color)' },
+                  { icon: Star, label: t('ui.credits'), value: resources.credits, kind: 'credits', color: 'var(--credits-color)' },
                 ].map(r => (
                   <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <r.icon size={11} style={{ color: r.color }} />
-                    <span style={{ fontSize: 11, fontWeight: 700, color: r.color, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{r.value.toLocaleString()}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: r.color, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{formatResource(r.kind, r.value)}</span>
                     <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{r.label}</span>
                   </div>
                 ))}

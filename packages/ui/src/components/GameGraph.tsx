@@ -42,14 +42,18 @@ function WorkerDotsRow({ nodeId, show }: { nodeId: string; show: boolean }) {
     return true;
   });
 
-  if (!show || workers.length === 0) return null;
+  if (!show) return null;
 
   const visibleWorkers = workers.filter((w: any) => !w.leaving);
 
+  // NOTE: do NOT early-return when visibleWorkers is empty — we need
+  // AnimatePresence to stay mounted so exit animations can play when the
+  // last worker leaves the node.
   return (
     <div style={{
       position: 'absolute', top: -14, left: '50%',
       transform: 'translateX(-50%)', display: 'flex', gap: 4,
+      pointerEvents: visibleWorkers.length === 0 ? 'none' : undefined,
     }}>
       <AnimatePresence initial={false}>
       {visibleWorkers.map((w: any, wi: number) => {

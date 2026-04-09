@@ -4,14 +4,8 @@ import { useGameStore } from '../store/gameStore';
 import { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { apiFetch } from '../lib/api';
+import { formatBytes } from '../lib/format';
 import { useT } from '../hooks/useT';
-
-function formatBytes(n: number): string {
-  if (n < 1000) return `${n} B`;
-  if (n < 1000000) return `${(n / 1000).toFixed(1)} kB`;
-  if (n < 1000000000) return `${(n / 1000000).toFixed(1)} MB`;
-  return `${(n / 1000000000).toFixed(1)} GB`;
-}
 
 function ResourceItem({ icon: Icon, value, label, color, prevValue, formatFn, tooltip }: {
   icon: any;

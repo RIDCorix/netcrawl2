@@ -8,6 +8,7 @@ import { InvCell } from './ui/InvCell';
 import { NODE_DIALOG_REGISTRY, NodeDialogConfig, NodeInfoDialog } from './NodeInfoDialog';
 import { DeployDialog } from './DeployDialog';
 import { useT } from '../hooks/useT';
+import { formatResource } from '../lib/format';
 
 function CostBadge({ cost }: { cost: Partial<Resources> }) {
   const icons: any = { data: Database, rp: Cpu, credits: Star };
@@ -31,7 +32,7 @@ function CostBadge({ cost }: { cost: Partial<Resources> }) {
             color: colors[key],
           }}>
             {Icon && <Icon size={10} />}
-            {val}
+            {formatResource(key, val as number)}
           </div>
         );
       })}

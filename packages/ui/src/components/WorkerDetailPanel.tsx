@@ -233,9 +233,13 @@ export function WorkerDetailPanel() {
             if ((carrying as any).rp > 0) items.push({ type: 'rp', count: (carrying as any).rp });
             if ((carrying as any).credits > 0) items.push({ type: 'credits', count: (carrying as any).credits });
 
+            // Capacity is measured in stacks (Minecraft-style). Each stack holds up to 64 items.
             const baseCapacity = 1;
             const ramBonus = (worker as any).equippedRam?.capacityBonus || 0;
-            const capacityLabel = ramBonus > 0 ? `${baseCapacity}+${ramBonus}` : `${baseCapacity}`;
+            const capacity = baseCapacity + ramBonus;
+            // Show stack usage (holdingArr.length) out of capacity.
+            const stacksUsed = holdingArr.length;
+            const capacityLabel = `${stacksUsed}/${capacity} stacks`;
             const totalItems = items.reduce((s, i) => s + i.count, 0);
 
             const INV_ICONS: Record<string, any> = { data_fragment: Database, rp_shard: Cpu, bad_data: AlertTriangle, data: Database, rp: Cpu, credits: Star };
@@ -252,7 +256,7 @@ export function WorkerDetailPanel() {
                       {t('ui.inventory_label')}
                     </span>
                     <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                      ({totalItems}/{capacityLabel})
+                      ({totalItems} items · {capacityLabel})
                     </span>
                   </div>
                   {items.length === 0 ? (

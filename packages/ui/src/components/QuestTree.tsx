@@ -12,6 +12,7 @@ import { useT } from '../hooks/useT';
 import axios from 'axios';
 import { QuestGuideDialog } from './QuestGuideDialog';
 import { CHAPTER_COLORS } from '../constants/colors';
+import { formatResource } from '../lib/format';
 
 // ── Custom quest nodes ──────────────────────────────────────────────────────
 
@@ -182,7 +183,9 @@ function QuestDetail({ quest, onClose }: { quest: any; onClose: () => void }) {
                 {obj.description}
               </span>
               <span style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--font-mono)', color: obj.met ? 'var(--success)' : 'var(--text-muted)' }}>
-                {obj.current}/{obj.target}
+                {obj.statKey === 'total_data_deposited'
+                  ? `${formatResource('data', obj.current)}/${formatResource('data', obj.target)}`
+                  : `${obj.current}/${obj.target}`}
               </span>
             </div>
             <div style={{ height: 3, borderRadius: 2, background: 'var(--bg-primary)', marginTop: 3, overflow: 'hidden' }}>
@@ -202,7 +205,7 @@ function QuestDetail({ quest, onClose }: { quest: any; onClose: () => void }) {
               padding: '4px 8px', borderRadius: 'var(--radius-sm)',
               background: 'var(--bg-primary)', border: '1px solid var(--border)',
             }}>
-              {r.kind === 'resources' && Object.entries(r.resources).map(([k, v]) => `${v} ${k}`).join(', ')}
+              {r.kind === 'resources' && Object.entries(r.resources).map(([k, v]) => `${formatResource(k, v as number)} ${k}`).join(', ')}
               {r.kind === 'passive' && r.description}
               {r.kind === 'recipe_unlock' && `Unlock recipe: ${r.name}`}
               {r.kind === 'items' && r.items.map((it: any) => `${it.count}x ${it.itemType}`).join(', ')}

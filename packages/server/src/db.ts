@@ -212,35 +212,35 @@ export const RECIPES: Recipe[] = [
     name: 'Basic Pickaxe',
     description: 'Standard mining tool. efficiency 1.0×',
     output: { itemType: 'pickaxe_basic', count: 1, metadata: { efficiency: 1.0 } },
-    cost: { data: 200 },
+    cost: { data: 20000 },
   },
   {
     id: 'pickaxe_iron',
     name: 'Iron Pickaxe',
     description: 'Stronger pick. efficiency 1.5×. Yields 1-2 items.',
     output: { itemType: 'pickaxe_iron', count: 1, metadata: { efficiency: 1.5 } },
-    cost: { data: 500, rp: 5 },
+    cost: { data: 50000, rp: 5 },
   },
   {
     id: 'pickaxe_diamond',
     name: 'Diamond Pickaxe',
     description: 'Finest tool. efficiency 2.5×. Yields 2-3 items.',
     output: { itemType: 'pickaxe_diamond', count: 1, metadata: { efficiency: 2.5 } },
-    cost: { data: 2000, rp: 20 },
+    cost: { data: 200000, rp: 20 },
   },
   {
     id: 'shield',
     name: 'Shield',
     description: 'Protects worker from infection damage.',
     output: { itemType: 'shield', count: 1 },
-    cost: { data: 300, rp: 3 },
+    cost: { data: 30000, rp: 3 },
   },
   {
     id: 'beacon',
     name: 'Beacon',
     description: 'Increases scan radius for workers.',
     output: { itemType: 'beacon', count: 1 },
-    cost: { data: 500, rp: 8 },
+    cost: { data: 50000, rp: 8 },
   },
   // CPU — adds compute points to a worker
   {
@@ -248,14 +248,14 @@ export const RECIPES: Recipe[] = [
     name: 'CPU Module',
     description: '+1 compute point. Enables equipping advanced algorithms.',
     output: { itemType: 'cpu_basic', count: 1 },
-    cost: { data: 400 },
+    cost: { data: 40000 },
   },
   {
     id: 'cpu_advanced',
     name: 'CPU Module II',
     description: '+2 compute points. For demanding algorithms.',
     output: { itemType: 'cpu_advanced', count: 1 },
-    cost: { data: 1500 },
+    cost: { data: 150000 },
   },
   // RAM — increases worker inventory capacity
   {
@@ -263,14 +263,14 @@ export const RECIPES: Recipe[] = [
     name: 'RAM Module',
     description: '+2 inventory capacity.',
     output: { itemType: 'ram_basic', count: 1 },
-    cost: { data: 300 },
+    cost: { data: 30000 },
   },
   {
     id: 'ram_advanced',
     name: 'RAM Module II',
     description: '+4 inventory capacity.',
     output: { itemType: 'ram_advanced', count: 1 },
-    cost: { data: 1200 },
+    cost: { data: 120000 },
   },
 ];
 
@@ -352,109 +352,109 @@ export const INITIAL_NODES = [
   // ═══════════════════════════════════════════════════════════════════════════
   // NORTH — Mining District (easy start, main data income)
   // ═══════════════════════════════════════════════════════════════════════════
-  { id: 'n_relay1', type: 'resource', position: { x: 0,    y: -300 },  data: { ...R('Data Mine Nano', 30, { data: 20 }, 0.4), unlocked: true } },
-  { id: 'n_mine1',  type: 'resource', position: { x: -220, y: -500 },  data: R('Data Mine Alpha', 50, { data: 100 }, 0.25) },
-  { id: 'n_mine2',  type: 'resource', position: { x: 220,  y: -500 },  data: R('Data Mine Beta', 40, { data: 150 }, 0.2) },
-  { id: 'n_relay2', type: 'empty',    position: { x: 0,    y: -700 },  data: Y('Relay N2', { data: 200 }) },
-  { id: 'n_mine3',  type: 'resource', position: { x: -220, y: -900 },  data: R('Data Mine Gamma', 60, { data: 400 }) },
-  { id: 'n_mine4',  type: 'resource', position: { x: 220,  y: -900 },  data: R('Data Mine Delta', 55, { data: 500 }) },
-  { id: 'n_empty1', type: 'empty',    position: { x: 0,    y: -1100 }, data: E('Open Slot', { data: 800, rp: 3 }) },
-  { id: 'n_deep1',  type: 'resource', position: { x: 0,    y: -1300 }, data: R('Deep Core Alpha', 100, { data: 2000, rp: 5 }) },
-  { id: 'n_deep2',  type: 'resource', position: { x: -350, y: -1100 }, data: R('Deep Core Beta', 80, { data: 1500, rp: 3 }) },
+  { id: 'n_relay1', type: 'resource', position: { x: 0,    y: -300 },  data: { ...R('Data Mine Nano', 30, { data: 2000 }, 0.4), unlocked: true } },
+  { id: 'n_mine1',  type: 'resource', position: { x: -220, y: -500 },  data: R('Data Mine Alpha', 50, { data: 10000 }, 0.25) },
+  { id: 'n_mine2',  type: 'resource', position: { x: 220,  y: -500 },  data: R('Data Mine Beta', 40, { data: 15000 }, 0.2) },
+  { id: 'n_relay2', type: 'empty',    position: { x: 0,    y: -700 },  data: Y('Relay N2', { data: 20000 }) },
+  { id: 'n_mine3',  type: 'resource', position: { x: -220, y: -900 },  data: R('Data Mine Gamma', 60, { data: 40000 }) },
+  { id: 'n_mine4',  type: 'resource', position: { x: 220,  y: -900 },  data: R('Data Mine Delta', 55, { data: 50000 }) },
+  { id: 'n_empty1', type: 'empty',    position: { x: 0,    y: -1100 }, data: E('Open Slot', { data: 80000, rp: 3 }) },
+  { id: 'n_deep1',  type: 'resource', position: { x: 0,    y: -1300 }, data: R('Deep Core Alpha', 100, { data: 200000, rp: 5 }) },
+  { id: 'n_deep2',  type: 'resource', position: { x: -350, y: -1100 }, data: R('Deep Core Beta', 80, { data: 150000, rp: 3 }) },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // NORTHEAST — Compute Cluster (research / RP income)
   // ═══════════════════════════════════════════════════════════════════════════
-  { id: 'ne_relay1', type: 'empty',    position: { x: 350,  y: -200 },  data: Y('Relay NE1', { data: 120 }) },
-  { id: 'ne_comp1',  type: 'compute',  position: { x: 560,  y: -380 },  data: C('Compute C1', 'easy', { data: 300 }) },
-  { id: 'ne_mine1',  type: 'resource', position: { x: 560,  y: -60 },   data: R('Data Silo East', 35, { data: 250 }) },
-  { id: 'ne_relay2', type: 'empty',    position: { x: 780,  y: -280 },  data: Y('Relay NE2', { data: 600 }) },
-  { id: 'ne_comp2',  type: 'compute',  position: { x: 980,  y: -430 },  data: C('Compute C2', 'medium', { data: 1000, rp: 5 }) },
-  { id: 'ne_comp3',  type: 'compute',  position: { x: 980,  y: -130 },  data: C('Compute C3', 'medium', { data: 1200, rp: 8 }) },
-  { id: 'ne_empty1', type: 'empty',    position: { x: 780,  y: -500 },  data: E('Open Slot', { data: 1500, rp: 5 }) },
-  { id: 'ne_comp4',  type: 'compute',  position: { x: 1200, y: -280 },  data: C('Compute C4', 'hard', { data: 3000, rp: 15 }) },
+  { id: 'ne_relay1', type: 'empty',    position: { x: 350,  y: -200 },  data: Y('Relay NE1', { data: 12000 }) },
+  { id: 'ne_comp1',  type: 'compute',  position: { x: 560,  y: -380 },  data: C('Compute C1', 'easy', { data: 30000 }) },
+  { id: 'ne_mine1',  type: 'resource', position: { x: 560,  y: -60 },   data: R('Data Silo East', 35, { data: 25000 }) },
+  { id: 'ne_relay2', type: 'empty',    position: { x: 780,  y: -280 },  data: Y('Relay NE2', { data: 60000 }) },
+  { id: 'ne_comp2',  type: 'compute',  position: { x: 980,  y: -430 },  data: C('Compute C2', 'medium', { data: 100000, rp: 5 }) },
+  { id: 'ne_comp3',  type: 'compute',  position: { x: 980,  y: -130 },  data: C('Compute C3', 'medium', { data: 120000, rp: 8 }) },
+  { id: 'ne_empty1', type: 'empty',    position: { x: 780,  y: -500 },  data: E('Open Slot', { data: 150000, rp: 5 }) },
+  { id: 'ne_comp4',  type: 'compute',  position: { x: 1200, y: -280 },  data: C('Compute C4', 'hard', { data: 300000, rp: 15 }) },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // EAST — Trade Route (mid-game expansion)
   // ═══════════════════════════════════════════════════════════════════════════
-  { id: 'e_relay1', type: 'empty',    position: { x: 420,  y: 100 },   data: Y('Relay E1', { data: 180 }) },
-  { id: 'e_mine1',  type: 'resource', position: { x: 650,  y: -40 },   data: R('Data Mine Echo', 45, { data: 350 }) },
-  { id: 'e_mine2',  type: 'resource', position: { x: 650,  y: 240 },   data: R('Data Vein East', 30, { data: 300 }) },
-  { id: 'e_relay2', type: 'empty',    position: { x: 880,  y: 100 },   data: Y('Relay E2', { data: 800 }) },
-  { id: 'e_empty1', type: 'empty',    position: { x: 880,  y: 320 },   data: E('Open Slot', { data: 2000, rp: 8 }) },
-  { id: 'e_mine3',  type: 'resource', position: { x: 1110, y: -40 },   data: R('Data Mine Foxtrot', 70, { data: 1200 }) },
-  { id: 'e_mine4',  type: 'resource', position: { x: 1110, y: 240 },   data: R('Data Mine Golf', 65, { data: 1000 }) },
-  { id: 'e_empty2', type: 'empty',    position: { x: 1340, y: 100 },   data: E('Open Slot', { data: 3000, rp: 12 }) },
+  { id: 'e_relay1', type: 'empty',    position: { x: 420,  y: 100 },   data: Y('Relay E1', { data: 18000 }) },
+  { id: 'e_mine1',  type: 'resource', position: { x: 650,  y: -40 },   data: R('Data Mine Echo', 45, { data: 35000 }) },
+  { id: 'e_mine2',  type: 'resource', position: { x: 650,  y: 240 },   data: R('Data Vein East', 30, { data: 30000 }) },
+  { id: 'e_relay2', type: 'empty',    position: { x: 880,  y: 100 },   data: Y('Relay E2', { data: 80000 }) },
+  { id: 'e_empty1', type: 'empty',    position: { x: 880,  y: 320 },   data: E('Open Slot', { data: 200000, rp: 8 }) },
+  { id: 'e_mine3',  type: 'resource', position: { x: 1110, y: -40 },   data: R('Data Mine Foxtrot', 70, { data: 120000 }) },
+  { id: 'e_mine4',  type: 'resource', position: { x: 1110, y: 240 },   data: R('Data Mine Golf', 65, { data: 100000 }) },
+  { id: 'e_empty2', type: 'empty',    position: { x: 1340, y: 100 },   data: E('Open Slot', { data: 300000, rp: 12 }) },
 
   // ── East API Cluster ──
-  { id: 'api_east_1', type: 'api',  position: { x: 1110, y: -240 }, data: P('Echo Service', 1, { data: 400 }) },
-  { id: 'api_east_2', type: 'api',  position: { x: 1340, y: -240 }, data: P('Compute API', 1, { data: 800, rp: 3 }) },
-  { id: 'auth_iam1',  type: 'auth', position: { x: 1560, y: -100 }, data: AU('IAM Auth', { data: 600, rp: 5 }) },
+  { id: 'api_east_1', type: 'api',  position: { x: 1110, y: -240 }, data: P('Echo Service', 1, { data: 40000 }) },
+  { id: 'api_east_2', type: 'api',  position: { x: 1340, y: -240 }, data: P('Compute API', 1, { data: 80000, rp: 3 }) },
+  { id: 'auth_iam1',  type: 'auth', position: { x: 1560, y: -100 }, data: AU('IAM Auth', { data: 60000, rp: 5 }) },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SOUTHEAST — Deep Territory (late game, high yield)
   // ═══════════════════════════════════════════════════════════════════════════
-  { id: 'se_relay1', type: 'empty',    position: { x: 350,  y: 340 },   data: Y('Relay SE1', { data: 250 }) },
-  { id: 'se_mine1',  type: 'resource', position: { x: 560,  y: 460 },   data: R('Data Mine Hotel', 50, { data: 500 }) },
-  { id: 'se_comp1',  type: 'compute',  position: { x: 350,  y: 560 },   data: C('Compute C5', 'easy', { data: 600 }) },
-  { id: 'se_relay2', type: 'empty',    position: { x: 680,  y: 660 },   data: Y('Relay SE2', { data: 1200 }) },
-  { id: 'se_mine2',  type: 'resource', position: { x: 900,  y: 560 },   data: R('Data Mine India', 85, { data: 1800 }) },
-  { id: 'se_empty1', type: 'empty',    position: { x: 680,  y: 860 },   data: E('Open Slot', { data: 2500, rp: 10 }) },
-  { id: 'se_locked1',type: 'locked',   position: { x: 350,  y: 780 },   data: Y('Encrypted Vault', { data: 5000, rp: 20 }) },
+  { id: 'se_relay1', type: 'empty',    position: { x: 350,  y: 340 },   data: Y('Relay SE1', { data: 25000 }) },
+  { id: 'se_mine1',  type: 'resource', position: { x: 560,  y: 460 },   data: R('Data Mine Hotel', 50, { data: 50000 }) },
+  { id: 'se_comp1',  type: 'compute',  position: { x: 350,  y: 560 },   data: C('Compute C5', 'easy', { data: 60000 }) },
+  { id: 'se_relay2', type: 'empty',    position: { x: 680,  y: 660 },   data: Y('Relay SE2', { data: 120000 }) },
+  { id: 'se_mine2',  type: 'resource', position: { x: 900,  y: 560 },   data: R('Data Mine India', 85, { data: 180000 }) },
+  { id: 'se_empty1', type: 'empty',    position: { x: 680,  y: 860 },   data: E('Open Slot', { data: 250000, rp: 10 }) },
+  { id: 'se_locked1',type: 'locked',   position: { x: 350,  y: 780 },   data: Y('Encrypted Vault', { data: 500000, rp: 20 }) },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SOUTH — Relay Backbone (connects west and east)
   // ═══════════════════════════════════════════════════════════════════════════
-  { id: 's_relay1', type: 'empty',    position: { x: 0,    y: 380 },    data: Y('Relay S1', { data: 80 }) },
-  { id: 's_comp1',  type: 'compute',  position: { x: 220,  y: 560 },    data: C('Compute Alpha', 'easy', { data: 400 }) },
-  { id: 's_mine1',  type: 'resource', position: { x: -220, y: 560 },    data: R('Data Mine Juliet', 40, { data: 350 }) },
-  { id: 's_relay2', type: 'empty',    position: { x: 0,    y: 760 },    data: Y('Relay S2', { data: 700 }) },
-  { id: 's_mine2',  type: 'resource', position: { x: -220, y: 960 },    data: R('Data Mine Kilo', 75, { data: 1500 }) },
-  { id: 's_mine3',  type: 'resource', position: { x: 220,  y: 960 },    data: R('Data Mine Lima', 70, { data: 1400 }) },
-  { id: 's_empty1', type: 'empty',    position: { x: 0,    y: 1160 },   data: E('Open Slot', { data: 2000, rp: 8 }) },
+  { id: 's_relay1', type: 'empty',    position: { x: 0,    y: 380 },    data: Y('Relay S1', { data: 8000 }) },
+  { id: 's_comp1',  type: 'compute',  position: { x: 220,  y: 560 },    data: C('Compute Alpha', 'easy', { data: 40000 }) },
+  { id: 's_mine1',  type: 'resource', position: { x: -220, y: 560 },    data: R('Data Mine Juliet', 40, { data: 35000 }) },
+  { id: 's_relay2', type: 'empty',    position: { x: 0,    y: 760 },    data: Y('Relay S2', { data: 70000 }) },
+  { id: 's_mine2',  type: 'resource', position: { x: -220, y: 960 },    data: R('Data Mine Kilo', 75, { data: 150000 }) },
+  { id: 's_mine3',  type: 'resource', position: { x: 220,  y: 960 },    data: R('Data Mine Lima', 70, { data: 140000 }) },
+  { id: 's_empty1', type: 'empty',    position: { x: 0,    y: 1160 },   data: E('Open Slot', { data: 200000, rp: 8 }) },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SOUTHWEST — Defense Perimeter (infected zone nearby)
   // ═══════════════════════════════════════════════════════════════════════════
-  { id: 'sw_relay1', type: 'empty',    position: { x: -350, y: 340 },   data: Y('Relay SW1', { data: 150 }) },
-  { id: 'sw_mine1',  type: 'resource', position: { x: -560, y: 200 },   data: R('Data Mine Mike', 45, { data: 400 }) },
-  { id: 'sw_mine2',  type: 'resource', position: { x: -560, y: 480 },   data: R('Data Mine November', 55, { data: 600 }) },
-  { id: 'sw_relay2', type: 'empty',    position: { x: -560, y: 680 },   data: Y('Relay SW2', { data: 900 }) },
-  { id: 'sw_comp1',  type: 'compute',  position: { x: -780, y: 800 },   data: C('Compute C6', 'medium', { data: 1200, rp: 5 }) },
-  { id: 'sw_empty1', type: 'empty',    position: { x: -780, y: 200 },   data: E('Open Slot', { data: 1800, rp: 7 }) },
-  { id: 'sw_locked1',type: 'locked',   position: { x: -780, y: 60 },    data: Y('Quarantine Zone', { data: 4000, rp: 15 }) },
+  { id: 'sw_relay1', type: 'empty',    position: { x: -350, y: 340 },   data: Y('Relay SW1', { data: 15000 }) },
+  { id: 'sw_mine1',  type: 'resource', position: { x: -560, y: 200 },   data: R('Data Mine Mike', 45, { data: 40000 }) },
+  { id: 'sw_mine2',  type: 'resource', position: { x: -560, y: 480 },   data: R('Data Mine November', 55, { data: 60000 }) },
+  { id: 'sw_relay2', type: 'empty',    position: { x: -560, y: 680 },   data: Y('Relay SW2', { data: 90000 }) },
+  { id: 'sw_comp1',  type: 'compute',  position: { x: -780, y: 800 },   data: C('Compute C6', 'medium', { data: 120000, rp: 5 }) },
+  { id: 'sw_empty1', type: 'empty',    position: { x: -780, y: 200 },   data: E('Open Slot', { data: 180000, rp: 7 }) },
+  { id: 'sw_locked1',type: 'locked',   position: { x: -780, y: 60 },    data: Y('Quarantine Zone', { data: 400000, rp: 15 }) },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // WEST — Relay Network (connectivity backbone)
   // ═══════════════════════════════════════════════════════════════════════════
-  { id: 'w_relay1', type: 'empty',    position: { x: -420, y: -60 },    data: Y('Relay W1', { data: 100 }) },
-  { id: 'w_mine1',  type: 'resource', position: { x: -650, y: -200 },   data: R('Data Mine Oscar', 35, { data: 250 }) },
-  { id: 'w_relay2', type: 'empty',    position: { x: -650, y: 80 },     data: Y('Relay W2', { data: 500 }) },
-  { id: 'w_empty1', type: 'empty',    position: { x: -880, y: -60 },    data: E('Open Slot', { data: 1000, rp: 5 }) },
-  { id: 'w_mine2',  type: 'resource', position: { x: -880, y: 140 },    data: R('Data Mine Papa', 60, { data: 800 }) },
+  { id: 'w_relay1', type: 'empty',    position: { x: -420, y: -60 },    data: Y('Relay W1', { data: 10000 }) },
+  { id: 'w_mine1',  type: 'resource', position: { x: -650, y: -200 },   data: R('Data Mine Oscar', 35, { data: 25000 }) },
+  { id: 'w_relay2', type: 'empty',    position: { x: -650, y: 80 },     data: Y('Relay W2', { data: 50000 }) },
+  { id: 'w_empty1', type: 'empty',    position: { x: -880, y: -60 },    data: E('Open Slot', { data: 100000, rp: 5 }) },
+  { id: 'w_mine2',  type: 'resource', position: { x: -880, y: 140 },    data: R('Data Mine Papa', 60, { data: 80000 }) },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // NORTHWEST — Research Outpost (high RP, hard compute)
   // ═══════════════════════════════════════════════════════════════════════════
-  { id: 'nw_relay1', type: 'empty',    position: { x: -320, y: -280 },  data: Y('Relay NW1', { data: 200 }) },
-  { id: 'nw_mine1',  type: 'resource', position: { x: -540, y: -380 },  data: R('Data Mine Quebec', 45, { data: 500 }) },
-  { id: 'nw_comp1',  type: 'compute',  position: { x: -400, y: -520 },  data: C('Research Lab', 'hard', { data: 2000, rp: 10 }) },
-  { id: 'nw_relay2', type: 'empty',    position: { x: -600, y: -680 },  data: Y('Relay NW2', { data: 1500 }) },
-  { id: 'nw_comp2',  type: 'compute',  position: { x: -820, y: -560 },  data: C('Deep Research Lab', 'hard', { data: 4000, rp: 20 }) },
-  { id: 'nw_empty1', type: 'empty',    position: { x: -600, y: -880 },  data: E('Open Slot', { data: 3000, rp: 15 }) },
-  { id: 'nw_locked1',type: 'locked',   position: { x: -600, y: -1080 }, data: Y('Observatory', { data: 8000, rp: 30 }) },
+  { id: 'nw_relay1', type: 'empty',    position: { x: -320, y: -280 },  data: Y('Relay NW1', { data: 20000 }) },
+  { id: 'nw_mine1',  type: 'resource', position: { x: -540, y: -380 },  data: R('Data Mine Quebec', 45, { data: 50000 }) },
+  { id: 'nw_comp1',  type: 'compute',  position: { x: -400, y: -520 },  data: C('Research Lab', 'hard', { data: 200000, rp: 10 }) },
+  { id: 'nw_relay2', type: 'empty',    position: { x: -600, y: -680 },  data: Y('Relay NW2', { data: 150000 }) },
+  { id: 'nw_comp2',  type: 'compute',  position: { x: -820, y: -560 },  data: C('Deep Research Lab', 'hard', { data: 400000, rp: 20 }) },
+  { id: 'nw_empty1', type: 'empty',    position: { x: -600, y: -880 },  data: E('Open Slot', { data: 300000, rp: 15 }) },
+  { id: 'nw_locked1',type: 'locked',   position: { x: -600, y: -1080 }, data: Y('Observatory', { data: 800000, rp: 30 }) },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // DATA MINE CLUSTER (far south — star topology for Ch1 for-loop quest)
   // capacity=1, 5s refill, forces iteration over multiple nodes
   // ═══════════════════════════════════════════════════════════════════════════
-  { id: 'cluster_hub', type: 'empty',    position: { x: 0,    y: 1400 },  data: Y('Cluster Relay', { data: 300 }) },
-  { id: 'cluster_m1',  type: 'resource', position: { x: 0,    y: 1200 },  data: MC('Micro Mine A', 10, { data: 50 }) },
-  { id: 'cluster_m2',  type: 'resource', position: { x: 200,  y: 1300 },  data: MC('Micro Mine B', 10, { data: 50 }) },
-  { id: 'cluster_m3',  type: 'resource', position: { x: 200,  y: 1500 },  data: MC('Micro Mine C', 10, { data: 50 }) },
-  { id: 'cluster_m4',  type: 'resource', position: { x: 0,    y: 1600 },  data: MC('Micro Mine D', 10, { data: 50 }) },
-  { id: 'cluster_m5',  type: 'resource', position: { x: -200, y: 1500 },  data: MC('Micro Mine E', 10, { data: 50 }) },
-  { id: 'cluster_m6',  type: 'resource', position: { x: -200, y: 1300 },  data: MC('Micro Mine F', 10, { data: 50 }) },
+  { id: 'cluster_hub', type: 'empty',    position: { x: 0,    y: 1400 },  data: Y('Cluster Relay', { data: 30000 }) },
+  { id: 'cluster_m1',  type: 'resource', position: { x: 0,    y: 1200 },  data: MC('Micro Mine A', 10, { data: 5000 }) },
+  { id: 'cluster_m2',  type: 'resource', position: { x: 200,  y: 1300 },  data: MC('Micro Mine B', 10, { data: 5000 }) },
+  { id: 'cluster_m3',  type: 'resource', position: { x: 200,  y: 1500 },  data: MC('Micro Mine C', 10, { data: 5000 }) },
+  { id: 'cluster_m4',  type: 'resource', position: { x: 0,    y: 1600 },  data: MC('Micro Mine D', 10, { data: 5000 }) },
+  { id: 'cluster_m5',  type: 'resource', position: { x: -200, y: 1500 },  data: MC('Micro Mine E', 10, { data: 5000 }) },
+  { id: 'cluster_m6',  type: 'resource', position: { x: -200, y: 1300 },  data: MC('Micro Mine F', 10, { data: 5000 }) },
 ];
 
 export const INITIAL_EDGES = [
@@ -560,7 +560,7 @@ export const INITIAL_EDGES = [
   { id: 'ec7', source: 'cluster_hub', target: 'cluster_m6' },
 ];
 
-export const INITIAL_RESOURCES: Resources = { data: 500, rp: 0, credits: 0 };
+export const INITIAL_RESOURCES: Resources = { data: 50000, rp: 0, credits: 0 };
 
 export const INITIAL_PLAYER_INVENTORY: InventoryItem[] = [
   { id: 'starter-pick', itemType: 'pickaxe_basic', count: 1, metadata: { efficiency: 1.0 } },
@@ -991,11 +991,12 @@ export function getCpuComputePoints(itemType: string): number {
   return cpuMap[itemType] ?? 0;
 }
 
-/** Carrying capacity bonus provided by a RAM item */
+/** Carrying capacity bonus provided by a RAM item — measured in STACKS (Minecraft-style).
+ *  Each stack holds up to MAX_STACK_SIZE items of the same type. */
 export function getRamCapacityBonus(itemType: string): number {
   const ramMap: Record<string, number> = {
-    ram_basic: 50,
-    ram_advanced: 150,
+    ram_basic: 2,
+    ram_advanced: 4,
   };
   return ramMap[itemType] ?? 0;
 }
