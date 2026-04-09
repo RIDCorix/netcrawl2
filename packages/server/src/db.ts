@@ -248,29 +248,29 @@ export const RECIPES: Recipe[] = [
     name: 'CPU Module',
     description: '+1 compute point. Enables equipping advanced algorithms.',
     output: { itemType: 'cpu_basic', count: 1 },
-    cost: { data: 400, rp: 3 },
+    cost: { data: 400 },
   },
   {
     id: 'cpu_advanced',
     name: 'CPU Module II',
     description: '+2 compute points. For demanding algorithms.',
     output: { itemType: 'cpu_advanced', count: 1 },
-    cost: { data: 1500, rp: 12 },
+    cost: { data: 1500 },
   },
-  // RAM — increases worker carrying capacity
+  // RAM — increases worker inventory capacity
   {
     id: 'ram_basic',
     name: 'RAM Module',
-    description: '+50 carrying capacity.',
+    description: '+2 inventory capacity.',
     output: { itemType: 'ram_basic', count: 1 },
-    cost: { data: 300, rp: 2 },
+    cost: { data: 300 },
   },
   {
     id: 'ram_advanced',
     name: 'RAM Module II',
-    description: '+150 carrying capacity.',
+    description: '+4 inventory capacity.',
     output: { itemType: 'ram_advanced', count: 1 },
-    cost: { data: 1200, rp: 10 },
+    cost: { data: 1200 },
   },
 ];
 

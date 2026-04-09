@@ -1,18 +1,32 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Pickaxe, Shield, Radio, Package, Database, Search, Hammer, Check, Cpu, Star, Gift } from 'lucide-react';
+import { X, Package, Database, Search, Hammer, Check, Cpu, Star, AlertTriangle, Gift } from 'lucide-react';
 import { useGameStore, InventoryItem, Chip } from '../store/gameStore';
 import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { ITEM_LABELS, ITEM_COLORS, RARITY_COLORS } from '../constants/colors';
 import { useT } from '../hooks/useT';
+import {
+  PickaxeBasic, PickaxeIron, PickaxeDiamond,
+  CpuBasic, CpuAdvanced, RamBasic, RamAdvanced,
+  BeaconIcon, ShieldIcon, AntivirusIcon, ScannerIcon,
+  ChipPackBasic, ChipPackPremium,
+  MemoryAllocator, FullstackPickaxe,
+  ChipSpeed, ChipDefense, ChipHarvest, ChipCapacity, ChipGeneric,
+} from './icons/GameIcons';
 
 // ── Item config ─────────────────────────────────────────────────────────────
 
 const ITEM_ICONS: Record<string, any> = {
-  pickaxe_basic: Pickaxe, pickaxe_iron: Pickaxe, pickaxe_diamond: Pickaxe,
-  shield: Shield, beacon: Radio,
-  data_fragment: Database, rp_shard: Cpu,
-  chip_pack_basic: Gift, chip_pack_premium: Gift,
+  pickaxe_basic: PickaxeBasic, pickaxe_iron: PickaxeIron, pickaxe_diamond: PickaxeDiamond,
+  shield: ShieldIcon, beacon: BeaconIcon,
+  data_fragment: Database, rp_shard: Cpu, bad_data: AlertTriangle,
+  chip_pack_basic: ChipPackBasic, chip_pack_premium: ChipPackPremium,
+  cpu_basic: CpuBasic, cpu_advanced: CpuAdvanced,
+  ram_basic: RamBasic, ram_advanced: RamAdvanced,
+  scanner: ScannerIcon, signal_booster: BeaconIcon,
+  overclock_kit: ChipSpeed,
+  antivirus_module: AntivirusIcon,
+  memory_allocator: MemoryAllocator, fullstack_pickaxe: FullstackPickaxe,
 };
 
 // ── Categories ──────────────────────────────────────────────────────────────
@@ -143,7 +157,7 @@ function CraftSlot({ recipe, dimmed, onCraft }: { recipe: Recipe; dimmed: boolea
       {hover && !dimmed && (
         <div style={{
           position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
-          marginBottom: 6, zIndex: 20, pointerEvents: 'none',
+          marginBottom: 6, zIndex: 999, pointerEvents: 'none',
           background: 'var(--bg-glass-heavy)', backdropFilter: 'blur(16px)',
           border: '1px solid var(--border-bright)', borderRadius: 'var(--radius-md)',
           padding: '8px 10px', minWidth: 140, whiteSpace: 'nowrap',
