@@ -727,8 +727,8 @@ function WorkerEdge(props: EdgeProps) {
         markerEnd={markerEnd}
         style={{
           ...style,
-          stroke: hasTraffic ? 'rgba(255,255,255,0.2)' : (style?.stroke || 'var(--border-bright)'),
-          strokeWidth: hasTraffic ? 2.5 : (style?.strokeWidth || 1.5),
+          stroke: style?.stroke || 'var(--border-bright)',
+          strokeWidth: style?.strokeWidth || 1.5,
         }}
         id={id}
       />
