@@ -77,7 +77,7 @@ export const LAYER_DEFS: LayerDef[] = [
 
 // Node data helpers (same pattern as db.ts)
 const R1 = (label: string, rate: number, cost: Record<string, number>) =>
-  ({ label, resource: 'data' as const, rate, unlocked: false, unlockCost: cost, mineable: true, drops: [] as any[], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] });
+  ({ label, resource: 'data' as const, rate, unlocked: false, unlockCost: cost, mineable: true, items: [] as any[], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] });
 const C1 = (label: string, diff: 'easy' | 'medium' | 'hard', cost: Record<string, number>) =>
   ({ label, unlocked: false, unlockCost: cost, difficulty: diff, rewardResource: 'rp' as const, solveCount: 0, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] });
 const Y1 = (label: string, cost: Record<string, number>) =>

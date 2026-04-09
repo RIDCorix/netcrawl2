@@ -310,7 +310,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       grantNodeXp(currentNode, 'mine', uid);
       checkAchievements(uid);
       checkQuests(uid);
-      return { ok: true, drop: { type: dropType, count: amount } };
+      return { ok: true, item: { type: itemType, count }, drop: { type: itemType, count } };
     }
 
     case 'collect': {
@@ -321,17 +321,17 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       if (nodeIdx === -1) return { ok: false, error: 'Node not found' };
       const node = nodes[nodeIdx];
 
-      const drops: Item[] = Array.isArray(node.data.drops) ? [...node.data.drops] : [];
-      if (drops.length === 0) return { ok: false, error: 'nothing_here', reason: 'nothing_here' };
+      const nodeItems: Item[] = Array.isArray(node.data.items) ? [...node.data.items] : [];
+      if (nodeItems.length === 0) return { ok: false, error: 'nothing_here', reason: 'nothing_here' };
 
       setLock(workerId, ACTION_DELAY);
       await workerLocks.get(workerId);
 
-      // Re-read (drops might have changed)
+      // Re-read (items might have changed)
       const freshState2 = getGameState(uid);
       const freshNode = freshState2.nodes.find((n: any) => n.id === currentNode);
-      const freshDrops: Item[] = freshNode && Array.isArray(freshNode.data.drops) ? [...freshNode.data.drops] : [];
-      if (freshDrops.length === 0) return { ok: false, error: 'nothing_here', reason: 'nothing_here' };
+      const freshItems: Item[] = freshNode && Array.isArray(freshNode.data.items) ? [...freshNode.data.items] : [];
+      if (freshItems.length === 0) return { ok: false, error: 'nothing_here', reason: 'nothing_here' };
 
       const w4 = getWorker(workerId, uid);
       const currentHolding: Item[] = w4?.holding || [];
@@ -342,7 +342,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
 
       if (payload.itemType) {
         // Pick up a specific type
-        for (const d of freshDrops) {
+        for (const d of freshItems) {
           if (d.type === payload.itemType && collected.length === 0) {
             if (currentTypes.has(d.type) || currentTypes.size < capacity) {
               collected.push(d);
@@ -357,7 +357,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         if (collected.length === 0) return { ok: false, error: 'item_not_found' };
       } else {
         // Pick up all — merge same types, respect slot capacity
-        for (const d of freshDrops) {
+        for (const d of freshItems) {
           if (currentTypes.has(d.type) || currentTypes.size < capacity) {
             collected.push(d);
             currentTypes.add(d.type);
@@ -372,7 +372,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
 
       const newNodes2 = freshState2.nodes.map((n: any) => {
         if (n.id === currentNode) {
-          return { ...n, data: { ...n.data, drops: remaining } };
+          return { ...n, data: { ...n.data, items: remaining } };
         }
         return n;
       });
@@ -393,7 +393,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const w5 = getWorker(workerId, uid);
       if (!w5) return { ok: false, error: 'Worker not found' };
 
-      // New-style: deposit held drops → convert to resources
+      // Deposit held items → convert to resources
       const held = w5.holding || [];
       if (held.length > 0) {
         const freshState = getGameState(uid);
@@ -822,7 +822,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       return { ok: true, edges: connectedSEA };
     }
 
-    // ── Discard & drop check ────────────────────────────────────────────────
+    // ── Discard & item check ────────────────────────────────────────────────
 
     case 'discard': {
       // Discard held items without depositing
@@ -881,10 +881,10 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       }
 
       // Merge with existing floor stacks
-      const existingDrops: Item[] = Array.isArray(dropNode.data.drops) ? [...dropNode.data.drops] : [];
+      const existingItems: Item[] = Array.isArray(dropNode.data.items) ? [...dropNode.data.items] : [];
       const newNodes = freshStateDrop.nodes.map((n: any) => {
         if (n.id === dropNodeId) {
-          return { ...n, data: { ...n.data, drops: mergeItemStacks(existingDrops, dropped) } };
+          return { ...n, data: { ...n.data, items: mergeItemStacks(existingItems, dropped) } };
         }
         return n;
       });
@@ -893,13 +893,14 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       return { ok: true, dropped, nodeId: dropNodeId };
     }
 
+    case 'has_items':
     case 'has_dropped_items': {
-      // Check if the current node has any drops
+      // Check if the current node has any items on the floor
       const curNodeHDI = worker.current_node || worker.node_id;
       const nodeHDI = nodes.find((n: any) => n.id === curNodeHDI);
       if (!nodeHDI) return { ok: true, has_items: false };
-      const dropsHDI = Array.isArray(nodeHDI.data.drops) ? nodeHDI.data.drops : [];
-      return { ok: true, has_items: dropsHDI.length > 0, count: dropsHDI.length };
+      const floorItems = Array.isArray(nodeHDI.data.items) ? nodeHDI.data.items : [];
+      return { ok: true, has_items: floorItems.length > 0, count: floorItems.length };
     }
 
     // ── findNearest ───────────────────────────────────────────────────────

@@ -25,7 +25,8 @@ export interface NodeData {
   unlockCost?: Partial<Resources>;
   infected?: boolean;
   mineable?: boolean;
-  drops?: Drop[];
+  items?: Item[];
+  drops?: Item[];
   mineCount?: number;
   depleted?: boolean;
   depletedUntil?: number;
@@ -37,11 +38,14 @@ export interface NodeData {
   [key: string]: any;
 }
 
-export interface Drop {
+export interface Item {
   type: 'data_fragment' | 'rp_shard' | 'bad_data';
   count: number;
   amount?: number; // legacy compat
 }
+
+/** @deprecated Use Item instead */
+export type Drop = Item;
 
 export interface GameNode {
   id: string;
@@ -77,8 +81,9 @@ export interface Worker {
   carrying: Partial<Resources>;
   pid: number | null;
   deployed_at?: string;
-  holding?: Drop | null;
+  holding?: Item[] | null;
   equippedPickaxe?: { itemType: string; efficiency: number } | null;
+  lastLog?: { message: string; level: string; ts: number } | null;
 }
 
 export interface LevelSummary {

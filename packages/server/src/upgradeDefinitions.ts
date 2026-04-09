@@ -10,7 +10,7 @@ import { RecipeCost } from './db.js';
 export interface UpgradeEffect {
   rateBonus?: number;      // +N to resource rate
   chipSlots?: number;      // set chip slots to this value
-  autoCollect?: boolean;   // auto-deposit drops
+  autoCollect?: boolean;   // auto-deposit items
   defenseBonus?: number;   // reduces infection spread chance
   moveSpeedMult?: number;  // workers pass through faster
 }

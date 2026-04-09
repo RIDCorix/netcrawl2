@@ -786,16 +786,18 @@ if (n.type === 'cache') return '#a78bfa';
             )}
 
             {/* Ground Items — inventory grid */}
-            {Array.isArray(node.data.drops) && node.data.drops.length > 0 && (() => {
-              // Aggregate drops by type (items are already stacked, but be safe)
-              const dropCounts: Record<string, number> = {};
-              for (const d of node.data.drops) {
-                dropCounts[d.type] = (dropCounts[d.type] || 0) + (d.count ?? d.amount ?? 1);
+            {(() => {
+              const floorItems = Array.isArray(node.data.items) ? node.data.items : (Array.isArray(node.data.drops) ? node.data.drops : []);
+              if (floorItems.length === 0) return null;
+              // Aggregate items by type (items are already stacked, but be safe)
+              const itemCounts: Record<string, number> = {};
+              for (const d of floorItems) {
+                itemCounts[d.type] = (itemCounts[d.type] || 0) + (d.count ?? d.amount ?? 1);
               }
-              const totalItems = Object.values(dropCounts).reduce((s, v) => s + v, 0);
-              const DROP_ICONS: Record<string, any> = { data_fragment: Database, rp_shard: Cpu, bad_data: AlertTriangle };
-              const DROP_COLORS: Record<string, string> = { data_fragment: '#45aaf2', rp_shard: '#a78bfa', bad_data: '#ef4444' };
-              const DROP_LABELS: Record<string, string> = { data_fragment: 'Data', rp_shard: 'RP', bad_data: 'Bad Data' };
+              const totalItems = Object.values(itemCounts).reduce((s, v) => s + v, 0);
+              const ITEM_ICONS: Record<string, any> = { data_fragment: Database, rp_shard: Cpu, bad_data: AlertTriangle };
+              const ITEM_COLORS: Record<string, string> = { data_fragment: '#45aaf2', rp_shard: '#a78bfa', bad_data: '#ef4444' };
+              const ITEM_LABELS: Record<string, string> = { data_fragment: 'Data', rp_shard: 'RP', bad_data: 'Bad Data' };
 
               return (
                 <>
@@ -811,12 +813,12 @@ if (n.type === 'cache') return '#a78bfa';
                       </span>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 3 }}>
-                      {Object.entries(dropCounts).map(([type, count]) => (
+                      {Object.entries(itemCounts).map(([type, count]) => (
                         <InvCell
                           key={type}
-                          icon={DROP_ICONS[type] || Box}
-                          color={DROP_COLORS[type] || 'var(--text-muted)'}
-                          label={DROP_LABELS[type] || type}
+                          icon={ITEM_ICONS[type] || Box}
+                          color={ITEM_COLORS[type] || 'var(--text-muted)'}
+                          label={ITEM_LABELS[type] || type}
                           count={count}
                         />
                       ))}
