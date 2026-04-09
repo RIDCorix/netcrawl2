@@ -286,22 +286,25 @@ class WorkerClass(metaclass=WorkerMeta):
 
     # ── Resource actions ─────────────────────────────────────────────────────
 
-    def collect(self, item_type=None) -> CollectResult:
+    def collect(self, item_type=None, count: int = None) -> CollectResult:
         """
         Pick up item stacks from the current node into inventory.
 
         - collect() → pick up ALL stacks (until full)
-        - collect(DataFragment) → pick up only data_fragment
-        - collect("bad_data") → pick up only bad_data
+        - collect(DataFragment) → pick up all data_fragment
+        - collect(DataFragment, 5) → pick up 5 data_fragment
+        - collect("bad_data", 3) → pick up 3 bad_data
 
         Example:
-            self.collect()  # grab everything
-            for item in self.holding:
-                if isinstance(item, BadData):
-                    self.discard(BadData)
+            self.collect()                    # grab everything
+            self.collect(DataFragment, 10)    # grab 10 data fragments
         """
         type_str = _resolve_item_type(item_type)
-        payload = {"itemType": type_str} if type_str else {}
+        payload = {}
+        if type_str:
+            payload["itemType"] = type_str
+        if count is not None:
+            payload["count"] = count
         data = self._client.action("collect", payload)
         result = CollectResult(**data)
         if result.ok:

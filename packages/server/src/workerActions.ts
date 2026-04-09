@@ -351,14 +351,19 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const collected: Item[] = [];
       const remaining: Item[] = [];
 
+      // payload.count = max items to pick up (optional)
+      const maxCollect = payload.count ? Math.min(payload.count, spaceLeft) : spaceLeft;
+
       if (payload.itemType) {
-        // Pick up items of specific type, up to space left
+        // Pick up items of specific type
+        let taken = 0;
         for (const d of freshItems) {
-          if (d.type === payload.itemType) {
-            const take = Math.min(d.count, spaceLeft - collected.reduce((s, c) => s + c.count, 0));
-            if (take > 0) {
-              collected.push({ type: d.type, count: take });
-              if (take < d.count) remaining.push({ type: d.type, count: d.count - take });
+          if (d.type === payload.itemType && taken < maxCollect) {
+            const canTake = Math.min(d.count, maxCollect - taken);
+            if (canTake > 0) {
+              collected.push({ type: d.type, count: canTake });
+              taken += canTake;
+              if (canTake < d.count) remaining.push({ type: d.type, count: d.count - canTake });
             } else {
               remaining.push(d);
             }
@@ -368,10 +373,10 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         }
         if (collected.length === 0) return { ok: false, error: 'item_not_found' };
       } else {
-        // Pick up all, respect total capacity
+        // Pick up all types, respect capacity + optional count limit
         let taken = 0;
         for (const d of freshItems) {
-          const canTake = Math.min(d.count, spaceLeft - taken);
+          const canTake = Math.min(d.count, maxCollect - taken);
           if (canTake > 0) {
             collected.push({ type: d.type, count: canTake });
             taken += canTake;

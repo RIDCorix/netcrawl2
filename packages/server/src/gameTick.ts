@@ -86,6 +86,23 @@ function tickUser(userId?: string) {
     return n;
   });
 
+  // Bad data accumulation → infection
+  // If a node has 10+ bad_data items on the floor, it absorbs them and becomes infected
+  const BAD_DATA_INFECTION_THRESHOLD = 10;
+  nodes = nodes.map((n: any) => {
+    if (n.data.infected || n.type === 'infected' || !n.data.unlocked) return n;
+    const items: any[] = Array.isArray(n.data.items) ? n.data.items : [];
+    const badData = items.find((i: any) => i.type === 'bad_data');
+    if (badData && badData.count >= BAD_DATA_INFECTION_THRESHOLD) {
+      changed = true;
+      console.log(`[Tick] Node ${n.id} infected by ${badData.count} bad_data${userId ? ` (user ${userId})` : ''}`);
+      // Remove bad_data from floor, infect the node
+      const remainingItems = items.filter((i: any) => i.type !== 'bad_data');
+      return { ...n, type: 'infected', data: { ...n.data, infected: true, items: remainingItems } };
+    }
+    return n;
+  });
+
   // Check if hub is infected → game over
   const hub = nodes.find((n: any) => n.id === 'hub');
   if (hub && (hub.data.infected || hub.type === 'infected')) {
