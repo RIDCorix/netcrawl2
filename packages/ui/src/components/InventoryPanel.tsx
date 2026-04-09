@@ -94,40 +94,87 @@ function EmptySlot() {
 
 function CraftSlot({ recipe, dimmed, onCraft }: { recipe: Recipe; dimmed: boolean; onCraft: () => void }) {
   const t = useT();
+  const { resources } = useGameStore();
+  const [hover, setHover] = useState(false);
   const Icon = ITEM_ICONS[recipe.output.itemType] || Hammer;
   const color = ITEM_COLORS[recipe.output.itemType] || '#666';
   const displayName = t('item.' + recipe.output.itemType + '.name') || recipe.name;
   const displayDesc = t('item.' + recipe.output.itemType + '.desc') || recipe.description;
 
+  const COST_CONFIG: Record<string, { label: string; color: string; owned: number }> = {
+    data: { label: 'Data', color: 'var(--data-color)', owned: resources.data },
+    rp: { label: 'RP', color: 'var(--rp-color)', owned: resources.rp },
+    credits: { label: 'Credits', color: 'var(--credits-color)', owned: resources.credits },
+  };
+
   return (
-    <button
-      onClick={recipe.affordable && !dimmed ? onCraft : undefined}
-      disabled={!recipe.affordable || dimmed}
-      style={{
-        width: 64, height: 72,
-        borderRadius: 'var(--radius-sm)',
-        background: recipe.affordable ? 'var(--bg-elevated)' : 'var(--bg-primary)',
-        border: `1px solid ${recipe.affordable && !dimmed ? color : 'var(--border)'}`,
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
-        cursor: recipe.affordable && !dimmed ? 'pointer' : 'default',
-        opacity: dimmed ? 0.15 : recipe.affordable ? 1 : 0.4,
-        transition: 'all 0.15s',
-        position: 'relative',
-        padding: 0,
-      }}
-      title={`${displayName}\n${displayDesc}\n${Object.entries(recipe.cost).map(([k, v]) => `${v} ${k}`).join(', ')}`}
+    <div style={{ position: 'relative' }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
     >
-      <Icon size={18} style={{ color: recipe.affordable ? color : 'var(--text-muted)' }} />
-      <span style={{ fontSize: 8, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', fontWeight: 600, textAlign: 'center', lineHeight: 1.1, padding: '0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
-        {displayName}
-      </span>
-      {/* Cost indicators */}
-      <div style={{ position: 'absolute', bottom: -2, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 1 }}>
-        {recipe.cost.data !== undefined && <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--data-color)' }} />}
-        {recipe.cost.rp !== undefined && <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--rp-color)' }} />}
-        {recipe.cost.credits !== undefined && <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--credits-color)' }} />}
-      </div>
-    </button>
+      <button
+        onClick={recipe.affordable && !dimmed ? onCraft : undefined}
+        disabled={!recipe.affordable || dimmed}
+        style={{
+          width: 64, height: 72,
+          borderRadius: 'var(--radius-sm)',
+          background: recipe.affordable ? 'var(--bg-elevated)' : 'var(--bg-primary)',
+          border: `1px solid ${recipe.affordable && !dimmed ? color : 'var(--border)'}`,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
+          cursor: recipe.affordable && !dimmed ? 'pointer' : 'default',
+          opacity: dimmed ? 0.15 : recipe.affordable ? 1 : 0.4,
+          transition: 'all 0.15s',
+          position: 'relative',
+          padding: 0,
+        }}
+      >
+        <Icon size={18} style={{ color: recipe.affordable ? color : 'var(--text-muted)' }} />
+        <span style={{ fontSize: 8, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', fontWeight: 600, textAlign: 'center', lineHeight: 1.1, padding: '0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+          {displayName}
+        </span>
+        <div style={{ position: 'absolute', bottom: -2, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 1 }}>
+          {recipe.cost.data !== undefined && <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--data-color)' }} />}
+          {recipe.cost.rp !== undefined && <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--rp-color)' }} />}
+          {recipe.cost.credits !== undefined && <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--credits-color)' }} />}
+        </div>
+      </button>
+
+      {/* Hover tooltip — shows recipe materials with owned/needed */}
+      {hover && !dimmed && (
+        <div style={{
+          position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
+          marginBottom: 6, zIndex: 20, pointerEvents: 'none',
+          background: 'var(--bg-glass-heavy)', backdropFilter: 'blur(16px)',
+          border: '1px solid var(--border-bright)', borderRadius: 'var(--radius-md)',
+          padding: '8px 10px', minWidth: 140, whiteSpace: 'nowrap',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+        }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginBottom: 2 }}>
+            {displayName}
+          </div>
+          <div style={{ fontSize: 8, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 6 }}>
+            {displayDesc}
+          </div>
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {Object.entries(recipe.cost).map(([key, needed]) => {
+              const cfg = COST_CONFIG[key];
+              if (!cfg || !needed) return null;
+              const enough = cfg.owned >= needed;
+              return (
+                <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: cfg.color, fontWeight: 600 }}>
+                    {cfg.label}
+                  </span>
+                  <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', fontWeight: 700, color: enough ? 'var(--success)' : 'var(--danger)' }}>
+                    {cfg.owned}/{needed}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
