@@ -286,22 +286,22 @@ class WorkerClass(metaclass=WorkerMeta):
 
     # ── Resource actions ─────────────────────────────────────────────────────
 
-    def collect(self, item_type: str = None) -> CollectResult:
+    def collect(self, item_type=None) -> CollectResult:
         """
         Pick up item stacks from the current node into inventory.
 
-        - collect() → pick up ALL stacks (until slots full)
-        - collect(item_type) → pick up a specific type
-
-        Capacity = number of different type slots (1 + RAM bonus). Returns CollectResult.
+        - collect() → pick up ALL stacks (until full)
+        - collect(DataFragment) → pick up only data_fragment
+        - collect("bad_data") → pick up only bad_data
 
         Example:
-            result = self.collect()  # grab everything
+            self.collect()  # grab everything
             for item in self.holding:
-                if item.type == "bad_data":
-                    self.discard("bad_data")
+                if isinstance(item, BadData):
+                    self.discard(BadData)
         """
-        payload = {"itemType": item_type} if item_type else {}
+        type_str = _resolve_item_type(item_type)
+        payload = {"itemType": type_str} if type_str else {}
         data = self._client.action("collect", payload)
         result = CollectResult(**data)
         if result.ok:
