@@ -190,25 +190,26 @@ class RuntimeItem:
         self.efficiency = metadata.get('efficiency', 1.0)
         self._worker = None  # set after WorkerClass.__init__ by runner
 
-    def mine(self) -> dict:
+    def mine(self):
         """
         Mine the current node using this pickaxe.
-        Creates a drop on the node floor. Use worker.collect() to pick it up.
+        Creates items on the node floor. Use worker.collect() to pick them up.
 
-        Returns: { ok: True, drop: { type: 'data_fragment', amount: 1 } }
-        Fails if: not mineable, node depleted, no pickaxe equipped.
+        Returns MineResult with .ok, .item, .error
         """
         if self._worker is None:
             raise RuntimeError("Item not properly initialized — _worker is None")
-        return self._worker._client.action("mine", {})
+        from netcrawl.models import MineResult
+        data = self._worker._client.action("mine", {})
+        return MineResult(**data)
 
-    def mine_and_collect(self) -> dict:
+    def mine_and_collect(self):
         """
         Convenience: mine() then collect() in one call.
-        Returns the collected item, or error dict.
+        Returns CollectResult.
         """
         result = self.mine()
-        if not result.get("ok"):
+        if not result.ok:
             return result
         return self._worker.collect()
 

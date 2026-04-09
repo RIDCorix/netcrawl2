@@ -82,6 +82,29 @@ class DiscardResult(BaseModel):
     error: Optional[str] = None
 
 
+class DropResult(BaseModel):
+    """Result of drop() action."""
+    ok: bool = False
+    dropped: list[Item] = Field(default_factory=list)
+    node_id: Optional[str] = Field(None, alias='nodeId')
+    error: Optional[str] = None
+
+    model_config = {'populate_by_name': True}
+
+
+class MineResult(BaseModel):
+    """Result of mine() action."""
+    ok: bool = False
+    item: Optional[Item] = None  # the item created on the node floor
+    error: Optional[str] = None
+
+
+class RepairResult(BaseModel):
+    """Result of repair() action."""
+    ok: bool = False
+    error: Optional[str] = None
+
+
 class MoveResult(BaseModel):
     """Result of move_edge() action."""
     ok: bool = False

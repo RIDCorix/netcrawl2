@@ -10,7 +10,7 @@ from typing import Optional, List
 from netcrawl.fields import WorkerField, ItemField
 from netcrawl.models import (
     Item, DataFragment, RpShard, BadData,
-    CollectResult, DepositResult, DiscardResult, MoveResult,
+    CollectResult, DepositResult, DiscardResult, DropResult, MineResult, RepairResult, MoveResult,
     ScannedNode, EdgeInfo, NodeInfo, APIRequestModel, TokenValidation,
 )
 
@@ -361,7 +361,7 @@ class WorkerClass(metaclass=WorkerMeta):
                 self._holding = []
         return result
 
-    def drop(self, item_type=None, count: int = None):
+    def drop(self, item_type=None, count: int = None) -> DropResult:
         """
         Drop held items onto the current node's floor.
         Other workers at this node can collect() them.
@@ -382,7 +382,8 @@ class WorkerClass(metaclass=WorkerMeta):
         if count is not None:
             payload["count"] = count
         data = self._client.action("drop", payload)
-        if data.get("ok"):
+        result = DropResult(**data)
+        if result.ok:
             if type_str:
                 if count is not None:
                     for h in self._holding:
@@ -393,7 +394,7 @@ class WorkerClass(metaclass=WorkerMeta):
                     self._holding = [h for h in self._holding if h.type != type_str]
             else:
                 self._holding = []
-        return data
+        return result
 
     def has_dropped_items(self) -> bool:
         """
@@ -413,15 +414,9 @@ class WorkerClass(metaclass=WorkerMeta):
         result = self._client.action("has_dropped_items", {})
         return result.get("has_items", False)
 
-    def harvest(self) -> dict:
-        """
-        Legacy: harvest resources at current node (old carry system).
-        Returns: { "harvested": { "data": 5 } }
-        """
-        result = self._client.action("harvest", {})
-        if result.get("ok"):
-            self._inventory = result.get("carrying", {})
-        return result
+    def harvest(self):
+        """Deprecated. Use mine() + collect() instead."""
+        raise DeprecationWarning("harvest() is removed. Use mine() + collect() instead.")
 
     # ── Scanning ─────────────────────────────────────────────────────────────
 
@@ -436,13 +431,15 @@ class WorkerClass(metaclass=WorkerMeta):
 
     # ── Repair ───────────────────────────────────────────────────────────────
 
-    def repair(self, node_id: str) -> bool:
+    def repair(self, node_id: str) -> RepairResult:
         """
-        Repair an infected node. Costs 30 data from game resources.
+        Repair an infected node. Costs data from game resources.
         Must be adjacent to the target node.
+
+        Returns RepairResult with .ok, .error
         """
-        result = self._client.action("repair", {"nodeId": node_id})
-        return result.get("ok", False)
+        data = self._client.action("repair", {"nodeId": node_id})
+        return RepairResult(**data)
 
     # ── API Node methods ────────────────────────────────────────────────────────
 
@@ -562,8 +559,8 @@ class WorkerClass(metaclass=WorkerMeta):
 
     @property
     def carrying(self) -> dict:
-        """Currently carried resources (legacy). E.g. { 'data': 5 }"""
-        return self._inventory.copy()
+        """Deprecated. Use self.holding instead."""
+        return {}
 
     @property
     def current_node(self) -> str:

@@ -13,7 +13,8 @@ from netcrawl.nodes import (
 from netcrawl.sensors import EdgeInfo, AdvancedEdgeInfo
 from netcrawl.models import (
     Item, DataFragment, RpShard, BadData,
-    CollectResult, DepositResult, DiscardResult, MoveResult,
+    CollectResult, DepositResult, DiscardResult, DropResult,
+    MineResult, RepairResult, MoveResult,
     ScannedNode, TokenValidation,
 )
 
@@ -26,6 +27,7 @@ __all__ = [
     "LockedNode", "InfectedNode", "NodeEdge",
     "EdgeInfo", "AdvancedEdgeInfo",
     "Item", "DataFragment", "RpShard", "BadData",
-    "CollectResult", "DepositResult", "DiscardResult", "MoveResult",
+    "CollectResult", "DepositResult", "DiscardResult", "DropResult",
+    "MineResult", "RepairResult", "MoveResult",
     "ScannedNode", "TokenValidation",
 ]
