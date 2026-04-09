@@ -28,29 +28,6 @@ import { motion } from 'framer-motion';
 
 function WorkerDotsRow({ workers, show }: { workers: any[]; show: boolean }) {
   const { selectWorker, selectedWorkerId } = useGameStore();
-  const prevIdsRef = React.useRef<Set<string>>(new Set());
-  const [enteringIds, setEnteringIds] = React.useState<Set<string>>(new Set());
-
-  // Detect newly arrived workers — set entering, then clear after 1 frame so CSS transition fires
-  React.useEffect(() => {
-    if (!workers) return;
-    const currentIds = new Set(workers.filter(w => !w.leaving).map(w => w.id));
-    const newArrivals = new Set<string>();
-    for (const id of currentIds) {
-      if (!prevIdsRef.current.has(id)) newArrivals.add(id);
-    }
-    prevIdsRef.current = currentIds;
-
-    if (newArrivals.size > 0) {
-      // Set entering immediately (renders opacity:0, scale:0.3)
-      setEnteringIds(newArrivals);
-      // Clear after 1 rAF so transition from 0→1 fires
-      const raf = requestAnimationFrame(() => {
-        setEnteringIds(new Set());
-      });
-      return () => cancelAnimationFrame(raf);
-    }
-  }, [workers?.map(w => `${w.id}-${w.leaving}`).join(',')]);
 
   if (!show || !workers || workers.length === 0) return null;
 
@@ -59,25 +36,23 @@ function WorkerDotsRow({ workers, show }: { workers: any[]; show: boolean }) {
       position: 'absolute', top: -14, left: '50%',
       transform: 'translateX(-50%)', display: 'flex', gap: 4,
     }}>
-      {workers.map((w: any, wi: number) => {
+      {workers.filter((w: any) => !w.leaving).map((w: any, wi: number) => {
         const c = CLASS_COLORS[w.class_name] || '#a78bfa';
-        const isActive = ['running', 'harvesting', 'idle'].includes(w.status);
+        const isActive = ['running', 'harvesting', 'idle', 'moving'].includes(w.status);
         const isSelected = w.id === selectedWorkerId;
-        const isLeaving = w.leaving;
-        const isEntering = enteringIds.has(w.id);
         const hasHolding = Array.isArray(w.holding) ? w.holding.length > 0 : !!w.holding;
-        const showAction = !isLeaving && !isEntering && (w.status === 'harvesting' || hasHolding);
+        const showAction = w.status === 'harvesting' || hasHolding;
         // Show bubble if lastLog exists and is recent (< 2 seconds)
         // Error bubble: always show if status is error/crashed. Info bubble: 2s fade.
         const isError = w.status === 'error' || w.status === 'crashed';
-        const showInfoBubble = w.lastLog && !isLeaving && !isError && (Date.now() - (w.lastLog.ts || 0) < 2000);
-        const showErrorBubble = isError && w.lastLog && !isLeaving;
+        const showInfoBubble = w.lastLog && true && !isError && (Date.now() - (w.lastLog.ts || 0) < 2000);
+        const showErrorBubble = isError && w.lastLog && true;
 
         return (
           <div
             key={w.id}
             title={`${w.class_name} (${w.status})\nid: ${w.id}\n@ ${w.current_node}`}
-            onClick={(e) => { if (!isLeaving) { e.stopPropagation(); selectWorker(w.id); } }}
+            onClick={(e) => { if (true) { e.stopPropagation(); selectWorker(w.id); } }}
             style={{
               position: 'relative',
               width: isSelected ? 12 : 8,
@@ -90,15 +65,9 @@ function WorkerDotsRow({ workers, show }: { workers: any[]; show: boolean }) {
                 : isError
                   ? '0 0 6px #ef4444, 0 0 14px #ef444480'
                   : isActive ? `0 0 6px ${c}, 0 0 12px ${c}40` : `0 0 4px ${c}60`,
-              cursor: isLeaving ? 'default' : 'pointer',
-              opacity: isLeaving ? 0 : isEntering ? 0 : 1,
-              transform: isLeaving
-                ? 'scale(0.3) translateY(12px)'
-                : isEntering
-                  ? 'scale(0.3) translateY(-8px)'
-                  : 'scale(1) translateY(0)',
-              transition: 'opacity 0.4s ease-out, transform 0.4s ease-out',
-              pointerEvents: isLeaving ? 'none' : 'auto',
+              cursor: 'pointer',
+              opacity: 1,
+              transition: 'box-shadow 0.2s',
               animation: isError ? 'error-shake 3s ease-in-out infinite' : undefined,
             }}
           >
