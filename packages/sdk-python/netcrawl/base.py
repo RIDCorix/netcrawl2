@@ -250,14 +250,17 @@ class WorkerClass(metaclass=WorkerMeta):
 
         # RuntimeEdge → extract edge_id
         if isinstance(target, RuntimeEdge):
+            self.debug(f"move({target.edge_id})")
             return self._move_edge(target.edge_id)
 
         # String
         if isinstance(target, str):
             # Edge ID (e1, e2, ...)
             if target.startswith('e') and target[1:].isdigit():
+                self.debug(f"move({target})")
                 return self._move_edge(target)
             # Node ID
+            self.debug(f"move({target})")
             result = self._client.action("move", {"targetNodeId": target})
             if result.get("ok"):
                 self._current_node = target
@@ -300,6 +303,7 @@ class WorkerClass(metaclass=WorkerMeta):
             self.collect(DataFragment, 10)    # grab 10 data fragments
         """
         type_str = _resolve_item_type(item_type)
+        self.debug(f"collect({type_str or ''}{f', {count}' if count is not None else ''})")
         payload = {}
         if type_str:
             payload["itemType"] = type_str
@@ -319,6 +323,7 @@ class WorkerClass(metaclass=WorkerMeta):
 
         Returns DepositResult with .ok, .deposited (list of Item)
         """
+        self.debug("deposit()")
         data = self._client.action("deposit", {})
         result = DepositResult(**data)
         if result.ok:
@@ -341,6 +346,7 @@ class WorkerClass(metaclass=WorkerMeta):
                     self.discard(BadData)
         """
         type_str = _resolve_item_type(item_type)
+        self.debug(f"discard({type_str or ''}{f', {count}' if count is not None else ''})")
         payload = {}
         if type_str:
             payload["itemType"] = type_str
@@ -376,6 +382,7 @@ class WorkerClass(metaclass=WorkerMeta):
             self.drop()  # leave items for another worker
         """
         type_str = _resolve_item_type(item_type)
+        self.debug(f"drop({type_str or ''}{f', {count}' if count is not None else ''})")
         payload = {}
         if type_str:
             payload["itemType"] = type_str
@@ -426,6 +433,7 @@ class WorkerClass(metaclass=WorkerMeta):
 
         Returns list of ScannedNode with .id, .type, .label, .infected
         """
+        self.debug("scan()")
         result = self._client.action("scan", {})
         return [ScannedNode(**n) for n in result.get("nodes", [])]
 
@@ -438,6 +446,7 @@ class WorkerClass(metaclass=WorkerMeta):
 
         Returns RepairResult with .ok, .error
         """
+        self.debug(f"repair({node_id})")
         data = self._client.action("repair", {"nodeId": node_id})
         return RepairResult(**data)
 
@@ -527,6 +536,10 @@ class WorkerClass(metaclass=WorkerMeta):
         tag = level.upper()
         self._client.action("log", {"message": f"[{tag}] {msg}", "level": level})
         print(f"[{self._worker_id}] {tag}: {msg}")
+
+    def debug(self, msg: str) -> None:
+        """Log a debug message. Recorded in the log panel but hidden from the worker speech bubble."""
+        self._log("debug", msg)
 
     def info(self, msg: str) -> None:
         """Log an info message. Visible in the UI's worker log panel."""

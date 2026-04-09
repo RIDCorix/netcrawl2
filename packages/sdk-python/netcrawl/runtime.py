@@ -200,6 +200,7 @@ class RuntimeItem:
         if self._worker is None:
             raise RuntimeError("Item not properly initialized — _worker is None")
         from netcrawl.models import MineResult
+        self._worker.debug("mine()")
         data = self._worker._client.action("mine", {})
         return MineResult(**data)
 

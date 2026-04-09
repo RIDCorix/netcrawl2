@@ -44,13 +44,16 @@ export function useGameState() {
         } else if (msg.type === 'LAYER_UNLOCKED') {
           useGameStore.getState().addLayerUnlockToast(msg.payload);
         } else if (msg.type === 'WORKER_LOG') {
-          // Lightweight: update just the worker's lastLog for speech bubble
+          // Lightweight: update just the worker's lastLog for speech bubble.
+          // Skip debug logs — they should only appear in the log panel, not the bubble.
           const { workerId, message, level, ts } = msg.payload;
-          const state = useGameStore.getState();
-          const workers = state.workers.map((w: any) =>
-            w.id === workerId ? { ...w, lastLog: { message, level, ts } } : w
-          );
-          useGameStore.setState({ workers });
+          if (level !== 'debug') {
+            const state = useGameStore.getState();
+            const workers = state.workers.map((w: any) =>
+              w.id === workerId ? { ...w, lastLog: { message, level, ts } } : w
+            );
+            useGameStore.setState({ workers });
+          }
         }
       } catch (err) {
         console.error('[WS] Parse error:', err);

@@ -94,9 +94,13 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
     // Update lastLog on worker for speech bubble display (no full broadcast — too spammy)
     const w = getWorker(workerId, uid);
     if (w) {
-      upsertWorker({ ...w, lastLog: { message: payload.message, level: payload.level || 'info', ts: Date.now() } }, uid);
+      const level = payload.level || 'info';
+      // Debug logs go to the log panel only — don't update the speech-bubble lastLog
+      if (level !== 'debug') {
+        upsertWorker({ ...w, lastLog: { message: payload.message, level, ts: Date.now() } }, uid);
+      }
       // Send lightweight message instead of full state
-      broadcast({ type: 'WORKER_LOG', payload: { workerId, message: payload.message, level: payload.level || 'info', ts: Date.now(), nodeId: w.current_node || w.node_id } }, uid);
+      broadcast({ type: 'WORKER_LOG', payload: { workerId, message: payload.message, level, ts: Date.now(), nodeId: w.current_node || w.node_id } }, uid);
     }
     return { ok: true };
   }
