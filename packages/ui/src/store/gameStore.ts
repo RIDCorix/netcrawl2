@@ -1,6 +1,52 @@
 import { create } from 'zustand';
 import type { Language } from '../i18n/index';
 
+/**
+ * Reuse old references when incoming data is structurally equal.
+ * Server re-sends full state on every tick, but most items don't actually change.
+ * Without this, every downstream useMemo/useEffect that depends on these arrays
+ * (or their items) re-runs every tick, causing re-render storms and API call storms.
+ */
+function stableArray<T>(oldArr: T[] | undefined, newArr: T[] | undefined): T[] | undefined {
+  if (newArr === undefined) return oldArr;
+  if (oldArr === undefined) return newArr;
+  if (oldArr === newArr) return oldArr;
+  if (oldArr.length !== newArr.length) {
+    // Length changed: still reuse individual items that are structurally equal
+    const out: T[] = new Array(newArr.length);
+    for (let i = 0; i < newArr.length; i++) {
+      const n = newArr[i];
+      // Try to find a structurally-equal old item (by id if possible, else index)
+      const nId = (n as any)?.id;
+      const o = nId != null
+        ? oldArr.find(x => (x as any)?.id === nId)
+        : oldArr[i];
+      out[i] = (o !== undefined && JSON.stringify(o) === JSON.stringify(n)) ? o : n;
+    }
+    return out;
+  }
+  let allSame = true;
+  const out: T[] = new Array(newArr.length);
+  for (let i = 0; i < newArr.length; i++) {
+    const o = oldArr[i];
+    const n = newArr[i];
+    if (o === n || JSON.stringify(o) === JSON.stringify(n)) {
+      out[i] = o;
+    } else {
+      out[i] = n;
+      allSame = false;
+    }
+  }
+  return allSame ? oldArr : out;
+}
+
+function stableObject<T>(oldObj: T | undefined, newObj: T | undefined): T | undefined {
+  if (newObj === undefined) return oldObj;
+  if (oldObj === undefined) return newObj;
+  if (oldObj === newObj) return oldObj;
+  return JSON.stringify(oldObj) === JSON.stringify(newObj) ? oldObj : newObj;
+}
+
 export interface Resources {
   data: number;
   rp: number;
@@ -332,20 +378,23 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
 
   updateFromServer: (data) => {
     set((state) => ({
-      nodes: data.nodes ?? state.nodes,
-      edges: data.edges ?? state.edges,
-      resources: data.resources ?? state.resources,
+      // Arrays: reuse references (per-item) when structurally unchanged
+      nodes: stableArray(state.nodes, data.nodes) ?? state.nodes,
+      edges: stableArray(state.edges, data.edges) ?? state.edges,
+      workers: stableArray(state.workers, data.workers) ?? state.workers,
+      playerInventory: stableArray(state.playerInventory, data.playerInventory) ?? state.playerInventory,
+      playerChips: stableArray(state.playerChips, data.playerChips) ?? state.playerChips,
+      achievements: stableObject(state.achievements, data.achievements) ?? state.achievements,
+      // Objects: reuse reference when structurally unchanged
+      resources: stableObject(state.resources, data.resources) ?? state.resources,
+      questSummary: stableObject(state.questSummary, data.questSummary) ?? state.questSummary,
+      levelSummary: stableObject(state.levelSummary, data.levelSummary) ?? state.levelSummary,
+      layerMeta: stableObject(state.layerMeta, data.layerMeta) ?? state.layerMeta,
+      // Primitives
       flop: data.flop ?? state.flop,
       tick: data.tick ?? state.tick,
       gameOver: data.gameOver ?? state.gameOver,
-      workers: data.workers ?? state.workers,
-      playerInventory: data.playerInventory ?? state.playerInventory,
-      playerChips: data.playerChips ?? state.playerChips,
-      achievements: data.achievements ?? state.achievements,
-      questSummary: data.questSummary ?? state.questSummary,
-      levelSummary: data.levelSummary ?? state.levelSummary,
       activeLayer: data.activeLayer ?? state.activeLayer,
-      layerMeta: data.layerMeta ?? state.layerMeta,
     }));
   },
 }));
