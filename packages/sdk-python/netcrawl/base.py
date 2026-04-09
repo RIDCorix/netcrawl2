@@ -124,7 +124,7 @@ class WorkerClass(metaclass=WorkerMeta):
     _api_url: str = ""
     _current_node: str = "hub"
     _inventory: dict = {}
-    _holding = None   # Drop | None — the 1-slot internal inventory
+    _holding: list = []  # List[Drop] — inventory (capacity = 1 + RAM bonus)
     _client = None  # ApiClient instance
 
     def __init__(self, worker_id: str, api_url: str, injected_fields: dict, api_key: str = ""):
@@ -132,7 +132,7 @@ class WorkerClass(metaclass=WorkerMeta):
         self._api_url = api_url
         self._current_node = "hub"
         self._inventory = {}
-        self._holding = None
+        self._holding: list = []
 
         # Import here to avoid circular imports at module load time
         from netcrawl.client import ApiClient
@@ -270,52 +270,64 @@ class WorkerClass(metaclass=WorkerMeta):
 
     # ── Resource actions ─────────────────────────────────────────────────────
 
-    def collect(self) -> CollectResult:
+    def collect(self, item_id: str = None) -> CollectResult:
         """
-        Pick up a drop from the current node into the 1-slot internal inventory.
+        Pick up drops from the current node into inventory.
 
-        Returns CollectResult with .ok, .item (Drop with .type, .amount)
-        Fails if: slot is full or nothing to collect.
+        - collect() → pick up ALL drops (until inventory full)
+        - collect(item_id) → pick up a specific drop by ID
+
+        Capacity = 1 + RAM bonus. Returns CollectResult.
 
         Example:
-            result = self.collect()
-            if result.ok:
-                print(result.item.type)  # "data_fragment" or "bad_data"
+            result = self.collect()  # grab everything
+            for item in self.holding:
+                if item.type == "bad_data":
+                    self.discard(item.id)
         """
-        data = self._client.action("collect", {})
+        payload = {"itemId": item_id} if item_id else {}
+        data = self._client.action("collect", payload)
         result = CollectResult(**data)
-        if result.ok and result.item:
-            self._holding = result.item
+        if result.ok:
+            # Server returns items collected — rebuild holding from response
+            items = data.get("items", [])
+            for item in items:
+                self._holding.append(Drop(**item) if isinstance(item, dict) else item)
         return result
 
     def deposit(self) -> DepositResult:
         """
-        Deposit the held item at Hub. Bad data subtracts resources!
+        Deposit ALL held items at Hub. Bad data subtracts resources!
 
-        Returns DepositResult with .ok, .deposited (Drop), .penalty, .warning
+        Returns DepositResult with .ok, .deposited (list of Drop)
         """
         data = self._client.action("deposit", {})
         result = DepositResult(**data)
         if result.ok:
-            self._holding = None
+            self._holding = []
             self._inventory = {}
         return result
 
-    def discard(self) -> DiscardResult:
+    def discard(self, item_id: str = None) -> DiscardResult:
         """
-        Discard the currently held item without depositing.
-        Use this to throw away bad_data drops.
+        Discard items without depositing.
 
-        Returns DiscardResult with .ok, .discarded (Drop)
+        - discard() → discard ALL held items
+        - discard(item_id) → discard a specific item by ID
 
         Example:
-            if self.holding and self.holding.type == "bad_data":
-                self.discard()
+            for item in self.holding:
+                if item.type == "bad_data":
+                    self.discard(item.id)
         """
-        data = self._client.action("discard", {})
+        payload = {"itemId": item_id} if item_id else {}
+        data = self._client.action("discard", payload)
         result = DiscardResult(**data)
         if result.ok:
-            self._holding = None
+            if item_id:
+                self._holding = [h for h in self._holding if h.id != item_id]
+            else:
+                self._holding = []
         return result
 
     def has_dropped_items(self) -> bool:
@@ -467,14 +479,21 @@ class WorkerClass(metaclass=WorkerMeta):
     # ── Inventory ─────────────────────────────────────────────────────────────
 
     @property
-    def holding(self) -> Optional[Drop]:
-        """Currently held item in the 1-slot internal inventory. None if empty.
+    def holding(self) -> List[Drop]:
+        """Currently held items. Capacity = 1 + RAM bonus.
 
         Example:
-            if self.holding and self.holding.type == "bad_data":
-                self.discard()
+            for item in self.holding:
+                if item.type == "bad_data":
+                    self.discard(item.id)
         """
         return self._holding
+
+    @property
+    def is_full(self) -> bool:
+        """True if inventory is at capacity."""
+        # Server tracks capacity; client approximates
+        return len(self._holding) >= 1  # conservative default
 
     @property
     def carrying(self) -> dict:

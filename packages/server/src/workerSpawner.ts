@@ -71,7 +71,7 @@ export async function spawnWorker(options: {
     carrying: {},
     pid: null,
     deployed_at: new Date().toISOString(),
-    holding: null,
+    holding: [],
     equippedPickaxe: equippedPickaxe || null,
     equippedCpu: equippedCpu || null,
     equippedRam: equippedRam || null,
@@ -139,7 +139,7 @@ export async function spawnWorker(options: {
       carrying: {},
       pid: child.pid,
       deployed_at: new Date().toISOString(),
-      holding: null,
+      holding: [],
       equippedPickaxe: equippedPickaxe || null,
       equippedCpu: equippedCpu || null,
       equippedRam: equippedRam || null,
@@ -160,9 +160,11 @@ export async function spawnWorker(options: {
       if (w.equippedPickaxe) addToPlayerInventory(w.equippedPickaxe.itemType, 1);
       if (w.equippedCpu) addToPlayerInventory(w.equippedCpu.itemType, w.equippedCpu.count);
       if (w.equippedRam) addToPlayerInventory(w.equippedRam.itemType, w.equippedRam.count);
-      if (w.holding) addToPlayerInventory(w.holding.type, w.holding.amount);
+      for (const drop of (w.holding || [])) {
+        addToPlayerInventory(drop.type, drop.amount);
+      }
       const status = code === 0 ? 'suspended' : 'crashed';
-      upsertWorker({ ...w, status, pid: null, equippedPickaxe: null, equippedCpu: null, equippedRam: null, holding: null });
+      upsertWorker({ ...w, status, pid: null, equippedPickaxe: null, equippedCpu: null, equippedRam: null, holding: [] });
       broadcastFullState();
     }
   });

@@ -301,7 +301,7 @@ router.post('/deploy', async (req: Request, res: Response) => {
     carrying: {},
     pid: null,
     deployed_at: new Date().toISOString(),
-    holding: null,
+    holding: [],
     equippedPickaxe,
     equippedCpu,
     equippedRam,
@@ -376,8 +376,8 @@ router.post('/recall', (req: Request, res: Response) => {
   if (worker.equippedPickaxe) {
     addToPlayerInventory(worker.equippedPickaxe.itemType, 1, undefined, uid);
   }
-  if (worker.holding) {
-    addToPlayerInventory(worker.holding.type, worker.holding.amount, undefined, uid);
+  for (const drop of (worker.holding || [])) {
+    addToPlayerInventory(drop.type, drop.amount, undefined, uid);
   }
 
   // For deploying/suspended/crashed/error workers — just delete, no process to kill
@@ -421,9 +421,11 @@ router.post('/worker/reset', (req: Request, res: Response) => {
     killWorker(workerId);
   }
 
-  // Return held items to player inventory
-  if (worker.holding && worker.holding.type !== 'bad_data') {
-    addToPlayerInventory(worker.holding.type, worker.holding.amount, undefined, uid);
+  // Return held items to player inventory (skip bad_data)
+  for (const drop of (worker.holding || [])) {
+    if (drop.type !== 'bad_data') {
+      addToPlayerInventory(drop.type, drop.amount, undefined, uid);
+    }
   }
 
   // Return equipped items to player inventory
@@ -437,7 +439,7 @@ router.post('/worker/reset', (req: Request, res: Response) => {
     current_node: worker.node_id,
     status: 'deploying',
     pid: null,
-    holding: null,
+    holding: [],
     carrying: {},
     equippedPickaxe: null,
     equippedCpu: null,
@@ -457,7 +459,7 @@ router.post('/worker/reset', (req: Request, res: Response) => {
 
   // Allocate FLOP for the redeploying worker
   if (!allocateFlop(FLOP_COSTS.worker, uid)) {
-    upsertWorker({ ...worker, current_node: worker.node_id, status: 'suspended', pid: null, holding: null, carrying: {} }, uid);
+    upsertWorker({ ...worker, current_node: worker.node_id, status: 'suspended', pid: null, holding: [], carrying: {} }, uid);
     broadcastFullState(uid);
     return res.status(400).json({ ok: false, error: 'Not enough FLOP' });
   }
@@ -498,10 +500,10 @@ router.post('/worker/suspend', (req: Request, res: Response) => {
     if (worker.equippedPickaxe) {
       addToPlayerInventory(worker.equippedPickaxe.itemType, 1, undefined, uid);
     }
-    if (worker.holding) {
-      addToPlayerInventory(worker.holding.type, worker.holding.amount, undefined, uid);
+    for (const drop of (worker.holding || [])) {
+      addToPlayerInventory(drop.type, drop.amount, undefined, uid);
     }
-    upsertWorker({ ...worker, status: 'suspended', pid: null, equippedPickaxe: null, holding: null }, uid);
+    upsertWorker({ ...worker, status: 'suspended', pid: null, equippedPickaxe: null, holding: [] }, uid);
   }
 
   broadcastFullState(uid);
@@ -521,10 +523,10 @@ router.post('/worker/suspend-all', (req: Request, res: Response) => {
       if (worker.equippedPickaxe) {
         addToPlayerInventory(worker.equippedPickaxe.itemType, 1, undefined, uid);
       }
-      if (worker.holding) {
-        addToPlayerInventory(worker.holding.type, worker.holding.amount, undefined, uid);
+      for (const drop of (worker.holding || [])) {
+        addToPlayerInventory(drop.type, drop.amount, undefined, uid);
       }
-      upsertWorker({ ...worker, status: 'suspended', pid: null, equippedPickaxe: null, holding: null }, uid);
+      upsertWorker({ ...worker, status: 'suspended', pid: null, equippedPickaxe: null, holding: [] }, uid);
     }
   }
 

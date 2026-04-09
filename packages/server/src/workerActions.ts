@@ -111,10 +111,10 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
     if (w.equippedPickaxe) {
       addToPlayerInventory(w.equippedPickaxe.itemType, 1, undefined, uid);
     }
-    if (w.holding) {
-      addToPlayerInventory(w.holding.type, w.holding.amount, undefined, uid);
+    for (const drop of (w.holding || [])) {
+      addToPlayerInventory(drop.type, drop.amount, undefined, uid);
     }
-    upsertWorker({ ...w, status: 'error', pid: null, equippedPickaxe: null, holding: null }, uid);
+    upsertWorker({ ...w, status: 'error', pid: null, equippedPickaxe: null, holding: [] }, uid);
     broadcastFullState(uid);
     return { ok: true };
   }
@@ -318,8 +318,9 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
     }
 
     case 'collect': {
-      if (worker.holding !== null) {
-        return { ok: false, error: 'slot_full', reason: 'slot_full' };
+      const capacity = 1 + (worker.equippedRam?.capacityBonus || 0);
+      if ((worker.holding || []).length >= capacity) {
+        return { ok: false, error: 'inventory_full', reason: 'inventory_full' };
       }
       const currentNode = worker.current_node || worker.node_id;
       const nodeIdx = nodes.findIndex((n: any) => n.id === currentNode);
@@ -338,19 +339,37 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const freshDrops = freshNode && Array.isArray(freshNode.data.drops) ? [...freshNode.data.drops] : [];
       if (freshDrops.length === 0) return { ok: false, error: 'nothing_here', reason: 'nothing_here' };
 
-      const [pickedUp, ...remainingDrops] = freshDrops;
+      const w4 = getWorker(workerId, uid);
+      const currentHolding = w4?.holding || [];
+      const spaceLeft = capacity - currentHolding.length;
+      if (spaceLeft <= 0) return { ok: false, error: 'inventory_full', reason: 'inventory_full' };
+
+      const collected: any[] = [];
+      const remaining = [...freshDrops];
+
+      if (payload.itemId) {
+        // Pick up specific item
+        const idx = remaining.findIndex((d: any) => d.id === payload.itemId);
+        if (idx === -1) return { ok: false, error: 'item_not_found' };
+        collected.push(remaining.splice(idx, 1)[0]);
+      } else {
+        // Pick up all until full
+        while (remaining.length > 0 && collected.length < spaceLeft) {
+          collected.push(remaining.shift()!);
+        }
+      }
+
       const newNodes2 = freshState2.nodes.map((n: any) => {
         if (n.id === currentNode) {
-          return { ...n, data: { ...n.data, drops: remainingDrops } };
+          return { ...n, data: { ...n.data, drops: remaining } };
         }
         return n;
       });
 
-      const w4 = getWorker(workerId, uid);
-      if (w4) upsertWorker({ ...w4, holding: pickedUp }, uid);
+      if (w4) upsertWorker({ ...w4, holding: [...currentHolding, ...collected] }, uid);
       saveGameState({ ...freshState2, nodes: newNodes2 }, uid);
       broadcastFullState(uid);
-      return { ok: true, item: pickedUp };
+      return { ok: true, items: collected, holdingCount: currentHolding.length + collected.length, capacity };
     }
 
     case 'deposit': {
@@ -363,46 +382,47 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const w5 = getWorker(workerId, uid);
       if (!w5) return { ok: false, error: 'Worker not found' };
 
-      // New-style: deposit held drop → convert to resources
-      if (w5.holding !== null) {
-        const held = w5.holding;
+      // New-style: deposit held drops → convert to resources
+      const held = w5.holding || [];
+      if (held.length > 0) {
         const freshState = getGameState(uid);
         const newResources = { ...freshState.resources } as Record<string, number>;
 
-        if (held.type === 'bad_data') {
-          // Bad data SUBTRACTS resources as a penalty
-          const penalty = held.amount;
-          newResources['data'] = Math.max(0, (newResources['data'] || 0) - penalty);
-          saveGameState({ ...freshState, resources: newResources as any }, uid);
-          upsertWorker({ ...w5, holding: null, carrying: {}, status: 'running' }, uid);
-          broadcastFullState(uid);
-          incrementStat('total_bad_data_deposited', penalty, uid);
-          incrementStat('total_deposits', 1, uid);
-          checkAchievements(uid);
-          checkQuests(uid);
-          return { ok: true, deposited: held, penalty, warning: `Bad data! Lost ${penalty} data.` };
-        }
-
+        let totalData = 0, totalRp = 0, penalty = 0;
         const dropToResource: Record<string, string> = {
           data_fragment: 'data',
           rp_shard: 'rp',
         };
-        const resourceKey = dropToResource[held.type];
-        if (resourceKey) {
-          newResources[resourceKey] = (newResources[resourceKey] || 0) + held.amount;
-          saveGameState({ ...freshState, resources: newResources as any }, uid);
+
+        for (const item of held) {
+          if (item.type === 'bad_data') {
+            penalty += item.amount;
+            incrementStat('total_bad_data_deposited', item.amount, uid);
+          } else {
+            const resourceKey = dropToResource[item.type];
+            if (resourceKey === 'data') {
+              totalData += item.amount;
+            } else if (resourceKey === 'rp') {
+              totalRp += item.amount;
+            }
+            if (resourceKey) {
+              incrementStat(`total_${resourceKey}_deposited`, item.amount, uid);
+            }
+          }
         }
-        upsertWorker({ ...w5, holding: null, carrying: {}, status: 'running' }, uid);
+
+        newResources['data'] = Math.max(0, (newResources['data'] || 0) + totalData - penalty);
+        if (totalRp > 0) newResources['rp'] = (newResources['rp'] || 0) + totalRp;
+
+        saveGameState({ ...freshState, resources: newResources as any }, uid);
+        upsertWorker({ ...w5, holding: [], carrying: {}, status: 'running' }, uid);
         broadcastFullState(uid);
-        if (resourceKey) {
-          incrementStat(`total_${resourceKey}_deposited`, held.amount, uid);
-          incrementStat('total_deposits', 1, uid);
-          awardXp(XP_REWARDS.deposit_resources, uid);
-          grantNodeXp('hub', 'deposit', uid);
-        }
+        incrementStat('total_deposits', 1, uid);
+        awardXp(XP_REWARDS.deposit_resources, uid);
+        grantNodeXp('hub', 'deposit', uid);
         checkAchievements(uid);
         checkQuests(uid);
-        return { ok: true, deposited: held };
+        return { ok: true, deposited: held, totalData, penalty };
       }
 
       // Backward compat: deposit carrying
@@ -794,19 +814,37 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
     // ── Discard & drop check ────────────────────────────────────────────────
 
     case 'discard': {
-      // Discard the currently held item without depositing
+      // Discard held items without depositing
       const w6 = getWorker(workerId, uid);
-      if (!w6 || w6.holding === null) {
+      if (!w6 || (w6.holding || []).length === 0) {
         return { ok: false, error: 'Nothing to discard', reason: 'nothing_held' };
       }
-      const discarded = w6.holding;
-      upsertWorker({ ...w6, holding: null }, uid);
-      broadcastFullState(uid);
-      if (discarded.type === 'bad_data') {
-        incrementStat('total_bad_data_discarded', 1, uid);
+
+      if (payload.itemId) {
+        // Discard specific item
+        const idx = (w6.holding || []).findIndex((d: any) => d.id === payload.itemId);
+        if (idx === -1) return { ok: false, error: 'Item not found', reason: 'item_not_found' };
+        const discarded = w6.holding[idx];
+        upsertWorker({ ...w6, holding: w6.holding.filter((_: any, i: number) => i !== idx) }, uid);
+        broadcastFullState(uid);
+        if (discarded.type === 'bad_data') {
+          incrementStat('total_bad_data_discarded', 1, uid);
+          checkQuests(uid);
+        }
+        return { ok: true, discarded };
+      } else {
+        // Discard all
+        const discarded = w6.holding;
+        for (const item of discarded) {
+          if (item.type === 'bad_data') {
+            incrementStat('total_bad_data_discarded', 1, uid);
+          }
+        }
+        upsertWorker({ ...w6, holding: [] }, uid);
+        broadcastFullState(uid);
         checkQuests(uid);
+        return { ok: true, discarded };
       }
-      return { ok: true, discarded };
     }
 
     case 'has_dropped_items': {

@@ -63,7 +63,8 @@ function WorkerDotsRow({ workers, show }: { workers: any[]; show: boolean }) {
         const isSelected = w.id === selectedWorkerId;
         const isLeaving = w.leaving;
         const isEntering = enteringIds.has(w.id);
-        const showAction = !isLeaving && !isEntering && (w.status === 'harvesting' || w.holding);
+        const hasHolding = Array.isArray(w.holding) ? w.holding.length > 0 : !!w.holding;
+        const showAction = !isLeaving && !isEntering && (w.status === 'harvesting' || hasHolding);
         // Show bubble if lastLog exists and is recent (< 2 seconds)
         const showBubble = w.lastLog && !isLeaving && (Date.now() - (w.lastLog.ts || 0) < 2000);
 

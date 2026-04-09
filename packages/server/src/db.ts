@@ -157,7 +157,7 @@ export interface WorkerRow {
   carrying: Partial<Resources>;
   pid: number | null;
   deployed_at: string;
-  holding: Drop | null;
+  holding: Drop[];
   equippedPickaxe: { itemType: string; efficiency: number } | null;
   equippedCpu: { itemType: string; computePoints: number; count: number } | null;
   equippedRam: { itemType: string; capacityBonus: number; count: number } | null;
@@ -602,7 +602,7 @@ function _loadStore() {
       );
       // Migrate workers to add holding/equippedPickaxe/equippedCpu/equippedRam
       for (const w of Object.values(store.workers)) {
-        if (w.holding === undefined) (w as any).holding = null;
+        if (w.holding === undefined || w.holding === null) (w as any).holding = [];
         if (w.equippedPickaxe === undefined) (w as any).equippedPickaxe = null;
         if (w.equippedCpu === undefined) (w as any).equippedCpu = null;
         if (w.equippedRam === undefined) (w as any).equippedRam = null;
@@ -619,17 +619,18 @@ function _loadStore() {
           }
           if (w.equippedCpu) addToPlayerInventory(w.equippedCpu.itemType, w.equippedCpu.count || 1);
           if (w.equippedRam) addToPlayerInventory(w.equippedRam.itemType, w.equippedRam.count || 1);
-          if (w.holding) {
+          const held = w.holding || [];
+          for (const drop of held) {
             const inv = store.game_state.playerInventory || [];
-            const existing = inv.find((i: any) => i.itemType === w.holding!.type);
-            if (existing) existing.count += (w.holding as any).amount || 1;
+            const existing = inv.find((i: any) => i.itemType === drop.type);
+            if (existing) existing.count += (drop as any).amount || 1;
           }
           w.status = 'suspended';
           w.pid = null;
           (w as any).equippedPickaxe = null;
           (w as any).equippedCpu = null;
           (w as any).equippedRam = null;
-          (w as any).holding = null;
+          (w as any).holding = [];
           console.log(`[initDb] Cleaned up stale worker ${w.id} (was ${w.status})`);
         }
       }
@@ -937,7 +938,7 @@ export function resetAllWorkers(userId?: string): void {
       current_node: w.node_id,
       status: 'suspended',
       pid: null,
-      holding: null,
+      holding: [],
       carrying: {},
     };
   }

@@ -23,24 +23,30 @@ class Drop(BaseModel):
 class CollectResult(BaseModel):
     """Result of collect() action."""
     ok: bool = False
-    item: Optional[Drop] = None
+    items: list[Drop] = Field(default_factory=list)
+    holding_count: int = Field(0, alias='holdingCount')
+    capacity: int = 1
     error: Optional[str] = None
     reason: Optional[str] = None
+
+    model_config = {'populate_by_name': True}
 
 
 class DepositResult(BaseModel):
     """Result of deposit() action."""
     ok: bool = False
-    deposited: Optional[Drop] = None
-    penalty: Optional[int] = None
-    warning: Optional[str] = None
+    deposited: list[Drop] = Field(default_factory=list)
+    total_data: int = Field(0, alias='totalData')
+    penalty: int = 0
     error: Optional[str] = None
+
+    model_config = {'populate_by_name': True}
 
 
 class DiscardResult(BaseModel):
     """Result of discard() action."""
     ok: bool = False
-    discarded: Optional[Drop] = None
+    discarded: Any = None  # Drop or list[Drop]
     error: Optional[str] = None
 
 
