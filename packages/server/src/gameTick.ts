@@ -88,7 +88,7 @@ function tickUser(userId?: string) {
 
   // Bad data accumulation → infection
   // If a node has 10+ bad_data items on the floor, it absorbs them and becomes infected
-  const BAD_DATA_INFECTION_THRESHOLD = 10;
+  const BAD_DATA_INFECTION_THRESHOLD = 10000;
   nodes = nodes.map((n: any) => {
     if (n.data.infected || n.type === 'infected' || !n.data.unlocked) return n;
     const items: any[] = Array.isArray(n.data.items) ? n.data.items : [];
