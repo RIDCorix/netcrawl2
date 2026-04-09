@@ -9,9 +9,25 @@ import time
 from typing import Optional, List
 from netcrawl.fields import WorkerField, ItemField
 from netcrawl.models import (
-    Item, CollectResult, DepositResult, DiscardResult, MoveResult,
+    Item, DataFragment, RpShard, BadData,
+    CollectResult, DepositResult, DiscardResult, MoveResult,
     ScannedNode, EdgeInfo, NodeInfo, APIRequestModel, TokenValidation,
 )
+
+
+def _resolve_item_type(item_type) -> str | None:
+    """Resolve item_type argument: accepts Item subclass, string, or None."""
+    if item_type is None:
+        return None
+    if isinstance(item_type, str):
+        return item_type
+    if isinstance(item_type, type) and issubclass(item_type, Item):
+        # Class passed (e.g. BadData) — instantiate to get default type
+        return item_type().type
+    if isinstance(item_type, Item):
+        # Instance passed
+        return item_type.type
+    return str(item_type)
 
 
 class APIRequest:
@@ -307,46 +323,71 @@ class WorkerClass(metaclass=WorkerMeta):
             self._inventory = {}
         return result
 
-    def discard(self, item_type: str = None) -> DiscardResult:
+    def discard(self, item_type=None, count: int = None) -> DiscardResult:
         """
         Discard items without depositing.
 
         - discard() → discard ALL held items
-        - discard(item_type) → discard a specific type's stack
+        - discard(BadData) → discard all bad_data (accepts class or string)
+        - discard(BadData, 5) → discard 5 bad_data items
 
         Example:
+            from netcrawl import BadData
             for item in self.holding:
-                if item.type == "bad_data":
-                    self.discard("bad_data")
+                if isinstance(item, BadData):
+                    self.discard(BadData)
         """
-        payload = {"itemType": item_type} if item_type else {}
+        type_str = _resolve_item_type(item_type)
+        payload = {}
+        if type_str:
+            payload["itemType"] = type_str
+        if count is not None:
+            payload["count"] = count
         data = self._client.action("discard", payload)
         result = DiscardResult(**data)
         if result.ok:
-            if item_type:
-                self._holding = [h for h in self._holding if h.type != item_type]
+            if type_str:
+                if count is not None:
+                    for h in self._holding:
+                        if h.type == type_str:
+                            h.count = max(0, h.count - count)
+                    self._holding = [h for h in self._holding if h.count > 0]
+                else:
+                    self._holding = [h for h in self._holding if h.type != type_str]
             else:
                 self._holding = []
         return result
 
-    def drop(self, item_type: str = None):
+    def drop(self, item_type=None, count: int = None):
         """
         Drop held items onto the current node's floor.
         Other workers at this node can collect() them.
 
         - drop() → drop ALL held items
-        - drop(item_type) → drop a specific type's stack
+        - drop(DataFragment) → drop all data_fragment
+        - drop(DataFragment, 10) → drop 10 data_fragment
 
         Example:
-            self.collect()          # pick up from mine
-            self.move(self.route)   # walk to relay
-            self.drop()             # leave items at relay for another worker
+            self.collect()
+            self.move(self.route)
+            self.drop()  # leave items for another worker
         """
-        payload = {"itemType": item_type} if item_type else {}
+        type_str = _resolve_item_type(item_type)
+        payload = {}
+        if type_str:
+            payload["itemType"] = type_str
+        if count is not None:
+            payload["count"] = count
         data = self._client.action("drop", payload)
         if data.get("ok"):
-            if item_type:
-                self._holding = [h for h in self._holding if h.type != item_type]
+            if type_str:
+                if count is not None:
+                    for h in self._holding:
+                        if h.type == type_str:
+                            h.count = max(0, h.count - count)
+                    self._holding = [h for h in self._holding if h.count > 0]
+                else:
+                    self._holding = [h for h in self._holding if h.type != type_str]
             else:
                 self._holding = []
         return data

@@ -19,7 +19,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useGameStore, GameNode, GameEdge, Worker } from '../store/gameStore';
-import React, { useEffect, useCallback, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useCallback, useMemo, useRef } from 'react';
 import { useT } from '../hooks/useT';
 import { Database, Shield, Lock, AlertTriangle, Pickaxe, Package, Cpu, Box, HardDrive, Globe, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -869,80 +869,68 @@ function toRFEdges(gameEdges: GameEdge[], edgeSelectMode: boolean, gameNodes: Ga
 
 /** Must be rendered inside <ReactFlow> so useReactFlow() works. */
 function ErrorOffscreenIndicators({ workers, gameNodes }: { workers: Worker[]; gameNodes: GameNode[] }) {
-  const { setCenter } = useReactFlow();
+  const reactFlow = useReactFlow();
   const viewport = useViewport();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [indicators, setIndicators] = useState<Array<{
-    workerId: string; nodeId: string; x: number; y: number; angle: number; label: string;
-  }>>([]);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const container = containerRef.current?.closest('.react-flow') as HTMLElement | null;
-    if (!container) return;
+  // Compute indicators on every render (viewport changes frequently)
+  const errorWorkers = workers.filter(w => w.status === 'error' || w.status === 'crashed');
 
-    const errorWorkers = workers.filter(w => w.status === 'error' || w.status === 'crashed');
-    if (errorWorkers.length === 0) { setIndicators([]); return; }
-
-    const rect = container.getBoundingClientRect();
+  const indicators = useMemo(() => {
+    if (errorWorkers.length === 0) return [];
+    // Get the wrapper size from the ref, or fallback to window
+    const el = wrapperRef.current?.closest('.react-flow') as HTMLElement | null;
+    const width = el?.clientWidth || window.innerWidth;
+    const height = el?.clientHeight || window.innerHeight;
     const { x: vx, y: vy, zoom } = viewport;
-    const margin = 40; // px from edge
+    const margin = 40;
 
-    const newIndicators: typeof indicators = [];
+    const result: Array<{ workerId: string; nodeId: string; x: number; y: number; angle: number; label: string }> = [];
 
     for (const w of errorWorkers) {
       const nodeId = w.current_node || w.node_id;
       const gn = gameNodes.find(n => n.id === nodeId);
       if (!gn) continue;
 
-      // Convert flow coords to screen coords
       const screenX = gn.position.x * zoom + vx;
       const screenY = gn.position.y * zoom + vy;
 
-      // Check if off-screen
-      const isOffscreen = screenX < -20 || screenX > rect.width + 20 || screenY < -20 || screenY > rect.height + 20;
+      const isOffscreen = screenX < -20 || screenX > width + 20 || screenY < -20 || screenY > height + 20;
       if (!isOffscreen) continue;
 
-      // Clamp to edge of viewport
-      const cx = rect.width / 2;
-      const cy = rect.height / 2;
+      const cx = width / 2;
+      const cy = height / 2;
       const dx = screenX - cx;
       const dy = screenY - cy;
       const angle = Math.atan2(dy, dx);
 
-      // Find intersection with viewport edge
       const absCos = Math.abs(Math.cos(angle));
       const absSin = Math.abs(Math.sin(angle));
       let ix: number, iy: number;
-      if (absCos * rect.height > absSin * rect.width) {
-        // Intersects left or right edge
-        ix = Math.sign(Math.cos(angle)) > 0 ? rect.width - margin : margin;
+      if (absCos * height > absSin * width) {
+        ix = Math.cos(angle) > 0 ? width - margin : margin;
         iy = cy + Math.tan(angle) * (ix - cx);
       } else {
-        // Intersects top or bottom edge
-        iy = Math.sign(Math.sin(angle)) > 0 ? rect.height - margin : margin;
+        iy = Math.sin(angle) > 0 ? height - margin : margin;
         ix = cx + (iy - cy) / Math.tan(angle);
       }
-      // Clamp within bounds
-      ix = Math.max(margin, Math.min(rect.width - margin, ix));
-      iy = Math.max(margin, Math.min(rect.height - margin, iy));
+      ix = Math.max(margin, Math.min(width - margin, ix));
+      iy = Math.max(margin, Math.min(height - margin, iy));
 
       const msg = w.lastLog ? w.lastLog.message?.replace(/^\[(ERROR)\]\s*/i, '') || 'Error' : 'Error';
-      newIndicators.push({ workerId: w.id, nodeId, x: ix, y: iy, angle: angle * (180 / Math.PI), label: msg });
+      result.push({ workerId: w.id, nodeId, x: ix, y: iy, angle: angle * (180 / Math.PI), label: msg });
     }
-
-    setIndicators(newIndicators);
-  }, [workers, gameNodes, viewport]);
-
-  if (indicators.length === 0) return <div ref={containerRef} />;
+    return result;
+  }, [errorWorkers.map(w => w.id).join(','), gameNodes, viewport]);
 
   return (
-    <div ref={containerRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 50 }}>
+    <div ref={wrapperRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 50 }}>
       {indicators.map(ind => (
         <div
           key={ind.workerId}
           onClick={() => {
             const gn = gameNodes.find(n => n.id === ind.nodeId);
-            if (gn) setCenter(gn.position.x, gn.position.y, { duration: 400, zoom: 1.2 });
+            if (gn) reactFlow.setCenter(gn.position.x, gn.position.y, { duration: 400, zoom: 1.2 });
           }}
           style={{
             position: 'absolute',
@@ -958,11 +946,9 @@ function ErrorOffscreenIndicators({ workers, gameNodes }: { workers: Worker[]; g
           }}
           title={`Error: ${ind.label} — click to jump`}
         >
-          {/* Arrow triangle pointing toward the error */}
           <svg width={20} height={20} style={{ transform: `rotate(${ind.angle}deg)`, filter: 'drop-shadow(0 0 4px rgba(239,68,68,0.6))' }}>
             <polygon points="18,10 2,3 2,17" fill="#ef4444" />
           </svg>
-          {/* Label */}
           <span style={{
             fontSize: 8,
             fontFamily: 'var(--font-mono)',

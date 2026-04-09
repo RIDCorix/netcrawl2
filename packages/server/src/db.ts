@@ -117,12 +117,21 @@ export interface Item {
 
 export const MAX_STACK_SIZE = 64;
 
-/** Merge two lists of item stacks, combining counts for matching types. */
+/** Merge two lists of item stacks, combining counts for matching types. Respects MAX_STACK_SIZE. */
 export function mergeItemStacks(a: Item[], b: Item[]): Item[] {
   const map = new Map<string, number>();
   for (const item of a) map.set(item.type, (map.get(item.type) || 0) + item.count);
   for (const item of b) map.set(item.type, (map.get(item.type) || 0) + item.count);
-  return Array.from(map.entries()).map(([type, count]) => ({ type, count } as Item));
+  const result: Item[] = [];
+  for (const [type, total] of map.entries()) {
+    let remaining = total;
+    while (remaining > 0) {
+      const stackCount = Math.min(remaining, MAX_STACK_SIZE);
+      result.push({ type, count: stackCount } as Item);
+      remaining -= stackCount;
+    }
+  }
+  return result;
 }
 
 // === Player Inventory ===

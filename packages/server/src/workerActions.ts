@@ -840,21 +840,36 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
     // ── Discard & item check ────────────────────────────────────────────────
 
     case 'discard': {
-      // Discard held items without depositing
+      // Discard held items. Options:
+      //   discard()                    — discard all
+      //   discard(itemType)            — discard entire stack of that type
+      //   discard(itemType, count)     — discard N items of that type
       const w6 = getWorker(workerId, uid);
       if (!w6 || (w6.holding || []).length === 0) {
         return { ok: false, error: 'Nothing to discard', reason: 'nothing_held' };
       }
 
       if (payload.itemType) {
-        // Discard specific type's stack
-        const idx = (w6.holding || []).findIndex((d: any) => d.type === payload.itemType);
+        const holding = [...(w6.holding || [])];
+        const idx = holding.findIndex((d: any) => d.type === payload.itemType);
         if (idx === -1) return { ok: false, error: 'Item type not found', reason: 'item_not_found' };
-        const discarded = w6.holding[idx];
-        upsertWorker({ ...w6, holding: w6.holding.filter((_: any, i: number) => i !== idx) }, uid);
+
+        const stack = holding[idx];
+        const discardCount = payload.count ? Math.min(payload.count, stack.count) : stack.count;
+        const discarded = { type: stack.type, count: discardCount };
+
+        if (discardCount >= stack.count) {
+          // Remove entire stack
+          holding.splice(idx, 1);
+        } else {
+          // Reduce stack count
+          holding[idx] = { ...stack, count: stack.count - discardCount };
+        }
+
+        upsertWorker({ ...w6, holding }, uid);
         broadcastFullState(uid);
         if (discarded.type === 'bad_data') {
-          incrementStat('total_bad_data_discarded', discarded.count, uid);
+          incrementStat('total_bad_data_discarded', discardCount, uid);
           checkQuests(uid);
         }
         return { ok: true, discarded };
@@ -885,13 +900,21 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       if (!dropNode) return { ok: false, error: 'Node not found' };
 
       let dropped: Item[];
+      const holding = [...(w7.holding || [])];
       if (payload.itemType) {
-        const idx = (w7.holding || []).findIndex((d: any) => d.type === payload.itemType);
+        const idx = holding.findIndex((d: any) => d.type === payload.itemType);
         if (idx === -1) return { ok: false, error: 'Item type not found' };
-        dropped = [w7.holding[idx]];
-        upsertWorker({ ...w7, holding: w7.holding.filter((_: any, i: number) => i !== idx) }, uid);
+        const stack = holding[idx];
+        const dropCount = payload.count ? Math.min(payload.count, stack.count) : stack.count;
+        dropped = [{ type: stack.type, count: dropCount }];
+        if (dropCount >= stack.count) {
+          holding.splice(idx, 1);
+        } else {
+          holding[idx] = { ...stack, count: stack.count - dropCount };
+        }
+        upsertWorker({ ...w7, holding }, uid);
       } else {
-        dropped = [...(w7.holding || [])];
+        dropped = [...holding];
         upsertWorker({ ...w7, holding: [] }, uid);
       }
 
