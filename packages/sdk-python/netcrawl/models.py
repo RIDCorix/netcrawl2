@@ -13,9 +13,41 @@ from typing import Optional, Any
 # ── Item (stacked, Minecraft-style) ─────────────────────────────────────────
 
 class Item(BaseModel):
-    """An item stack. Can be data_fragment, rp_shard, or bad_data."""
-    type: str          # 'data_fragment' | 'rp_shard' | 'bad_data'
+    """An item stack. Use isinstance() to check type."""
+    type: str
     count: int = 1
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'Item':
+        """Create the correct subclass based on type."""
+        t = data.get('type', '')
+        sub = _ITEM_TYPE_MAP.get(t, cls)
+        return sub(**data)
+
+
+class DataFragment(Item):
+    """Good data — deposit at Hub for data resources."""
+    type: str = 'data_fragment'
+
+
+class RpShard(Item):
+    """Research points shard — deposit at Hub for RP."""
+    type: str = 'rp_shard'
+
+
+class BadData(Item):
+    """Corrupted data — depositing this SUBTRACTS resources! Discard it."""
+    type: str = 'bad_data'
+
+
+_ITEM_TYPE_MAP: dict[str, type[Item]] = {
+    'data_fragment': DataFragment,
+    'rp_shard': RpShard,
+    'bad_data': BadData,
+}
 
 
 # ── Action results ──────────────────────────────────────────────────────────

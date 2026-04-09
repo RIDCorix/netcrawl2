@@ -289,9 +289,9 @@ class WorkerClass(metaclass=WorkerMeta):
         data = self._client.action("collect", payload)
         result = CollectResult(**data)
         if result.ok:
-            # Server returns full holding state after merge
+            # Server returns full holding state after merge — create typed subclasses
             items = data.get("items", [])
-            self._holding = [Item(**item) if isinstance(item, dict) else item for item in items]
+            self._holding = [Item.from_dict(item) if isinstance(item, dict) else item for item in items]
         return result
 
     def deposit(self) -> DepositResult:
