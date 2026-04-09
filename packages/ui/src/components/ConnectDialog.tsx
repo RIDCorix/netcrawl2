@@ -1,9 +1,9 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Copy, Check, Terminal, Globe, Loader } from 'lucide-react';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useT } from '../hooks/useT';
-import { SERVER_URL, WS_URL, apiFetch } from '../lib/api';
+import { SERVER_URL, WS_URL } from '../lib/api';
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -75,22 +75,10 @@ function SyntaxBlock({ lang, code, copyText }: { lang: string; code: React.React
 const P = ({ children }: { children: string }) => <span style={{ color: '#c9d1d9' }}>{children}</span>;
 
 export function ConnectDialog() {
-  const { connectOpen, toggleConnect } = useGameStore();
+  const { connectOpen, toggleConnect, workerClasses, codeServerConnected: storeCodeServerConnected } = useGameStore();
   const t = useT();
-  const [codeServerConnected, setCodeServerConnected] = useState(false);
-
-  useEffect(() => {
-    if (!connectOpen) return;
-    let alive = true;
-    const check = () => {
-      apiFetch('/api/worker-classes').then(r => r.json()).then(data => {
-        if (alive) setCodeServerConnected(Array.isArray(data?.classes) && data.classes.length > 0);
-      }).catch(() => {});
-    };
-    check();
-    const interval = setInterval(check, 3000);
-    return () => { alive = false; clearInterval(interval); };
-  }, [connectOpen]);
+  // Derived from WS-pushed state — no polling.
+  const codeServerConnected = storeCodeServerConnected || workerClasses.length > 0;
 
   const serverUrl = SERVER_URL;
   const isCloud = !!import.meta.env.VITE_API_URL;

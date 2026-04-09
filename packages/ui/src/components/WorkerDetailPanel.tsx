@@ -11,10 +11,9 @@ import { getStatusConfig } from '../constants/status';
 import { useT } from '../hooks/useT';
 
 export function WorkerDetailPanel() {
-  const { selectedWorkerId, selectWorker, workers, nodes } = useGameStore();
+  const { selectedWorkerId, selectWorker, workers, nodes, workerLogs, setWorkerLogs } = useGameStore();
   const t = useT();
   const tn = (label: string) => { const k = `n.${label}`; const v = t(k); return v === k ? label : v; };
-  const [logs, setLogs] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
   const [logDialogOpen, setLogDialogOpen] = useState(false);
 
@@ -23,17 +22,23 @@ export function WorkerDetailPanel() {
   const status = worker ? getStatusConfig(worker.status) : getStatusConfig('idle');
   const classColor = worker ? (CLASS_COLORS[worker.class_name] || '#a78bfa') : '#a78bfa';
 
-  // Fetch logs when worker changes
+  // Logs come from the store — pushed via WebSocket WORKER_LOG messages.
+  // We only hit /logs ONCE per worker selection to backfill history, then rely on WS.
+  const logs = selectedWorkerId ? (workerLogs[selectedWorkerId] || []) : [];
+
   useEffect(() => {
     if (!selectedWorkerId) return;
-    const fetchLogs = () => {
-      axios.get(`/api/worker/${selectedWorkerId}/logs`)
-        .then(r => setLogs(r.data.logs || []))
-        .catch(() => {});
-    };
-    fetchLogs();
-    const interval = setInterval(fetchLogs, 3000);
-    return () => clearInterval(interval);
+    // Only fetch if we don't already have logs cached (avoids re-fetching every time
+    // the user re-selects the same worker).
+    if ((workerLogs[selectedWorkerId] || []).length > 0) return;
+    axios.get(`/api/worker/${selectedWorkerId}/logs`)
+      .then(r => {
+        // Server returns newest-first; store newest-last so appends are trivial.
+        const history = (r.data.logs || []).slice().reverse();
+        setWorkerLogs(selectedWorkerId, history);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedWorkerId]);
 
   const handleSuspend = async () => {

@@ -44,9 +44,15 @@ export function useGameState() {
         } else if (msg.type === 'LAYER_UNLOCKED') {
           useGameStore.getState().addLayerUnlockToast(msg.payload);
         } else if (msg.type === 'WORKER_LOG') {
-          // Lightweight: update just the worker's lastLog for speech bubble.
-          // Skip debug logs — they should only appear in the log panel, not the bubble.
+          // Push the log into the per-worker log store (used by log panels — no HTTP polling).
           const { workerId, message, level, ts } = msg.payload;
+          useGameStore.getState().appendWorkerLog(workerId, {
+            message,
+            level,
+            created_at: new Date(ts || Date.now()).toISOString(),
+          });
+          // Update the worker's lastLog for the speech bubble.
+          // Skip debug logs — they should only appear in the log panel, not the bubble.
           if (level !== 'debug') {
             const state = useGameStore.getState();
             const workers = state.workers.map((w: any) =>

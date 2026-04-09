@@ -100,7 +100,9 @@ router.get('/state', (req: Request, res: Response) => {
   const state = getGameState(uid);
   const { nodes, edges } = getVisibleState(2, uid);
   const workers = getWorkers(uid);
-  res.json({ ...state, nodes, edges, workers });
+  const workerClasses = getAllWorkerClasses(uid);
+  const codeServerConnected = isCodeServerConnected(uid);
+  res.json({ ...state, nodes, edges, workers, workerClasses, codeServerConnected });
 });
 
 // POST /api/gather

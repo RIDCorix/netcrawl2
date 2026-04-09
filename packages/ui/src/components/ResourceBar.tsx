@@ -165,35 +165,26 @@ function ResourceItem({ icon: Icon, value, label, color, prevValue, formatFn, to
 }
 
 export function ResourceBar() {
-  const { resources, flop, tick, connected, gameOver, inventoryOpen, toggleInventory, playerInventory, achievements, toggleAchievements, questSummary, toggleQuests, toggleSettings, toggleDocs, toggleConnect, levelSummary, toggleLevel, activeLayer, layerMeta, openLayerSelect } = useGameStore();
+  const { resources, flop, tick, connected, gameOver, inventoryOpen, toggleInventory, playerInventory, achievements, toggleAchievements, questSummary, toggleQuests, toggleSettings, toggleDocs, toggleConnect, levelSummary, toggleLevel, activeLayer, layerMeta, openLayerSelect, workerClasses, codeServerConnected } = useGameStore();
   const totalItems = playerInventory.reduce((sum, i) => sum + i.count, 0);
   const prevRef = useRef(resources);
   const [prev, setPrev] = useState(resources);
-  const [codeServerUp, setCodeServerUp] = useState(false);
   const t = useT();
 
-  // Poll code server registration status + refetch state on reconnect
-  const prevCodeServerUp = useRef(false);
+  // Code server "up" is derived from the store — pushed via WebSocket (no polling)
+  const codeServerUp = codeServerConnected || workerClasses.length > 0;
+
+  // When code server transitions from down → up, refetch full state once
+  // (workers may have been auto-resumed server-side).
+  const prevCodeServerUp = useRef(codeServerUp);
   useEffect(() => {
-    const check = () => {
-      apiFetch('/api/worker-classes').then(r => r.json())
-        .then(data => {
-          const up = Array.isArray(data?.classes) && data.classes.length > 0;
-          setCodeServerUp(up);
-          // When code server reconnects, refetch full state (workers may have been auto-resumed)
-          if (up && !prevCodeServerUp.current) {
-            apiFetch('/api/state').then(r => r.json())
-              .then(state => useGameStore.getState().updateFromServer(state))
-              .catch(() => {});
-          }
-          prevCodeServerUp.current = up;
-        })
-        .catch(() => setCodeServerUp(false));
-    };
-    check();
-    const interval = setInterval(check, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    if (codeServerUp && !prevCodeServerUp.current) {
+      apiFetch('/api/state').then(r => r.json())
+        .then(state => useGameStore.getState().updateFromServer(state))
+        .catch(() => {});
+    }
+    prevCodeServerUp.current = codeServerUp;
+  }, [codeServerUp]);
 
   useEffect(() => {
     setPrev(prevRef.current);

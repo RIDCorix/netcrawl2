@@ -252,6 +252,11 @@ export interface GameState {
   layerMeta: LayerMeta[];
   layerSelectOpen: boolean;
   layerUnlockToasts: Array<{ id: number; name: string; emoji: string; timestamp: number }>;
+  // Worker classes (pushed via WS — no HTTP polling needed)
+  workerClasses: any[];
+  codeServerConnected: boolean;
+  // Worker logs per worker id (pushed via WS WORKER_LOG — no HTTP polling)
+  workerLogs: Record<string, Array<{ message: string; level: string; created_at: string }>>;
 }
 
 interface GameActions {
@@ -284,6 +289,9 @@ interface GameActions {
   closeLayerSelect: () => void;
   addLayerUnlockToast: (toast: { id: number; name: string; emoji: string }) => void;
   removeLayerUnlockToast: (id: number) => void;
+  // Worker logs
+  appendWorkerLog: (workerId: string, entry: { message: string; level: string; created_at?: string }) => void;
+  setWorkerLogs: (workerId: string, logs: Array<{ message: string; level: string; created_at: string }>) => void;
 }
 
 export const useGameStore = create<GameState & GameActions>((set) => ({
@@ -321,6 +329,9 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   layerMeta: [],
   layerSelectOpen: false,
   layerUnlockToasts: [],
+  workerClasses: [],
+  codeServerConnected: false,
+  workerLogs: {},
 
   setState: (partial) => set((state) => ({ ...state, ...partial })),
   setConnected: (connected) => set({ connected }),
@@ -376,6 +387,21 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
     layerUnlockToasts: state.layerUnlockToasts.filter(t => t.id !== id),
   })),
 
+  appendWorkerLog: (workerId, entry) => set((state) => {
+    const prev = state.workerLogs[workerId] || [];
+    const record = {
+      message: entry.message,
+      level: entry.level,
+      created_at: entry.created_at || new Date().toISOString(),
+    };
+    // Keep last 200 entries per worker
+    const next = [...prev, record].slice(-200);
+    return { workerLogs: { ...state.workerLogs, [workerId]: next } };
+  }),
+  setWorkerLogs: (workerId, logs) => set((state) => ({
+    workerLogs: { ...state.workerLogs, [workerId]: logs },
+  })),
+
   updateFromServer: (data) => {
     set((state) => ({
       // Arrays: reuse references (per-item) when structurally unchanged
@@ -395,6 +421,9 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
       tick: data.tick ?? state.tick,
       gameOver: data.gameOver ?? state.gameOver,
       activeLayer: data.activeLayer ?? state.activeLayer,
+      // Worker classes + code server status — pushed via WS, no polling needed
+      workerClasses: stableArray(state.workerClasses, data.workerClasses) ?? state.workerClasses,
+      codeServerConnected: data.codeServerConnected ?? state.codeServerConnected,
     }));
   },
 }));

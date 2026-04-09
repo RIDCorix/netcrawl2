@@ -156,14 +156,14 @@ function InvItem({ item, disabled }: { item: InventoryItem; disabled: boolean })
 export function DeployDialog({ nodeId, nodeName, onClose }: {
   nodeId: string; nodeName: string; onClose: () => void;
 }) {
-  const { workers, playerInventory, nodes: gameNodes, edges: gameEdges, setEdgeSelectMode, setNodeSelectMode, setState } = useGameStore();
+  const { workers, playerInventory, nodes: gameNodes, edges: gameEdges, setEdgeSelectMode, setNodeSelectMode, setState, workerClasses: storeWorkerClasses } = useGameStore();
   const t = useT();
-  const [workerClasses, setWorkerClasses] = useState<WorkerClassEntry[]>([]);
+  const workerClasses = storeWorkerClasses as WorkerClassEntry[];
   const [selectedClass, setSelectedClass] = useState('');
   const [deploying, setDeploying] = useState(false);
   const [deployed, setDeployed] = useState(false); // true after successful deploy
   const [message, setMessage] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [unitCount, setUnitCount] = useState(1);
   // Per-unit equipment: equippedPerUnit[unitIndex][slotName] = itemType
   const [equippedPerUnit, setEquippedPerUnit] = useState<Record<string, string>[]>([{}]);
@@ -235,13 +235,12 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
   const allSlotsFilled = equippedPerUnit.every(ue => classItemSlots.every(s => !!ue[s.name]));
   const allRoutesFilled = routeSlots.every(s => routes[s.name]?.length > 0);
 
+  // Initialize selected class from the store-provided list (WS-pushed).
   useEffect(() => {
-    axios.get('/api/worker-classes').then(r => {
-      const cls = r.data.classes || [];
-      setWorkerClasses(cls);
-      if (cls.length > 0) setSelectedClass(cls[0].class_id);
-    }).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+    if (!selectedClass && workerClasses.length > 0) {
+      setSelectedClass(workerClasses[0].class_id);
+    }
+  }, [workerClasses, selectedClass]);
 
   // Reset when class changes
   useEffect(() => {
