@@ -857,7 +857,8 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
     }
 
     case 'drop': {
-      // Drop held items onto the current node's floor (other workers can collect)
+      // Drop held items onto the current node's floor (other workers can collect).
+      // SPECIAL CASE: dropping on the hub auto-deposits into player resources.
       const w7 = getWorker(workerId, uid);
       if (!w7 || (w7.holding || []).length === 0) {
         return { ok: false, error: 'Nothing to drop', reason: 'nothing_held' };
@@ -880,11 +881,43 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         } else {
           holding[idx] = { ...stack, count: stack.count - dropCount };
         }
-        upsertWorker({ ...w7, holding }, uid);
       } else {
         dropped = [...holding];
-        upsertWorker({ ...w7, holding: [] }, uid);
+        holding.length = 0;
       }
+
+      // Dropping at the hub = auto-deposit. Items become player resources
+      // (bad_data still penalizes data like deposit() used to).
+      if (dropNodeId === 'hub') {
+        const newResources = { ...freshStateDrop.resources } as Record<string, number>;
+        let totalData = 0, totalRp = 0, penalty = 0;
+        for (const item of dropped) {
+          if (item.type === 'bad_data') {
+            penalty += item.count;
+            incrementStat('total_bad_data_deposited', item.count, uid);
+          } else if (item.type === 'data_fragment') {
+            totalData += item.count;
+            incrementStat('total_data_deposited', item.count, uid);
+          } else if (item.type === 'rp_shard') {
+            totalRp += item.count;
+            incrementStat('total_rp_deposited', item.count, uid);
+          }
+        }
+        newResources['data'] = Math.max(0, (newResources['data'] || 0) + totalData - penalty);
+        if (totalRp > 0) newResources['rp'] = (newResources['rp'] || 0) + totalRp;
+
+        saveGameState({ ...freshStateDrop, resources: newResources as any }, uid);
+        upsertWorker({ ...w7, holding, status: 'running' }, uid);
+        broadcastFullState(uid);
+        incrementStat('total_deposits', 1, uid);
+        awardXp(XP_REWARDS.deposit_resources, uid);
+        grantNodeXp('hub', 'deposit', uid);
+        checkAchievements(uid);
+        checkQuests(uid);
+        return { ok: true, dropped, nodeId: dropNodeId, deposited: true, totalData, penalty };
+      }
+
+      upsertWorker({ ...w7, holding }, uid);
 
       // Merge with existing floor stacks
       const existingItems: Item[] = Array.isArray(dropNode.data.items) ? [...dropNode.data.items] : [];

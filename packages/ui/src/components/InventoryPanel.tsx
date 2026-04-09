@@ -181,7 +181,7 @@ function CraftSlot({ recipe, dimmed, onCraft }: { recipe: Recipe; dimmed: boolea
                     {cfg.label}
                   </span>
                   <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', fontWeight: 700, color: enough ? 'var(--success)' : 'var(--danger)' }}>
-                    {cfg.owned}/{needed}
+                    {formatResource(key, cfg.owned)}/{formatResource(key, needed as number)}
                   </span>
                 </div>
               );
