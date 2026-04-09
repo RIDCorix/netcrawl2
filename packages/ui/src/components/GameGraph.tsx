@@ -22,7 +22,7 @@ import { useGameStore, GameNode, GameEdge, Worker } from '../store/gameStore';
 import React, { useEffect, useCallback, useMemo, useRef } from 'react';
 import { useT } from '../hooks/useT';
 import { Database, Shield, Lock, AlertTriangle, Pickaxe, Package, Cpu, Box, HardDrive, Globe, ShieldCheck } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // ── Worker Dots Row (with enter/leave animations) ───────────────────────────
 
@@ -34,17 +34,25 @@ function WorkerDotsRow({ nodeId, show }: { nodeId: string; show: boolean }) {
   const allWorkers = useGameStore(s => s.workers);
   const workers = allWorkers.filter((w: any) => {
     const at = w.current_node || w.node_id;
-    return at === nodeId;
+    if (at !== nodeId) return false;
+    // While moving, the worker is animated as a traffic dot on the edge.
+    // Hide it from the target node until the move animation finishes
+    // (status transitions back to running/idle/harvesting).
+    if (w.status === 'moving') return false;
+    return true;
   });
 
   if (!show || workers.length === 0) return null;
+
+  const visibleWorkers = workers.filter((w: any) => !w.leaving);
 
   return (
     <div style={{
       position: 'absolute', top: -14, left: '50%',
       transform: 'translateX(-50%)', display: 'flex', gap: 4,
     }}>
-      {workers.filter((w: any) => !w.leaving).map((w: any, wi: number) => {
+      <AnimatePresence initial={false}>
+      {visibleWorkers.map((w: any, wi: number) => {
         const c = CLASS_COLORS[w.class_name] || '#a78bfa';
         const isActive = ['running', 'harvesting', 'idle', 'moving'].includes(w.status);
         const isSelected = w.id === selectedWorkerId;
@@ -57,10 +65,15 @@ function WorkerDotsRow({ nodeId, show }: { nodeId: string; show: boolean }) {
         const showErrorBubble = isError && w.lastLog && true;
 
         return (
-          <div
+          <motion.div
             key={w.id}
+            layout
+            initial={{ opacity: 0, scale: 0.3 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.3 }}
+            transition={{ type: 'spring', stiffness: 500, damping: 32, mass: 0.6 }}
             title={`${w.class_name} (${w.status})\nid: ${w.id}\n@ ${w.current_node}`}
-            onClick={(e) => { if (true) { e.stopPropagation(); selectWorker(w.id); } }}
+            onClick={(e) => { e.stopPropagation(); selectWorker(w.id); }}
             style={{
               position: 'relative',
               width: isSelected ? 12 : 8,
@@ -74,8 +87,6 @@ function WorkerDotsRow({ nodeId, show }: { nodeId: string; show: boolean }) {
                   ? '0 0 6px #ef4444, 0 0 14px #ef444480'
                   : isActive ? `0 0 6px ${c}, 0 0 12px ${c}40` : `0 0 4px ${c}60`,
               cursor: 'pointer',
-              opacity: 1,
-              transition: 'box-shadow 0.2s',
               animation: isError ? 'error-shake 3s ease-in-out infinite' : undefined,
             }}
           >
@@ -156,9 +167,10 @@ function WorkerDotsRow({ nodeId, show }: { nodeId: string; show: boolean }) {
                 </div>
               );
             })()}
-          </div>
+          </motion.div>
         );
       })}
+      </AnimatePresence>
     </div>
   );
 }
