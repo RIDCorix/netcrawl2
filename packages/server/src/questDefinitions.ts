@@ -180,11 +180,10 @@ export const QUESTS: QuestDef[] = [
   },
   {
     id: 'q_ch1_challenge', chapter: 1, name: 'Chapter 1 Challenge', codeConcept: 'Skip Exam',
-    description: 'Already know Python basics? Complete this challenge to skip all Chapter 1 quests.',
+    description: 'Already know Python basics? Reach the Compute Alpha node in the far NW corner, unlock it, and solve one puzzle there to skip all Chapter 1 quests.',
     mainline: false, prerequisites: ['q_setup'],
     objectives: [
-      { id: 'o1', description: 'Mine and deposit 500 data (with bad data filtering)', statKey: 'total_data_deposited', target: 50000, type: 'stat_gte' },
-      { id: 'o2', description: 'Deploy 3 different worker classes', statKey: 'total_worker_classes_deployed', target: 3, type: 'stat_gte' },
+      { id: 'o1', description: 'Solve a puzzle at Compute Alpha (NW corner)', statKey: 'compute_alpha_solved', target: 1, type: 'stat_gte' },
     ],
     rewards: [
       { kind: 'resources', resources: { data: 200000, rp: 10 } },

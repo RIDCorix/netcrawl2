@@ -326,7 +326,7 @@ function ChipPackSection() {
               <div style={{ display: 'flex', gap: 4 }}>
                 {Object.entries(p.cost).map(([k, v]) => (
                   <span key={k} style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: k === 'data' ? 'var(--data-color)' : k === 'rp' ? 'var(--rp-color)' : 'var(--credits-color)' }}>
-                    {v as number} {k}
+                    {k === 'data' ? formatBytes(v as number) : `${v as number} ${k}`}
                   </span>
                 ))}
               </div>

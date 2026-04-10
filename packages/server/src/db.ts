@@ -406,7 +406,8 @@ export const INITIAL_NODES = [
   // SOUTH — Relay Backbone (connects west and east)
   // ═══════════════════════════════════════════════════════════════════════════
   { id: 's_relay1', type: 'empty',    position: { x: 0,    y: 380 },    data: Y('Relay S1', { data: 8000 }) },
-  { id: 's_comp1',  type: 'compute',  position: { x: 220,  y: 560 },    data: C('Compute Alpha', 'easy', { data: 40000 }) },
+  // Compute Alpha — relocated to the far NW corner as the Chapter 1 skip-challenge node.
+  { id: 's_comp1',  type: 'compute',  position: { x: -1200, y: -1400 },  data: C('Compute Alpha', 'easy', { data: 40000 }) },
   { id: 's_mine1',  type: 'resource', position: { x: -220, y: 560 },    data: R('Data Mine Juliet', 40, { data: 35000 }) },
   { id: 's_relay2', type: 'empty',    position: { x: 0,    y: 760 },    data: Y('Relay S2', { data: 70000 }) },
   { id: 's_mine2',  type: 'resource', position: { x: -220, y: 960 },    data: R('Data Mine Kilo', 75, { data: 150000 }) },
@@ -506,12 +507,16 @@ export const INITIAL_EDGES = [
   { id: 'e45', source: 'se_comp1',  target: 'se_locked1' },
 
   // ── South Backbone ──
-  { id: 'e50', source: 's_relay1',  target: 's_comp1' },
+  // Compute Alpha (s_comp1) was relocated to the NW corner as the skip-challenge node.
+  // e50 previously connected s_relay1 → s_comp1; it now bridges s_relay1 → s_relay2
+  // directly so the south district stays connected. s_comp1 gets its own direct
+  // hub edge (e56) so players can only reach it by paying the unlock cost themselves.
+  { id: 'e50', source: 's_relay1',  target: 's_relay2' },
   { id: 'e51', source: 's_relay1',  target: 's_mine1' },
-  { id: 'e52', source: 's_comp1',   target: 's_relay2' },
   { id: 'e53', source: 's_relay2',  target: 's_mine2' },
   { id: 'e54', source: 's_relay2',  target: 's_mine3' },
   { id: 'e55', source: 's_relay2',  target: 's_empty1' },
+  { id: 'e56', source: 'hub',       target: 's_comp1' },
 
   // ── Southwest Defense ──
   { id: 'e60', source: 'sw_relay1', target: 'sw_mine1' },

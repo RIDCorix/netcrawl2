@@ -615,6 +615,11 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         broadcastFullState(uid);
         totalSolves++;
         incrementStat('total_puzzles_solved', 1, uid);
+        // Compute Alpha (s_comp1) is the Chapter 1 skip-challenge gate.
+        // Track its solves with a dedicated stat the quest can key off.
+        if (submitNode === 's_comp1') {
+          incrementStat('compute_alpha_solved', 1, uid);
+        }
         const puzzleDiff = sNode.data.difficulty || 'easy';
         awardXp(XP_REWARDS[`solve_puzzle_${puzzleDiff}`] || XP_REWARDS.solve_puzzle_easy, uid);
         grantNodeXp(submitNode, 'solve_puzzle', uid);
