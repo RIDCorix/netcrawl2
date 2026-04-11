@@ -30,6 +30,7 @@ import {
 } from './upgradeDefinitions.js';
 import { checkAchievements, getAchievementList, RARITY_ORDINAL } from './achievements.js';
 import { checkQuests, claimQuestReward, getQuestList, getQuestEdges } from './quests.js';
+import { QUESTS } from './questDefinitions.js';
 import { getQuestStatus, setQuestStatus } from './db.js';
 import { getActivePassives, getUnlockedRecipes } from './db.js';
 import { incrementStat, addToStatArray, getStatArray, setStatMax, awardXp, getPlayerLevelSummary, grantNodeXp } from './db.js';
@@ -133,6 +134,20 @@ router.post('/unlock', (req: Request, res: Response) => {
   const node = state.nodes.find((n: any) => n.id === nodeId);
   if (!node) return res.status(404).json({ error: 'Node not found' });
   if (node.data.unlocked) return res.status(400).json({ error: 'Already unlocked' });
+
+  // Require at least one directly-adjacent unlocked neighbor — you can't
+  // unlock a stranded node in the middle of nowhere.
+  const neighborIds = new Set<string>();
+  for (const e of state.edges) {
+    if (e.source === nodeId) neighborIds.add(e.target);
+    else if (e.target === nodeId) neighborIds.add(e.source);
+  }
+  const hasUnlockedNeighbor = state.nodes.some(
+    (n: any) => neighborIds.has(n.id) && n.data?.unlocked,
+  );
+  if (!hasUnlockedNeighbor) {
+    return res.status(400).json({ error: 'No unlocked adjacent node — explore outward first' });
+  }
 
   const cost = (node.data.unlockCost as Record<string, number>) || {};
   const resources = state.resources as unknown as Record<string, number>;
@@ -421,7 +436,10 @@ router.post('/recall', (req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
-// POST /api/worker/reset — reset worker to deploy position, return items, allow restart
+// POST /api/worker/reset — reset worker to deploy position, respawn in place.
+// Equipment stays with the worker record (the respawned subprocess will receive
+// the same injected fields). Only held items are returned to the player since
+// the subprocess is gone and we can't know what it was mid-way through.
 router.post('/worker/reset', (req: Request, res: Response) => {
   const uid = getUserId(req);
   const { workerId } = req.body;
@@ -435,10 +453,17 @@ router.post('/worker/reset', (req: Request, res: Response) => {
     killWorker(workerId);
   }
 
-  // Return all equipment + held items
-  returnWorkerItems(worker, uid);
+  // Return ONLY held items (not equipment). Equipment stays on the worker record
+  // so the respawned subprocess keeps its pickaxe/CPU/RAM — otherwise mine()
+  // would fail silently on the respawned worker because the server record has
+  // equippedPickaxe: null while the Python side still has a RuntimeItem injected.
+  for (const item of (worker.holding || [])) {
+    if (item.type !== 'bad_data') {
+      addToPlayerInventory(item.type, item.count, undefined, uid);
+    }
+  }
 
-  // Reset worker state and re-deploy
+  // Reset worker position + status; PRESERVE equipment.
   upsertWorker({
     ...worker,
     current_node: worker.node_id,
@@ -446,9 +471,6 @@ router.post('/worker/reset', (req: Request, res: Response) => {
     pid: null,
     holding: [],
     carrying: {},
-    equippedPickaxe: null,
-    equippedCpu: null,
-    equippedRam: null,
   }, uid);
 
   // Rebuild deployConfig if missing (for workers deployed before this feature)
@@ -1136,4 +1158,112 @@ router.post('/layer/switch', (req: Request, res: Response) => {
 
   broadcastFullState(uid);
   res.json({ ok: true, layerId });
+});
+
+// ── Dev console (~ terminal) ────────────────────────────────────────────────
+// Gives direct control over the game state for debugging / creative play.
+// Intentionally unguarded in local mode; in multi-user mode the per-user auth
+// middleware still scopes all mutations to the caller's own save.
+
+const DEV_ITEM_TYPES: string[] = [
+  'pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond', 'fullstack_pickaxe',
+  'shield', 'beacon', 'scanner', 'signal_booster', 'overclock_kit',
+  'antivirus_module', 'memory_allocator',
+  'cpu_basic', 'cpu_advanced', 'ram_basic', 'ram_advanced',
+  'chip_pack_basic', 'chip_pack_premium',
+  'data_fragment', 'rp_shard',
+];
+
+router.get('/dev/completions', (req: Request, res: Response) => {
+  const uid = getUserId(req);
+  const state = getGameState(uid);
+  res.json({
+    items: DEV_ITEM_TYPES,
+    nodes: state.nodes.map((n: any) => ({
+      id: n.id,
+      label: n.data?.label || n.id,
+      unlocked: !!n.data?.unlocked,
+    })),
+    quests: QUESTS.map(q => ({
+      id: q.id,
+      name: q.name,
+      status: getQuestStatus(q.id, uid) || 'locked',
+    })),
+    maps: LAYER_DEFS.map(l => ({
+      id: l.id,
+      name: l.name,
+      unlocked: isLayerUnlocked(l.id, uid),
+    })),
+  });
+});
+
+router.post('/dev/give', (req: Request, res: Response) => {
+  const uid = getUserId(req);
+  const { itemType, count } = req.body || {};
+  const n = Number(count);
+  if (!itemType || typeof itemType !== 'string' || !Number.isFinite(n) || n <= 0) {
+    return res.status(400).json({ error: 'itemType and positive count required' });
+  }
+  addToPlayerInventory(itemType, Math.floor(n), undefined, uid);
+  broadcastFullState(uid);
+  res.json({ ok: true, message: `Gave ${Math.floor(n)}× ${itemType}` });
+});
+
+router.post('/dev/nodes/:action', (req: Request, res: Response) => {
+  const uid = getUserId(req);
+  const { action } = req.params;
+  const { nodeId } = req.body || {};
+  if (action !== 'lock' && action !== 'unlock') {
+    return res.status(400).json({ error: "action must be 'lock' or 'unlock'" });
+  }
+  const state = getGameState(uid);
+  const node = state.nodes.find((n: any) => n.id === nodeId);
+  if (!node) return res.status(404).json({ error: `node not found: ${nodeId}` });
+  const newNodes = state.nodes.map((n: any) =>
+    n.id === nodeId
+      ? { ...n, data: { ...n.data, unlocked: action === 'unlock' } }
+      : n
+  );
+  saveGameState({ ...state, nodes: newNodes }, uid);
+  broadcastFullState(uid);
+  res.json({ ok: true, message: `${action}ed node ${nodeId}` });
+});
+
+router.post('/dev/quests/:action', (req: Request, res: Response) => {
+  const uid = getUserId(req);
+  const { action } = req.params;
+  const { questId } = req.body || {};
+  if (action !== 'lock' && action !== 'unlock') {
+    return res.status(400).json({ error: "action must be 'lock' or 'unlock'" });
+  }
+  const quest = QUESTS.find(q => q.id === questId);
+  if (!quest) return res.status(404).json({ error: `quest not found: ${questId}` });
+  setQuestStatus(questId, action === 'unlock' ? 'available' : 'locked', uid);
+  broadcastFullState(uid);
+  res.json({ ok: true, message: `${action}ed quest ${questId}` });
+});
+
+router.post('/dev/maps/:action', (req: Request, res: Response) => {
+  const uid = getUserId(req);
+  const { action } = req.params;
+  const { layerId } = req.body || {};
+  const id = Number(layerId);
+  if (action !== 'lock' && action !== 'unlock') {
+    return res.status(400).json({ error: "action must be 'lock' or 'unlock'" });
+  }
+  const def = LAYER_DEFS.find(l => l.id === id);
+  if (!def) return res.status(404).json({ error: `layer not found: ${layerId}` });
+  const lm = getLayerManager(uid);
+  if (!lm.unlockedLayers) lm.unlockedLayers = [0];
+  if (action === 'unlock') {
+    if (!lm.unlockedLayers.includes(id)) lm.unlockedLayers.push(id);
+  } else {
+    if (id === 0) return res.status(400).json({ error: 'cannot lock base layer (0)' });
+    if (lm.currentLayer === id) {
+      return res.status(400).json({ error: `cannot lock the active layer ${id}` });
+    }
+    lm.unlockedLayers = lm.unlockedLayers.filter((x: number) => x !== id);
+  }
+  broadcastFullState(uid);
+  res.json({ ok: true, message: `${action}ed map ${id} (${def.name})` });
 });

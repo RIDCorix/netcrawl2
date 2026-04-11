@@ -233,6 +233,9 @@ export interface GameState {
   // Settings
   settingsOpen: boolean;
   docsOpen: boolean;
+  // Wiki (in-game interactive manual)
+  wikiSelectedEntry: string | null;
+  wikiSeenEntries: Record<string, number>; // entryId -> timestamp of first view
   connectOpen: boolean;
   settings: Settings;
   // Deploy wizard — edge selection mode (for Edge fields)
@@ -272,6 +275,9 @@ interface GameActions {
   toggleAchievements: () => void;
   toggleSettings: () => void;
   toggleDocs: () => void;
+  openWiki: (entryId?: string | null) => void;
+  closeWiki: () => void;
+  markWikiEntrySeen: (entryId: string) => void;
   toggleConnect: () => void;
   updateSettings: (patch: Partial<Settings>) => void;
   toggleQuests: () => void;
@@ -319,6 +325,13 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   achievementsOpen: false,
   settingsOpen: false,
   docsOpen: false,
+  wikiSelectedEntry: null,
+  wikiSeenEntries: (() => {
+    try {
+      const raw = localStorage.getItem('netcrawl-wiki-seen');
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  })(),
   connectOpen: false,
   settings: savedSettings,
   questSummary: { total: 0, claimed: 0, completed: 0, available: 0 },
@@ -350,6 +363,14 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   toggleAchievements: () => set((state) => ({ achievementsOpen: !state.achievementsOpen })),
   toggleSettings: () => set((state) => ({ settingsOpen: !state.settingsOpen })),
   toggleDocs: () => set((state) => ({ docsOpen: !state.docsOpen })),
+  openWiki: (entryId) => set({ docsOpen: true, wikiSelectedEntry: entryId ?? null }),
+  closeWiki: () => set({ docsOpen: false }),
+  markWikiEntrySeen: (entryId) => set((state) => {
+    if (state.wikiSeenEntries[entryId]) return state;
+    const next = { ...state.wikiSeenEntries, [entryId]: Date.now() };
+    try { localStorage.setItem('netcrawl-wiki-seen', JSON.stringify(next)); } catch {}
+    return { wikiSeenEntries: next };
+  }),
   toggleConnect: () => set((state) => ({ connectOpen: !state.connectOpen })),
   updateSettings: (patch) => set((state) => {
     const newSettings = { ...state.settings, ...patch }

@@ -195,23 +195,31 @@ class RuntimeItem:
         Mine the current node using this pickaxe.
         Creates items on the node floor. Use worker.collect() to pick them up.
 
-        Returns MineResult with .ok, .item, .error
+        Returns MineResult with .ok, .item, .error.
+        Raises RuntimeError if the current node cannot be mined (e.g. you called
+        mine() while standing at the hub or a non-resource node).
         """
         if self._worker is None:
             raise RuntimeError("Item not properly initialized — _worker is None")
         from netcrawl.models import MineResult
         self._worker.debug("mine()")
         data = self._worker._client.action("mine", {})
-        return MineResult(**data)
+        result = MineResult(**data)
+        if not result.ok:
+            # Surface mining failures as exceptions so silent hub-mining bugs
+            # are impossible to miss. The server returns messages like
+            # "Node is not mineable" or "Node is depleted".
+            where = self._worker._current_node or "unknown"
+            raise RuntimeError(f"mine() failed at {where}: {result.error}")
+        return result
 
     def mine_and_collect(self):
         """
         Convenience: mine() then collect() in one call.
         Returns CollectResult.
+        Raises RuntimeError if mine() fails (e.g. called at a non-mineable node).
         """
-        result = self.mine()
-        if not result.ok:
-            return result
+        self.mine()  # raises on failure
         return self._worker.collect()
 
     def __repr__(self):

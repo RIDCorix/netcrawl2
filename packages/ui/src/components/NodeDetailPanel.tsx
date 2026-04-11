@@ -278,7 +278,7 @@ function NodeEnhanceSection({ nodeId, node }: { nodeId: string; node: GameNode }
 }
 
 export function NodeDetailPanel() {
-  const { selectedNodeId, nodes, resources, selectNode } = useGameStore();
+  const { selectedNodeId, nodes, edges, resources, selectNode } = useGameStore();
   const [gathering, setGathering] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
   const [building, setBuilding] = useState(false);
@@ -322,6 +322,19 @@ export function NodeDetailPanel() {
 
   const canAffordUnlock = (cost: Partial<Resources>) =>
     Object.entries(cost).every(([k, v]) => (resources as any)[k] >= v);
+
+  // A node can only be unlocked if at least one directly-adjacent node is
+  // already unlocked (or the node itself is the hub). This prevents the
+  // player from unlocking stranded nodes in the middle of nowhere.
+  const hasUnlockedNeighbor = (targetNodeId: string): boolean => {
+    const neighborIds = new Set<string>();
+    for (const e of edges) {
+      if (e.source === targetNodeId) neighborIds.add(e.target);
+      else if (e.target === targetNodeId) neighborIds.add(e.source);
+    }
+    if (neighborIds.size === 0) return false;
+    return nodes.some(n => neighborIds.has(n.id) && n.data?.unlocked);
+  };
 
   const BUILD_COSTS: Record<string, Record<string, number>> = {
     cache: { data: 1500, rp: 5 },
@@ -718,21 +731,32 @@ if (n.type === 'cache') return '#a78bfa';
                 </>
               )}
 
-              {!node.data.unlocked && node.data.unlockCost && (
-                <>
-                  <SectionLabel>Unlock Cost</SectionLabel>
-                  <CostBadge cost={node.data.unlockCost} />
-                  <ActionButton
-                    onClick={handleUnlock}
-                    disabled={unlocking || !canAffordUnlock(node.data.unlockCost)}
-                  >
-                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                      <Lock size={12} />
-                      {unlocking ? 'UNLOCKING...' : canAffordUnlock(node.data.unlockCost) ? t('node.unlock') : t('ui.insufficient')}
-                    </span>
-                  </ActionButton>
-                </>
-              )}
+              {!node.data.unlocked && node.data.unlockCost && (() => {
+                const affordable = canAffordUnlock(node.data.unlockCost);
+                const reachable = hasUnlockedNeighbor(node.id);
+                const label = unlocking
+                  ? 'UNLOCKING...'
+                  : !reachable
+                    ? t('ui.no_adjacent_unlock')
+                    : !affordable
+                      ? t('ui.insufficient')
+                      : t('node.unlock');
+                return (
+                  <>
+                    <SectionLabel>Unlock Cost</SectionLabel>
+                    <CostBadge cost={node.data.unlockCost} />
+                    <ActionButton
+                      onClick={handleUnlock}
+                      disabled={unlocking || !affordable || !reachable}
+                    >
+                      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                        <Lock size={12} />
+                        {label}
+                      </span>
+                    </ActionButton>
+                  </>
+                );
+              })()}
 
               {node.type === 'empty' && node.data.unlocked && (
                 <>
@@ -821,6 +845,7 @@ if (n.type === 'cache') return '#a78bfa';
                           color={ITEM_COLORS[type] || 'var(--text-muted)'}
                           label={ITEM_LABELS[type] || type}
                           count={count}
+                          itemType={type}
                         />
                       ))}
                     </div>

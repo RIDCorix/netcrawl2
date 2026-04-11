@@ -15,7 +15,7 @@ import { QuestTree } from './components/QuestTree';
 import { QuestToast } from './components/QuestToast';
 import { ActiveQuestsPanel } from './components/ActiveQuestsPanel';
 import { SettingsPanel } from './components/SettingsPanel';
-import { DocsDialog } from './components/DocsDialog';
+import { WikiDialog } from './components/WikiDialog';
 import { ConnectDialog } from './components/ConnectDialog';
 import { LoginPage } from './components/LoginPage';
 import { LevelPanel } from './components/LevelPanel';
@@ -24,6 +24,7 @@ import { TutorialOverlay } from './components/TutorialOverlay';
 import { LayerSelectScreen } from './components/LayerSelectScreen';
 import { LayerUnlockToast } from './components/LayerUnlockToast';
 import { GameOverDialog } from './components/GameOverDialog';
+import { DevConsole } from './components/DevConsole';
 import { useAudioInit } from './hooks/useAudio';
 import { apiFetch } from './lib/api';
 
@@ -58,6 +59,7 @@ function GameView() {
       if (state.achievementsOpen) { state.toggleAchievements(); return; }
       if (state.questsOpen) { state.toggleQuests(); return; }
       if (state.levelOpen) { state.toggleLevel(); return; }
+      if (state.docsOpen) { state.closeWiki(); return; }
       state.toggleSettings();
       return;
     }
@@ -107,7 +109,7 @@ function GameView() {
       <InventoryPanel />
       <AchievementsPanel />
       <SettingsPanel />
-      <DocsDialog />
+      <WikiDialog />
       <ConnectDialog />
       <QuestTree />
       <LevelPanel />
@@ -118,6 +120,7 @@ function GameView() {
       <LayerSelectScreen />
       <LayerUnlockToast />
       <GameOverDialog />
+      <DevConsole />
     </div>
   );
 }

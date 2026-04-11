@@ -171,17 +171,106 @@ export function WorkerDetailPanel() {
               </div>
             )}
 
-            {worker.equippedPickaxe && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Pickaxe size={12} style={{ color: 'var(--text-muted)' }} />
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{t('ui.pickaxe')}</span>
-                <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
-                  {worker.equippedPickaxe.itemType} ({worker.equippedPickaxe.efficiency}×)
-                </span>
-              </div>
-            )}
-
           </div>
+
+          {/* Equipment — what the worker is carrying on its rig */}
+          {(() => {
+            const pickaxe = (worker as any).equippedPickaxe;
+            const cpu = (worker as any).equippedCpu;
+            const ram = (worker as any).equippedRam;
+            const hasAny = pickaxe || cpu || ram;
+            if (!hasAny) return null;
+
+            const slots: Array<{
+              key: string;
+              icon: any;
+              color: string;
+              label: string;
+              detail: string;
+            }> = [];
+
+            if (pickaxe) {
+              const name = (t('item.' + pickaxe.itemType + '.name') as string) || pickaxe.itemType;
+              slots.push({
+                key: 'pickaxe',
+                icon: Pickaxe,
+                color: '#f59e0b',
+                label: name,
+                detail: `${pickaxe.efficiency}× efficiency`,
+              });
+            }
+            if (cpu) {
+              const name = (t('item.' + cpu.itemType + '.name') as string) || cpu.itemType;
+              slots.push({
+                key: 'cpu',
+                icon: Cpu,
+                color: '#a78bfa',
+                label: `${name} × ${cpu.count || 1}`,
+                detail: `${cpu.computePoints} compute`,
+              });
+            }
+            if (ram) {
+              const name = (t('item.' + ram.itemType + '.name') as string) || ram.itemType;
+              slots.push({
+                key: 'ram',
+                icon: MemoryStick,
+                color: '#45aaf2',
+                label: `${name} × ${ram.count || 1}`,
+                detail: `+${ram.capacityBonus} stack${ram.capacityBonus === 1 ? '' : 's'}`,
+              });
+            }
+
+            return (
+              <>
+                <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, var(--border-bright), transparent)' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Pickaxe size={11} style={{ color: 'var(--text-muted)' }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>
+                      {t('ui.equipment_label') || 'EQUIPMENT'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {slots.map(s => {
+                      const Icon = s.icon;
+                      return (
+                        <div key={s.key} style={{
+                          display: 'flex', alignItems: 'center', gap: 8,
+                          padding: '6px 10px', borderRadius: 'var(--radius-sm)',
+                          background: 'var(--bg-primary)',
+                          border: `1px solid color-mix(in srgb, ${s.color} 20%, var(--border))`,
+                        }}>
+                          <div style={{
+                            width: 22, height: 22, borderRadius: 4,
+                            background: `color-mix(in srgb, ${s.color} 12%, transparent)`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            flexShrink: 0,
+                          }}>
+                            <Icon size={13} style={{ color: s.color }} />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            <div style={{
+                              fontSize: 11, fontWeight: 700, color: 'var(--text-primary)',
+                              fontFamily: 'var(--font-mono)',
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            }}>
+                              {s.label}
+                            </div>
+                            <div style={{
+                              fontSize: 9, color: s.color,
+                              fontFamily: 'var(--font-mono)', opacity: 0.9,
+                            }}>
+                              {s.detail}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
 
           {/* Divider */}
           <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, var(--border-bright), transparent)' }} />
@@ -274,6 +363,7 @@ export function WorkerDetailPanel() {
                           color={INV_COLORS[item.type] || 'var(--text-muted)'}
                           label={INV_LABELS[item.type] || item.type}
                           count={item.count}
+                          itemType={item.type}
                         />
                       ))}
                     </div>
