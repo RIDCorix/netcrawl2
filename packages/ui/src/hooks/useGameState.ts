@@ -43,6 +43,14 @@ export function useGameState() {
           useGameStore.getState().addLevelUpToast(msg.payload);
         } else if (msg.type === 'LAYER_UNLOCKED') {
           useGameStore.getState().addLayerUnlockToast(msg.payload);
+        } else if (msg.type === 'HUB_DEPOSIT') {
+          const { goodCount, badCount } = msg.payload;
+          if ((goodCount || 0) > 0 || (badCount || 0) > 0) {
+            useGameStore.getState().pushHubDeposit({
+              goodCount: goodCount || 0,
+              badCount: badCount || 0,
+            });
+          }
         } else if (msg.type === 'WORKER_LOG') {
           // Push the log into the per-worker log store (used by log panels — no HTTP polling).
           const { workerId, message, level, ts } = msg.payload;

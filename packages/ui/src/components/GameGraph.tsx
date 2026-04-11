@@ -348,12 +348,54 @@ function DepletedOverlay({ depletedUntil }: { depletedUntil?: number }) {
 }
 
 function HubNode({ id, data, selected }: any) {
+  const deposits = useGameStore(s => s.hubDeposits);
+  const removeHubDeposit = useGameStore(s => s.removeHubDeposit);
+
+  // Determine frame flash color based on the most recent deposit.
+  // If any recent deposit has bad data, flash red; else flash yellow.
+  const recent = deposits[deposits.length - 1];
+  const flashKind: 'good' | 'bad' | null = recent
+    ? (recent.badCount > 0 ? 'bad' : 'good')
+    : null;
+
+  const flashKey = recent ? recent.id : 'idle';
+  const flashColor = flashKind === 'bad' ? '#ef4444' : flashKind === 'good' ? '#facc15' : null;
+
   return (
     <NodeWrapper selected={selected} glowColor="var(--accent)" nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{
       animation: 'hub-pulse 3s ease-in-out infinite',
       padding: '14px 20px',
       borderRadius: 'var(--radius-lg)',
     }}>
+      {/* Deposit flash frame — fades in/out over the most recent deposit */}
+      {flashColor && (
+        <motion.div
+          key={flashKey}
+          initial={{ opacity: 0, scale: 1 }}
+          animate={{ opacity: [0, 0.9, 0], scale: [1, 1.08, 1.14] }}
+          transition={{ duration: 0.9, ease: 'easeOut' }}
+          style={{
+            position: 'absolute', inset: -4,
+            borderRadius: 'var(--radius-lg)',
+            border: `2px solid ${flashColor}`,
+            boxShadow: `0 0 18px ${flashColor}, 0 0 36px ${flashColor}80`,
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+
+      {/* Floating deposit indicators — one per deposit event, stacked */}
+      <AnimatePresence>
+        {deposits.map((d, i) => (
+          <HubDepositBadge
+            key={d.id}
+            deposit={d}
+            offset={i}
+            onDone={() => removeHubDeposit(d.id)}
+          />
+        ))}
+      </AnimatePresence>
+
       {/* Hub uses full layout, not icon-only */}
       <div data-tutorial="hub-node" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
         <Shield size={20} color="var(--accent)" />
@@ -361,6 +403,56 @@ function HubNode({ id, data, selected }: any) {
         <div style={{ fontSize: 8, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>CENTRAL HUB</div>
       </div>
     </NodeWrapper>
+  );
+}
+
+function HubDepositBadge({ deposit, offset, onDone }: {
+  deposit: { id: number; goodCount: number; badCount: number };
+  offset: number;
+  onDone: () => void;
+}) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 1500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deposit.id]);
+
+  const isBad = deposit.badCount > 0;
+  const count = isBad ? deposit.badCount : deposit.goodCount;
+  const color = isBad ? '#ef4444' : '#facc15';
+  const Icon = isBad ? AlertTriangle : Database;
+
+  // Stagger subsequent badges slightly to the side so they don't overlap.
+  const xBase = isBad ? 14 : -14;
+  const xOffset = xBase + offset * (isBad ? 12 : -12);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -4, x: xOffset, scale: 0.6 }}
+      animate={{ opacity: [0, 1, 1, 0], y: -46, x: xOffset, scale: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 1.4, ease: 'easeOut', times: [0, 0.15, 0.7, 1] }}
+      style={{
+        position: 'absolute',
+        top: -4, left: '50%',
+        transform: 'translateX(-50%)',
+        pointerEvents: 'none',
+        display: 'flex', alignItems: 'center', gap: 3,
+        padding: '3px 7px',
+        borderRadius: 999,
+        background: `${color}20`,
+        border: `1px solid ${color}`,
+        boxShadow: `0 0 10px ${color}aa`,
+        color,
+        fontFamily: 'var(--font-mono)',
+        fontSize: 10, fontWeight: 800,
+        whiteSpace: 'nowrap',
+        zIndex: 20,
+      }}
+    >
+      <Icon size={11} />
+      <span>+{count}</span>
+    </motion.div>
   );
 }
 
@@ -434,20 +526,91 @@ const DIFFICULTY_COLORS: Record<string, string> = {
 function ComputeNode({ id, data, selected }: any) {
   const color = DIFFICULTY_COLORS[data.difficulty] || '#a78bfa';
   return (
-    <NodeWrapper selected={selected} glowColor={data.unlocked ? color : undefined} nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
-      <NodeLabel
-        label={data.label}
-        icon={Cpu}
-        iconColor={data.unlocked ? color : 'var(--text-muted)'}
-        subtitle={data.unlocked ? (data.difficulty || 'PUZZLE').toUpperCase() : 'LOCKED'}
+    <NodeWrapper
+      selected={selected}
+      glowColor={data.unlocked ? color : '#a78bfa'}
+      nodeId={id}
+      showWorkerDots={data.showWorkerDots}
+      edgeStyle={data.edgeStyle}
+      fadeIn={data.fadeIn}
+      routeIndices={data.routeIndices}
+      style={{
+        opacity: data.unlocked ? 1 : 0.7,
+        padding: '18px 22px',
+        borderRadius: 14,
+        borderWidth: 2,
+        animation: 'boss-pulse 2.6s ease-in-out infinite',
+      }}
+    >
+      {/* Rotating aura ring behind the icon */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: -14,
+          borderRadius: 18,
+          border: `1px dashed ${color}55`,
+          pointerEvents: 'none',
+          animation: 'boss-rotate 14s linear infinite',
+        }}
       />
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: -22,
+          borderRadius: 22,
+          border: `1px dotted ${color}33`,
+          pointerEvents: 'none',
+          animation: 'boss-rotate 22s linear infinite reverse',
+        }}
+      />
+
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+      }}>
+        <div style={{
+          width: 38, height: 38,
+          borderRadius: 10,
+          background: `radial-gradient(circle at 50% 50%, ${color}33, ${color}0a 60%, transparent 100%)`,
+          border: `1px solid ${color}66`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          animation: 'boss-icon-pulse 2.2s ease-in-out infinite',
+          color,
+        }}>
+          <Cpu size={22} color={color} strokeWidth={2.25} />
+        </div>
+        <div style={{
+          fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
+          color: data.unlocked ? color : 'var(--text-muted)',
+          fontFamily: 'var(--font-mono)',
+          textTransform: 'uppercase',
+        }}>
+          {data.unlocked ? (data.difficulty || 'PUZZLE') : 'LOCKED'}
+        </div>
+      </div>
+
+      {/* Label to the right (matches other nodes) */}
+      <div style={{
+        position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)',
+        marginLeft: 10, pointerEvents: 'none', whiteSpace: 'nowrap',
+      }}>
+        <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+          {data.label}
+        </div>
+        <div style={{ fontSize: 8, color, fontFamily: 'var(--font-mono)', letterSpacing: '0.15em' }}>
+          BOSS · {(data.difficulty || 'PUZZLE').toUpperCase()}
+        </div>
+      </div>
+
       {data.unlocked && data.solveCount > 0 && (
         <div style={{
-          position: 'absolute', top: -6, right: -6,
+          position: 'absolute', top: -8, right: -8,
           background: color, color: '#000',
-          fontSize: 9, fontWeight: 800, fontFamily: 'var(--font-mono)',
-          borderRadius: '999px', width: 18, height: 18,
+          fontSize: 10, fontWeight: 800, fontFamily: 'var(--font-mono)',
+          borderRadius: '999px', width: 22, height: 22,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: `0 0 12px ${color}`,
         }}>
           {data.solveCount}
         </div>

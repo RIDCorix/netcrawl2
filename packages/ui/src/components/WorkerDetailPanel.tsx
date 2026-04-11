@@ -33,8 +33,10 @@ export function WorkerDetailPanel() {
     if ((workerLogs[selectedWorkerId] || []).length > 0) return;
     axios.get(`/api/worker/${selectedWorkerId}/logs`)
       .then(r => {
-        // Server returns newest-first; store newest-last so appends are trivial.
-        const history = (r.data.logs || []).slice().reverse();
+        // Server returns the newest 200 entries in chronological order
+        // (oldest → newest). We keep that ordering so WS appends just push
+        // the next newest entry to the tail.
+        const history = r.data.logs || [];
         setWorkerLogs(selectedWorkerId, history);
       })
       .catch(() => {});
@@ -208,7 +210,7 @@ export function WorkerDetailPanel() {
             }}>
               {logs.length === 0 ? (
                 <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{t('ui.no_logs')}</div>
-              ) : logs.slice(-20).map((log, i) => (
+              ) : logs.slice(-20).slice().reverse().map((log, i) => (
                 <div key={i} style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 2 }}>
                   <span style={{ color: 'var(--text-muted)', opacity: 0.5 }}>{new Date(log.created_at).toLocaleTimeString()} </span>
                   <span style={{
@@ -377,7 +379,7 @@ export function WorkerDetailPanel() {
           <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
             {logs.length === 0 ? (
               <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{t('ui.no_logs')}</div>
-            ) : logs.map((log, i) => (
+            ) : logs.slice().reverse().map((log, i) => (
               <div key={i} style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 3, lineHeight: 1.5 }}>
                 <span style={{ color: 'var(--text-muted)', opacity: 0.5, marginRight: 8 }}>{new Date(log.created_at).toLocaleTimeString()}</span>
                 <span style={{

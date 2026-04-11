@@ -257,6 +257,9 @@ export interface GameState {
   codeServerConnected: boolean;
   // Worker logs per worker id (pushed via WS WORKER_LOG — no HTTP polling)
   workerLogs: Record<string, Array<{ message: string; level: string; created_at: string }>>;
+  // Ephemeral hub deposit flash effects (pushed via WS HUB_DEPOSIT).
+  // Each entry auto-expires after the animation duration.
+  hubDeposits: Array<{ id: number; ts: number; goodCount: number; badCount: number }>;
 }
 
 interface GameActions {
@@ -292,6 +295,9 @@ interface GameActions {
   // Worker logs
   appendWorkerLog: (workerId: string, entry: { message: string; level: string; created_at?: string }) => void;
   setWorkerLogs: (workerId: string, logs: Array<{ message: string; level: string; created_at: string }>) => void;
+  // Hub deposit VFX
+  pushHubDeposit: (deposit: { goodCount: number; badCount: number }) => void;
+  removeHubDeposit: (id: number) => void;
 }
 
 export const useGameStore = create<GameState & GameActions>((set) => ({
@@ -332,6 +338,7 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   workerClasses: [],
   codeServerConnected: false,
   workerLogs: {},
+  hubDeposits: [],
 
   setState: (partial) => set((state) => ({ ...state, ...partial })),
   setConnected: (connected) => set({ connected }),
@@ -400,6 +407,16 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   }),
   setWorkerLogs: (workerId, logs) => set((state) => ({
     workerLogs: { ...state.workerLogs, [workerId]: logs },
+  })),
+
+  pushHubDeposit: (deposit) => set((state) => ({
+    hubDeposits: [
+      ...state.hubDeposits,
+      { id: Date.now() + Math.random(), ts: Date.now(), ...deposit },
+    ],
+  })),
+  removeHubDeposit: (id) => set((state) => ({
+    hubDeposits: state.hubDeposits.filter(d => d.id !== id),
   })),
 
   updateFromServer: (data) => {

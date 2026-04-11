@@ -384,6 +384,33 @@ body::after {
   50% { border-color: rgba(0, 212, 170, 0.7); }
 }
 
+@keyframes boss-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 2px rgba(167, 139, 250, 0.4),
+      0 0 24px rgba(167, 139, 250, 0.45),
+      0 0 48px rgba(167, 139, 250, 0.25),
+      inset 0 0 20px rgba(167, 139, 250, 0.12);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px rgba(167, 139, 250, 0.7),
+      0 0 36px rgba(167, 139, 250, 0.7),
+      0 0 72px rgba(167, 139, 250, 0.4),
+      inset 0 0 28px rgba(167, 139, 250, 0.22);
+  }
+}
+
+@keyframes boss-rotate {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes boss-icon-pulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 6px currentColor); }
+  50%      { transform: scale(1.12); filter: drop-shadow(0 0 14px currentColor); }
+}
+
 @keyframes grid-scroll {
   0% { background-position: 0 0; }
   100% { background-position: 0 40px; }

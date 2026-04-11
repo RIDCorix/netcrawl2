@@ -507,16 +507,16 @@ export const INITIAL_EDGES = [
   { id: 'e45', source: 'se_comp1',  target: 'se_locked1' },
 
   // ── South Backbone ──
-  // Compute Alpha (s_comp1) was relocated to the NW corner as the skip-challenge node.
-  // e50 previously connected s_relay1 → s_comp1; it now bridges s_relay1 → s_relay2
-  // directly so the south district stays connected. s_comp1 gets its own direct
-  // hub edge (e56) so players can only reach it by paying the unlock cost themselves.
+  // Compute Alpha (s_comp1) was relocated to the NW corner as the Chapter 1 skip-challenge
+  // "boss" node — it sits ISOLATED in the void with no edges. Reaching it requires the
+  // player to figure out an alternate approach; it's a deliberate puzzle/brag node.
+  // e50 used to hit s_comp1; it now bridges s_relay1 → s_relay2 directly so the south
+  // district stays connected.
   { id: 'e50', source: 's_relay1',  target: 's_relay2' },
   { id: 'e51', source: 's_relay1',  target: 's_mine1' },
   { id: 'e53', source: 's_relay2',  target: 's_mine2' },
   { id: 'e54', source: 's_relay2',  target: 's_mine3' },
   { id: 'e55', source: 's_relay2',  target: 's_empty1' },
-  { id: 'e56', source: 'hub',       target: 's_comp1' },
 
   // ── Southwest Defense ──
   { id: 'e60', source: 'sw_relay1', target: 'sw_mine1' },
@@ -1099,10 +1099,12 @@ export function addWorkerLog(workerId: string, message: string, userId?: string)
 }
 
 export function getWorkerLogs(workerId: string, userId?: string): WorkerLogRow[] {
+  // Return the newest 200 entries for this worker, chronological order oldest→newest.
+  // The client stores them that way and the UI renders with column-reverse so the
+  // most recent entries sit at the top of the log panel.
   return resolveStore(userId).worker_logs
     .filter(l => l.worker_id === workerId)
-    .slice(-100)
-    .reverse();
+    .slice(-200);
 }
 
 // ── Player Chips ─────────────────────────────────────────────────────────────

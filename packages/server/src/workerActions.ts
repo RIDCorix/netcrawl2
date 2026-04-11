@@ -914,6 +914,22 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         saveGameState({ ...freshStateDrop, resources: newResources as any }, uid);
         upsertWorker({ ...w7, holding, status: 'running' }, uid);
         broadcastFullState(uid);
+        // Lightweight effect event for the hub absorption VFX (yellow frame + data icon
+        // for good items, red frame + warning icon for bad_data). Sent as a separate
+        // message so the UI can pop ephemeral indicators without re-computing state.
+        broadcast({
+          type: 'HUB_DEPOSIT',
+          payload: {
+            workerId,
+            ts: Date.now(),
+            totalData,
+            totalRp,
+            penalty,
+            // Raw per-type totals so the UI can choose which badges to show.
+            goodCount: totalData + totalRp,
+            badCount: penalty,
+          },
+        }, uid);
         incrementStat('total_deposits', 1, uid);
         awardXp(XP_REWARDS.deposit_resources, uid);
         grantNodeXp('hub', 'deposit', uid);
