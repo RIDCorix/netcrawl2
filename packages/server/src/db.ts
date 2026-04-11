@@ -443,7 +443,9 @@ export const INITIAL_NODES = [
   { id: 'nw_relay2', type: 'empty',    position: { x: -600, y: -680 },  data: Y('Relay NW2', { data: 150000 }) },
   { id: 'nw_comp2',  type: 'compute',  position: { x: -820, y: -560 },  data: C('Deep Research Lab', 'hard', { data: 400000, rp: 20 }) },
   { id: 'nw_empty1', type: 'empty',    position: { x: -600, y: -880 },  data: E('Open Slot', { data: 300000, rp: 15 }) },
-  { id: 'nw_locked1',type: 'locked',   position: { x: -600, y: -1080 }, data: Y('Observatory', { data: 800000, rp: 30 }) },
+  // Promotion/advancement node for Chapter 1. Unlocked by default so it's
+  // always visible from session start — it's the player's map goalpost.
+  { id: 'nw_locked1',type: 'locked',   position: { x: -600, y: -1080 }, data: { ...Y('Observatory', { data: 800000, rp: 30 }), unlocked: true } },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // DATA MINE CLUSTER (far south — star topology for Ch1 for-loop quest)
@@ -762,6 +764,14 @@ function _loadStore() {
           baseDefense: n.data.baseDefense ?? 0,
         },
       }));
+      // Migrate: force Chapter 1 promotion node visible on existing saves.
+      // This one is a goalpost for the player, not a gated unlock — it was
+      // previously locked by default which left it hidden behind fog-of-war.
+      store.game_state.nodes = store.game_state.nodes.map((n: any) =>
+        n.id === 'nw_locked1' && !n.data.unlocked
+          ? { ...n, data: { ...n.data, unlocked: true } }
+          : n
+      );
       // Auto-upgrade any nodes that already have full XP
       if (sweepNodeAutoUpgrades()) {
         console.log('[initDb] Auto-upgraded nodes with full XP');
