@@ -293,33 +293,122 @@ function NodeLabel({ label, subtitle, icon: Icon, iconColor, iconBg }: {
   );
 }
 
-/** Shows a badge for drops sitting on the node */
-function DropsIndicator({ count }: { count: number }) {
-  if (count === 0) return null;
+/**
+ * Horizontal badge row of drops sitting on the node. One pill per item type
+ * (icon + aggregate count), plus an optional buffer fill indicator (how many
+ * stack slots are used out of max) when the node advertises a `maxBuffer`.
+ *
+ * Rendered above the node, centered, with at most 4 type pills visible — the
+ * rest collapse into a "+N" overflow badge to keep the row compact.
+ */
+const DROP_ICON: Record<string, any> = {
+  data_fragment: Database,
+  rp_shard: Cpu,
+  bad_data: AlertTriangle,
+};
+const DROP_COLOR: Record<string, string> = {
+  data_fragment: '#45aaf2',
+  rp_shard: '#a78bfa',
+  bad_data: '#ef4444',
+};
+
+function DropsIndicator({ items, maxBuffer }: { items: any[]; maxBuffer?: number }) {
+  if (!items || items.length === 0) return null;
+
+  // Aggregate by type (floor may carry multiple stacks of the same type).
+  const byType = new Map<string, number>();
+  for (const it of items) {
+    const type = it.type;
+    const count = it.count ?? it.amount ?? 1;
+    byType.set(type, (byType.get(type) || 0) + count);
+  }
+  const entries = Array.from(byType.entries());
+  const VISIBLE = 4;
+  const visible = entries.slice(0, VISIBLE);
+  const hidden = entries.length - VISIBLE;
+
+  // Buffer fill (used stacks / max stacks). Uses raw stack count, not aggregated.
+  const stacks = items.length;
+  const cap = maxBuffer ?? 0;
+  const full = cap > 0 && stacks >= cap;
+
   return (
     <motion.div
-      initial={{ scale: 0 }}
-      animate={{ scale: 1 }}
+      initial={{ opacity: 0, y: 2 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 2 }}
       style={{
         position: 'absolute',
-        top: -8,
-        right: -8,
-        background: '#facc15',
-        color: '#000',
-        fontSize: '10px',
-        fontWeight: 700,
-        fontFamily: 'var(--font-mono)',
-        borderRadius: '999px',
-        width: '18px',
-        height: '18px',
+        top: -18,
+        left: '50%',
+        transform: 'translateX(-50%)',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 2,
-        boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+        gap: 3,
+        padding: '2px 5px',
+        borderRadius: 999,
+        background: 'color-mix(in srgb, var(--bg-primary) 85%, transparent)',
+        backdropFilter: 'blur(10px)',
+        border: `1px solid ${full ? '#ef4444' : 'color-mix(in srgb, var(--accent) 35%, var(--border))'}`,
+        boxShadow: full
+          ? '0 0 8px rgba(239,68,68,0.5), 0 1px 4px rgba(0,0,0,0.4)'
+          : '0 1px 4px rgba(0,0,0,0.4)',
+        zIndex: 3,
+        pointerEvents: 'none',
+        fontFamily: 'var(--font-mono)',
       }}
     >
-      {count}
+      {visible.map(([type, count]) => {
+        const Icon = DROP_ICON[type] || Package;
+        const color = DROP_COLOR[type] || '#facc15';
+        return (
+          <div
+            key={type}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              padding: '1px 4px 1px 2px',
+              borderRadius: 999,
+              background: `color-mix(in srgb, ${color} 20%, transparent)`,
+              color,
+            }}
+          >
+            <Icon size={9} style={{ color }} />
+            <span style={{ fontSize: 9, fontWeight: 800, lineHeight: 1 }}>
+              {count > 999 ? '999+' : count}
+            </span>
+          </div>
+        );
+      })}
+      {hidden > 0 && (
+        <div
+          style={{
+            fontSize: 9,
+            fontWeight: 800,
+            color: 'var(--text-muted)',
+            padding: '0 2px',
+            lineHeight: 1,
+          }}
+        >
+          +{hidden}
+        </div>
+      )}
+      {cap > 0 && (
+        <div
+          style={{
+            marginLeft: 2,
+            paddingLeft: 4,
+            borderLeft: '1px solid var(--border)',
+            fontSize: 8,
+            fontWeight: 700,
+            color: full ? '#ef4444' : 'var(--text-muted)',
+            lineHeight: 1,
+          }}
+        >
+          {stacks}/{cap}
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -460,7 +549,6 @@ function ResourceNode({ id, data, selected }: any) {
   const Icon = Database;
   const color = 'var(--data-color)';
   const floorItems = Array.isArray(data.items) ? data.items : (Array.isArray(data.drops) ? data.drops : []);
-  const dropsCount = floorItems.reduce((s: number, d: any) => s + (d.count ?? d.amount ?? 1), 0);
   const isDepleted = !!data.depleted;
 
   return (
@@ -477,7 +565,7 @@ function ResourceNode({ id, data, selected }: any) {
       }}
     >
       {isDepleted && <DepletedOverlay depletedUntil={data.depletedUntil} />}
-      <DropsIndicator count={dropsCount} />
+      <DropsIndicator items={floorItems} maxBuffer={data.maxBuffer} />
       <NodeLabel
         label={data.label}
         icon={Icon}

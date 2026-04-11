@@ -813,7 +813,9 @@ if (n.type === 'cache') return '#a78bfa';
             {/* Ground Items — inventory grid */}
             {(() => {
               const floorItems = Array.isArray(node.data.items) ? node.data.items : (Array.isArray(node.data.drops) ? node.data.drops : []);
-              if (floorItems.length === 0) return null;
+              const maxBuffer: number | undefined = node.data.maxBuffer;
+              const stacks = floorItems.length;
+              if (stacks === 0 && !maxBuffer) return null;
               // Aggregate items by type (items are already stacked, but be safe)
               const itemCounts: Record<string, number> = {};
               for (const d of floorItems) {
@@ -836,6 +838,31 @@ if (n.type === 'cache') return '#a78bfa';
                       <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
                         {totalItems}
                       </span>
+                      {maxBuffer !== undefined && maxBuffer > 0 && (
+                        <div style={{
+                          marginLeft: 'auto',
+                          display: 'flex', alignItems: 'center', gap: 4,
+                          fontSize: 9, fontWeight: 700,
+                          color: stacks >= maxBuffer ? '#ef4444' : 'var(--text-muted)',
+                          fontFamily: 'var(--font-mono)',
+                        }}>
+                          <span>{t('node.buffer') || 'BUFFER'}</span>
+                          <span>{stacks}/{maxBuffer}</span>
+                          <div style={{
+                            width: 40, height: 4, borderRadius: 2,
+                            background: 'var(--bg-primary)',
+                            border: '1px solid var(--border)',
+                            overflow: 'hidden',
+                          }}>
+                            <div style={{
+                              width: `${Math.min(100, (stacks / maxBuffer) * 100)}%`,
+                              height: '100%',
+                              background: stacks >= maxBuffer ? '#ef4444' : 'var(--accent)',
+                              transition: 'width 0.2s, background 0.2s',
+                            }} />
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 3 }}>
                       {Object.entries(itemCounts).map(([type, count]) => (

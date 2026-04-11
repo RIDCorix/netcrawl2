@@ -99,12 +99,14 @@ export const CHIP_DEFS: ChipDef[] = [
   // Uncommon
   { chipType: 'harvest_speed_2', name: 'Speed Chip II', description: '+40% harvest speed', rarity: 'uncommon', effect: { type: 'harvest_speed_mult', value: 1.4 } },
   { chipType: 'production_rate_1', name: 'Yield Chip I', description: '+1 resource rate', rarity: 'uncommon', effect: { type: 'production_rate', value: 1 } },
-  { chipType: 'capacity_1', name: 'Buffer Chip', description: '+10 worker carry capacity', rarity: 'uncommon', effect: { type: 'capacity_bonus', value: 10 } },
+  { chipType: 'capacity_1', name: 'Worker Buffer Chip', description: '+10 worker carry capacity', rarity: 'uncommon', effect: { type: 'capacity_bonus', value: 10 } },
+  { chipType: 'node_buffer_1', name: 'Node Buffer Chip I', description: '+2 node stack slots', rarity: 'uncommon', effect: { type: 'node_buffer_bonus', value: 2 } },
 
   // Rare
   { chipType: 'defense_2', name: 'Firewall Chip II', description: '+3 infection resistance', rarity: 'rare', effect: { type: 'defense', value: 3 } },
   { chipType: 'production_rate_2', name: 'Yield Chip II', description: '+2 resource rate', rarity: 'rare', effect: { type: 'production_rate', value: 2 } },
   { chipType: 'harvest_speed_3', name: 'Speed Chip III', description: '+60% harvest speed', rarity: 'rare', effect: { type: 'harvest_speed_mult', value: 1.6 } },
+  { chipType: 'node_buffer_2', name: 'Node Buffer Chip II', description: '+4 node stack slots', rarity: 'rare', effect: { type: 'node_buffer_bonus', value: 4 } },
 
   // Legendary
   { chipType: 'auto_repair', name: 'Nanite Core', description: 'Auto-repairs infection in 30s', rarity: 'legendary', effect: { type: 'auto_repair', value: 30 } },
@@ -177,6 +179,33 @@ export const BASE_CHIP_SLOTS: Record<string, number> = {
   locked: 0,
   infected: 0,
 };
+
+/** Absolute upper bound on a node's chipSlots, no matter how many stat points
+ *  or upgrades are spent. Keeps builds from growing unboundedly. */
+export const MAX_CHIP_SLOTS = 6;
+
+// ── Node floor buffer (how many item stacks can sit on a node) ──────────────
+
+/** Base max buffer (stack count) per node type. Nodes without an entry cannot
+ *  hold items on the floor at all (e.g. locked, puzzle, auth). */
+export const BASE_NODE_BUFFER: Record<string, number> = {
+  hub: 8,        // hub is a transit point, needs headroom for drops before deposit
+  resource: 4,   // resource nodes accumulate mined stacks
+  compute: 2,
+  cache: 2,
+  api: 2,
+  auth: 2,
+};
+
+/** Absolute upper bound on any node's buffer stacks. */
+export const MAX_NODE_BUFFER = 16;
+
+/** Compute the effective buffer capacity for a node given its base + installed chip effects. */
+export function computeNodeBuffer(nodeType: string, chipEffects: Record<string, number>): number {
+  const base = BASE_NODE_BUFFER[nodeType] ?? 0;
+  const bonus = chipEffects['node_buffer_bonus'] || 0;
+  return Math.min(MAX_NODE_BUFFER, base + bonus);
+}
 
 // ── Node XP System ─────────────────────────────────────────────────────────
 // Each node gains XP through interactions specific to its type.

@@ -540,6 +540,7 @@ export const en: Record<string, string> = {
   'stat.chipSlots.name': 'Chip Slots',
 
   'ui.ground_items':     'GROUND ITEMS',
+  'node.buffer':         'BUFFER',
   'ui.inventory_label':  'INVENTORY',
   'ui.equipment_label':  'EQUIPMENT',
   'ui.empty':            'Empty',
@@ -664,6 +665,13 @@ export const en: Record<string, string> = {
   'wiki.cat.nodes':             'Nodes',
   'wiki.cat.workers':           'Workers',
   'wiki.cat.items':             'Items',
+  'wiki.cat.chips':             'Chips',
+  'wiki.section.node_chips':    'Node Chips',
+  'wiki.entry.chip_node_buffer.title':   'Node Buffer Chip',
+  'wiki.entry.chip_node_buffer.summary': 'Expands a node\'s on-floor stack capacity.',
+  'wiki.entry.chip_node_buffer.body1':   'Install into a node chip slot. Each tier adds stack slots so workers can mine and drop more items before the node refuses new deposits.',
+  'wiki.entry.chip_node_buffer.body2':   'Essential for high-throughput nodes or as a staging area for courier routes.',
+  'wiki.entry.chip_node_buffer.effect':  '+2 / +4 stack slots (tier I / II)',
   // sections
   'wiki.section.overview':      'Overview',
   'wiki.section.node_types':    'Node Types',

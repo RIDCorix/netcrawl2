@@ -7,7 +7,7 @@
 import path from 'path';
 import fs from 'fs';
 import { INITIAL_LEVEL_STATE, type LevelState, grantXp, getLevelSummary, getTitleForLevel, type LevelSummary, type LevelUpResult } from './levelSystem.js';
-import { getUpgradeKey, getNodeXpForAction, getNodeXpThreshold, NODE_UPGRADE_DEFS } from './upgradeDefinitions.js';
+import { getUpgradeKey, getNodeXpForAction, getNodeXpThreshold, NODE_UPGRADE_DEFS, computeNodeBuffer, MAX_CHIP_SLOTS } from './upgradeDefinitions.js';
 import { getLayerInitialSnapshot, LAYER_DEFS, type LayerSnapshot } from './layerDefinitions.js';
 
 let _dataDir = process.env.NETCRAWL_DATA_DIR || process.cwd();
@@ -854,8 +854,26 @@ export function getVisibleState(depth = 2, userId?: string): { nodes: any[]; edg
     }
   }
 
+  // Enrich visible nodes with derived fields the UI needs (maxBuffer etc).
+  // Doing it here keeps the derivation server-authoritative and avoids
+  // re-computing chip effects on every client.
+  const enrichedNodes = nodes
+    .filter(n => visible.has(n.id))
+    .map(n => {
+      const chipEffects = getNodeChipEffects(n.id, userId);
+      const maxBuffer = computeNodeBuffer(n.type, chipEffects);
+      return {
+        ...n,
+        data: {
+          ...n.data,
+          maxBuffer,
+          chipSlots: Math.min(MAX_CHIP_SLOTS, n.data.chipSlots || 0),
+        },
+      };
+    });
+
   return {
-    nodes: nodes.filter(n => visible.has(n.id)),
+    nodes: enrichedNodes,
     edges: edges.filter(e => visible.has(e.source) && visible.has(e.target)),
   };
 }

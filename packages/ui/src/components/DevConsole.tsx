@@ -21,7 +21,7 @@ interface LogLine {
 }
 
 // ── Command definitions (for top-level autocomplete) ──────────────────────
-const ROOT_COMMANDS = ['/give', '/nodes', '/quests', '/maps', '/help', '/clear'];
+const ROOT_COMMANDS = ['/give', '/nodes', '/quests', '/maps', '/restart', '/help', '/clear'];
 const LOCK_ACTIONS = ['unlock', 'lock'];
 
 // ── Terminal colors ────────────────────────────────────────────────────────
@@ -154,6 +154,8 @@ export function DevConsole() {
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const logIdRef = useRef(0);
+  // Armed flag for the two-step /restart confirmation flow.
+  const pendingRestartRef = useRef(false);
 
   const appendLog = useCallback((kind: LogLine['kind'], text: string) => {
     logIdRef.current += 1;
@@ -230,11 +232,40 @@ export function DevConsole() {
       appendLog('sys', '/nodes <unlock|lock> <nodeId>');
       appendLog('sys', '/quests <unlock|lock> <questId>');
       appendLog('sys', '/maps <unlock|lock> <layerId>');
+      appendLog('sys', '/restart [--yes]  — wipe all game progress');
       appendLog('sys', '/clear    — clear log');
       appendLog('sys', 'Tab: complete   ↑↓: history   Esc/~: close');
       return;
     }
     if (cmd === '/clear') { setLog([]); return; }
+
+    if (cmd === '/restart') {
+      // Two-step confirmation: first `/restart` arms a pending reset, second
+      // `/restart` (or `/restart --yes`) confirms. `--yes` skips the prompt
+      // entirely so power users can chain this.
+      const force = args.includes('--yes') || args.includes('-y');
+      if (!force && !pendingRestartRef.current) {
+        pendingRestartRef.current = true;
+        window.setTimeout(() => { pendingRestartRef.current = false; }, 10_000);
+        appendLog('sys', 'this will wipe ALL progress: nodes, resources, workers, inventory, chips, quests, achievements.');
+        appendLog('sys', "type '/restart' again within 10s to confirm, or '/restart --yes' to skip the prompt next time.");
+        return;
+      }
+      pendingRestartRef.current = false;
+      try {
+        const res = await apiFetch('/api/reset', { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          appendLog('err', data.error || `HTTP ${res.status}`);
+        } else {
+          appendLog('ok', 'game progress reset. fresh world incoming via websocket.');
+          loadCompletions();
+        }
+      } catch (e: any) {
+        appendLog('err', e?.message || String(e));
+      }
+      return;
+    }
 
     try {
       let res: Response;

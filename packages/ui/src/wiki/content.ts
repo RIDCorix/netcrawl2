@@ -418,6 +418,36 @@ export const WIKI: WikiCategory[] = [
   },
 
   {
+    id: 'chips',
+    title: 'wiki.cat.chips',
+    icon: Zap,
+    color: '#fbbf24',
+    sections: [
+      {
+        id: 'node-chips',
+        title: 'wiki.section.node_chips',
+        icon: Cable,
+        entries: [
+          {
+            id: 'chip_node_buffer',
+            icon: Database,
+            color: '#00d4aa',
+            title: 'wiki.entry.chip_node_buffer.title',
+            summary: 'wiki.entry.chip_node_buffer.summary',
+            body: ['wiki.entry.chip_node_buffer.body1', 'wiki.entry.chip_node_buffer.body2'],
+            fields: [
+              { label: 'wiki.field.effect', value: 'wiki.entry.chip_node_buffer.effect' },
+              { label: 'wiki.field.slot', value: 'Node chip slot' },
+            ],
+            unlock: { level: 3 },
+            reward: { kind: 'credits', amount: 40 },
+          },
+        ],
+      },
+    ],
+  },
+
+  {
     id: 'items',
     title: 'wiki.cat.items',
     icon: Box,

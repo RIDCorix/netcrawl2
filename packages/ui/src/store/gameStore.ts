@@ -78,6 +78,8 @@ export interface NodeData {
   depletedUntil?: number;
   upgradeLevel?: number;
   chipSlots?: number;
+  /** Max number of item stacks that can sit on this node's floor. Set by server. */
+  maxBuffer?: number;
   installedChips?: Chip[];
   autoCollect?: boolean;
   defense?: number;

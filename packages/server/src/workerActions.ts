@@ -9,6 +9,7 @@ import { XP_REWARDS } from './levelSystem.js';
 import { checkAchievements } from './achievements.js';
 import { checkQuests } from './quests.js';
 import { getActivePassives } from './db.js';
+import { computeNodeBuffer } from './upgradeDefinitions.js';
 import { broadcastFullState } from './broadcastHelper.js';
 import { broadcast } from './websocket.js';
 import { getCurrentUserId } from './db.js';
@@ -210,6 +211,17 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
 
       if (!node.data.mineable) return { ok: false, error: 'Node is not mineable' };
       if (node.data.depleted) return { ok: false, error: 'Node is depleted', reason: 'node_depleted', depletedUntil: node.data.depletedUntil };
+
+      // Buffer cap: if the floor is already at max, refuse to mine further.
+      // This keeps nodes from accumulating unbounded stacks and forces the
+      // player to collect/deposit before the next mine cycle.
+      {
+        const mineBufMax = computeNodeBuffer(node.type, getNodeChipEffects(currentNode, uid));
+        const floorStacks = Array.isArray(node.data.items) ? node.data.items.length : 0;
+        if (mineBufMax > 0 && floorStacks >= mineBufMax) {
+          return { ok: false, error: 'Node buffer full', reason: 'node_buffer_full', maxBuffer: mineBufMax };
+        }
+      }
       // Cluster nodes: capacity-based depletion with timed refill
       if (node.data.capacity !== undefined) {
         const currentItems = Array.isArray(node.data.items) ? node.data.items.length : 0;
@@ -938,19 +950,55 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         return { ok: true, dropped, nodeId: dropNodeId, deposited: true, totalData, penalty };
       }
 
+      // Buffer cap: refuse to drop on nodes whose floor would overflow, but
+      // partially accept what fits in remaining stacks of matching types.
+      const dropBufMax = computeNodeBuffer(dropNode.type, getNodeChipEffects(dropNodeId, uid));
+      const existingItemsPre: Item[] = Array.isArray(dropNode.data.items) ? [...dropNode.data.items] : [];
+      const existingTypes = new Set(existingItemsPre.map(i => i.type));
+      // Keep any drop whose type already has a stack on the floor (they merge into
+      // existing stacks without growing the stack count). New types are only kept
+      // while the stack count has headroom under dropBufMax.
+      let projectedStacks = existingItemsPre.length;
+      const acceptedDrops: Item[] = [];
+      const rejectedDrops: Item[] = [];
+      for (const d of dropped) {
+        if (existingTypes.has(d.type)) {
+          // Merging into an existing type: never grows stack count (only stack size).
+          acceptedDrops.push(d);
+          continue;
+        }
+        if (dropBufMax === 0 || projectedStacks < dropBufMax) {
+          acceptedDrops.push(d);
+          existingTypes.add(d.type);
+          projectedStacks += 1;
+        } else {
+          rejectedDrops.push(d);
+        }
+      }
+      if (acceptedDrops.length === 0) {
+        return { ok: false, error: 'Node buffer full', reason: 'node_buffer_full', maxBuffer: dropBufMax };
+      }
+      // Put rejected drops back into holding so the caller isn't silently robbed.
+      for (const r of rejectedDrops) holding.push(r);
       upsertWorker({ ...w7, holding }, uid);
 
       // Merge with existing floor stacks
-      const existingItems: Item[] = Array.isArray(dropNode.data.items) ? [...dropNode.data.items] : [];
+      const existingItems: Item[] = existingItemsPre;
       const newNodes = freshStateDrop.nodes.map((n: any) => {
         if (n.id === dropNodeId) {
-          return { ...n, data: { ...n.data, items: mergeItemStacks(existingItems, dropped) } };
+          return { ...n, data: { ...n.data, items: mergeItemStacks(existingItems, acceptedDrops) } };
         }
         return n;
       });
       saveGameState({ ...freshStateDrop, nodes: newNodes }, uid);
       broadcastFullState(uid);
-      return { ok: true, dropped, nodeId: dropNodeId };
+      return {
+        ok: true,
+        dropped: acceptedDrops,
+        rejected: rejectedDrops,
+        nodeId: dropNodeId,
+        maxBuffer: dropBufMax,
+      };
     }
 
     case 'has_items':

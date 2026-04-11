@@ -14,6 +14,7 @@ import {
   setCurrentUser,
   allocateFlop, releaseFlop, FLOP_COSTS,
   getAutosave, restoreAutosave,
+  getNodeChipEffects,
 } from './db.js';
 import { LAYER_DEFS } from './layerDefinitions.js';
 import { handleWorkerAction } from './workerActions.js';
@@ -27,6 +28,7 @@ import {
 import { broadcastFullState } from './broadcastHelper.js';
 import {
   NODE_UPGRADE_DEFS, getUpgradeKey, CHIP_PACK_DEFS, rollChip, getNodeXpThreshold, NODE_STAT_DEFS,
+  MAX_CHIP_SLOTS, computeNodeBuffer, BASE_NODE_BUFFER,
 } from './upgradeDefinitions.js';
 import { checkAchievements, getAchievementList, RARITY_ORDINAL } from './achievements.js';
 import { checkQuests, claimQuestReward, getQuestList, getQuestEdges } from './quests.js';
@@ -829,13 +831,19 @@ router.get('/node/upgrades', (req: Request, res: Response) => {
   const spentPoints = Object.values(statAlloc).reduce((s: number, v: number) => s + v, 0);
   const availablePoints = enhancementPoints - spentPoints;
 
+  // Buffer capacity summary (base + chip bonus, effective stack count)
+  const chipEffectsForBuf = getNodeChipEffects(nodeId, uid);
+  const maxBuffer = computeNodeBuffer(node.type, chipEffectsForBuf);
+  const currentBuffer = Array.isArray(node.data.items) ? node.data.items.length : 0;
+
   res.json({
     nodeId,
     nodeType: node.type,
     resource: node.data.resource,
     currentLevel,
     maxLevel,
-    chipSlots: node.data.chipSlots || 0,
+    chipSlots: Math.min(MAX_CHIP_SLOTS, node.data.chipSlots || 0),
+    maxChipSlots: MAX_CHIP_SLOTS,
     installedChips: node.data.installedChips || [],
     nodeXp,
     nodeXpToNext: nodeXpToNext || 0,
@@ -844,6 +852,10 @@ router.get('/node/upgrades', (req: Request, res: Response) => {
     availablePoints,
     statAlloc,
     statDefs,
+    // Buffer capacity
+    maxBuffer,
+    currentBuffer,
+    baseBuffer: BASE_NODE_BUFFER[node.type] ?? 0,
   });
 });
 
@@ -886,7 +898,12 @@ router.post('/node/stat/allocate', (req: Request, res: Response) => {
   // Apply stat effect
   if (statKey === 'rate') data.rate = (data.baseRate || data.rate || 0) + (statAlloc.rate || 0) * statDef.perPoint;
   if (statKey === 'defense') data.defense = (data.baseDefense || 0) + (statAlloc.defense || 0) * statDef.perPoint;
-  if (statKey === 'chipSlots') data.chipSlots = (data.baseChipSlots || 1) + (statAlloc.chipSlots || 0) * statDef.perPoint;
+  if (statKey === 'chipSlots') {
+    data.chipSlots = Math.min(
+      MAX_CHIP_SLOTS,
+      (data.baseChipSlots || 1) + (statAlloc.chipSlots || 0) * statDef.perPoint
+    );
+  }
 
   const newNodes = state.nodes.map((n: any) => n.id === nodeId ? { ...n, data } : n);
   saveGameState({ ...state, nodes: newNodes }, uid);
@@ -911,7 +928,7 @@ router.post('/node/chip/insert', (req: Request, res: Response) => {
   if (!node) return res.status(404).json({ error: 'Node not found' });
 
   const installed = node.data.installedChips || [];
-  const slots = node.data.chipSlots || 0;
+  const slots = Math.min(MAX_CHIP_SLOTS, node.data.chipSlots || 0);
   if (installed.length >= slots) return res.status(400).json({ error: 'No free chip slots' });
 
   // Remove chip from player inventory
