@@ -19,6 +19,14 @@ export interface LayerDef {
     total_data_deposited?: number;
     rp?: number;        // current resource balance
     credits?: number;   // current resource balance
+    /**
+     * Map of stat_key -> minimum value. Any achievement_state stat counts:
+     *  - `puzzle_solved_<nodeId>` for per-node puzzle completions
+     *  - `observatory_solved` for the Chapter 1 graduation gate
+     *  - any custom stat incrementStat() writes
+     * All entries must be satisfied for the threshold to be met.
+     */
+    required_stats?: Record<string, number>;
   };
 }
 
@@ -43,6 +51,9 @@ export const LAYER_DEFS: LayerDef[] = [
       total_data_deposited: 500000,
       rp: 50,
       credits: 20,
+      // Chapter 1 graduation gate: solve the Observatory calculator puzzle
+      // at least once. This is the "proves you can write code" checkpoint.
+      required_stats: { observatory_solved: 1 },
     },
   },
   {

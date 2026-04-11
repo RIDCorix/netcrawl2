@@ -162,6 +162,51 @@ export const PUZZLE_TEMPLATES: PuzzleTemplate[] = [
       return { params: { a, b, op: 'gcd' }, answer: gcd(a, b), hint: `gcd(${a}, ${b})` };
     },
   },
+
+  // ── Capstone: Calculator ─────────────────────────────────────────────────
+  // The graduation puzzle. Players have seen +, −, ×, ÷ in isolation; here
+  // they're asked to *combine* them under operator precedence, essentially
+  // writing a mini-calculator. Used as the gating puzzle for the Observatory
+  // promotion node that unlocks Layer 1 (Chapter 2).
+  {
+    id: 'calculator',
+    name: 'Calculator',
+    description: 'Evaluate a short infix expression with + − × ÷ and precedence',
+    difficulty: 'hard',
+    rewardMultiplier: 5,
+    generate: () => {
+      // Generate a 3-operand expression like "8 + 6 * 2" that the player must
+      // evaluate respecting × / ÷ precedence over + / −.
+      // Integer-only — we pick divisors that evenly divide to keep the answer
+      // a whole number (no floats, no floor_div ambiguity).
+      const ops: Array<'+' | '-' | '*' | '/'> = ['+', '-', '*', '/'];
+      const op1 = randChoice(ops);
+      const op2 = randChoice(ops);
+      const a = randInt(2, 20);
+      const b = randInt(2, 20);
+      let c = randInt(2, 20);
+
+      // If either op is division, make sure the divisor evenly divides.
+      // We pick `c` such that (a op1 b) / c or b / c is clean.
+      if (op2 === '/') {
+        // b / c — ensure c divides b
+        const divisors = [];
+        for (let i = 2; i <= b; i++) if (b % i === 0) divisors.push(i);
+        c = divisors.length > 0 ? randChoice(divisors) : 1;
+      }
+
+      const expr = `${a} ${op1} ${b} ${op2} ${c}`;
+      // eslint-disable-next-line no-new-func
+      const value = Function(`"use strict"; return (${expr});`)();
+      const answer = Math.trunc(value);
+
+      return {
+        params: { a, b, c, op1, op2, op: 'calculator', expression: expr },
+        answer,
+        hint: `eval("${expr}") — mind operator precedence`,
+      };
+    },
+  },
 ];
 
 // ── Difficulty config ───────────────────────────────────────────────────────
@@ -184,10 +229,23 @@ export interface PuzzleInstance {
   createdAt: number;
 }
 
-/** Generate a new puzzle instance for a node's difficulty level */
-export function generatePuzzle(difficulty: PuzzleDifficulty): PuzzleInstance {
-  const pool = PUZZLE_TEMPLATES.filter(t => t.difficulty === difficulty);
-  const template = pool[Math.floor(Math.random() * pool.length)];
+/**
+ * Generate a new puzzle instance.
+ *
+ * By default, picks a random template from the pool matching `difficulty`.
+ * If `fixedTemplateId` is supplied (e.g. the Observatory always serves the
+ * calculator capstone), that specific template is used instead, and its own
+ * difficulty wins regardless of `difficulty`.
+ */
+export function generatePuzzle(difficulty: PuzzleDifficulty, fixedTemplateId?: string): PuzzleInstance {
+  let template: PuzzleTemplate | undefined;
+  if (fixedTemplateId) {
+    template = PUZZLE_TEMPLATES.find(t => t.id === fixedTemplateId);
+  }
+  if (!template) {
+    const pool = PUZZLE_TEMPLATES.filter(t => t.difficulty === difficulty);
+    template = pool[Math.floor(Math.random() * pool.length)];
+  }
   const instance = template.generate();
   return {
     taskId: `task_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -195,7 +253,7 @@ export function generatePuzzle(difficulty: PuzzleDifficulty): PuzzleInstance {
     params: instance.params,
     answer: instance.answer,
     hint: instance.hint,
-    difficulty,
+    difficulty: template.difficulty,
     createdAt: Date.now(),
   };
 }

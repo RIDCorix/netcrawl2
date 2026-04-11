@@ -443,9 +443,11 @@ export const INITIAL_NODES = [
   { id: 'nw_relay2', type: 'empty',    position: { x: -600, y: -680 },  data: Y('Relay NW2', { data: 150000 }) },
   { id: 'nw_comp2',  type: 'compute',  position: { x: -820, y: -560 },  data: C('Deep Research Lab', 'hard', { data: 400000, rp: 20 }) },
   { id: 'nw_empty1', type: 'empty',    position: { x: -600, y: -880 },  data: E('Open Slot', { data: 300000, rp: 15 }) },
-  // Promotion/advancement node for Chapter 1. Unlocked by default so it's
-  // always visible from session start — it's the player's map goalpost.
-  { id: 'nw_locked1',type: 'locked',   position: { x: -600, y: -1080 }, data: { ...Y('Observatory', { data: 800000, rp: 30 }), unlocked: true } },
+  // Chapter 1 GRADUATION node. The Observatory is a compute-type puzzle
+  // node pinned to the 'calculator' capstone template — solving it is the
+  // proof-of-skill that unlocks Layer 1 (Corp Intranet). Starts unlocked so
+  // it's always visible as a map goalpost.
+  { id: 'nw_locked1', type: 'compute', position: { x: -600, y: -1080 }, data: { ...C('Observatory', 'hard', { data: 800000, rp: 30 }), unlocked: true, fixedPuzzleTemplate: 'calculator' } },
 
   // ═══════════════════════════════════════════════════════════════════════════
   // DATA MINE CLUSTER (far south — star topology for Ch1 for-loop quest)
@@ -764,14 +766,27 @@ function _loadStore() {
           baseDefense: n.data.baseDefense ?? 0,
         },
       }));
-      // Migrate: force Chapter 1 promotion node visible on existing saves.
-      // This one is a goalpost for the player, not a gated unlock — it was
-      // previously locked by default which left it hidden behind fog-of-war.
-      store.game_state.nodes = store.game_state.nodes.map((n: any) =>
-        n.id === 'nw_locked1' && !n.data.unlocked
-          ? { ...n, data: { ...n.data, unlocked: true } }
-          : n
-      );
+      // Migrate: Chapter 1 graduation Observatory.
+      // Older saves had nw_locked1 as a `locked` type decoy or as an
+      // unlocked-but-typed-locked placeholder. It is now a compute-type
+      // puzzle node pinned to the calculator capstone. Convert in-place,
+      // preserving any existing upgrade / chip progress.
+      store.game_state.nodes = store.game_state.nodes.map((n: any) => {
+        if (n.id !== 'nw_locked1') return n;
+        return {
+          ...n,
+          type: 'compute',
+          data: {
+            ...n.data,
+            unlocked: true,
+            difficulty: n.data.difficulty || 'hard',
+            rewardResource: n.data.rewardResource || 'rp',
+            solveCount: n.data.solveCount || 0,
+            fixedPuzzleTemplate: 'calculator',
+            // Clear legacy locked-type styling fields if present
+          },
+        };
+      });
       // Auto-upgrade any nodes that already have full XP
       if (sweepNodeAutoUpgrades()) {
         console.log('[initDb] Auto-upgraded nodes with full XP');
@@ -1614,8 +1629,14 @@ export function checkLayerUnlocks(userId?: string): number[] {
     const dataMet = !thresh.total_data_deposited || (stats['total_data_deposited'] || 0) >= thresh.total_data_deposited;
     const rpMet = !thresh.rp || state.resources.rp >= thresh.rp;
     const creditsMet = !thresh.credits || state.resources.credits >= thresh.credits;
+    // required_stats is an AND over arbitrary achievement stats. Empty /
+    // undefined = no constraint, so the default case still passes.
+    const requiredStatsMet = !thresh.required_stats
+      || Object.entries(thresh.required_stats).every(
+        ([key, min]) => (stats[key] || 0) >= min
+      );
 
-    if (dataMet && rpMet && creditsMet) {
+    if (dataMet && rpMet && creditsMet && requiredStatsMet) {
       unlockLayer(def.id, userId);
       newlyUnlocked.push(def.id);
     }

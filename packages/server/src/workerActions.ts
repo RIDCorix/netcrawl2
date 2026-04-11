@@ -8,7 +8,7 @@ import {
 import { XP_REWARDS } from './levelSystem.js';
 import { checkAchievements } from './achievements.js';
 import { checkQuests } from './quests.js';
-import { getActivePassives } from './db.js';
+import { getActivePassives, checkLayerUnlocks } from './db.js';
 import { computeNodeBuffer } from './upgradeDefinitions.js';
 import { broadcastFullState } from './broadcastHelper.js';
 import { broadcast } from './websocket.js';
@@ -555,11 +555,13 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         return { ok: false, error: `Node on cooldown (${remaining}s)`, reason: 'cooldown', remaining };
       }
 
-      // Generate puzzle if none active
+      // Generate puzzle if none active. A node can pin itself to a specific
+      // puzzle template via `data.fixedPuzzleTemplate` (used by the
+      // Observatory, which always serves the 'calculator' capstone).
       const difficulty = node.data.difficulty || 'easy';
       let puzzle = activePuzzles.get(computeNode);
       if (!puzzle) {
-        puzzle = generatePuzzle(difficulty);
+        puzzle = generatePuzzle(difficulty, node.data.fixedPuzzleTemplate);
         activePuzzles.set(computeNode, puzzle);
       }
 
@@ -627,16 +629,28 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         broadcastFullState(uid);
         totalSolves++;
         incrementStat('total_puzzles_solved', 1, uid);
+        // Generic per-node solve counter so layer-unlock thresholds and
+        // future quests can key off any compute node without hard-coding.
+        incrementStat(`puzzle_solved_${submitNode}`, 1, uid);
         // Compute Alpha (s_comp1) is the Chapter 1 skip-challenge gate.
-        // Track its solves with a dedicated stat the quest can key off.
+        // Keep its legacy stat name for the existing quest.
         if (submitNode === 's_comp1') {
           incrementStat('compute_alpha_solved', 1, uid);
+        }
+        // Observatory (nw_locked1) is the Chapter 1 graduation puzzle —
+        // solving it is a hard requirement for Layer 1 unlock.
+        if (submitNode === 'nw_locked1') {
+          incrementStat('observatory_solved', 1, uid);
         }
         const puzzleDiff = sNode.data.difficulty || 'easy';
         awardXp(XP_REWARDS[`solve_puzzle_${puzzleDiff}`] || XP_REWARDS.solve_puzzle_easy, uid);
         grantNodeXp(submitNode, 'solve_puzzle', uid);
         checkAchievements(uid);
         checkQuests(uid);
+        // Solving a compute puzzle can now complete layer unlock
+        // requirements (e.g. the Observatory → Layer 1 gate). Run the
+        // unlock check here so the toast fires on the same tick.
+        checkLayerUnlocks(uid);
 
         return { ok: true, correct: true, reward: { type: rewardType, amount: reward } };
       } else {
