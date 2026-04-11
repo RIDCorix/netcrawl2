@@ -21,7 +21,7 @@ import 'reactflow/dist/style.css';
 import { useGameStore, GameNode, GameEdge, Worker } from '../store/gameStore';
 import React, { useEffect, useCallback, useMemo, useRef } from 'react';
 import { useT } from '../hooks/useT';
-import { Database, Shield, Lock, AlertTriangle, Pickaxe, Package, Cpu, Box, HardDrive, Globe, ShieldCheck } from 'lucide-react';
+import { Database, Shield, Lock, AlertTriangle, Pickaxe, Package, Cpu, Box, HardDrive, Globe, ShieldCheck, TrendingUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // ── Worker Dots Row (with enter/leave animations) ───────────────────────────
@@ -595,12 +595,37 @@ function InfectedNode({ id, data, selected }: any) {
 }
 
 function LockedNode({ id, data, selected }: any) {
+  // `locked` nodes serve two purposes:
+  //  1. Fog-of-war placeholders you haven't discovered yet (`unlocked: false`).
+  //  2. Revealed "promotion" goalposts that show on the map as a target the
+  //     player is working toward (`unlocked: true`). These must be visually
+  //     distinct — show their label and a goalpost icon with a gold glow.
+  const revealed = !!data.unlocked;
   return (
-    <NodeWrapper selected={selected} nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{
-      opacity: 0.4,
-      border: '1px dashed var(--border-bright)',
-    }}>
-      <NodeLabel label={data.label} icon={Lock} iconColor="var(--text-muted)" subtitle="UNKNOWN" />
+    <NodeWrapper
+      selected={selected}
+      glowColor={revealed ? '#facc15' : undefined}
+      nodeId={id}
+      showWorkerDots={data.showWorkerDots}
+      edgeStyle={data.edgeStyle}
+      fadeIn={data.fadeIn}
+      routeIndices={data.routeIndices}
+      style={{
+        opacity: revealed ? 1 : 0.4,
+        border: revealed
+          ? '2px solid color-mix(in srgb, #facc15 70%, transparent)'
+          : '1px dashed var(--border-bright)',
+        padding: revealed ? '14px 18px' : undefined,
+        borderRadius: revealed ? 14 : undefined,
+        animation: revealed ? 'hub-pulse 3.2s ease-in-out infinite' : undefined,
+      }}
+    >
+      <NodeLabel
+        label={revealed ? data.label : 'Unknown Node'}
+        icon={revealed ? TrendingUp : Lock}
+        iconColor={revealed ? '#facc15' : 'var(--text-muted)'}
+        subtitle={revealed ? 'PROMOTION' : 'UNKNOWN'}
+      />
     </NodeWrapper>
   );
 }
