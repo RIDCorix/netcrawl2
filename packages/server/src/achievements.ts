@@ -4,11 +4,10 @@
  * All public functions accept optional userId for multi-user isolation.
  */
 
-import {
-  getAchievementState, getStat, getStatArray, getGameState,
-  isAchievementUnlocked, markAchievementUnlocked, awardXp,
-  getCurrentUserId,
-} from './db.js';
+import { getCurrentUserId } from './store.js';
+import { getGameState } from './domain/gameState.js';
+import { getAchievementState, getStat, getStatArray, isAchievementUnlocked, markAchievementUnlocked } from './domain/achievements.js';
+import { awardXp } from './domain/level.js';
 import { broadcast } from './websocket.js';
 import { XP_REWARDS } from './levelSystem.js';
 

@@ -6,7 +6,12 @@
  * to a specific user (critical for multi-user data isolation).
  */
 
-import { getGameState, getVisibleState, getWorkers, getPlayerLevelSummary, getLayerManager, isLayerUnlocked, checkLayerUnlocks, getActiveLayerId, getStat, getCurrentUserId } from './db.js';
+import { getCurrentUserId } from './store.js';
+import { getGameState, getVisibleState } from './domain/gameState.js';
+import { getWorkers } from './domain/workers.js';
+import { getPlayerLevelSummary } from './domain/level.js';
+import { getLayerManager, isLayerUnlocked, checkLayerUnlocks, getActiveLayerId } from './domain/layers.js';
+import { getStat } from './domain/achievements.js';
 import { getAllWorkerClasses } from './workerRegistry.js';
 import { isCodeServerConnected } from './codeServerTracker.js';
 import { LAYER_DEFS } from './layerDefinitions.js';

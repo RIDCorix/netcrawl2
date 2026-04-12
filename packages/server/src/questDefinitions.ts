@@ -6,7 +6,7 @@
  * Side quests branch off and can be done in any order within a chapter.
  */
 
-import type { RecipeCost, Resources } from './db.js';
+import type { RecipeCost, Resources } from './types.js';
 import type { ChipRarity } from './upgradeDefinitions.js';
 import { QUEST_GUIDES } from './questGuides.js';
 

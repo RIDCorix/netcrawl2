@@ -4,7 +4,7 @@
  * Layer 1+ are defined here.
  */
 
-import type { FlopState } from './db.js';
+import type { FlopState } from './types.js';
 
 // ── Layer metadata ────────────────────────────────────────────────────────────
 

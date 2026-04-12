@@ -1,128 +1,49 @@
-import {
-  getGameState, saveGameState, getWorker, upsertWorker,
-  addWorkerLog, Item, mergeItemStacks, MAX_STACK_SIZE,
-  getNodeChipEffects, incrementStat, setStatMax,
-  addToPlayerInventory, awardXp, grantNodeXp,
-  cacheGet, cacheSet, cacheKeys, getCacheRange, getCacheCapacity,
-} from './db.js';
-import { XP_REWARDS } from './levelSystem.js';
-import { checkAchievements } from './achievements.js';
-import { checkQuests } from './quests.js';
-import { getActivePassives, checkLayerUnlocks } from './db.js';
-import { computeNodeBuffer } from './upgradeDefinitions.js';
-import { broadcastFullState } from './broadcastHelper.js';
-import { broadcast } from './websocket.js';
-import { getCurrentUserId } from './db.js';
-import { getNeighborIds, edgeExists, bfsPath } from './graphUtils.js';
-import { apiPoll, apiRespond, apiReject, getAPIPendingCount, getAPIStats } from './apiNodeEngine.js';
-import { generatePuzzle, PuzzleInstance, DIFFICULTY_CONFIG, PUZZLE_TEMPLATES } from './puzzleDefinitions.js';
+/**
+ * Worker action dispatcher — routes actions to handlers.
+ * Log/error actions are extracted into logActions.ts.
+ * The remaining actions stay in the switch for now (tight coupling with shared state).
+ */
+
+import { getCurrentUserId } from '../store.js';
+import type { Item } from '../types.js';
+import { mergeItemStacks, MAX_STACK_SIZE } from '../types.js';
+import { getGameState, saveGameState } from '../domain/gameState.js';
+import { getWorker, upsertWorker, addWorkerLog } from '../domain/workers.js';
+import { addToPlayerInventory } from '../domain/inventory.js';
+import { getNodeChipEffects } from '../domain/chips.js';
+import { incrementStat, setStatMax } from '../domain/achievements.js';
+import { awardXp } from '../domain/level.js';
+import { grantNodeXp } from '../domain/nodeXp.js';
+import { cacheGet, cacheSet, cacheKeys, getCacheRange, getCacheCapacity } from '../domain/cache.js';
+import { getActivePassives } from '../domain/questState.js';
+import { checkLayerUnlocks } from '../domain/layers.js';
+import { XP_REWARDS } from '../levelSystem.js';
+import { checkAchievements } from '../achievements.js';
+import { checkQuests } from '../quests.js';
+import { computeNodeBuffer } from '../upgradeDefinitions.js';
+import { broadcastFullState } from '../broadcastHelper.js';
+import { broadcast } from '../websocket.js';
+import { getNeighborIds, edgeExists, bfsPath } from '../graphUtils.js';
+import { apiPoll, apiRespond, apiReject, getAPIStats } from '../apiNodeEngine.js';
+import { generatePuzzle, PuzzleInstance, DIFFICULTY_CONFIG, PUZZLE_TEMPLATES } from '../puzzleDefinitions.js';
+
+import { acquireLock, setLock, getLock } from './actionLock.js';
+import { handleLog, handleReportError } from './logActions.js';
+import { ACTION_DELAY, MOVE_DELAY, MINE_DELAY, getPassiveEffects, getItemTypeForNode, calcItemCount } from './helpers.js';
 
 // ── Per-node puzzle state (in-memory) ───────────────────────────────────────
-// Key: nodeId, value: current puzzle instance
 const activePuzzles = new Map<string, PuzzleInstance>();
-// Track cooldowns: nodeId -> timestamp when next puzzle is available
 const puzzleCooldowns = new Map<string, number>();
-// Stats
 let totalSolves = 0;
-
-// ── Per-worker action lock ──────────────────────────────────────────────────
-// Each worker can only do one action at a time. The lock resolves when the
-// action's delay is complete.
-
-const workerLocks = new Map<string, Promise<void>>();
-
-async function acquireLock(workerId: string): Promise<void> {
-  while (workerLocks.has(workerId)) {
-    await workerLocks.get(workerId);
-  }
-}
-
-function setLock(workerId: string, durationMs: number): void {
-  const p = new Promise<void>(resolve => setTimeout(resolve, durationMs));
-  workerLocks.set(workerId, p);
-  p.then(() => workerLocks.delete(workerId));
-}
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-const ACTION_DELAY = 1000;
-const MOVE_DELAY = 1000;
-const MINE_DELAY = 1000;
-
-/** Get aggregated passive multipliers from quest rewards */
-function getPassiveEffects(): Record<string, number> {
-  const passives = getActivePassives();
-  const agg: Record<string, number> = {};
-  for (const p of Object.values(passives)) {
-    for (const [k, v] of Object.entries(p.effect)) {
-      if (k.endsWith('_mult')) {
-        agg[k] = (agg[k] || 1) * v;
-      } else {
-        agg[k] = (agg[k] || 0) + v;
-      }
-    }
-  }
-  return agg;
-}
-
-function getItemTypeForNode(node: any): Item['type'] {
-  // Some nodes have a chance to produce bad_data (used in Ch1 while-loop quest)
-  const badDataChance = node.data.bad_data_chance || 0;
-  if (badDataChance > 0 && Math.random() < badDataChance) {
-    return 'bad_data';
-  }
-  return 'data_fragment';
-}
-
-function calcItemCount(baseRate: number, efficiency: number): number {
-  // Base count from node rate, scaled by pickaxe efficiency
-  // efficiency 1.0 = 100% of rate, 1.5 = 150%, 2.5 = 250%
-  const base = Math.max(1, Math.floor(baseRate * efficiency));
-  // Small random variance: ±10%
-  const variance = Math.floor(base * 0.1 * (Math.random() * 2 - 1));
-  return Math.max(1, base + variance);
-}
 
 // ── Main handler ────────────────────────────────────────────────────────────
 
 export async function handleWorkerAction(workerId: string, action: string, payload: any, userId?: string): Promise<any> {
-  // Resolve effective userId for all db/broadcast calls
   const uid = userId || getCurrentUserId() || undefined;
 
   // Log action doesn't need a lock
-  if (action === 'log') {
-    addWorkerLog(workerId, payload.message, uid);
-    // Update lastLog on worker for speech bubble display (no full broadcast — too spammy)
-    const w = getWorker(workerId, uid);
-    if (w) {
-      const level = payload.level || 'info';
-      // Debug logs go to the log panel only — don't update the speech-bubble lastLog
-      if (level !== 'debug') {
-        upsertWorker({ ...w, lastLog: { message: payload.message, level, ts: Date.now() } }, uid);
-      }
-      // Send lightweight message instead of full state
-      broadcast({ type: 'WORKER_LOG', payload: { workerId, message: payload.message, level, ts: Date.now(), nodeId: w.current_node || w.node_id } }, uid);
-    }
-    return { ok: true };
-  }
-
-  // Report error — sets worker to 'error' status and returns equipped items
-  if (action === 'report_error') {
-    const w = getWorker(workerId, uid);
-    if (!w) return { ok: false, error: 'Worker not found' };
-    addWorkerLog(workerId, `[ERROR] ${payload.message || 'Unknown error'}`, uid);
-    // Return all equipment + held items to player inventory
-    if (w.equippedPickaxe) addToPlayerInventory(w.equippedPickaxe.itemType, 1, undefined, uid);
-    if (w.equippedCpu) addToPlayerInventory(w.equippedCpu.itemType, w.equippedCpu.count || 1, undefined, uid);
-    if (w.equippedRam) addToPlayerInventory(w.equippedRam.itemType, w.equippedRam.count || 1, undefined, uid);
-    for (const item of (w.holding || [])) {
-      if (item.type !== 'bad_data') addToPlayerInventory(item.type, item.count, undefined, uid);
-    }
-    const errorMsg = payload.message || 'Unknown error';
-    upsertWorker({ ...w, status: 'error', pid: null, equippedPickaxe: null, equippedCpu: null, equippedRam: null, holding: [], lastLog: { message: `[ERROR] ${errorMsg}`, level: 'error', ts: Date.now() } }, uid);
-    broadcastFullState(uid);
-    return { ok: true };
-  }
+  if (action === 'log') return handleLog(workerId, payload, uid);
+  if (action === 'report_error') return handleReportError(workerId, payload, uid);
 
   // Acquire per-worker lock (serializes actions)
   await acquireLock(workerId);
@@ -135,14 +56,12 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
 
   switch (action) {
     case 'move_edge': {
-      // Edge-based movement: resolve edge to target node
       const { edgeId } = payload;
       if (!edgeId) return { ok: false, error: 'edgeId required' };
       const currentNodeE = worker.current_node || worker.node_id;
       const edge = edges.find((e: any) => e.id === edgeId);
       if (!edge) return { ok: false, error: `Edge '${edgeId}' not found` };
 
-      // Determine which end is the other side
       let targetNodeE: string;
       if (edge.source === currentNodeE) targetNodeE = edge.target;
       else if (edge.target === currentNodeE) targetNodeE = edge.source;
@@ -155,7 +74,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       grantNodeXp(targetNodeE, 'pass_through', uid);
       broadcastFullState(uid);
       setLock(workerId, moveDelayE);
-      await workerLocks.get(workerId);
+      await getLock(workerId);
 
       const wE = getWorker(workerId, uid);
       if (wE && wE.status === 'moving') {
@@ -175,7 +94,6 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         return { ok: false, error: `No edge between ${currentNode} and ${targetNodeId}` };
       }
 
-      // Apply move speed chip effects from target node
       const moveEffects = getNodeChipEffects(targetNodeId, uid);
       const moveDelay = Math.round(MOVE_DELAY * (moveEffects['move_speed_mult'] || 1));
 
@@ -184,9 +102,8 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       broadcastFullState(uid);
 
       setLock(workerId, moveDelay);
-      await workerLocks.get(workerId);
+      await getLock(workerId);
 
-      // Arrive
       const w = getWorker(workerId, uid);
       if (w && w.status === 'moving') {
         const updated = { ...w, status: 'running' } as any;
@@ -198,10 +115,8 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       return { ok: true, travelTime: MOVE_DELAY };
     }
 
-    case 'harvest': {
-      // Legacy — redirect to mine+collect flow
+    case 'harvest':
       return { ok: false, error: 'harvest() is deprecated. Use mine() + collect() instead.' };
-    }
 
     case 'mine': {
       const currentNode = worker.current_node || worker.node_id;
@@ -212,9 +127,6 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       if (!node.data.mineable) return { ok: false, error: 'Node is not mineable' };
       if (node.data.depleted) return { ok: false, error: 'Node is depleted', reason: 'node_depleted', depletedUntil: node.data.depletedUntil };
 
-      // Buffer cap: if the floor is already at max, refuse to mine further.
-      // This keeps nodes from accumulating unbounded stacks and forces the
-      // player to collect/deposit before the next mine cycle.
       {
         const mineBufMax = computeNodeBuffer(node.type, getNodeChipEffects(currentNode, uid));
         const floorStacks = Array.isArray(node.data.items) ? node.data.items.length : 0;
@@ -222,11 +134,9 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
           return { ok: false, error: 'Node buffer full', reason: 'node_buffer_full', maxBuffer: mineBufMax };
         }
       }
-      // Cluster nodes: capacity-based depletion with timed refill
+
       if (node.data.capacity !== undefined) {
-        const currentItems = Array.isArray(node.data.items) ? node.data.items.length : 0;
         if (node.data.mineCount >= node.data.capacity && !node.data.depleted) {
-          // Auto-deplete with refillMs timer
           const refillMs = node.data.refillMs || 5000;
           const freshS = getGameState(uid);
           const newN = freshS.nodes.map((n: any) => {
@@ -251,7 +161,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       broadcastFullState(uid);
 
       setLock(workerId, mineDelay);
-      await workerLocks.get(workerId);
+      await getLock(workerId);
 
       const itemType = getItemTypeForNode(node);
       const efficiency = worker.equippedPickaxe.efficiency;
@@ -259,7 +169,6 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const count = calcItemCount(baseRate, efficiency);
       const minedItem: Item = { type: itemType, count };
 
-      const currentItems: Item[] = Array.isArray(node.data.items) ? [...node.data.items] : [];
       const currentMineCount = (node.data.mineCount || 0) + 1;
       let depleted = false;
       let depletedUntil: number | undefined;
@@ -271,9 +180,8 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         finalMineCount = 0;
       }
 
-      // Re-read state (might have changed during delay)
       const freshState = getGameState(uid);
-      const newNodes = freshState.nodes.map((n: any, i: number) => {
+      const newNodes = freshState.nodes.map((n: any) => {
         if (n.id === node.id) {
           return {
             ...n,
@@ -302,9 +210,6 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
     }
 
     case 'collect': {
-      // Capacity is measured in STACKS (Minecraft-style).
-      // Each stack holds up to MAX_STACK_SIZE items of the same type.
-      // Base capacity = 1 stack, RAM adds more stack slots.
       const capacity = 1 + (worker.equippedRam?.capacityBonus || 0);
       const currentNode = worker.current_node || worker.node_id;
       const nodeIdx = nodes.findIndex((n: any) => n.id === currentNode);
@@ -315,9 +220,8 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       if (nodeItems.length === 0) return { ok: false, error: 'nothing_here', reason: 'nothing_here' };
 
       setLock(workerId, ACTION_DELAY);
-      await workerLocks.get(workerId);
+      await getLock(workerId);
 
-      // Re-read (state may have changed during delay)
       const freshState2 = getGameState(uid);
       const freshNode = freshState2.nodes.find((n: any) => n.id === currentNode);
       const freshItems: Item[] = freshNode && Array.isArray(freshNode.data.items) ? [...freshNode.data.items] : [];
@@ -326,11 +230,8 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const w4 = getWorker(workerId, uid);
       const currentHolding: Item[] = (w4?.holding || []).map(h => ({ ...h }));
 
-      // Helper: try to absorb up to `wanted` items of `itemType` into holding,
-      // respecting stack size and max stack count. Mutates holding, returns absorbed.
       const absorbInto = (holding: Item[], itemType: string, wanted: number): number => {
         let left = wanted;
-        // 1. Top up existing stacks of the same type
         for (const h of holding) {
           if (left <= 0) break;
           if (h.type === itemType && h.count < MAX_STACK_SIZE) {
@@ -340,7 +241,6 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
             left -= take;
           }
         }
-        // 2. Spill into new stacks while we have stack budget
         while (left > 0 && holding.length < capacity) {
           const take = Math.min(MAX_STACK_SIZE, left);
           holding.push({ type: itemType, count: take } as Item);
@@ -349,7 +249,6 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         return wanted - left;
       };
 
-      // Reject early if already full AND no existing stack can be topped up by any floor item
       const alreadyFullOfStacks = currentHolding.length >= capacity;
       const hasRoomInExisting = freshItems.some(fi =>
         currentHolding.some(h => h.type === fi.type && h.count < MAX_STACK_SIZE)
@@ -360,49 +259,32 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
 
       const collected: Item[] = [];
       const remaining: Item[] = [];
-
-      // payload.count = max items to pick up (optional, applies across all types)
       let budget = payload.count ?? Infinity;
 
       for (const floor of freshItems) {
-        if (budget <= 0) {
-          remaining.push(floor);
-          continue;
-        }
-        if (payload.itemType && floor.type !== payload.itemType) {
-          remaining.push(floor);
-          continue;
-        }
+        if (budget <= 0) { remaining.push(floor); continue; }
+        if (payload.itemType && floor.type !== payload.itemType) { remaining.push(floor); continue; }
         const wanted = Math.min(floor.count, budget);
         const absorbed = absorbInto(currentHolding, floor.type, wanted);
-        if (absorbed > 0) {
-          collected.push({ type: floor.type, count: absorbed });
-          budget -= absorbed;
-        }
+        if (absorbed > 0) { collected.push({ type: floor.type, count: absorbed }); budget -= absorbed; }
         const leftover = floor.count - absorbed;
         if (leftover > 0) remaining.push({ type: floor.type, count: leftover });
       }
 
-      if (payload.itemType && collected.length === 0) {
-        return { ok: false, error: 'item_not_found' };
-      }
+      if (payload.itemType && collected.length === 0) return { ok: false, error: 'item_not_found' };
       if (collected.length === 0) {
         return { ok: false, error: 'inventory_full', reason: 'inventory_full', holdingCount: currentHolding.length, capacity };
       }
 
-      const newHolding = currentHolding;
-
       const newNodes2 = freshState2.nodes.map((n: any) => {
-        if (n.id === currentNode) {
-          return { ...n, data: { ...n.data, items: remaining } };
-        }
+        if (n.id === currentNode) return { ...n, data: { ...n.data, items: remaining } };
         return n;
       });
 
-      if (w4) upsertWorker({ ...w4, holding: newHolding }, uid);
+      if (w4) upsertWorker({ ...w4, holding: currentHolding }, uid);
       saveGameState({ ...freshState2, nodes: newNodes2 }, uid);
       broadcastFullState(uid);
-      return { ok: true, items: newHolding, holdingCount: newHolding.length, capacity };
+      return { ok: true, items: currentHolding, holdingCount: currentHolding.length, capacity };
     }
 
     case 'deposit': {
@@ -410,32 +292,22 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       if (currentNode !== 'hub') return { ok: false, error: 'Must be at Hub to deposit. Use drop() to leave items on the ground, or move to Hub first.', reason: 'not_at_hub' };
 
       setLock(workerId, ACTION_DELAY);
-      await workerLocks.get(workerId);
+      await getLock(workerId);
 
       const w5 = getWorker(workerId, uid);
       if (!w5) return { ok: false, error: 'Worker not found' };
 
-      // Deposit all held items → convert to resources
       const held = w5.holding || [];
-      if (held.length === 0) {
-        return { ok: false, error: 'Nothing to deposit' };
-      }
+      if (held.length === 0) return { ok: false, error: 'Nothing to deposit' };
 
       const freshState = getGameState(uid);
       const newResources = { ...freshState.resources } as Record<string, number>;
 
       let totalData = 0, totalRp = 0, penalty = 0;
       for (const item of held) {
-        if (item.type === 'bad_data') {
-          penalty += item.count;
-          incrementStat('total_bad_data_deposited', item.count, uid);
-        } else if (item.type === 'data_fragment') {
-          totalData += item.count;
-          incrementStat('total_data_deposited', item.count, uid);
-        } else if (item.type === 'rp_shard') {
-          totalRp += item.count;
-          incrementStat('total_rp_deposited', item.count, uid);
-        }
+        if (item.type === 'bad_data') { penalty += item.count; incrementStat('total_bad_data_deposited', item.count, uid); }
+        else if (item.type === 'data_fragment') { totalData += item.count; incrementStat('total_data_deposited', item.count, uid); }
+        else if (item.type === 'rp_shard') { totalRp += item.count; incrementStat('total_rp_deposited', item.count, uid); }
       }
 
       newResources['data'] = Math.max(0, (newResources['data'] || 0) + totalData - penalty);
@@ -455,31 +327,25 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
     case 'scan': {
       const currentNode = worker.current_node || worker.node_id;
       const neighborIds = getNeighborIds(edges, currentNode);
-      const neighborNodes = nodes
-        .filter((n: any) => neighborIds.includes(n.id))
-        .map((n: any) => ({ ...n, adjacent: true }));
+      const neighborNodes = nodes.filter((n: any) => neighborIds.includes(n.id)).map((n: any) => ({ ...n, adjacent: true }));
       return { ok: true, nodes: neighborNodes };
     }
 
     case 'repair': {
       const { nodeId } = payload;
       const currentNode = worker.current_node || worker.node_id;
-      if (!edgeExists(edges, currentNode, nodeId) && currentNode !== nodeId) {
-        return { ok: false, error: 'Node not adjacent' };
-      }
+      if (!edgeExists(edges, currentNode, nodeId) && currentNode !== nodeId) return { ok: false, error: 'Node not adjacent' };
       const node = nodes.find((n: any) => n.id === nodeId);
       if (!node || !node.data.infected) return { ok: false, error: 'Node is not infected' };
       const res = resources as unknown as Record<string, number>;
       if ((res.data || 0) < 500) return { ok: false, error: 'Not enough data (need 500)' };
 
       setLock(workerId, ACTION_DELAY);
-      await workerLocks.get(workerId);
+      await getLock(workerId);
 
       const freshState4 = getGameState(uid);
       const newNodes3 = freshState4.nodes.map((n: any) => {
-        if (n.id === nodeId) {
-          return { ...n, type: n.type === 'infected' ? 'resource' : n.type, data: { ...n.data, infected: false, infectionValue: 0 } };
-        }
+        if (n.id === nodeId) return { ...n, type: n.type === 'infected' ? 'resource' : n.type, data: { ...n.data, infected: false, infectionValue: 0 } };
         return n;
       });
       const newResources2 = { ...(freshState4.resources as any), data: (freshState4.resources as any).data - 500 };
@@ -494,23 +360,17 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
 
     case 'findPath': {
       const { from, to } = payload;
-      const pathResult = bfsPath(edges, from, to);
-      return { ok: true, path: pathResult || [] };
+      return { ok: true, path: bfsPath(edges, from, to) || [] };
     }
 
-    case 'getResources': {
+    case 'getResources':
       return { ok: true, resources: worker.carrying };
-    }
 
     case 'get_edges': {
-      // Return all edges connected to the worker's current node
       const curNode = worker.current_node || worker.node_id;
       const connectedEdges = edges
         .filter((e: any) => e.source === curNode || e.target === curNode)
-        .map((e: any) => ({
-          id: e.id,
-          otherNode: e.source === curNode ? e.target : e.source,
-        }));
+        .map((e: any) => ({ id: e.id, otherNode: e.source === curNode ? e.target : e.source }));
       return { ok: true, edges: connectedEdges, currentNode: curNode };
     }
 
@@ -522,19 +382,12 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         .filter((e: any) => e.source === infoNode || e.target === infoNode)
         .map((e: any) => ({ id: e.id, otherNode: e.source === infoNode ? e.target : e.source }));
       return {
-        ok: true,
-        id: nodeInfo.id,
-        type: nodeInfo.type,
-        label: nodeInfo.data.label,
+        ok: true, id: nodeInfo.id, type: nodeInfo.type, label: nodeInfo.data.label,
         data: {
-          resource: nodeInfo.data.resource,
-          rate: nodeInfo.data.rate,
-          difficulty: nodeInfo.data.difficulty,
-          rewardResource: nodeInfo.data.rewardResource,
-          unlocked: nodeInfo.data.unlocked,
-          infected: nodeInfo.data.infected,
-          mineable: nodeInfo.data.mineable,
-          upgradeLevel: nodeInfo.data.upgradeLevel,
+          resource: nodeInfo.data.resource, rate: nodeInfo.data.rate,
+          difficulty: nodeInfo.data.difficulty, rewardResource: nodeInfo.data.rewardResource,
+          unlocked: nodeInfo.data.unlocked, infected: nodeInfo.data.infected,
+          mineable: nodeInfo.data.mineable, upgradeLevel: nodeInfo.data.upgradeLevel,
           solveCount: nodeInfo.data.solveCount,
         },
         edges: infoEdges,
@@ -544,20 +397,14 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
     case 'compute': {
       const computeNode = worker.current_node || worker.node_id;
       const node = nodes.find((n: any) => n.id === computeNode);
-      if (!node || node.type !== 'compute') {
-        return { ok: false, error: 'Not at a compute node' };
-      }
+      if (!node || node.type !== 'compute') return { ok: false, error: 'Not at a compute node' };
 
-      // Check cooldown
       const cooldownUntil = puzzleCooldowns.get(computeNode) || 0;
       if (Date.now() < cooldownUntil) {
         const remaining = Math.ceil((cooldownUntil - Date.now()) / 1000);
         return { ok: false, error: `Node on cooldown (${remaining}s)`, reason: 'cooldown', remaining };
       }
 
-      // Generate puzzle if none active. A node can pin itself to a specific
-      // puzzle template via `data.fixedPuzzleTemplate` (used by the
-      // Observatory, which always serves the 'calculator' capstone).
       const difficulty = node.data.difficulty || 'easy';
       let puzzle = activePuzzles.get(computeNode);
       if (!puzzle) {
@@ -566,48 +413,32 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       }
 
       setLock(workerId, ACTION_DELAY);
-      await workerLocks.get(workerId);
+      await getLock(workerId);
 
-      return {
-        ok: true,
-        taskId: puzzle.taskId,
-        params: puzzle.params,
-        hint: puzzle.hint,
-        difficulty: puzzle.difficulty,
-      };
+      return { ok: true, taskId: puzzle.taskId, params: puzzle.params, hint: puzzle.hint, difficulty: puzzle.difficulty };
     }
 
     case 'submit': {
       const { taskId: submitTaskId, answer: submitAnswer } = payload;
-      if (!submitTaskId || submitAnswer === undefined) {
-        return { ok: false, error: 'taskId and answer required' };
-      }
+      if (!submitTaskId || submitAnswer === undefined) return { ok: false, error: 'taskId and answer required' };
 
       const submitNode = worker.current_node || worker.node_id;
       const sNode = nodes.find((n: any) => n.id === submitNode);
-      if (!sNode || sNode.type !== 'compute') {
-        return { ok: false, error: 'Not at a compute node' };
-      }
+      if (!sNode || sNode.type !== 'compute') return { ok: false, error: 'Not at a compute node' };
 
       const puzzle = activePuzzles.get(submitNode);
-      if (!puzzle || puzzle.taskId !== submitTaskId) {
-        return { ok: false, error: 'Invalid or expired task', reason: 'invalid_task' };
-      }
+      if (!puzzle || puzzle.taskId !== submitTaskId) return { ok: false, error: 'Invalid or expired task', reason: 'invalid_task' };
 
       setLock(workerId, ACTION_DELAY);
-      await workerLocks.get(workerId);
+      await getLock(workerId);
 
-      // Check answer
       const correct = String(puzzle.answer) === String(submitAnswer);
-
-      // Clear puzzle and set cooldown regardless
       activePuzzles.delete(submitNode);
       const difficulty = sNode.data.difficulty || 'easy';
       const config = DIFFICULTY_CONFIG[difficulty as keyof typeof DIFFICULTY_CONFIG];
       puzzleCooldowns.set(submitNode, Date.now() + (config?.cooldownMs || 10000));
 
       if (correct) {
-        // Award resources
         const template = PUZZLE_TEMPLATES.find(t => t.id === puzzle.templateId);
         const reward = (config?.baseReward || 5) * (template?.rewardMultiplier || 1);
         const rewardType = sNode.data.rewardResource || 'rp';
@@ -617,11 +448,8 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         newRes[rewardType] = (newRes[rewardType] || 0) + reward;
         saveGameState({ ...freshState, resources: newRes as any }, uid);
 
-        // Update node solve count
         const newNodes = freshState.nodes.map((n: any) => {
-          if (n.id === submitNode) {
-            return { ...n, data: { ...n.data, solveCount: (n.data.solveCount || 0) + 1 } };
-          }
+          if (n.id === submitNode) return { ...n, data: { ...n.data, solveCount: (n.data.solveCount || 0) + 1 } };
           return n;
         });
         saveGameState({ ...getGameState(uid), nodes: newNodes }, uid);
@@ -629,27 +457,14 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         broadcastFullState(uid);
         totalSolves++;
         incrementStat('total_puzzles_solved', 1, uid);
-        // Generic per-node solve counter so layer-unlock thresholds and
-        // future quests can key off any compute node without hard-coding.
         incrementStat(`puzzle_solved_${submitNode}`, 1, uid);
-        // Compute Alpha (s_comp1) is the Chapter 1 skip-challenge gate.
-        // Keep its legacy stat name for the existing quest.
-        if (submitNode === 's_comp1') {
-          incrementStat('compute_alpha_solved', 1, uid);
-        }
-        // Observatory (nw_locked1) is the Chapter 1 graduation puzzle —
-        // solving it is a hard requirement for Layer 1 unlock.
-        if (submitNode === 'nw_locked1') {
-          incrementStat('observatory_solved', 1, uid);
-        }
+        if (submitNode === 's_comp1') incrementStat('compute_alpha_solved', 1, uid);
+        if (submitNode === 'nw_locked1') incrementStat('observatory_solved', 1, uid);
         const puzzleDiff = sNode.data.difficulty || 'easy';
         awardXp(XP_REWARDS[`solve_puzzle_${puzzleDiff}`] || XP_REWARDS.solve_puzzle_easy, uid);
         grantNodeXp(submitNode, 'solve_puzzle', uid);
         checkAchievements(uid);
         checkQuests(uid);
-        // Solving a compute puzzle can now complete layer unlock
-        // requirements (e.g. the Observatory → Layer 1 gate). Run the
-        // unlock check here so the toast fires on the same tick.
         checkLayerUnlocks(uid);
 
         return { ok: true, correct: true, reward: { type: rewardType, amount: reward } };
@@ -658,18 +473,13 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       }
     }
 
-    // ── API Node actions ───────────────────────────────────────────────────
-
-    case 'api_poll': {
-      const currentNodeAP = worker.current_node || worker.node_id;
-      return apiPoll(currentNodeAP, workerId);
-    }
+    case 'api_poll':
+      return apiPoll(worker.current_node || worker.node_id, workerId);
 
     case 'api_respond': {
-      const currentNodeAR = worker.current_node || worker.node_id;
       const { requestId: apiReqId, responseData } = payload;
       if (!apiReqId) return { ok: false, error: 'requestId required' };
-      return apiRespond(currentNodeAR, workerId, apiReqId, responseData);
+      return apiRespond(worker.current_node || worker.node_id, workerId, apiReqId, responseData);
     }
 
     case 'api_stats': {
@@ -680,35 +490,24 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
     }
 
     case 'api_reject': {
-      const currentNodeRej = worker.current_node || worker.node_id;
       const { requestId: rejReqId, statusCode } = payload;
       if (!rejReqId) return { ok: false, error: 'requestId required' };
       if (!statusCode) return { ok: false, error: 'statusCode required (e.g. 401, 400, 429, 500)' };
-      return apiReject(currentNodeRej, workerId, rejReqId, statusCode);
+      return apiReject(worker.current_node || worker.node_id, workerId, rejReqId, statusCode);
     }
 
     case 'validate_token': {
-      // Worker must be AT an auth node to validate
       const currentNodeVT = worker.current_node || worker.node_id;
       const authNode = nodes.find((n: any) => n.id === currentNodeVT);
-      if (!authNode || authNode.type !== 'auth') {
-        return { ok: false, error: 'Must be at an auth node to validate tokens', reason: 'not_at_auth_node' };
-      }
-      if (!authNode.data.unlocked) {
-        return { ok: false, error: 'Auth node is locked' };
-      }
+      if (!authNode || authNode.type !== 'auth') return { ok: false, error: 'Must be at an auth node to validate tokens', reason: 'not_at_auth_node' };
+      if (!authNode.data.unlocked) return { ok: false, error: 'Auth node is locked' };
       const { token } = payload;
       if (!token) return { ok: false, error: 'token required' };
-      // Auth nodes validate tokens: all non-null tokens are valid (simple model)
-      // In future: could add revoke lists
       const valid = typeof token === 'string' && token.length > 0;
-      const ttl = 30; // ticks
-      setLock(workerId, ACTION_DELAY / 2); // half-speed validation
-      await workerLocks.get(workerId);
-      return { ok: true, valid, ttl, token };
+      setLock(workerId, ACTION_DELAY / 2);
+      await getLock(workerId);
+      return { ok: true, valid, ttl: 30, token };
     }
-
-    // ── Service / Cache actions ──────────────────────────────────────────────
 
     case 'get_service': {
       const { serviceNodeId } = payload;
@@ -716,39 +515,25 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const serviceNode = nodes.find((n: any) => n.id === serviceNodeId);
       if (!serviceNode) return { ok: false, error: 'Service node not found', reason: 'not_found' };
       if (!serviceNode.data.unlocked) return { ok: false, error: 'Service node is locked', reason: 'not_reachable' };
-
-      // Check range: BFS distance from worker's current node to service node
       const workerNode = worker.current_node || worker.node_id;
       if (serviceNode.type === 'cache') {
         const range = getCacheRange(serviceNodeId);
         const path = bfsPath(edges, workerNode, serviceNodeId);
         const distance = path ? path.length - 1 : Infinity;
-        if (distance > range) {
-          return { ok: false, error: `Cache node '${serviceNodeId}' is out of range (distance ${distance}, range ${range})`, reason: 'not_reachable' };
-        }
-        return {
-          ok: true,
-          serviceType: 'cache',
-          nodeId: serviceNodeId,
-          range,
-          capacity: getCacheCapacity(serviceNodeId),
-          usedSlots: cacheKeys(serviceNodeId).length,
-        };
+        if (distance > range) return { ok: false, error: `Cache node '${serviceNodeId}' is out of range (distance ${distance}, range ${range})`, reason: 'not_reachable' };
+        return { ok: true, serviceType: 'cache', nodeId: serviceNodeId, range, capacity: getCacheCapacity(serviceNodeId), usedSlots: cacheKeys(serviceNodeId).length };
       }
-
       return { ok: false, error: `Node '${serviceNodeId}' is not a service node`, reason: 'not_a_service' };
     }
 
     case 'cache_get': {
       const { cacheNodeId, key: cacheKey } = payload;
       if (!cacheNodeId || !cacheKey) return { ok: false, error: 'cacheNodeId and key required' };
-      // Verify range
       const workerNodeCG = worker.current_node || worker.node_id;
       const rangeCG = getCacheRange(cacheNodeId);
       const pathCG = bfsPath(edges, workerNodeCG, cacheNodeId);
       const distCG = pathCG ? pathCG.length - 1 : Infinity;
       if (distCG > rangeCG) return { ok: false, error: 'Cache out of range', reason: 'not_reachable' };
-
       const val = cacheGet(cacheNodeId, cacheKey);
       if (val === undefined) return { ok: true, hit: false, value: null };
       grantNodeXp(cacheNodeId, 'cache_hit', uid);
@@ -758,13 +543,11 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
     case 'cache_set': {
       const { cacheNodeId: cacheNodeIdS, key: cacheKeyS, value: cacheValue, ttl: cacheTtl } = payload;
       if (!cacheNodeIdS || !cacheKeyS) return { ok: false, error: 'cacheNodeId and key required' };
-      // Verify range
       const workerNodeCS = worker.current_node || worker.node_id;
       const rangeCS = getCacheRange(cacheNodeIdS);
       const pathCS = bfsPath(edges, workerNodeCS, cacheNodeIdS);
       const distCS = pathCS ? pathCS.length - 1 : Infinity;
       if (distCS > rangeCS) return { ok: false, error: 'Cache out of range', reason: 'not_reachable' };
-
       const stored = cacheSet(cacheNodeIdS, cacheKeyS, cacheValue, cacheTtl || 0);
       if (!stored) return { ok: false, error: 'Cache is full' };
       return { ok: true };
@@ -778,27 +561,18 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       const pathCK = bfsPath(edges, workerNodeCK, cacheNodeIdK);
       const distCK = pathCK ? pathCK.length - 1 : Infinity;
       if (distCK > rangeCK) return { ok: false, error: 'Cache out of range', reason: 'not_reachable' };
-
       return { ok: true, keys: cacheKeys(cacheNodeIdK) };
     }
 
-    // ── Sensor actions ────────────────────────────────────────────────────
-
     case 'scan_edges': {
-      // BasicSensor: return edges with IDs only (no node type info)
       const curNodeSE = worker.current_node || worker.node_id;
       const connectedSE = edges
         .filter((e: any) => e.source === curNodeSE || e.target === curNodeSE)
-        .map((e: any) => ({
-          edge_id: e.id,
-          source_node_id: curNodeSE,
-          target_node_id: e.source === curNodeSE ? e.target : e.source,
-        }));
+        .map((e: any) => ({ edge_id: e.id, source_node_id: curNodeSE, target_node_id: e.source === curNodeSE ? e.target : e.source }));
       return { ok: true, edges: connectedSE };
     }
 
     case 'scan_edges_advanced': {
-      // AdvancedSensor: return edges with full target node info
       const curNodeSEA = worker.current_node || worker.node_id;
       const connectedSEA = edges
         .filter((e: any) => e.source === curNodeSEA || e.target === curNodeSEA)
@@ -810,25 +584,10 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
             .map((te: any) => ({ id: te.id, otherNode: te.source === targetId ? te.target : te.source }))
             : [];
           return {
-            edge_id: e.id,
-            source_node_id: curNodeSEA,
-            target_node_id: targetId,
+            edge_id: e.id, source_node_id: curNodeSEA, target_node_id: targetId,
             target_node_data: targetNode ? {
-              ok: true,
-              id: targetNode.id,
-              type: targetNode.type,
-              label: targetNode.data.label,
-              data: {
-                resource: targetNode.data.resource,
-                rate: targetNode.data.rate,
-                difficulty: targetNode.data.difficulty,
-                rewardResource: targetNode.data.rewardResource,
-                unlocked: targetNode.data.unlocked,
-                infected: targetNode.data.infected,
-                mineable: targetNode.data.mineable,
-                upgradeLevel: targetNode.data.upgradeLevel,
-                solveCount: targetNode.data.solveCount,
-              },
+              ok: true, id: targetNode.id, type: targetNode.type, label: targetNode.data.label,
+              data: { resource: targetNode.data.resource, rate: targetNode.data.rate, difficulty: targetNode.data.difficulty, rewardResource: targetNode.data.rewardResource, unlocked: targetNode.data.unlocked, infected: targetNode.data.infected, mineable: targetNode.data.mineable, upgradeLevel: targetNode.data.upgradeLevel, solveCount: targetNode.data.solveCount },
               edges: infoEdges,
             } : null,
           };
@@ -836,50 +595,26 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       return { ok: true, edges: connectedSEA };
     }
 
-    // ── Discard & item check ────────────────────────────────────────────────
-
     case 'discard': {
-      // Discard held items. Options:
-      //   discard()                    — discard all
-      //   discard(itemType)            — discard entire stack of that type
-      //   discard(itemType, count)     — discard N items of that type
       const w6 = getWorker(workerId, uid);
-      if (!w6 || (w6.holding || []).length === 0) {
-        return { ok: false, error: 'Nothing to discard', reason: 'nothing_held' };
-      }
+      if (!w6 || (w6.holding || []).length === 0) return { ok: false, error: 'Nothing to discard', reason: 'nothing_held' };
 
       if (payload.itemType) {
         const holding = [...(w6.holding || [])];
         const idx = holding.findIndex((d: any) => d.type === payload.itemType);
         if (idx === -1) return { ok: false, error: 'Item type not found', reason: 'item_not_found' };
-
         const stack = holding[idx];
         const discardCount = payload.count ? Math.min(payload.count, stack.count) : stack.count;
         const discarded = { type: stack.type, count: discardCount };
-
-        if (discardCount >= stack.count) {
-          // Remove entire stack
-          holding.splice(idx, 1);
-        } else {
-          // Reduce stack count
-          holding[idx] = { ...stack, count: stack.count - discardCount };
-        }
-
+        if (discardCount >= stack.count) holding.splice(idx, 1);
+        else holding[idx] = { ...stack, count: stack.count - discardCount };
         upsertWorker({ ...w6, holding }, uid);
         broadcastFullState(uid);
-        if (discarded.type === 'bad_data') {
-          incrementStat('total_bad_data_discarded', discardCount, uid);
-          checkQuests(uid);
-        }
+        if (discarded.type === 'bad_data') { incrementStat('total_bad_data_discarded', discardCount, uid); checkQuests(uid); }
         return { ok: true, discarded };
       } else {
-        // Discard all
         const discarded = w6.holding;
-        for (const item of discarded) {
-          if (item.type === 'bad_data') {
-            incrementStat('total_bad_data_discarded', item.count, uid);
-          }
-        }
+        for (const item of discarded) { if (item.type === 'bad_data') incrementStat('total_bad_data_discarded', item.count, uid); }
         upsertWorker({ ...w6, holding: [] }, uid);
         broadcastFullState(uid);
         checkQuests(uid);
@@ -888,12 +623,8 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
     }
 
     case 'drop': {
-      // Drop held items onto the current node's floor (other workers can collect).
-      // SPECIAL CASE: dropping on the hub auto-deposits into player resources.
       const w7 = getWorker(workerId, uid);
-      if (!w7 || (w7.holding || []).length === 0) {
-        return { ok: false, error: 'Nothing to drop', reason: 'nothing_held' };
-      }
+      if (!w7 || (w7.holding || []).length === 0) return { ok: false, error: 'Nothing to drop', reason: 'nothing_held' };
       const dropNodeId = w7.current_node || w7.node_id;
       const freshStateDrop = getGameState(uid);
       const dropNode = freshStateDrop.nodes.find((n: any) => n.id === dropNodeId);
@@ -907,32 +638,20 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         const stack = holding[idx];
         const dropCount = payload.count ? Math.min(payload.count, stack.count) : stack.count;
         dropped = [{ type: stack.type, count: dropCount }];
-        if (dropCount >= stack.count) {
-          holding.splice(idx, 1);
-        } else {
-          holding[idx] = { ...stack, count: stack.count - dropCount };
-        }
+        if (dropCount >= stack.count) holding.splice(idx, 1);
+        else holding[idx] = { ...stack, count: stack.count - dropCount };
       } else {
         dropped = [...holding];
         holding.length = 0;
       }
 
-      // Dropping at the hub = auto-deposit. Items become player resources
-      // (bad_data still penalizes data like deposit() used to).
       if (dropNodeId === 'hub') {
         const newResources = { ...freshStateDrop.resources } as Record<string, number>;
         let totalData = 0, totalRp = 0, penalty = 0;
         for (const item of dropped) {
-          if (item.type === 'bad_data') {
-            penalty += item.count;
-            incrementStat('total_bad_data_deposited', item.count, uid);
-          } else if (item.type === 'data_fragment') {
-            totalData += item.count;
-            incrementStat('total_data_deposited', item.count, uid);
-          } else if (item.type === 'rp_shard') {
-            totalRp += item.count;
-            incrementStat('total_rp_deposited', item.count, uid);
-          }
+          if (item.type === 'bad_data') { penalty += item.count; incrementStat('total_bad_data_deposited', item.count, uid); }
+          else if (item.type === 'data_fragment') { totalData += item.count; incrementStat('total_data_deposited', item.count, uid); }
+          else if (item.type === 'rp_shard') { totalRp += item.count; incrementStat('total_rp_deposited', item.count, uid); }
         }
         newResources['data'] = Math.max(0, (newResources['data'] || 0) + totalData - penalty);
         if (totalRp > 0) newResources['rp'] = (newResources['rp'] || 0) + totalRp;
@@ -940,21 +659,9 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         saveGameState({ ...freshStateDrop, resources: newResources as any }, uid);
         upsertWorker({ ...w7, holding, status: 'running' }, uid);
         broadcastFullState(uid);
-        // Lightweight effect event for the hub absorption VFX (yellow frame + data icon
-        // for good items, red frame + warning icon for bad_data). Sent as a separate
-        // message so the UI can pop ephemeral indicators without re-computing state.
         broadcast({
           type: 'HUB_DEPOSIT',
-          payload: {
-            workerId,
-            ts: Date.now(),
-            totalData,
-            totalRp,
-            penalty,
-            // Raw per-type totals so the UI can choose which badges to show.
-            goodCount: totalData + totalRp,
-            badCount: penalty,
-          },
+          payload: { workerId, ts: Date.now(), totalData, totalRp, penalty, goodCount: totalData + totalRp, badCount: penalty },
         }, uid);
         incrementStat('total_deposits', 1, uid);
         awardXp(XP_REWARDS.deposit_resources, uid);
@@ -964,60 +671,32 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
         return { ok: true, dropped, nodeId: dropNodeId, deposited: true, totalData, penalty };
       }
 
-      // Buffer cap: refuse to drop on nodes whose floor would overflow, but
-      // partially accept what fits in remaining stacks of matching types.
       const dropBufMax = computeNodeBuffer(dropNode.type, getNodeChipEffects(dropNodeId, uid));
       const existingItemsPre: Item[] = Array.isArray(dropNode.data.items) ? [...dropNode.data.items] : [];
       const existingTypes = new Set(existingItemsPre.map(i => i.type));
-      // Keep any drop whose type already has a stack on the floor (they merge into
-      // existing stacks without growing the stack count). New types are only kept
-      // while the stack count has headroom under dropBufMax.
       let projectedStacks = existingItemsPre.length;
       const acceptedDrops: Item[] = [];
       const rejectedDrops: Item[] = [];
       for (const d of dropped) {
-        if (existingTypes.has(d.type)) {
-          // Merging into an existing type: never grows stack count (only stack size).
-          acceptedDrops.push(d);
-          continue;
-        }
-        if (dropBufMax === 0 || projectedStacks < dropBufMax) {
-          acceptedDrops.push(d);
-          existingTypes.add(d.type);
-          projectedStacks += 1;
-        } else {
-          rejectedDrops.push(d);
-        }
+        if (existingTypes.has(d.type)) { acceptedDrops.push(d); continue; }
+        if (dropBufMax === 0 || projectedStacks < dropBufMax) { acceptedDrops.push(d); existingTypes.add(d.type); projectedStacks += 1; }
+        else rejectedDrops.push(d);
       }
-      if (acceptedDrops.length === 0) {
-        return { ok: false, error: 'Node buffer full', reason: 'node_buffer_full', maxBuffer: dropBufMax };
-      }
-      // Put rejected drops back into holding so the caller isn't silently robbed.
+      if (acceptedDrops.length === 0) return { ok: false, error: 'Node buffer full', reason: 'node_buffer_full', maxBuffer: dropBufMax };
       for (const r of rejectedDrops) holding.push(r);
       upsertWorker({ ...w7, holding }, uid);
 
-      // Merge with existing floor stacks
-      const existingItems: Item[] = existingItemsPre;
       const newNodes = freshStateDrop.nodes.map((n: any) => {
-        if (n.id === dropNodeId) {
-          return { ...n, data: { ...n.data, items: mergeItemStacks(existingItems, acceptedDrops) } };
-        }
+        if (n.id === dropNodeId) return { ...n, data: { ...n.data, items: mergeItemStacks(existingItemsPre, acceptedDrops) } };
         return n;
       });
       saveGameState({ ...freshStateDrop, nodes: newNodes }, uid);
       broadcastFullState(uid);
-      return {
-        ok: true,
-        dropped: acceptedDrops,
-        rejected: rejectedDrops,
-        nodeId: dropNodeId,
-        maxBuffer: dropBufMax,
-      };
+      return { ok: true, dropped: acceptedDrops, rejected: rejectedDrops, nodeId: dropNodeId, maxBuffer: dropBufMax };
     }
 
     case 'has_items':
     case 'has_dropped_items': {
-      // Check if the current node has any items on the floor
       const curNodeHDI = worker.current_node || worker.node_id;
       const nodeHDI = nodes.find((n: any) => n.id === curNodeHDI);
       if (!nodeHDI) return { ok: true, has_items: false };
@@ -1025,12 +704,9 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
       return { ok: true, has_items: floorItems.length > 0, count: floorItems.length };
     }
 
-    // ── findNearest ───────────────────────────────────────────────────────
-
     case 'findNearest': {
       const { from: fnFrom, nodeType: fnType } = payload;
       if (!fnFrom || !fnType) return { ok: false, error: 'from and nodeType required' };
-      // BFS to find nearest node of type
       const visited = new Set<string>();
       const queue: string[] = [fnFrom];
       visited.add(fnFrom);
@@ -1042,10 +718,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
           if (visited.has(nid)) continue;
           visited.add(nid);
           const n = nodes.find((nd: any) => nd.id === nid);
-          if (n && n.type === fnType && n.data.unlocked) {
-            foundId = nid;
-            break;
-          }
+          if (n && n.type === fnType && n.data.unlocked) { foundId = nid; break; }
           queue.push(nid);
         }
       }

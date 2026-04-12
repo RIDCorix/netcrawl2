@@ -11,7 +11,10 @@
  *   - Passive decay: -0.2 per tick when < 60
  */
 
-import { getGameState, saveGameState, incrementStat, awardXp, grantNodeXp } from './db.js';
+import { getGameState, saveGameState } from './domain/gameState.js';
+import { incrementStat } from './domain/achievements.js';
+import { awardXp } from './domain/level.js';
+import { grantNodeXp } from './domain/nodeXp.js';
 import { XP_REWARDS } from './levelSystem.js';
 import { broadcastFullState } from './broadcastHelper.js';
 import { checkQuests } from './quests.js';

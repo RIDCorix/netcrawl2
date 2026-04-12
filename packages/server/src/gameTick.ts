@@ -1,4 +1,8 @@
-import { getGameState, saveGameState, getWorkers, incrementStat, getAllActiveUserIds, setCurrentUser, resetAllWorkers, takeAutosave } from './db.js';
+import { getAllActiveUserIds, setCurrentUser } from './store.js';
+import { getGameState, saveGameState } from './domain/gameState.js';
+import { getWorkers, resetAllWorkers } from './domain/workers.js';
+import { incrementStat } from './domain/achievements.js';
+import { takeAutosave } from './domain/autosave.js';
 import { broadcast } from './websocket.js';
 import { broadcastFullState } from './broadcastHelper.js';
 import { getNeighborIds } from './graphUtils.js';

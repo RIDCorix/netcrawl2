@@ -2,9 +2,12 @@ import express, { Express } from 'express';
 import cors from 'cors';
 import http from 'http';
 import path from 'path';
-import { initDb, getGameState, getVisibleState, getWorkers, setLevelBroadcast, getPlayerLevelSummary, setDataDir, setCurrentUser, resetAllWorkers } from './db.js';
+import { initDb, setDataDir, setCurrentUser } from './store.js';
+import { getGameState, getVisibleState } from './domain/gameState.js';
+import { getWorkers, resetAllWorkers } from './domain/workers.js';
+import { setLevelBroadcast, getPlayerLevelSummary } from './domain/level.js';
 import { initWebSocket, broadcast } from './websocket.js';
-import { router } from './routes.js';
+import { router } from './routes/index.js';
 import { startGameTick } from './gameTick.js';
 import { initUserStore, setAuthDataDir, verifyToken } from './auth.js';
 

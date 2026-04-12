@@ -3,7 +3,7 @@
  * All balance tuning goes here.
  */
 
-import { RecipeCost } from './db.js';
+import type { RecipeCost } from './types.js';
 
 // ── Node Upgrades ───────────────────────────────────────────────────────────
 

@@ -2,13 +2,14 @@
  * Quest engine — state machine, condition checker, reward distributor.
  */
 
-import {
-  getStat, getStatArray, getGameState, saveGameState,
-  getQuestStatus, setQuestStatus, getQuestState,
-  addActivePassive, addUnlockedRecipe, getActivePassives,
-  addToPlayerInventory, addPlayerChip,
-  Chip, awardXp, getCurrentUserId,
-} from './db.js';
+import { getCurrentUserId } from './store.js';
+import type { Chip } from './types.js';
+import { getGameState, saveGameState } from './domain/gameState.js';
+import { addToPlayerInventory } from './domain/inventory.js';
+import { addPlayerChip } from './domain/chips.js';
+import { getStat, getStatArray } from './domain/achievements.js';
+import { getQuestStatus, setQuestStatus, getQuestState, addActivePassive, addUnlockedRecipe, getActivePassives } from './domain/questState.js';
+import { awardXp } from './domain/level.js';
 import { XP_REWARDS } from './levelSystem.js';
 import { broadcast } from './websocket.js';
 import { QUESTS, QuestDef, QuestObjective } from './questDefinitions.js';

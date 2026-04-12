@@ -1,7 +1,8 @@
 import { fork, ChildProcess } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import { upsertWorker, deleteWorker, getWorker, addToPlayerInventory } from './db.js';
+import { upsertWorker, deleteWorker, getWorker } from './domain/workers.js';
+import { addToPlayerInventory } from './domain/inventory.js';
 import { broadcastFullState } from './broadcastHelper.js';
 
 const activeProcesses = new Map<string, ChildProcess>();
