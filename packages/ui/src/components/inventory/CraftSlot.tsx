@@ -2,7 +2,8 @@
  * Crafting recipe slot with hover tooltip + craft family column.
  */
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Hammer, Lock } from 'lucide-react';
 import { useGameStore } from '../../store/gameStore';
 import { ITEM_LABELS, ITEM_COLORS } from '../../constants/colors';
@@ -14,6 +15,7 @@ export function CraftSlot({ recipe, dimmed, onCraft }: { recipe: Recipe; dimmed:
   const t = useT();
   const { resources } = useGameStore();
   const [hover, setHover] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
   const locked = !recipe.unlocked;
   const Icon = locked ? Lock : (ITEM_ICONS[recipe.output.itemType] || Hammer);
   const color = ITEM_COLORS[recipe.output.itemType] || '#666';
@@ -28,8 +30,10 @@ export function CraftSlot({ recipe, dimmed, onCraft }: { recipe: Recipe; dimmed:
 
   const canCraft = !locked && recipe.affordable && !dimmed;
 
+  const rect = hover && ref.current ? ref.current.getBoundingClientRect() : null;
+
   return (
-    <div style={{ position: 'relative' }}
+    <div ref={ref} style={{ position: 'relative' }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
@@ -62,10 +66,13 @@ export function CraftSlot({ recipe, dimmed, onCraft }: { recipe: Recipe; dimmed:
         )}
       </button>
 
-      {hover && !dimmed && (
+      {hover && !dimmed && rect && createPortal(
         <div style={{
-          position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
-          marginBottom: 6, zIndex: 999, pointerEvents: 'none',
+          position: 'fixed',
+          top: rect.top - 6,
+          left: rect.left + rect.width / 2,
+          transform: 'translate(-50%, -100%)',
+          zIndex: 9999, pointerEvents: 'none',
           background: 'var(--bg-glass-heavy)', backdropFilter: 'blur(16px)',
           border: '1px solid var(--border-bright)', borderRadius: 'var(--radius-md)',
           padding: '8px 10px', minWidth: 140, whiteSpace: 'nowrap',
@@ -74,11 +81,11 @@ export function CraftSlot({ recipe, dimmed, onCraft }: { recipe: Recipe; dimmed:
           {locked ? (
             <>
               <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Lock size={10} /> {t('ui.recipe_locked') || 'Locked'}
+                <Lock size={10} /> {t('ui.recipe_locked')}
               </div>
               {recipe.unlockHint && (
                 <div style={{ fontSize: 8, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                  {t('ui.unlock_from') || 'Unlock from'}: {recipe.unlockHint}
+                  {t('ui.unlock_from')}: {recipe.unlockHint}
                 </div>
               )}
             </>
@@ -107,7 +114,8 @@ export function CraftSlot({ recipe, dimmed, onCraft }: { recipe: Recipe; dimmed:
               </div>
             </>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
