@@ -12,6 +12,8 @@ export interface Resources {
   data: number;       // primary currency (bytes), mined from resource nodes
   rp: number;         // research points, from compute nodes
   credits: number;    // premium currency, from API nodes / quests
+  /** Index signature — allows dynamic resource key access (e.g. resources[rewardType]) */
+  [key: string]: number;
 }
 
 /** FLOP capacity — not a currency, but a limit on what can be built/deployed */
@@ -75,11 +77,74 @@ export interface Chip {
   effect: { type: string; value: number };
 }
 
+// ── Node Types ─────────────────────────────────────────────────────────────
+
+export type NodeType = 'hub' | 'resource' | 'compute' | 'cache' | 'api' | 'auth' | 'empty' | 'infected';
+
+export interface NodeData {
+  label: string;
+  unlocked?: boolean;
+  resource?: string;
+  rate?: number;
+  baseRate?: number;
+  unlockCost?: Partial<Resources>;
+  infected?: boolean;
+  mineable?: boolean;
+  items?: Item[];
+  drops?: Item[];
+  mineCount?: number;
+  depleted?: boolean;
+  depletedUntil?: number;
+  capacity?: number;
+  refillMs?: number;
+  upgradeLevel?: number;
+  chipSlots?: number;
+  baseChipSlots?: number;
+  installedChips?: (string | Chip)[];
+  enhancementPoints?: number;
+  statAlloc?: Record<string, number>;
+  baseDefense?: number;
+  defense?: number;
+  bad_data_chance?: number;
+  autoCollect?: boolean;
+  maxBuffer?: number;
+  // Compute node properties
+  difficulty?: 'easy' | 'medium' | 'hard';
+  fixedPuzzleTemplate?: string;
+  rewardResource?: string;
+  solveCount?: number;
+  // Cache node properties
+  cacheRange?: number;
+  cacheCapacity?: number;
+  // API node properties
+  tier?: number;
+  infectionValue?: number;
+  pendingRequests?: number;
+  // XP (computed/enriched)
+  nodeXp?: number;
+  nodeXpToNext?: number;
+  /** Extensible — allows future properties without breaking types */
+  [key: string]: any;
+}
+
+export interface GameNode {
+  id: string;
+  type: NodeType | string;
+  position: { x: number; y: number };
+  data: NodeData;
+}
+
+export interface GameEdge {
+  id: string;
+  source: string;
+  target: string;
+}
+
 // ── Game State ──────────────────────────────────────────────────────────────
 
 export interface GameStateRow {
-  nodes: any[];
-  edges: any[];
+  nodes: GameNode[];
+  edges: GameEdge[];
   resources: Resources;
   flop: FlopState;
   tick: number;
@@ -106,6 +171,10 @@ export interface WorkerRow {
   equippedCpu: { itemType: string; computePoints: number; count: number } | null;
   equippedRam: { itemType: string; capacityBonus: number; count: number } | null;
   lastLog?: { message: string; level: string; ts: number } | null;
+  /** Node the worker was at before the current move — cleared when move completes */
+  previous_node?: string;
+  /** Timestamp of the current move — used for animation/dedup */
+  move_id?: number;
   /** Original deploy configuration — used for auto-resume after disconnect */
   deployConfig?: { classId: string; equippedItems: Record<string, any>; injectedFields: Record<string, any> } | null;
 }

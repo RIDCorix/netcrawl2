@@ -42,7 +42,7 @@ nodeRoutes.post('/node/build', (req: Request, res: Response) => {
   if (node.type !== 'empty') return res.status(400).json({ error: 'Can only build on empty nodes' });
   if (!node.data.unlocked) return res.status(400).json({ error: 'Node is locked' });
 
-  const resources = state.resources as unknown as Record<string, number>;
+  const resources = state.resources;
   const costError = checkCost(resources, cost);
   if (costError) return res.status(400).json({ error: costError });
   const newResources = deductCost(resources, cost);
@@ -58,7 +58,7 @@ nodeRoutes.post('/node/build', (req: Request, res: Response) => {
     return n;
   });
 
-  saveGameState({ ...state, nodes: newNodes, resources: newResources as any }, uid);
+  saveGameState({ ...state, nodes: newNodes, resources: newResources }, uid);
   broadcastFullState(uid);
   incrementStat('total_structures_built', 1, uid);
   awardXp(XP_REWARDS.build_structure, uid);
@@ -71,7 +71,7 @@ nodeRoutes.post('/node/build', (req: Request, res: Response) => {
 nodeRoutes.get('/node/build-options', (req: Request, res: Response) => {
   const uid = getUserId(req);
   const state = getGameState(uid);
-  const resources = state.resources as unknown as Record<string, number>;
+  const resources = state.resources;
   const options = Object.entries(BUILD_COSTS).map(([type, cost]) => ({
     type, cost, affordable: !checkCost(resources, cost),
   }));
@@ -213,7 +213,7 @@ nodeRoutes.post('/node/chip/remove', (req: Request, res: Response) => {
   const node = state.nodes.find((n: any) => n.id === nodeId);
   if (!node) return res.status(404).json({ error: 'Node not found' });
 
-  const installed: Chip[] = node.data.installedChips || [];
+  const installed = (node.data.installedChips || []) as Chip[];
   const chipIdx = installed.findIndex((c: Chip) => c.id === chipId);
   if (chipIdx === -1) return res.status(400).json({ error: 'Chip not installed on this node' });
 

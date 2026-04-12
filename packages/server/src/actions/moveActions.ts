@@ -23,7 +23,7 @@ export async function handleMove(ctx: ActionContext, payload: any): Promise<any>
   const moveEffects = getNodeChipEffects(targetNodeId, uid);
   const moveDelay = Math.round(MOVE_DELAY * (moveEffects['move_speed_mult'] || 1));
 
-  upsertWorker({ ...worker, status: 'moving', current_node: targetNodeId, previous_node: currentNode, move_id: Date.now() } as any, uid);
+  upsertWorker({ ...worker, status: 'moving', current_node: targetNodeId, previous_node: currentNode, move_id: Date.now() }, uid);
   grantNodeXp(targetNodeId, 'pass_through', uid);
   broadcastFullState(uid);
 
@@ -32,7 +32,7 @@ export async function handleMove(ctx: ActionContext, payload: any): Promise<any>
 
   const w = getWorker(workerId, uid);
   if (w && w.status === 'moving') {
-    const updated = { ...w, status: 'running' } as any;
+    const updated = { ...w, status: 'running' as const };
     delete updated.previous_node;
     upsertWorker(updated, uid);
     broadcastFullState(uid);
@@ -48,7 +48,7 @@ export async function handleMoveEdge(ctx: ActionContext, payload: any): Promise<
   if (!edgeId) return { ok: false, error: 'edgeId required' };
 
   const currentNodeE = worker.current_node || worker.node_id;
-  const edge = edges.find((e: any) => e.id === edgeId);
+  const edge = edges.find(e => e.id === edgeId);
   if (!edge) return { ok: false, error: `Edge '${edgeId}' not found` };
 
   let targetNodeE: string;
@@ -59,7 +59,7 @@ export async function handleMoveEdge(ctx: ActionContext, payload: any): Promise<
   const moveEffectsE = getNodeChipEffects(targetNodeE, uid);
   const moveDelayE = Math.round(MOVE_DELAY * (moveEffectsE['move_speed_mult'] || 1));
 
-  upsertWorker({ ...worker, status: 'moving', current_node: targetNodeE, previous_node: currentNodeE, move_id: Date.now() } as any, uid);
+  upsertWorker({ ...worker, status: 'moving', current_node: targetNodeE, previous_node: currentNodeE, move_id: Date.now() }, uid);
   grantNodeXp(targetNodeE, 'pass_through', uid);
   broadcastFullState(uid);
   setLock(workerId, moveDelayE);
@@ -67,7 +67,7 @@ export async function handleMoveEdge(ctx: ActionContext, payload: any): Promise<
 
   const wE = getWorker(workerId, uid);
   if (wE && wE.status === 'moving') {
-    const updatedE = { ...wE, status: 'running' } as any;
+    const updatedE = { ...wE, status: 'running' as const };
     delete updatedE.previous_node;
     upsertWorker(updatedE, uid);
     broadcastFullState(uid);

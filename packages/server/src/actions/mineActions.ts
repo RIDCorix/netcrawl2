@@ -27,7 +27,7 @@ export function handleHarvest(): any {
 export async function handleMine(ctx: ActionContext): Promise<any> {
   const { workerId, uid, worker, nodes } = ctx;
   const currentNode = worker.current_node || worker.node_id;
-  const nodeIdx = nodes.findIndex((n: any) => n.id === currentNode);
+  const nodeIdx = nodes.findIndex(n => n.id === currentNode);
   if (nodeIdx === -1) return { ok: false, error: 'Node not found' };
   const node = nodes[nodeIdx];
 
@@ -43,10 +43,10 @@ export async function handleMine(ctx: ActionContext): Promise<any> {
 
   // Check capacity-based depletion
   if (node.data.capacity !== undefined) {
-    if (node.data.mineCount >= node.data.capacity && !node.data.depleted) {
+    if ((node.data.mineCount || 0) >= node.data.capacity && !node.data.depleted) {
       const refillMs = node.data.refillMs || 5000;
       const freshS = getGameState(uid);
-      const newN = freshS.nodes.map((n: any) => {
+      const newN = freshS.nodes.map(n => {
         if (n.id === node.id) {
           return { ...n, data: { ...n.data, depleted: true, depletedUntil: Date.now() + refillMs, mineCount: 0 } };
         }
@@ -92,7 +92,7 @@ export async function handleMine(ctx: ActionContext): Promise<any> {
   }
 
   const freshState = getGameState(uid);
-  const newNodes = freshState.nodes.map((n: any) => {
+  const newNodes = freshState.nodes.map(n => {
     if (n.id === node.id) {
       return {
         ...n,

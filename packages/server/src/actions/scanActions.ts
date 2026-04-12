@@ -10,7 +10,7 @@ export function handleScan(ctx: ActionContext): any {
   const { worker, nodes, edges } = ctx;
   const currentNode = worker.current_node || worker.node_id;
   const neighborIds = getNeighborIds(edges, currentNode);
-  const neighborNodes = nodes.filter((n: any) => neighborIds.includes(n.id)).map((n: any) => ({ ...n, adjacent: true }));
+  const neighborNodes = nodes.filter(n => neighborIds.includes(n.id)).map(n => ({ ...n, adjacent: true }));
   return { ok: true, nodes: neighborNodes };
 }
 
@@ -18,19 +18,19 @@ export function handleGetEdges(ctx: ActionContext): any {
   const { worker, edges } = ctx;
   const curNode = worker.current_node || worker.node_id;
   const connectedEdges = edges
-    .filter((e: any) => e.source === curNode || e.target === curNode)
-    .map((e: any) => ({ id: e.id, otherNode: e.source === curNode ? e.target : e.source }));
+    .filter(e => e.source === curNode || e.target === curNode)
+    .map(e => ({ id: e.id, otherNode: e.source === curNode ? e.target : e.source }));
   return { ok: true, edges: connectedEdges, currentNode: curNode };
 }
 
 export function handleGetNodeInfo(ctx: ActionContext): any {
   const { worker, nodes, edges } = ctx;
   const infoNode = worker.current_node || worker.node_id;
-  const nodeInfo = nodes.find((n: any) => n.id === infoNode);
+  const nodeInfo = nodes.find(n => n.id === infoNode);
   if (!nodeInfo) return { ok: false, error: 'Node not found' };
   const infoEdges = edges
-    .filter((e: any) => e.source === infoNode || e.target === infoNode)
-    .map((e: any) => ({ id: e.id, otherNode: e.source === infoNode ? e.target : e.source }));
+    .filter(e => e.source === infoNode || e.target === infoNode)
+    .map(e => ({ id: e.id, otherNode: e.source === infoNode ? e.target : e.source }));
   return {
     ok: true, id: nodeInfo.id, type: nodeInfo.type, label: nodeInfo.data.label,
     data: {
@@ -48,8 +48,8 @@ export function handleScanEdges(ctx: ActionContext): any {
   const { worker, edges } = ctx;
   const curNode = worker.current_node || worker.node_id;
   const connected = edges
-    .filter((e: any) => e.source === curNode || e.target === curNode)
-    .map((e: any) => ({ edge_id: e.id, source_node_id: curNode, target_node_id: e.source === curNode ? e.target : e.source }));
+    .filter(e => e.source === curNode || e.target === curNode)
+    .map(e => ({ edge_id: e.id, source_node_id: curNode, target_node_id: e.source === curNode ? e.target : e.source }));
   return { ok: true, edges: connected };
 }
 
@@ -57,13 +57,13 @@ export function handleScanEdgesAdvanced(ctx: ActionContext): any {
   const { worker, nodes, edges } = ctx;
   const curNode = worker.current_node || worker.node_id;
   const connected = edges
-    .filter((e: any) => e.source === curNode || e.target === curNode)
-    .map((e: any) => {
+    .filter(e => e.source === curNode || e.target === curNode)
+    .map(e => {
       const targetId = e.source === curNode ? e.target : e.source;
-      const targetNode = nodes.find((n: any) => n.id === targetId);
+      const targetNode = nodes.find(n => n.id === targetId);
       const targetEdges = targetNode ? edges
-        .filter((te: any) => te.source === targetId || te.target === targetId)
-        .map((te: any) => ({ id: te.id, otherNode: te.source === targetId ? te.target : te.source }))
+        .filter(te => te.source === targetId || te.target === targetId)
+        .map(te => ({ id: te.id, otherNode: te.source === targetId ? te.target : te.source }))
         : [];
       return {
         edge_id: e.id, source_node_id: curNode, target_node_id: targetId,
@@ -97,7 +97,7 @@ export function handleFindNearest(ctx: ActionContext, payload: any): any {
     for (const nid of neighbors) {
       if (visited.has(nid)) continue;
       visited.add(nid);
-      const n = nodes.find((nd: any) => nd.id === nid);
+      const n = nodes.find(nd => nd.id === nid);
       if (n && n.type === nodeType && n.data.unlocked) { foundId = nid; break; }
       queue.push(nid);
     }

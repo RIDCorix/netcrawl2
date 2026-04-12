@@ -36,7 +36,7 @@ export function handleGetService(ctx: ActionContext, payload: any): any {
   const { worker, nodes, edges } = ctx;
   const { serviceNodeId } = payload;
   if (!serviceNodeId) return { ok: false, error: 'serviceNodeId required' };
-  const serviceNode = nodes.find((n: any) => n.id === serviceNodeId);
+  const serviceNode = nodes.find(n => n.id === serviceNodeId);
   if (!serviceNode) return { ok: false, error: 'Service node not found', reason: 'not_found' };
   if (!serviceNode.data.unlocked) return { ok: false, error: 'Service node is locked', reason: 'not_reachable' };
   const workerNode = worker.current_node || worker.node_id;
@@ -100,7 +100,7 @@ export function handleApiRespond(ctx: ActionContext, payload: any): any {
 export function handleApiStats(ctx: ActionContext): any {
   const { worker, nodes } = ctx;
   const currentNode = worker.current_node || worker.node_id;
-  const node = nodes.find((n: any) => n.id === currentNode);
+  const node = nodes.find(n => n.id === currentNode);
   if (!node || node.type !== 'api') return { ok: false, error: 'Not at an API node' };
   return { ok: true, ...getAPIStats(currentNode) };
 }
@@ -116,7 +116,7 @@ export function handleApiReject(ctx: ActionContext, payload: any): any {
 export async function handleValidateToken(ctx: ActionContext, payload: any): Promise<any> {
   const { workerId, worker, nodes } = ctx;
   const currentNode = worker.current_node || worker.node_id;
-  const authNode = nodes.find((n: any) => n.id === currentNode);
+  const authNode = nodes.find(n => n.id === currentNode);
   if (!authNode || authNode.type !== 'auth') return { ok: false, error: 'Must be at an auth node to validate tokens', reason: 'not_at_auth_node' };
   if (!authNode.data.unlocked) return { ok: false, error: 'Auth node is locked' };
   const { token } = payload;
@@ -132,20 +132,19 @@ export async function handleRepair(ctx: ActionContext, payload: any): Promise<an
   const { nodeId } = payload;
   const currentNode = worker.current_node || worker.node_id;
   if (!edgeExists(edges, currentNode, nodeId) && currentNode !== nodeId) return { ok: false, error: 'Node not adjacent' };
-  const node = nodes.find((n: any) => n.id === nodeId);
+  const node = nodes.find(n => n.id === nodeId);
   if (!node || !node.data.infected) return { ok: false, error: 'Node is not infected' };
-  const res = resources as unknown as Record<string, number>;
-  if ((res.data || 0) < REPAIR_DATA_COST) return { ok: false, error: `Not enough data (need ${REPAIR_DATA_COST})` };
+  if ((resources.data || 0) < REPAIR_DATA_COST) return { ok: false, error: `Not enough data (need ${REPAIR_DATA_COST})` };
 
   setLock(workerId, ACTION_DELAY);
   await getLock(workerId);
 
   const freshState = getGameState(uid);
-  const newNodes = freshState.nodes.map((n: any) => {
+  const newNodes = freshState.nodes.map(n => {
     if (n.id === nodeId) return { ...n, type: n.type === 'infected' ? 'resource' : n.type, data: { ...n.data, infected: false, infectionValue: 0 } };
     return n;
   });
-  const newResources = { ...(freshState.resources as any), data: (freshState.resources as any).data - REPAIR_DATA_COST };
+  const newResources = { ...freshState.resources, data: freshState.resources.data - REPAIR_DATA_COST };
   saveGameState({ ...freshState, nodes: newNodes, resources: newResources }, uid);
   broadcastFullState(uid);
   incrementStat('total_repairs', 1, uid);

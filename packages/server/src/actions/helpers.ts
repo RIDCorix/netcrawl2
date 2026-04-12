@@ -2,7 +2,7 @@
  * Shared helpers for worker action handlers.
  */
 
-import type { Item } from '../types.js';
+import type { Item, GameNode, GameEdge, GameStateRow, Resources, WorkerRow } from '../types.js';
 import { getActivePassives } from '../domain/questState.js';
 
 export const ACTION_DELAY = 1000;
@@ -25,7 +25,7 @@ export function getPassiveEffects(): Record<string, number> {
   return agg;
 }
 
-export function getItemTypeForNode(node: any): Item['type'] {
+export function getItemTypeForNode(node: GameNode): Item['type'] {
   const badDataChance = node.data.bad_data_chance || 0;
   if (badDataChance > 0 && Math.random() < badDataChance) {
     return 'bad_data';
@@ -43,9 +43,9 @@ export function calcItemCount(baseRate: number, efficiency: number): number {
 export interface ActionContext {
   workerId: string;
   uid: string | undefined;
-  worker: any;
-  state: any;
-  nodes: any[];
-  edges: any[];
-  resources: any;
+  worker: WorkerRow;
+  state: GameStateRow;
+  nodes: GameNode[];
+  edges: GameEdge[];
+  resources: Resources;
 }

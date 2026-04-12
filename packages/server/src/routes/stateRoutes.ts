@@ -37,7 +37,7 @@ stateRoutes.post('/gather', (req: Request, res: Response) => {
   const uid = getUserId(req);
   const { nodeId } = req.body;
   const state = getGameState(uid);
-  const node = state.nodes.find((n: any) => n.id === nodeId);
+  const node = state.nodes.find(n => n.id === nodeId);
   if (!node) return res.status(404).json({ error: 'Node not found' });
   if (!node.data.unlocked) return res.status(400).json({ error: 'Node not unlocked' });
 
@@ -45,7 +45,7 @@ stateRoutes.post('/gather', (req: Request, res: Response) => {
   if (!resourceType) return res.status(400).json({ error: 'Not a resource node' });
 
   const newResources = { ...state.resources };
-  (newResources as any)[resourceType] = ((newResources as any)[resourceType] || 0) + 10;
+  newResources[resourceType] = (newResources[resourceType] || 0) + 10;
   saveGameState({ ...state, resources: newResources }, uid);
   grantNodeXp(nodeId, 'harvest', uid);
   broadcastFullState(uid);
@@ -57,7 +57,7 @@ stateRoutes.post('/unlock', (req: Request, res: Response) => {
   const uid = getUserId(req);
   const { nodeId } = req.body;
   const state = getGameState(uid);
-  const node = state.nodes.find((n: any) => n.id === nodeId);
+  const node = state.nodes.find(n => n.id === nodeId);
   if (!node) return res.status(404).json({ error: 'Node not found' });
   if (node.data.unlocked) return res.status(400).json({ error: 'Already unlocked' });
 
@@ -67,20 +67,20 @@ stateRoutes.post('/unlock', (req: Request, res: Response) => {
     else if (e.target === nodeId) neighborIds.add(e.source);
   }
   const hasUnlockedNeighbor = state.nodes.some(
-    (n: any) => neighborIds.has(n.id) && n.data?.unlocked,
+    n => neighborIds.has(n.id) && n.data?.unlocked,
   );
   if (!hasUnlockedNeighbor) {
     return res.status(400).json({ error: 'No unlocked adjacent node — explore outward first' });
   }
 
   const cost = (node.data.unlockCost as Record<string, number>) || {};
-  const resources = state.resources as unknown as Record<string, number>;
+  const resources = state.resources;
 
   const costError = checkCost(resources, cost);
   if (costError) return res.status(400).json({ error: costError });
   const newResources = deductCost(resources, cost);
 
-  const newNodes = state.nodes.map((n: any) => {
+  const newNodes = state.nodes.map(n => {
     if (n.id === nodeId) {
       const key = getUpgradeKey(n.type, n.data.resource);
       const threshold = getNodeXpThreshold(key, 1);
@@ -89,7 +89,7 @@ stateRoutes.post('/unlock', (req: Request, res: Response) => {
     return n;
   });
 
-  saveGameState({ ...state, nodes: newNodes, resources: newResources as any }, uid);
+  saveGameState({ ...state, nodes: newNodes, resources: newResources }, uid);
   broadcastFullState(uid);
   incrementStat('total_nodes_unlocked', 1, uid);
   awardXp(XP_REWARDS.unlock_node, uid);

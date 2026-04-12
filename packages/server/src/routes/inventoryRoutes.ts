@@ -28,7 +28,7 @@ inventoryRoutes.get('/inventory', (req: Request, res: Response) => {
 inventoryRoutes.get('/recipes', (req: Request, res: Response) => {
   const uid = getUserId(req);
   const state = getGameState(uid);
-  const resources = state.resources as unknown as Record<string, number>;
+  const resources = state.resources;
   const unlockedIds = new Set(getUnlockedRecipes(uid));
 
   const unlockSources: Record<string, string> = {};
@@ -63,14 +63,14 @@ inventoryRoutes.post('/craft', (req: Request, res: Response) => {
   }
 
   const state = getGameState(uid);
-  const resources = state.resources as unknown as Record<string, number>;
+  const resources = state.resources;
 
   const costError = checkCost(resources, recipe.cost as Record<string, number>);
   if (costError) return res.status(400).json({ error: costError });
   const newResources = deductCost(resources, recipe.cost as Record<string, number>);
 
   addToPlayerInventory(recipe.output.itemType, recipe.output.count, recipe.output.metadata, uid);
-  saveGameState({ ...state, resources: newResources as any }, uid);
+  saveGameState({ ...state, resources: newResources }, uid);
   broadcastFullState(uid);
 
   incrementStat('total_crafts', 1, uid);

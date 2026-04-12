@@ -2,7 +2,7 @@
  * Inventory action handlers: collect, deposit, discard, drop, has_items
  */
 
-import type { Item } from '../types.js';
+import type { Item, Resources } from '../types.js';
 import { mergeItemStacks, MAX_STACK_SIZE } from '../types.js';
 import type { ActionContext } from './helpers.js';
 import { ACTION_DELAY } from './helpers.js';
@@ -38,7 +38,7 @@ function tallyDeposit(items: Item[], uid: string | undefined): DepositResult {
   return { totalData, totalRp, penalty };
 }
 
-function applyDeposit(resources: Record<string, number>, tally: DepositResult): Record<string, number> {
+function applyDeposit(resources: Resources, tally: DepositResult): Resources {
   const res = { ...resources };
   res['data'] = Math.max(0, (res['data'] || 0) + tally.totalData - tally.penalty);
   if (tally.totalRp > 0) res['rp'] = (res['rp'] || 0) + tally.totalRp;
@@ -51,7 +51,7 @@ export async function handleCollect(ctx: ActionContext, payload: any): Promise<a
   const { workerId, uid, worker, nodes } = ctx;
   const capacity = 1 + (worker.equippedRam?.capacityBonus || 0);
   const currentNode = worker.current_node || worker.node_id;
-  const nodeIdx = nodes.findIndex((n: any) => n.id === currentNode);
+  const nodeIdx = nodes.findIndex(n => n.id === currentNode);
   if (nodeIdx === -1) return { ok: false, error: 'Node not found' };
   const node = nodes[nodeIdx];
 
@@ -62,7 +62,7 @@ export async function handleCollect(ctx: ActionContext, payload: any): Promise<a
   await getLock(workerId);
 
   const freshState = getGameState(uid);
-  const freshNode = freshState.nodes.find((n: any) => n.id === currentNode);
+  const freshNode = freshState.nodes.find(n => n.id === currentNode);
   const freshItems: Item[] = freshNode && Array.isArray(freshNode.data.items) ? [...freshNode.data.items] : [];
   if (freshItems.length === 0) return { ok: false, error: 'nothing_here', reason: 'nothing_here' };
 
@@ -115,7 +115,7 @@ export async function handleCollect(ctx: ActionContext, payload: any): Promise<a
     return { ok: false, error: 'inventory_full', reason: 'inventory_full', holdingCount: currentHolding.length, capacity };
   }
 
-  const newNodes = freshState.nodes.map((n: any) => {
+  const newNodes = freshState.nodes.map(n => {
     if (n.id === currentNode) return { ...n, data: { ...n.data, items: remaining } };
     return n;
   });
@@ -144,9 +144,9 @@ export async function handleDeposit(ctx: ActionContext): Promise<any> {
 
   const freshState = getGameState(uid);
   const tally = tallyDeposit(held, uid);
-  const newResources = applyDeposit(freshState.resources as unknown as Record<string, number>, tally);
+  const newResources = applyDeposit(freshState.resources, tally);
 
-  saveGameState({ ...freshState, resources: newResources as any }, uid);
+  saveGameState({ ...freshState, resources: newResources }, uid);
   upsertWorker({ ...w5, holding: [], status: 'running' }, uid);
   broadcastFullState(uid);
   incrementStat('total_deposits', 1, uid);
@@ -164,7 +164,7 @@ export async function handleDiscard(ctx: ActionContext, payload: any): Promise<a
 
   if (payload.itemType) {
     const holding = [...(w6.holding || [])];
-    const idx = holding.findIndex((d: any) => d.type === payload.itemType);
+    const idx = holding.findIndex(d => d.type === payload.itemType);
     if (idx === -1) return { ok: false, error: 'Item type not found', reason: 'item_not_found' };
     const stack = holding[idx];
     const discardCount = payload.count ? Math.min(payload.count, stack.count) : stack.count;
@@ -192,13 +192,13 @@ export async function handleDrop(ctx: ActionContext, payload: any): Promise<any>
 
   const dropNodeId = w7.current_node || w7.node_id;
   const freshState = getGameState(uid);
-  const dropNode = freshState.nodes.find((n: any) => n.id === dropNodeId);
+  const dropNode = freshState.nodes.find(n => n.id === dropNodeId);
   if (!dropNode) return { ok: false, error: 'Node not found' };
 
   let dropped: Item[];
   const holding = [...(w7.holding || [])];
   if (payload.itemType) {
-    const idx = holding.findIndex((d: any) => d.type === payload.itemType);
+    const idx = holding.findIndex(d => d.type === payload.itemType);
     if (idx === -1) return { ok: false, error: 'Item type not found' };
     const stack = holding[idx];
     const dropCount = payload.count ? Math.min(payload.count, stack.count) : stack.count;
@@ -213,9 +213,9 @@ export async function handleDrop(ctx: ActionContext, payload: any): Promise<any>
   // Drop at hub auto-deposits
   if (dropNodeId === 'hub') {
     const tally = tallyDeposit(dropped, uid);
-    const newResources = applyDeposit(freshState.resources as unknown as Record<string, number>, tally);
+    const newResources = applyDeposit(freshState.resources, tally);
 
-    saveGameState({ ...freshState, resources: newResources as any }, uid);
+    saveGameState({ ...freshState, resources: newResources }, uid);
     upsertWorker({ ...w7, holding, status: 'running' }, uid);
     broadcastFullState(uid);
     broadcast({
@@ -246,7 +246,7 @@ export async function handleDrop(ctx: ActionContext, payload: any): Promise<any>
   for (const r of rejectedDrops) holding.push(r);
   upsertWorker({ ...w7, holding }, uid);
 
-  const newNodes = freshState.nodes.map((n: any) => {
+  const newNodes = freshState.nodes.map(n => {
     if (n.id === dropNodeId) return { ...n, data: { ...n.data, items: mergeItemStacks(existingItemsPre, acceptedDrops) } };
     return n;
   });
@@ -258,7 +258,7 @@ export async function handleDrop(ctx: ActionContext, payload: any): Promise<any>
 export function handleHasItems(ctx: ActionContext): any {
   const { worker, nodes } = ctx;
   const curNode = worker.current_node || worker.node_id;
-  const node = nodes.find((n: any) => n.id === curNode);
+  const node = nodes.find(n => n.id === curNode);
   if (!node) return { ok: true, has_items: false };
   const floorItems = Array.isArray(node.data.items) ? node.data.items : [];
   return { ok: true, has_items: floorItems.length > 0, count: floorItems.length };

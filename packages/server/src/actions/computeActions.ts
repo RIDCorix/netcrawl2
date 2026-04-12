@@ -23,7 +23,7 @@ const puzzleCooldowns = new Map<string, number>();
 export async function handleCompute(ctx: ActionContext): Promise<any> {
   const { workerId, worker, nodes } = ctx;
   const computeNode = worker.current_node || worker.node_id;
-  const node = nodes.find((n: any) => n.id === computeNode);
+  const node = nodes.find(n => n.id === computeNode);
   if (!node || node.type !== 'compute') return { ok: false, error: 'Not at a compute node' };
 
   const cooldownUntil = puzzleCooldowns.get(computeNode) || 0;
@@ -51,7 +51,7 @@ export async function handleSubmit(ctx: ActionContext, payload: any): Promise<an
   if (!submitTaskId || submitAnswer === undefined) return { ok: false, error: 'taskId and answer required' };
 
   const submitNode = worker.current_node || worker.node_id;
-  const sNode = nodes.find((n: any) => n.id === submitNode);
+  const sNode = nodes.find(n => n.id === submitNode);
   if (!sNode || sNode.type !== 'compute') return { ok: false, error: 'Not at a compute node' };
 
   const puzzle = activePuzzles.get(submitNode);
@@ -72,11 +72,11 @@ export async function handleSubmit(ctx: ActionContext, payload: any): Promise<an
     const rewardType = sNode.data.rewardResource || 'rp';
 
     const freshState = getGameState(uid);
-    const newRes = { ...freshState.resources } as Record<string, number>;
+    const newRes = { ...freshState.resources };
     newRes[rewardType] = (newRes[rewardType] || 0) + reward;
-    saveGameState({ ...freshState, resources: newRes as any }, uid);
+    saveGameState({ ...freshState, resources: newRes }, uid);
 
-    const newNodes = freshState.nodes.map((n: any) => {
+    const newNodes = freshState.nodes.map(n => {
       if (n.id === submitNode) return { ...n, data: { ...n.data, solveCount: (n.data.solveCount || 0) + 1 } };
       return n;
     });

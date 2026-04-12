@@ -26,14 +26,14 @@ chipPackRoutes.post('/chip-pack/buy', (req: Request, res: Response) => {
   if (!packDef) return res.status(400).json({ error: 'Unknown pack type' });
 
   const state = getGameState(uid);
-  const resources = state.resources as unknown as Record<string, number>;
+  const resources = state.resources;
 
   const costError = checkCost(resources, packDef.cost as Record<string, number>);
   if (costError) return res.status(400).json({ error: costError });
   const newResources = deductCost(resources, packDef.cost as Record<string, number>);
 
   addToPlayerInventory(packType, 1, undefined, uid);
-  saveGameState({ ...state, resources: newResources as any }, uid);
+  saveGameState({ ...state, resources: newResources }, uid);
   broadcastFullState(uid);
   res.json({ ok: true });
 });
@@ -76,7 +76,7 @@ chipPackRoutes.post('/chip-pack/open', (req: Request, res: Response) => {
 chipPackRoutes.get('/chip-packs', (req: Request, res: Response) => {
   const uid = getUserId(req);
   const state = getGameState(uid);
-  const resources = state.resources as unknown as Record<string, number>;
+  const resources = state.resources;
 
   const packs = CHIP_PACK_DEFS.map(p => ({
     ...p,
