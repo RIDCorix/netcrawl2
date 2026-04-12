@@ -98,7 +98,7 @@ workerRoutes.post('/worker/reset', (req: Request, res: Response) => {
   if (!allocateFlop(FLOP_COSTS.worker, uid)) {
     upsertWorker({ ...worker, current_node: worker.node_id, status: 'suspended', pid: null, holding: [], carrying: {} }, uid);
     broadcastFullState(uid);
-    return res.status(400).json({ ok: false, error: 'Not enough FLOP' });
+    return res.status(400).json({ error: 'Not enough FLOP' });
   }
 
   enqueueDeploy({
@@ -227,7 +227,7 @@ workerRoutes.post('/autosave/restore', (req: Request, res: Response) => {
   activeProcesses.clear();
 
   const ok = restoreAutosave(uid);
-  if (!ok) return res.status(404).json({ ok: false, error: 'no_autosave' });
+  if (!ok) return res.status(404).json({ error: 'no_autosave' });
   broadcastFullState(uid);
   res.json({ ok: true });
 });

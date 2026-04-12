@@ -12,12 +12,26 @@
     "desktop:build": "pnpm --filter @netcrawl/desktop build",
     "desktop:dist:mac": "pnpm --filter @netcrawl/desktop dist:mac",
     "desktop:dist:win": "pnpm --filter @netcrawl/desktop dist:win",
-    "desktop:dist:linux": "pnpm --filter @netcrawl/desktop dist:linux"
+    "desktop:dist:linux": "pnpm --filter @netcrawl/desktop dist:linux",
+    "lint": "eslint packages/server/src packages/ui/src --max-warnings 400",
+    "lint:fix": "eslint packages/server/src packages/ui/src --fix",
+    "format": "prettier --write packages/server/src packages/ui/src",
+    "format:check": "prettier --check packages/server/src packages/ui/src"
   },
   "devDependencies": {
-    "concurrently": "^8.0.0"
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^8.0.0",
+    "eslint": "^10.2.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.2",
+    "typescript-eslint": "^8.58.1"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild", "electron", "electron-winstaller", "sharp"]
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "electron",
+      "electron-winstaller",
+      "sharp"
+    ]
   }
 }

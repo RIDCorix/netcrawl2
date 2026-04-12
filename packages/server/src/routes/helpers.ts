@@ -4,12 +4,22 @@
 
 import path from 'path';
 import fs from 'fs';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { addToPlayerInventory } from '../domain/inventory.js';
 
 /** Extract userId from request (set by auth middleware in multi-user mode). */
 export function getUserId(req: Request): string | undefined {
   return (req as any)._userId || undefined;
+}
+
+/**
+ * Send a standardized error response.
+ * All API errors use the shape: { error: string, reason?: string }
+ */
+export function sendError(res: Response, status: number, error: string, reason?: string) {
+  const body: { error: string; reason?: string } = { error };
+  if (reason) body.reason = reason;
+  return res.status(status).json(body);
 }
 
 /** Return all equipment + held items from a worker to player inventory */

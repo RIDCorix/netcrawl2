@@ -199,7 +199,7 @@ export function DevConsole() {
     appendLog('sys', 'dev console ready — type /help');
     const id = window.setTimeout(() => inputRef.current?.focus(), 0);
     return () => window.clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Intentionally run only when open state changes
   }, [open]);
 
   // Auto-scroll log to bottom

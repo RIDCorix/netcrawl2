@@ -1,0 +1,7 @@
+dist
+node_modules
+release
+workspace
+workspace_example
+pnpm-lock.yaml
+*.md

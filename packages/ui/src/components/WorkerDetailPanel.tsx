@@ -40,7 +40,7 @@ export function WorkerDetailPanel() {
         setWorkerLogs(selectedWorkerId, history);
       })
       .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Intentionally omit setWorkerLogs from deps — only re-fetch on worker change
   }, [selectedWorkerId]);
 
   const handleSuspend = async () => {

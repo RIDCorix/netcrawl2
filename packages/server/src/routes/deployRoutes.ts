@@ -40,7 +40,7 @@ deployRoutes.post('/deploy', async (req: Request, res: Response) => {
   const flopCost = FLOP_COSTS.worker;
   if (!allocateFlop(flopCost, uid)) {
     const { used, total } = state.flop;
-    return res.status(400).json({ ok: false, error: `Not enough FLOP capacity. Current: ${used}/${total}` });
+    return res.status(400).json({ error: `Not enough FLOP capacity. Current: ${used}/${total}` });
   }
 
   // Handle CPU modules
