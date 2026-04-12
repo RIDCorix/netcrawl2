@@ -1,8 +1,9 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Database, Cpu, Star, Lock, AlertTriangle, MousePointer, Upload, Pickaxe, Info, Shield, Box, Server, Globe, Zap, Bug, Plus, Minus } from 'lucide-react';
 import { useGameStore, GameNode, Resources } from '../store/gameStore';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import axios from 'axios';
+import { useAsyncAction } from '../hooks/useAsyncAction';
 import { ChipSlotManager } from './ChipSlotManager';
 import { InvCell } from './ui/InvCell';
 import { NODE_DIALOG_REGISTRY, NodeDialogConfig, NodeInfoDialog } from './NodeInfoDialog';
@@ -27,10 +28,6 @@ const NODE_TYPE_ICONS: Record<string, any> = {
 
 export function NodeDetailPanel() {
   const { selectedNodeId, nodes, edges, resources, selectNode } = useGameStore();
-  const [gathering, setGathering] = useState(false);
-  const [unlocking, setUnlocking] = useState(false);
-  const [building, setBuilding] = useState(false);
-  const [msg, setMsg] = useState('');
   const [deployOpen, setDeployOpen] = useState(false);
   const [activeDialog, setActiveDialog] = useState<NodeDialogConfig | null>(null);
   const t = useT();
@@ -38,35 +35,21 @@ export function NodeDetailPanel() {
 
   const node = nodes.find((n: any) => n.id === selectedNodeId);
 
-  const handleGather = async () => {
-    if (!node) return;
-    setGathering(true);
-    setMsg('');
-    try {
-      await axios.post('/api/gather', { nodeId: node.id });
-      setMsg('+10 gathered!');
-      setTimeout(() => setMsg(''), 2000);
-    } catch (err: any) {
-      setMsg(err.response?.data?.error || 'Gather failed');
-    } finally {
-      setGathering(false);
-    }
-  };
+  const gather = useAsyncAction(
+    () => axios.post('/api/gather', { nodeId: node?.id }),
+    { successMsg: '+10 gathered!', fallbackError: 'Gather failed' },
+  );
+  const unlock = useAsyncAction(
+    () => axios.post('/api/unlock', { nodeId: node?.id }),
+    { successMsg: 'Unlocked!', fallbackError: 'Unlock failed' },
+  );
+  const build = useAsyncAction(
+    (structureType: string) => axios.post('/api/node/build', { nodeId: node?.id, structureType }),
+    { successMsg: (d) => `Built ${d?.structureType || 'structure'} node!`, fallbackError: 'Build failed' },
+  );
 
-  const handleUnlock = async () => {
-    if (!node) return;
-    setUnlocking(true);
-    setMsg('');
-    try {
-      await axios.post('/api/unlock', { nodeId: node.id });
-      setMsg('Unlocked!');
-      setTimeout(() => setMsg(''), 2000);
-    } catch (err: any) {
-      setMsg(err.response?.data?.error || 'Unlock failed');
-    } finally {
-      setUnlocking(false);
-    }
-  };
+  // Combined message from whichever action last fired
+  const msg = gather.msg || unlock.msg || build.msg;
 
   const canAffordUnlock = (cost: Partial<Resources>) =>
     Object.entries(cost).every(([k, v]) => (resources as any)[k] >= v);
@@ -87,21 +70,6 @@ export function NodeDetailPanel() {
   const BUILD_COSTS: Record<string, Record<string, number>> = {
     cache: { data: 1500, rp: 5 },
     api: { data: 2000, rp: 8 },
-  };
-
-  const handleBuild = async (structureType: string) => {
-    if (!node) return;
-    setBuilding(true);
-    setMsg('');
-    try {
-      await axios.post('/api/node/build', { nodeId: node.id, structureType });
-      setMsg(`Built ${structureType} node!`);
-      setTimeout(() => setMsg(''), 2000);
-    } catch (err: any) {
-      setMsg(err.response?.data?.error || 'Build failed');
-    } finally {
-      setBuilding(false);
-    }
   };
 
   const getNodeColor = (n: GameNode) => {
@@ -470,10 +438,10 @@ if (n.type === 'cache') return '#a78bfa';
               {node.data.unlocked && node.type === 'resource' && (
                 <>
                   <SectionLabel>{t('ui.actions')}</SectionLabel>
-                  <ActionButton onClick={handleGather} disabled={gathering}>
+                  <ActionButton onClick={gather.run} disabled={gather.loading}>
                     <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                       <MousePointer size={12} />
-                      {gathering ? 'GATHERING...' : `${t('node.gather')} (+10)`}
+                      {gather.loading ? 'GATHERING...' : `${t('node.gather')} (+10)`}
                     </span>
                   </ActionButton>
                 </>
@@ -482,7 +450,7 @@ if (n.type === 'cache') return '#a78bfa';
               {!node.data.unlocked && node.data.unlockCost && (() => {
                 const affordable = canAffordUnlock(node.data.unlockCost);
                 const reachable = hasUnlockedNeighbor(node.id);
-                const label = unlocking
+                const label = unlock.loading
                   ? 'UNLOCKING...'
                   : !reachable
                     ? t('ui.no_adjacent_unlock')
@@ -494,8 +462,8 @@ if (n.type === 'cache') return '#a78bfa';
                     <SectionLabel>Unlock Cost</SectionLabel>
                     <CostBadge cost={node.data.unlockCost} />
                     <ActionButton
-                      onClick={handleUnlock}
-                      disabled={unlocking || !affordable || !reachable}
+                      onClick={unlock.run}
+                      disabled={unlock.loading || !affordable || !reachable}
                     >
                       <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                         <Lock size={12} />
@@ -517,11 +485,11 @@ if (n.type === 'cache') return '#a78bfa';
                       </div>
                       <CostBadge cost={cost} />
                       <ActionButton
-                        onClick={() => handleBuild(type)}
-                        disabled={building || !canAffordUnlock(cost)}
+                        onClick={() => build.run(type)}
+                        disabled={build.loading || !canAffordUnlock(cost)}
                       >
                         <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                          {building ? 'BUILDING...' : canAffordUnlock(cost) ? `BUILD ${type.toUpperCase()}` : t('ui.insufficient')}
+                          {build.loading ? 'BUILDING...' : canAffordUnlock(cost) ? `BUILD ${type.toUpperCase()}` : t('ui.insufficient')}
                         </span>
                       </ActionButton>
                     </div>
