@@ -4,7 +4,7 @@ import { useEffect, useCallback, useState } from 'react';
 import { useGameState } from './hooks/useGameState';
 import { useGameStore } from './store/gameStore';
 import { ResourceBar } from './components/ResourceBar';
-import { GameGraph } from './components/GameGraph';
+import { GameGraph } from './components/graph/GameGraph';
 import { NodeDetailPanel } from './components/NodeDetailPanel';
 import { WorkerListPanel } from './components/WorkerListPanel';
 import { WorkerDetailPanel } from './components/WorkerDetailPanel';
