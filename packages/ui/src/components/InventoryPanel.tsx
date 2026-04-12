@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Package, Database, Search, Hammer, Check, Cpu, Star, AlertTriangle, Gift } from 'lucide-react';
+import { X, Package, Database, Search, Hammer, Check, Cpu, Star, AlertTriangle, Gift, Lock } from 'lucide-react';
 import { useGameStore, InventoryItem, Chip } from '../store/gameStore';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
@@ -46,7 +46,7 @@ const INV_TABS_DEF = [
 const CRAFT_TABS_DEF = [
   { key: 'all', labelKey: 'ui.tab_all' },
   { key: 'tools', labelKey: 'ui.tab_tools', ids: ['pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond'] },
-  { key: 'gear', labelKey: 'ui.tab_gear', ids: ['shield', 'beacon'] },
+  { key: 'gear', labelKey: 'ui.tab_gear', ids: ['shield', 'beacon', 'cpu_basic', 'cpu_advanced', 'ram_basic', 'ram_advanced'] },
   { key: 'shop', labelKey: 'ui.tab_shop' },
 ];
 
@@ -59,7 +59,26 @@ interface Recipe {
   output: { itemType: string; count: number; metadata?: { efficiency?: number } };
   cost: { data?: number; rp?: number; credits?: number };
   affordable: boolean;
+  unlocked: boolean;
+  unlockHint?: string;
 }
+
+// ── Craft families (vertical columns) ─────────────────────────────────────
+
+interface CraftFamily {
+  id: string;
+  title: string;
+  icon: any;
+  color: string;
+  recipeIds: string[];
+}
+
+const CRAFT_FAMILIES: CraftFamily[] = [
+  { id: 'pickaxes', title: 'Pickaxe', icon: PickaxeBasic, color: '#c0c0c0', recipeIds: ['pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond'] },
+  { id: 'cpu',      title: 'CPU',     icon: CpuBasic,     color: '#f59e0b', recipeIds: ['cpu_basic', 'cpu_advanced'] },
+  { id: 'ram',      title: 'RAM',     icon: RamBasic,     color: '#a78bfa', recipeIds: ['ram_basic', 'ram_advanced'] },
+  { id: 'gadgets',  title: 'Gadget',  icon: ShieldIcon,   color: '#4ade80', recipeIds: ['shield', 'beacon'] },
+];
 
 // ── Grid slot ───────────────────────────────────────────────────────────────
 
@@ -126,15 +145,16 @@ function EmptySlot() {
   );
 }
 
-// ── Craft slot ──────────────────────────────────────────────────────────────
+// ── Craft slot (supports locked state) ─────────────────────────────────────
 
 function CraftSlot({ recipe, dimmed, onCraft }: { recipe: Recipe; dimmed: boolean; onCraft: () => void }) {
   const t = useT();
   const { resources } = useGameStore();
   const [hover, setHover] = useState(false);
-  const Icon = ITEM_ICONS[recipe.output.itemType] || Hammer;
+  const locked = !recipe.unlocked;
+  const Icon = locked ? Lock : (ITEM_ICONS[recipe.output.itemType] || Hammer);
   const color = ITEM_COLORS[recipe.output.itemType] || '#666';
-  const displayName = t('item.' + recipe.output.itemType + '.name') || recipe.name;
+  const displayName = locked ? '???' : (t('item.' + recipe.output.itemType + '.name') || recipe.name);
   const displayDesc = t('item.' + recipe.output.itemType + '.desc') || recipe.description;
 
   const COST_CONFIG: Record<string, { label: string; color: string; owned: number }> = {
@@ -143,39 +163,43 @@ function CraftSlot({ recipe, dimmed, onCraft }: { recipe: Recipe; dimmed: boolea
     credits: { label: 'Credits', color: 'var(--credits-color)', owned: resources.credits },
   };
 
+  const canCraft = !locked && recipe.affordable && !dimmed;
+
   return (
     <div style={{ position: 'relative' }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
       <button
-        onClick={recipe.affordable && !dimmed ? onCraft : undefined}
-        disabled={!recipe.affordable || dimmed}
+        onClick={canCraft ? onCraft : undefined}
+        disabled={!canCraft}
         style={{
           width: 64, height: 72,
           borderRadius: 'var(--radius-sm)',
-          background: recipe.affordable ? 'var(--bg-elevated)' : 'var(--bg-primary)',
-          border: `1px solid ${recipe.affordable && !dimmed ? color : 'var(--border)'}`,
+          background: locked ? 'var(--bg-primary)' : recipe.affordable ? 'var(--bg-elevated)' : 'var(--bg-primary)',
+          border: `1px ${locked ? 'dashed' : 'solid'} ${canCraft ? color : 'var(--border)'}`,
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
-          cursor: recipe.affordable && !dimmed ? 'pointer' : 'default',
-          opacity: dimmed ? 0.15 : recipe.affordable ? 1 : 0.4,
+          cursor: canCraft ? 'pointer' : 'default',
+          opacity: dimmed ? 0.15 : locked ? 0.35 : recipe.affordable ? 1 : 0.4,
           transition: 'all 0.15s',
           position: 'relative',
           padding: 0,
         }}
       >
-        <Icon size={18} style={{ color: recipe.affordable ? color : 'var(--text-muted)' }} />
-        <span style={{ fontSize: 8, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', fontWeight: 600, textAlign: 'center', lineHeight: 1.1, padding: '0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+        <Icon size={locked ? 14 : 18} style={{ color: locked ? 'var(--text-muted)' : recipe.affordable ? color : 'var(--text-muted)' }} />
+        <span style={{ fontSize: 8, fontFamily: 'var(--font-mono)', color: locked ? 'var(--text-muted)' : 'var(--text-primary)', fontWeight: 600, textAlign: 'center', lineHeight: 1.1, padding: '0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
           {displayName}
         </span>
-        <div style={{ position: 'absolute', bottom: -2, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 1 }}>
-          {recipe.cost.data !== undefined && <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--data-color)' }} />}
-          {recipe.cost.rp !== undefined && <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--rp-color)' }} />}
-          {recipe.cost.credits !== undefined && <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--credits-color)' }} />}
-        </div>
+        {!locked && (
+          <div style={{ position: 'absolute', bottom: -2, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 1 }}>
+            {recipe.cost.data !== undefined && <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--data-color)' }} />}
+            {recipe.cost.rp !== undefined && <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--rp-color)' }} />}
+            {recipe.cost.credits !== undefined && <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--credits-color)' }} />}
+          </div>
+        )}
       </button>
 
-      {/* Hover tooltip — shows recipe materials with owned/needed */}
+      {/* Hover tooltip */}
       {hover && !dimmed && (
         <div style={{
           position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
@@ -185,31 +209,105 @@ function CraftSlot({ recipe, dimmed, onCraft }: { recipe: Recipe; dimmed: boolea
           padding: '8px 10px', minWidth: 140, whiteSpace: 'nowrap',
           boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
         }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginBottom: 2 }}>
-            {displayName}
-          </div>
-          <div style={{ fontSize: 8, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 6 }}>
-            {displayDesc}
-          </div>
-          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {Object.entries(recipe.cost).map(([key, needed]) => {
-              const cfg = COST_CONFIG[key];
-              if (!cfg || !needed) return null;
-              const enough = cfg.owned >= needed;
-              return (
-                <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                  <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: cfg.color, fontWeight: 600 }}>
-                    {cfg.label}
-                  </span>
-                  <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', fontWeight: 700, color: enough ? 'var(--success)' : 'var(--danger)' }}>
-                    {formatResource(key, cfg.owned)}/{formatResource(key, needed as number)}
-                  </span>
+          {locked ? (
+            <>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Lock size={10} /> {t('ui.recipe_locked') || 'Locked'}
+              </div>
+              {recipe.unlockHint && (
+                <div style={{ fontSize: 8, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                  {t('ui.unlock_from') || 'Unlock from'}: {recipe.unlockHint}
                 </div>
-              );
-            })}
-          </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginBottom: 2 }}>
+                {t('item.' + recipe.output.itemType + '.name') || recipe.name}
+              </div>
+              <div style={{ fontSize: 8, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 6 }}>
+                {displayDesc}
+              </div>
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {Object.entries(recipe.cost).map(([key, needed]) => {
+                  const cfg = COST_CONFIG[key];
+                  if (!cfg || !needed) return null;
+                  const enough = cfg.owned >= needed;
+                  return (
+                    <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: cfg.color, fontWeight: 600 }}>
+                        {cfg.label}
+                      </span>
+                      <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', fontWeight: 700, color: enough ? 'var(--success)' : 'var(--danger)' }}>
+                        {formatResource(key, cfg.owned)}/{formatResource(key, needed as number)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Craft family column (vertical progression tree) ───────────────────────
+
+function CraftFamilyColumn({ family, recipes, dimmer, onCraft }: {
+  family: CraftFamily;
+  recipes: Recipe[];
+  dimmer: (r: Recipe) => boolean;
+  onCraft: (r: Recipe) => void;
+}) {
+  const familyRecipes = family.recipeIds
+    .map(id => recipes.find(r => r.id === id))
+    .filter(Boolean) as Recipe[];
+  if (familyRecipes.length === 0) return null;
+
+  const FamilyIcon = family.icon;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
+      {/* Family header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 4,
+        marginBottom: 6,
+        padding: '2px 8px',
+        borderRadius: 'var(--radius-sm)',
+        background: `color-mix(in srgb, ${family.color} 10%, transparent)`,
+        border: `1px solid color-mix(in srgb, ${family.color} 25%, transparent)`,
+      }}>
+        <FamilyIcon size={10} style={{ color: family.color }} />
+        <span style={{
+          fontSize: 8, fontWeight: 800, fontFamily: 'var(--font-mono)',
+          color: family.color, letterSpacing: '0.1em', textTransform: 'uppercase',
+        }}>
+          {family.title}
+        </span>
+      </div>
+
+      {/* Items stacked vertically with connecting lines */}
+      {familyRecipes.map((recipe, i) => (
+        <div key={recipe.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          {/* Connecting line from previous item */}
+          {i > 0 && (
+            <div style={{
+              width: 1, height: 8,
+              background: recipe.unlocked
+                ? `color-mix(in srgb, ${family.color} 50%, transparent)`
+                : 'var(--border)',
+              transition: 'background 0.2s',
+            }} />
+          )}
+          <CraftSlot
+            recipe={recipe}
+            dimmed={dimmer(recipe)}
+            onCraft={() => onCraft(recipe)}
+          />
+        </div>
+      ))}
     </div>
   );
 }
@@ -569,10 +667,9 @@ export function InventoryPanel() {
     }
   };
 
-  // Pad grid to fill row
+  // Pad inventory grid to fill row
   const GRID_COLS = 7;
   const emptySlots = Math.max(0, GRID_COLS - (filteredItems.length % GRID_COLS));
-  const craftEmptySlots = Math.max(0, GRID_COLS - (filteredRecipes.length % GRID_COLS));
 
   return (
     <>
@@ -642,11 +739,24 @@ export function InventoryPanel() {
                 {craftTab === 'shop' ? (
                   <ChipPackSection />
                 ) : (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {filteredRecipes.map(r => (
-                      <CraftSlot key={r.id} recipe={r} dimmed={isRecipeDimmed(r)} onCraft={() => setConfirmRecipe(r)} />
-                    ))}
-                    {filteredRecipes.length % GRID_COLS !== 0 && Array.from({ length: craftEmptySlots }).map((_, i) => <EmptySlot key={`ce-${i}`} />)}
+                  <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 4 }}>
+                    {CRAFT_FAMILIES
+                      .filter(fam => {
+                        // Only show families that have at least one recipe in the current tab
+                        const tabDef = CRAFT_TABS_DEF.find(t => t.key === craftTab);
+                        if (!tabDef?.ids) return true; // 'all' tab
+                        return fam.recipeIds.some(id => tabDef.ids!.includes(id));
+                      })
+                      .map(fam => (
+                        <CraftFamilyColumn
+                          key={fam.id}
+                          family={fam}
+                          recipes={recipes}
+                          dimmer={isRecipeDimmed}
+                          onCraft={r => setConfirmRecipe(r)}
+                        />
+                      ))
+                    }
                   </div>
                 )}
               </div>

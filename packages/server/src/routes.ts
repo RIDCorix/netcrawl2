@@ -189,13 +189,29 @@ router.get('/recipes', (req: Request, res: Response) => {
   const uid = getUserId(req);
   const state = getGameState(uid);
   const resources = state.resources as unknown as Record<string, number>;
-  const recipesWithAffordable = RECIPES.map(recipe => {
+  const unlockedIds = new Set(getUnlockedRecipes(uid));
+
+  // Build a one-shot map of recipe_id -> unlock-source quest so the UI can
+  // tell the player WHERE to go when they hover a locked recipe.
+  const unlockSources: Record<string, string> = {};
+  for (const q of QUESTS) {
+    for (const r of q.rewards) {
+      if (r.kind === 'recipe_unlock') {
+        // First quest that unlocks wins (earliest source).
+        if (!unlockSources[r.recipeId]) unlockSources[r.recipeId] = q.name;
+      }
+    }
+  }
+
+  const recipesWithState = RECIPES.map(recipe => {
     const affordable = Object.entries(recipe.cost).every(([resource, amount]) => {
       return (resources[resource] || 0) >= (amount as number);
     });
-    return { ...recipe, affordable };
+    const unlocked = unlockedIds.has(recipe.id);
+    const unlockHint = unlocked ? undefined : unlockSources[recipe.id];
+    return { ...recipe, affordable, unlocked, unlockHint };
   });
-  res.json({ recipes: recipesWithAffordable });
+  res.json({ recipes: recipesWithState });
 });
 
 // POST /api/craft
@@ -205,6 +221,12 @@ router.post('/craft', (req: Request, res: Response) => {
   const recipe = RECIPES.find(r => r.id === recipeId);
   if (!recipe) {
     return res.status(404).json({ error: 'Recipe not found' });
+  }
+
+  // Gate: recipe must be unlocked via a quest reward before it can be crafted.
+  const unlockedIds = new Set(getUnlockedRecipes(uid));
+  if (!unlockedIds.has(recipeId)) {
+    return res.status(403).json({ error: 'Recipe is locked', reason: 'recipe_locked' });
   }
 
   const state = getGameState(uid);

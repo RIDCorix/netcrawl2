@@ -8,6 +8,7 @@ import path from 'path';
 import fs from 'fs';
 import { INITIAL_LEVEL_STATE, type LevelState, grantXp, getLevelSummary, getTitleForLevel, type LevelSummary, type LevelUpResult } from './levelSystem.js';
 import { getUpgradeKey, getNodeXpForAction, getNodeXpThreshold, NODE_UPGRADE_DEFS, computeNodeBuffer, MAX_CHIP_SLOTS } from './upgradeDefinitions.js';
+import { QUESTS } from './questDefinitions.js';
 import { getLayerInitialSnapshot, LAYER_DEFS, type LayerSnapshot } from './layerDefinitions.js';
 
 let _dataDir = process.env.NETCRAWL_DATA_DIR || process.cwd();
@@ -787,6 +788,23 @@ function _loadStore() {
           },
         };
       });
+      // Migrate: retroactively unlock recipes for quests that were already
+      // claimed before we added the recipe_unlock reward kind to those quests.
+      // Safe to call repeatedly — addUnlockedRecipe is idempotent.
+      {
+        const qs = store.quest_state;
+        for (const quest of QUESTS) {
+          const status = qs.questStatus?.[quest.id];
+          if (status !== 'claimed') continue;
+          for (const reward of quest.rewards) {
+            if (reward.kind === 'recipe_unlock') {
+              if (!qs.unlockedRecipes.includes(reward.recipeId)) {
+                qs.unlockedRecipes.push(reward.recipeId);
+              }
+            }
+          }
+        }
+      }
       // Auto-upgrade any nodes that already have full XP
       if (sweepNodeAutoUpgrades()) {
         console.log('[initDb] Auto-upgraded nodes with full XP');

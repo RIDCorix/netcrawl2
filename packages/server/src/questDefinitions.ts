@@ -119,7 +119,10 @@ export const QUESTS: QuestDef[] = [
       { id: 'o1', description: 'Mine a resource node', statKey: 'total_mines', target: 1, type: 'stat_gte' },
       { id: 'o2', description: 'Deposit at hub', statKey: 'total_deposits', target: 1, type: 'stat_gte' },
     ],
-    rewards: [{ kind: 'items', items: [{ itemType: 'pickaxe_basic', count: 1, metadata: { efficiency: 1.0 } }] }],
+    rewards: [
+      { kind: 'recipe_unlock', recipeId: 'pickaxe_basic', name: 'Basic Pickaxe' },
+      { kind: 'items', items: [{ itemType: 'pickaxe_basic', count: 1, metadata: { efficiency: 1.0 } }] },
+    ],
     position: { x: 400, y: 300 },
   },
   {
@@ -127,7 +130,10 @@ export const QUESTS: QuestDef[] = [
     description: 'node.node_type, item.item_type — read properties to understand your world.',
     mainline: true, prerequisites: ['q_method_call'],
     objectives: [{ id: 'o1', description: 'Unlock 1 node', statKey: 'total_nodes_unlocked', target: 1, type: 'stat_gte' }],
-    rewards: [{ kind: 'resources', resources: { data: 30000 } }],
+    rewards: [
+      { kind: 'recipe_unlock', recipeId: 'shield', name: 'Shield' },
+      { kind: 'resources', resources: { data: 30000 } },
+    ],
     position: { x: 400, y: 600 },
   },
   {
@@ -138,7 +144,10 @@ export const QUESTS: QuestDef[] = [
       { id: 'o1', description: 'Discard 5 bad data', statKey: 'total_bad_data_discarded', target: 5, type: 'stat_gte' },
       { id: 'o2', description: 'Deposit 30 kB data total', statKey: 'total_data_deposited', target: 30000, type: 'stat_gte' },
     ],
-    rewards: [{ kind: 'passive', effectId: 'harvest_speed_5', description: '+5% harvest speed', effect: { global_harvest_speed_mult: 1.05 } }],
+    rewards: [
+      { kind: 'recipe_unlock', recipeId: 'cpu_basic', name: 'CPU Module' },
+      { kind: 'passive', effectId: 'harvest_speed_5', description: '+5% harvest speed', effect: { global_harvest_speed_mult: 1.05 } },
+    ],
     position: { x: 400, y: 900 },
   },
   {
@@ -154,7 +163,11 @@ export const QUESTS: QuestDef[] = [
     description: 'while self.has_dropped_items(): collect and filter — repeat until done.',
     mainline: true, prerequisites: ['q_operators'],
     objectives: [{ id: 'o1', description: 'Deposit 100 kB data total', statKey: 'total_data_deposited', target: 100000, type: 'stat_gte' }],
-    rewards: [{ kind: 'items', items: [{ itemType: 'pickaxe_iron', count: 1, metadata: { efficiency: 1.5 } }] }],
+    rewards: [
+      { kind: 'recipe_unlock', recipeId: 'ram_basic', name: 'RAM Module' },
+      { kind: 'recipe_unlock', recipeId: 'pickaxe_iron', name: 'Iron Pickaxe' },
+      { kind: 'items', items: [{ itemType: 'pickaxe_iron', count: 1, metadata: { efficiency: 1.5 } }] },
+    ],
     position: { x: 400, y: 1500 },
   },
   {
@@ -163,6 +176,7 @@ export const QUESTS: QuestDef[] = [
     mainline: true, prerequisites: ['q_while_loop'],
     objectives: [{ id: 'o1', description: 'Mine 20 times', statKey: 'total_mines', target: 20, type: 'stat_gte' }],
     rewards: [
+      { kind: 'recipe_unlock', recipeId: 'beacon', name: 'Beacon' },
       { kind: 'items', items: [{ itemType: 'pickaxe_iron', count: 1, metadata: { efficiency: 2.0 } }] },
       { kind: 'resources', resources: { data: 50000 } },
     ],
@@ -231,7 +245,12 @@ export const QUESTS: QuestDef[] = [
     description: 'total = 0; for item in items: total += item. Deposit 200 kB data total.',
     mainline: true, prerequisites: ['q_event_loop'],
     objectives: [{ id: 'o1', description: 'Deposit 200 kB data', statKey: 'total_data_deposited', target: 200000, type: 'stat_gte' }],
-    rewards: [{ kind: 'items', items: [{ itemType: 'pickaxe_diamond', count: 1, metadata: { efficiency: 2.5 } }] }],
+    rewards: [
+      { kind: 'recipe_unlock', recipeId: 'pickaxe_diamond', name: 'Diamond Pickaxe' },
+      { kind: 'recipe_unlock', recipeId: 'cpu_advanced', name: 'CPU Module II' },
+      { kind: 'recipe_unlock', recipeId: 'ram_advanced', name: 'RAM Module II' },
+      { kind: 'items', items: [{ itemType: 'pickaxe_diamond', count: 1, metadata: { efficiency: 2.5 } }] },
+    ],
     position: { x: 400, y: 300 },
   },
   {
