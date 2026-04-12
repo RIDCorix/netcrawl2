@@ -46,8 +46,8 @@ function ResourceItem({ icon: Icon, value, label, color, prevValue, formatFn, to
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 8,
-        padding: '6px 12px',
+        gap: 4,
+        padding: '4px 8px',
         borderRadius: 'var(--radius-sm)',
         background: 'var(--bg-elevated)',
         border: `1px solid ${pulse ? color : 'var(--border)'}`,
@@ -56,9 +56,9 @@ function ResourceItem({ icon: Icon, value, label, color, prevValue, formatFn, to
         cursor: 'pointer',
       }}
     >
-      <Icon size={14} style={{ color }} />
+      <Icon size={10} style={{ color }} />
       <span style={{
-        fontSize: 14,
+        fontSize: 10,
         fontWeight: 700,
         fontFamily: 'var(--font-mono)',
         color: 'var(--text-primary)',
@@ -79,7 +79,7 @@ function ResourceItem({ icon: Icon, value, label, color, prevValue, formatFn, to
               position: 'absolute',
               top: -4,
               right: 8,
-              fontSize: 11,
+              fontSize: 9,
               fontFamily: 'var(--font-mono)',
               fontWeight: 700,
               color: diff > 0 ? 'var(--success)' : 'var(--danger)',

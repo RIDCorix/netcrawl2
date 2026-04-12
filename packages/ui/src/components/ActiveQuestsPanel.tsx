@@ -12,6 +12,12 @@ import { QuestGuideDialog } from './QuestGuideDialog';
 import { CHAPTER_COLORS } from '../constants/colors';
 import { useT } from '../hooks/useT';
 
+function formatStat(value: number): string {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(value % 1_000 === 0 ? 0 : 1)}k`;
+  return String(value);
+}
+
 export function ActiveQuestsPanel() {
   const t = useT();
   const [quests, setQuests] = useState<any[]>([]);
@@ -72,7 +78,7 @@ export function ActiveQuestsPanel() {
           position: 'fixed',
           left: 16,
           top: 72,
-          width: 220,
+          width: 250,
           background: 'var(--bg-glass-heavy)',
           backdropFilter: 'blur(24px)',
           border: '1px solid var(--border-bright)',
@@ -177,7 +183,7 @@ export function ActiveQuestsPanel() {
                       <button
                         onClick={() => !justClaimed && setSelectedQuest(q)}
                         style={{
-                          width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                          width: '100%', display: 'flex', alignItems: 'flex-start', gap: 8,
                           padding: '6px 8px', marginBottom: 2,
                           background: 'none', border: 'none',
                           borderRadius: 'var(--radius-sm)',
@@ -191,6 +197,7 @@ export function ActiveQuestsPanel() {
                         <div style={{
                           width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          marginTop: 1,
                           background: allMet ? `${color}20` : 'var(--bg-primary)',
                           border: `1.5px solid ${allMet ? color : 'var(--border)'}`,
                         }}>
@@ -205,9 +212,43 @@ export function ActiveQuestsPanel() {
                           }}>
                             {q.name}
                           </div>
-                          <div style={{ height: 2, borderRadius: 1, background: 'var(--bg-primary)', marginTop: 3, overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${progress * 100}%`, background: color, borderRadius: 1, transition: 'width 0.3s' }} />
-                          </div>
+                          {/* Objective rows with border-bottom progress */}
+                          {q.objectives.map((obj: any) => {
+                            const objProgress = Math.min(1, obj.current / obj.target);
+                            return (
+                              <div key={obj.id} style={{
+                                marginTop: 3, paddingBottom: 2,
+                                borderBottom: '2px solid var(--bg-primary)',
+                                position: 'relative',
+                              }}>
+                                {/* Progress bar as border-bottom overlay */}
+                                <div style={{
+                                  position: 'absolute', bottom: -2, left: 0,
+                                  width: `${objProgress * 100}%`, height: 2,
+                                  background: obj.met ? '#4ade80' : color,
+                                  borderRadius: 1, transition: 'width 0.3s',
+                                }} />
+                                <div style={{
+                                  display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 4,
+                                }}>
+                                  <span style={{
+                                    fontSize: 9, color: obj.met ? '#4ade80' : 'var(--text-muted)',
+                                    fontFamily: 'var(--font-mono)',
+                                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                    flex: 1, minWidth: 0,
+                                  }}>
+                                    {obj.met ? '✓' : '│'} {obj.description}
+                                  </span>
+                                  <span style={{
+                                    fontSize: 8, color: obj.met ? '#4ade80' : 'var(--text-muted)',
+                                    fontFamily: 'var(--font-mono)', flexShrink: 0, opacity: 0.8,
+                                  }}>
+                                    {formatStat(obj.current)}/{formatStat(obj.target)}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
 
                         {/* Claim button / chapter badge */}

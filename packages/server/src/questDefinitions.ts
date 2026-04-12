@@ -141,8 +141,8 @@ export const QUESTS: QuestDef[] = [
     description: 'if self.holding.type == "bad_data": self.discard() — filter contaminated data before depositing.',
     mainline: true, prerequisites: ['q_dot_notation'],
     objectives: [
-      { id: 'o1', description: 'Discard 5 bad data', statKey: 'total_bad_data_discarded', target: 5, type: 'stat_gte' },
-      { id: 'o2', description: 'Deposit 30 kB data total', statKey: 'total_data_deposited', target: 30000, type: 'stat_gte' },
+      { id: 'o1', description: 'Discard 100 bad data', statKey: 'total_bad_data_discarded', target: 100, type: 'stat_gte' },
+      { id: 'o2', description: 'Deposit 10 kB data total', statKey: 'total_data_deposited', target: 10000, type: 'stat_gte' },
     ],
     rewards: [
       { kind: 'recipe_unlock', recipeId: 'cpu_basic', name: 'CPU Module' },

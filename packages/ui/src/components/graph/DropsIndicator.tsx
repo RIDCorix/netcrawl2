@@ -33,11 +33,11 @@ export function DropsIndicator({ items, maxBuffer }: { items: any[]; maxBuffer?:
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 2 }}
+      initial={{ opacity: 0, y: -2 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 2 }}
+      exit={{ opacity: 0, y: -2 }}
       style={{
-        position: 'absolute', top: -18, left: '50%', transform: 'translateX(-50%)',
+        position: 'absolute', bottom: -18, left: '50%', transform: 'translateX(-50%)',
         display: 'flex', alignItems: 'center', gap: 3,
         padding: '2px 5px', borderRadius: 999,
         background: 'color-mix(in srgb, var(--bg-primary) 85%, transparent)',
