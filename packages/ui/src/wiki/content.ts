@@ -31,6 +31,8 @@ export interface UnlockRule {
   layer?: number;
   /** If true, this entry is always visible (free / tutorial). */
   always?: boolean;
+  /** Recipe id that must be unlocked (via quest reward) before this entry is visible. */
+  unlockedRecipe?: string;
 }
 
 export interface WikiField {
@@ -55,6 +57,9 @@ export interface WikiEntry {
   unlock: UnlockRule;
   /** Reward granted when this entry is first unlocked (optional). */
   reward?: { kind: 'credits' | 'rp' | 'data'; amount: number };
+  /** Key into WIKI_DEMOS registry for an interactive code demo (DemoPlayer).
+   *  Only used for SDK-related entries like equipment (pickaxe, CPU, RAM). */
+  demoScriptId?: string;
 }
 
 export interface WikiSection {
@@ -237,60 +242,6 @@ export const WIKI: WikiCategory[] = [
         icon: HardDrive,
         entries: [
           {
-            id: 'cpu_basic',
-            icon: CpuBasic,
-            color: '#f59e0b',
-            title: 'wiki.entry.cpu_basic.title',
-            summary: 'wiki.entry.cpu_basic.summary',
-            body: ['wiki.entry.cpu_basic.body1'],
-            fields: [
-              { label: 'wiki.field.effect', value: 'wiki.entry.cpu_basic.effect' },
-              { label: 'wiki.field.slot', value: 'CPU' },
-            ],
-            unlock: { always: true },
-          },
-          {
-            id: 'cpu_advanced',
-            icon: CpuAdvanced,
-            color: '#f97316',
-            title: 'wiki.entry.cpu_advanced.title',
-            summary: 'wiki.entry.cpu_advanced.summary',
-            body: ['wiki.entry.cpu_advanced.body1'],
-            fields: [
-              { label: 'wiki.field.effect', value: 'wiki.entry.cpu_advanced.effect' },
-              { label: 'wiki.field.slot', value: 'CPU' },
-            ],
-            unlock: { level: 5 },
-            reward: { kind: 'credits', amount: 100 },
-          },
-          {
-            id: 'ram_basic',
-            icon: RamBasic,
-            color: '#a78bfa',
-            title: 'wiki.entry.ram_basic.title',
-            summary: 'wiki.entry.ram_basic.summary',
-            body: ['wiki.entry.ram_basic.body1'],
-            fields: [
-              { label: 'wiki.field.effect', value: 'wiki.entry.ram_basic.effect' },
-              { label: 'wiki.field.slot', value: 'RAM' },
-            ],
-            unlock: { always: true },
-          },
-          {
-            id: 'ram_advanced',
-            icon: RamAdvanced,
-            color: '#8b5cf6',
-            title: 'wiki.entry.ram_advanced.title',
-            summary: 'wiki.entry.ram_advanced.summary',
-            body: ['wiki.entry.ram_advanced.body1'],
-            fields: [
-              { label: 'wiki.field.effect', value: 'wiki.entry.ram_advanced.effect' },
-              { label: 'wiki.field.slot', value: 'RAM' },
-            ],
-            unlock: { level: 5 },
-            reward: { kind: 'credits', amount: 100 },
-          },
-          {
             id: 'pickaxe_basic',
             icon: PickaxeBasic,
             color: '#9ca3af',
@@ -301,7 +252,9 @@ export const WIKI: WikiCategory[] = [
               { label: 'wiki.field.effect', value: 'wiki.entry.pickaxe_basic.effect' },
               { label: 'wiki.field.slot', value: 'Pickaxe' },
             ],
-            unlock: { always: true },
+            unlock: { unlockedRecipe: 'pickaxe_basic' },
+            reward: { kind: 'credits', amount: 10 },
+            demoScriptId: 'wiki_pickaxe',
           },
           {
             id: 'pickaxe_iron',
@@ -314,8 +267,8 @@ export const WIKI: WikiCategory[] = [
               { label: 'wiki.field.effect', value: 'wiki.entry.pickaxe_iron.effect' },
               { label: 'wiki.field.slot', value: 'Pickaxe' },
             ],
-            unlock: { level: 3 },
-            reward: { kind: 'credits', amount: 50 },
+            unlock: { unlockedRecipe: 'pickaxe_iron' },
+            reward: { kind: 'credits', amount: 20 },
           },
           {
             id: 'pickaxe_diamond',
@@ -328,8 +281,8 @@ export const WIKI: WikiCategory[] = [
               { label: 'wiki.field.effect', value: 'wiki.entry.pickaxe_diamond.effect' },
               { label: 'wiki.field.slot', value: 'Pickaxe' },
             ],
-            unlock: { level: 6 },
-            reward: { kind: 'credits', amount: 150 },
+            unlock: { unlockedRecipe: 'pickaxe_diamond' },
+            reward: { kind: 'credits', amount: 50 },
           },
           {
             id: 'fullstack_pickaxe',
@@ -360,6 +313,64 @@ export const WIKI: WikiCategory[] = [
             reward: { kind: 'credits', amount: 120 },
           },
           {
+            id: 'cpu_basic',
+            icon: CpuBasic,
+            color: '#f59e0b',
+            title: 'wiki.entry.cpu_basic.title',
+            summary: 'wiki.entry.cpu_basic.summary',
+            body: ['wiki.entry.cpu_basic.body1'],
+            fields: [
+              { label: 'wiki.field.effect', value: 'wiki.entry.cpu_basic.effect' },
+              { label: 'wiki.field.slot', value: 'CPU' },
+            ],
+            unlock: { unlockedRecipe: 'cpu_basic' },
+            reward: { kind: 'credits', amount: 10 },
+            demoScriptId: 'wiki_cpu',
+          },
+          {
+            id: 'cpu_advanced',
+            icon: CpuAdvanced,
+            color: '#f97316',
+            title: 'wiki.entry.cpu_advanced.title',
+            summary: 'wiki.entry.cpu_advanced.summary',
+            body: ['wiki.entry.cpu_advanced.body1'],
+            fields: [
+              { label: 'wiki.field.effect', value: 'wiki.entry.cpu_advanced.effect' },
+              { label: 'wiki.field.slot', value: 'CPU' },
+            ],
+            unlock: { unlockedRecipe: 'cpu_advanced' },
+            reward: { kind: 'credits', amount: 30 },
+          },
+          {
+            id: 'ram_basic',
+            icon: RamBasic,
+            color: '#a78bfa',
+            title: 'wiki.entry.ram_basic.title',
+            summary: 'wiki.entry.ram_basic.summary',
+            body: ['wiki.entry.ram_basic.body1'],
+            fields: [
+              { label: 'wiki.field.effect', value: 'wiki.entry.ram_basic.effect' },
+              { label: 'wiki.field.slot', value: 'RAM' },
+            ],
+            unlock: { unlockedRecipe: 'ram_basic' },
+            reward: { kind: 'credits', amount: 10 },
+            demoScriptId: 'wiki_ram',
+          },
+          {
+            id: 'ram_advanced',
+            icon: RamAdvanced,
+            color: '#8b5cf6',
+            title: 'wiki.entry.ram_advanced.title',
+            summary: 'wiki.entry.ram_advanced.summary',
+            body: ['wiki.entry.ram_advanced.body1'],
+            fields: [
+              { label: 'wiki.field.effect', value: 'wiki.entry.ram_advanced.effect' },
+              { label: 'wiki.field.slot', value: 'RAM' },
+            ],
+            unlock: { unlockedRecipe: 'ram_advanced' },
+            reward: { kind: 'credits', amount: 30 },
+          },
+          {
             id: 'shield',
             icon: ShieldIcon,
             color: '#4ade80',
@@ -370,7 +381,8 @@ export const WIKI: WikiCategory[] = [
               { label: 'wiki.field.effect', value: 'wiki.entry.shield.effect' },
               { label: 'wiki.field.slot', value: 'Gadget' },
             ],
-            unlock: { level: 2 },
+            unlock: { unlockedRecipe: 'shield' },
+            reward: { kind: 'credits', amount: 10 },
           },
           {
             id: 'beacon',
@@ -383,7 +395,8 @@ export const WIKI: WikiCategory[] = [
               { label: 'wiki.field.effect', value: 'wiki.entry.beacon.effect' },
               { label: 'wiki.field.slot', value: 'Gadget' },
             ],
-            unlock: { level: 4 },
+            unlock: { unlockedRecipe: 'beacon' },
+            reward: { kind: 'credits', amount: 10 },
           },
           {
             id: 'scanner',
@@ -396,7 +409,8 @@ export const WIKI: WikiCategory[] = [
               { label: 'wiki.field.effect', value: 'wiki.entry.scanner.effect' },
               { label: 'wiki.field.slot', value: 'Gadget' },
             ],
-            unlock: { level: 4 },
+            unlock: { unlockedRecipe: 'scanner' },
+            reward: { kind: 'credits', amount: 20 },
           },
           {
             id: 'antivirus_module',
@@ -565,6 +579,7 @@ export interface PlayerProgress {
   level: number;
   questsCompleted: number;
   activeLayer: number;
+  unlockedRecipes: string[];
 }
 
 export function isEntryUnlocked(rule: UnlockRule, p: PlayerProgress): boolean {
@@ -572,6 +587,7 @@ export function isEntryUnlocked(rule: UnlockRule, p: PlayerProgress): boolean {
   if (rule.level !== undefined && p.level < rule.level) return false;
   if (rule.questsCompleted !== undefined && p.questsCompleted < rule.questsCompleted) return false;
   if (rule.layer !== undefined && p.activeLayer < rule.layer) return false;
+  if (rule.unlockedRecipe !== undefined && !p.unlockedRecipes.includes(rule.unlockedRecipe)) return false;
   return true;
 }
 

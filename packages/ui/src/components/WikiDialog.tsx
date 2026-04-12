@@ -23,6 +23,8 @@ import {
   type WikiEntry,
   type PlayerProgress,
 } from '../wiki/content';
+import { WIKI_DEMOS } from '../wiki/wikiDemos';
+import { DemoPlayer } from './guide/DemoPlayer';
 
 const LIGHT_THEMES = new Set(['cloud', 'sakura', 'arctic']);
 
@@ -39,7 +41,8 @@ function useProgress(): PlayerProgress {
   const level = useGameStore(s => s.levelSummary.level);
   const questsCompleted = useGameStore(s => s.questSummary.completed);
   const activeLayer = useGameStore(s => s.activeLayer);
-  return useMemo(() => ({ level, questsCompleted, activeLayer }), [level, questsCompleted, activeLayer]);
+  const unlockedRecipes = useGameStore(s => s.unlockedRecipes);
+  return useMemo(() => ({ level, questsCompleted, activeLayer, unlockedRecipes }), [level, questsCompleted, activeLayer, unlockedRecipes]);
 }
 
 // ─── breathing scanline background ─────────────────────────────────────────
@@ -396,6 +399,31 @@ function EntryDetail({
                 <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{r(f.value)}</span>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Interactive code demo (SDK usage reference) */}
+        {unlocked && entry.demoScriptId && WIKI_DEMOS[entry.demoScriptId] && (
+          <div style={{
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-sm)',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              padding: '6px 10px',
+              background: 'var(--bg-glass)',
+              fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 800,
+              color: 'var(--accent)', letterSpacing: '0.15em',
+              textTransform: 'uppercase',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <Terminal size={10} />
+              {t('wiki.section.usage') || 'USAGE'}
+            </div>
+            <div style={{ padding: 8 }}>
+              <DemoPlayer script={WIKI_DEMOS[entry.demoScriptId]} />
+            </div>
           </div>
         )}
 

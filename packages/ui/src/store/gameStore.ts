@@ -260,6 +260,8 @@ export interface GameState {
   // Worker classes (pushed via WS — no HTTP polling needed)
   workerClasses: any[];
   codeServerConnected: boolean;
+  /** Recipe IDs the player has unlocked (driven by quest rewards). */
+  unlockedRecipes: string[];
   // Worker logs per worker id (pushed via WS WORKER_LOG — no HTTP polling)
   workerLogs: Record<string, Array<{ message: string; level: string; created_at: string }>>;
   // Ephemeral hub deposit flash effects (pushed via WS HUB_DEPOSIT).
@@ -352,6 +354,7 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   layerUnlockToasts: [],
   workerClasses: [],
   codeServerConnected: false,
+  unlockedRecipes: [],
   workerLogs: {},
   hubDeposits: [],
 
@@ -464,6 +467,7 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
       // Worker classes + code server status — pushed via WS, no polling needed
       workerClasses: stableArray(state.workerClasses, data.workerClasses) ?? state.workerClasses,
       codeServerConnected: data.codeServerConnected ?? state.codeServerConnected,
+      unlockedRecipes: stableArray(state.unlockedRecipes, data.unlockedRecipes) ?? state.unlockedRecipes,
     }));
   },
 }));

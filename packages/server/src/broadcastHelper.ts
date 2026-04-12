@@ -12,6 +12,7 @@ import { getWorkers } from './domain/workers.js';
 import { getPlayerLevelSummary } from './domain/level.js';
 import { getLayerManager, isLayerUnlocked, checkLayerUnlocks, getActiveLayerId } from './domain/layers.js';
 import { getStat } from './domain/achievements.js';
+import { getUnlockedRecipes } from './domain/questState.js';
 import { getAllWorkerClasses } from './workerRegistry.js';
 import { isCodeServerConnected } from './codeServerTracker.js';
 import { LAYER_DEFS } from './layerDefinitions.js';
@@ -75,6 +76,7 @@ export function broadcastFullState(userId?: string) {
       layerMeta,
       codeServerConnected: isCodeServerConnected(effectiveUserId),
       workerClasses: getAllWorkerClasses(effectiveUserId),
+      unlockedRecipes: getUnlockedRecipes(effectiveUserId),
     },
   }, effectiveUserId);
 }
