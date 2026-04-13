@@ -33,6 +33,39 @@ function randChoice<T>(arr: T[]): T {
 // ── Puzzle templates ────────────────────────────────────────────────────────
 
 export const PUZZLE_TEMPLATES: PuzzleTemplate[] = [
+  // ── Data Types ─────────────────────────────────────────────────────────
+  {
+    id: 'typeof',
+    name: 'Data Types',
+    description: 'Return the Python type name of the given value',
+    difficulty: 'easy',
+    rewardMultiplier: 1,
+    generate: () => {
+      const pool: Array<{ value: any; display: string; answer: string }> = [
+        { value: 42, display: '42', answer: 'int' },
+        { value: -7, display: '-7', answer: 'int' },
+        { value: 0, display: '0', answer: 'int' },
+        { value: 3.14, display: '3.14', answer: 'float' },
+        { value: 0.5, display: '0.5', answer: 'float' },
+        { value: 'hello', display: '"hello"', answer: 'str' },
+        { value: 'netcrawl', display: '"netcrawl"', answer: 'str' },
+        { value: '', display: '""', answer: 'str' },
+        { value: true, display: 'True', answer: 'bool' },
+        { value: false, display: 'False', answer: 'bool' },
+        { value: [1, 2, 3], display: '[1, 2, 3]', answer: 'list' },
+        { value: [], display: '[]', answer: 'list' },
+        { value: { a: 1 }, display: '{"a": 1}', answer: 'dict' },
+        { value: {}, display: '{}', answer: 'dict' },
+      ];
+      const pick = randChoice(pool);
+      return {
+        params: { value: pick.value, display: pick.display, op: 'typeof' },
+        answer: pick.answer,
+        hint: `type(${pick.display})`,
+      };
+    },
+  },
+
   // ── Easy ───────────────────────────────────────────────────────────────
   {
     id: 'add', name: 'Addition', description: 'Compute a + b',

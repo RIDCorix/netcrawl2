@@ -365,19 +365,19 @@ export const INITIAL_NODES = [
   { id: 'ne_empty1', type: 'empty',    position: { x: 780,  y: -500 },  data: E('Open Slot', { data: 150000, rp: 5 }) },
   { id: 'ne_comp4',  type: 'compute',  position: { x: 1200, y: -280 },  data: C('Compute C4', 'hard', { data: 300000, rp: 15 }) },
 
-  // EAST — Trade Route
-  { id: 'e_relay1', type: 'empty',    position: { x: 420,  y: 100 },   data: Y('Relay E1', { data: 18000 }) },
-  { id: 'e_mine1',  type: 'resource', position: { x: 650,  y: -40 },   data: R('Data Mine Echo', 45, { data: 35000 }) },
-  { id: 'e_mine2',  type: 'resource', position: { x: 650,  y: 240 },   data: R('Data Vein East', 30, { data: 30000 }) },
-  { id: 'e_relay2', type: 'empty',    position: { x: 880,  y: 100 },   data: Y('Relay E2', { data: 80000 }) },
-  { id: 'e_empty1', type: 'empty',    position: { x: 880,  y: 320 },   data: E('Open Slot', { data: 200000, rp: 8 }) },
-  { id: 'e_mine3',  type: 'resource', position: { x: 1110, y: -40 },   data: R('Data Mine Foxtrot', 70, { data: 120000 }) },
-  { id: 'e_mine4',  type: 'resource', position: { x: 1110, y: 240 },   data: R('Data Mine Golf', 65, { data: 100000 }) },
-  { id: 'e_empty2', type: 'empty',    position: { x: 1340, y: 100 },   data: E('Open Slot', { data: 300000, rp: 12 }) },
-  // East API Cluster
-  { id: 'api_east_1', type: 'api',  position: { x: 1110, y: -240 }, data: P('Echo Service', 1, { data: 40000 }) },
-  { id: 'api_east_2', type: 'api',  position: { x: 1340, y: -240 }, data: P('Compute API', 1, { data: 80000, rp: 3 }) },
-  { id: 'auth_iam1',  type: 'auth', position: { x: 1560, y: -100 }, data: AU('IAM Auth', { data: 60000, rp: 5 }) },
+  // EAST — Operator Academy (diamond: Data Types → 5 operators → Calculator)
+  { id: 'e_relay1',  type: 'empty',   position: { x: 420,  y: 100 },   data: Y('Relay E1', { data: 18000 }) },
+  { id: 'e_types',   type: 'compute', position: { x: 620,  y: 100 },   data: { ...C('Data Types', 'easy', { data: 15000 }), fixedPuzzleTemplate: 'typeof' } },
+  { id: 'e_op_add',  type: 'compute', position: { x: 880,  y: -120 },  data: { ...C('Addition', 'easy', { data: 20000 }), fixedPuzzleTemplate: 'add' } },
+  { id: 'e_op_sub',  type: 'compute', position: { x: 880,  y: -10 },   data: { ...C('Subtraction', 'easy', { data: 20000 }), fixedPuzzleTemplate: 'subtract' } },
+  { id: 'e_op_mul',  type: 'compute', position: { x: 880,  y: 100 },   data: { ...C('Multiplication', 'easy', { data: 25000 }), fixedPuzzleTemplate: 'multiply' } },
+  { id: 'e_op_div',  type: 'compute', position: { x: 880,  y: 210 },   data: { ...C('Floor Division', 'easy', { data: 25000 }), fixedPuzzleTemplate: 'floor_div' } },
+  { id: 'e_op_mod',  type: 'compute', position: { x: 880,  y: 320 },   data: { ...C('Modulo', 'easy', { data: 30000 }), fixedPuzzleTemplate: 'modulo' } },
+  { id: 'e_calc',    type: 'compute', position: { x: 1140, y: 100 },   data: { ...C('Calculator', 'hard', { data: 50000, rp: 3 }), fixedPuzzleTemplate: 'calculator' } },
+  // East API Cluster (after Calculator)
+  { id: 'api_east_1', type: 'api',  position: { x: 1370, y: 0 },   data: P('Echo Service', 1, { data: 40000 }) },
+  { id: 'api_east_2', type: 'api',  position: { x: 1370, y: 200 }, data: P('Compute API', 1, { data: 80000, rp: 3 }) },
+  { id: 'auth_iam1',  type: 'auth', position: { x: 1600, y: 100 }, data: AU('IAM Auth', { data: 60000, rp: 5 }) },
 
   // SOUTHEAST — Deep Territory
   { id: 'se_relay1', type: 'empty',    position: { x: 350,  y: 340 },   data: Y('Relay SE1', { data: 25000 }) },
@@ -460,14 +460,18 @@ export const INITIAL_EDGES = [
   { id: 'e25', source: 'ne_relay2', target: 'ne_empty1' },
   { id: 'e26', source: 'ne_comp2',  target: 'ne_comp4' },
   { id: 'e27', source: 'ne_comp3',  target: 'ne_comp4' },
-  // East Trade Route
-  { id: 'e30', source: 'e_relay1',  target: 'e_mine1' },
-  { id: 'e31', source: 'e_relay1',  target: 'e_mine2' },
-  { id: 'e32', source: 'e_mine1',   target: 'e_relay2' },
-  { id: 'e33', source: 'e_relay2',  target: 'e_empty1' },
-  { id: 'e34', source: 'e_relay2',  target: 'e_mine3' },
-  { id: 'e35', source: 'e_relay2',  target: 'e_mine4' },
-  { id: 'e36', source: 'e_mine3',   target: 'e_empty2' },
+  // East Operator Academy (diamond)
+  { id: 'e30', source: 'e_relay1',  target: 'e_types' },
+  { id: 'e31', source: 'e_types',   target: 'e_op_add' },
+  { id: 'e32', source: 'e_types',   target: 'e_op_sub' },
+  { id: 'e33', source: 'e_types',   target: 'e_op_mul' },
+  { id: 'e34', source: 'e_types',   target: 'e_op_div' },
+  { id: 'e35', source: 'e_types',   target: 'e_op_mod' },
+  { id: 'e36', source: 'e_op_add',  target: 'e_calc' },
+  { id: 'e37', source: 'e_op_sub',  target: 'e_calc' },
+  { id: 'e38', source: 'e_op_mul',  target: 'e_calc' },
+  { id: 'e39', source: 'e_op_div',  target: 'e_calc' },
+  { id: 'e3a', source: 'e_op_mod',  target: 'e_calc' },
   // Southeast Deep Territory
   { id: 'e40', source: 'se_relay1', target: 'se_mine1' },
   { id: 'e41', source: 'se_relay1', target: 'se_comp1' },
@@ -509,10 +513,10 @@ export const INITIAL_EDGES = [
   { id: 'e95', source: 'e_relay1',  target: 'se_relay1' },
   { id: 'e96', source: 'w_relay1',  target: 'sw_relay1' },
   // East API Cluster edges
-  { id: 'eapi1', source: 'e_mine3',   target: 'api_east_1' },
-  { id: 'eapi2', source: 'api_east_1', target: 'api_east_2' },
-  { id: 'eapi3', source: 'api_east_2', target: 'auth_iam1' },
-  { id: 'eapi4', source: 'e_empty2',  target: 'auth_iam1' },
+  { id: 'eapi1', source: 'e_calc',     target: 'api_east_1' },
+  { id: 'eapi2', source: 'e_calc',     target: 'api_east_2' },
+  { id: 'eapi3', source: 'api_east_1', target: 'auth_iam1' },
+  { id: 'eapi4', source: 'api_east_2', target: 'auth_iam1' },
   // Data Mine Cluster
   { id: 'ec1', source: 's_empty1',    target: 'cluster_hub' },
   { id: 'ec2', source: 'cluster_hub', target: 'cluster_m1' },

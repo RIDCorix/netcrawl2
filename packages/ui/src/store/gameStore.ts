@@ -262,6 +262,8 @@ export interface GameState {
   codeServerConnected: boolean;
   /** Recipe IDs the player has unlocked (driven by quest rewards). */
   unlockedRecipes: string[];
+  /** Recipe IDs unlocked by server but not yet revealed by the player (pending click). */
+  pendingUnlocks: string[];
   // Worker logs per worker id (pushed via WS WORKER_LOG — no HTTP polling)
   workerLogs: Record<string, Array<{ message: string; level: string; created_at: string }>>;
   // Ephemeral hub deposit flash effects (pushed via WS HUB_DEPOSIT).
@@ -308,6 +310,8 @@ interface GameActions {
   // Hub deposit VFX
   pushHubDeposit: (deposit: { goodCount: number; badCount: number }) => void;
   removeHubDeposit: (id: number) => void;
+  // Recipe unlock reveal
+  revealRecipe: (recipeId: string) => void;
 }
 
 export const useGameStore = create<GameState & GameActions>((set) => ({
@@ -355,6 +359,7 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   workerClasses: [],
   codeServerConnected: false,
   unlockedRecipes: [],
+  pendingUnlocks: [],
   workerLogs: {},
   hubDeposits: [],
 
@@ -445,6 +450,10 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
     hubDeposits: state.hubDeposits.filter(d => d.id !== id),
   })),
 
+  revealRecipe: (recipeId) => set((state) => ({
+    pendingUnlocks: state.pendingUnlocks.filter(id => id !== recipeId),
+  })),
+
   updateFromServer: (data) => {
     set((state) => ({
       // Arrays: reuse references (per-item) when structurally unchanged
@@ -468,6 +477,14 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
       workerClasses: stableArray(state.workerClasses, data.workerClasses) ?? state.workerClasses,
       codeServerConnected: data.codeServerConnected ?? state.codeServerConnected,
       unlockedRecipes: stableArray(state.unlockedRecipes, data.unlockedRecipes) ?? state.unlockedRecipes,
+      // Detect newly unlocked recipes and add to pendingUnlocks
+      pendingUnlocks: (() => {
+        if (!data.unlockedRecipes) return state.pendingUnlocks;
+        const newIds = (data.unlockedRecipes as string[]).filter(
+          id => !state.unlockedRecipes.includes(id) && !state.pendingUnlocks.includes(id),
+        );
+        return newIds.length > 0 ? [...state.pendingUnlocks, ...newIds] : state.pendingUnlocks;
+      })(),
     }));
   },
 }));

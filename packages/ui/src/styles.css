@@ -467,6 +467,17 @@ body::after {
   50% { opacity: 1; transform: scale(1.12); }
 }
 
+@keyframes unlock-flash {
+  0%, 100% { border-color: rgba(250, 204, 21, 0.3); box-shadow: 0 0 4px rgba(250, 204, 21, 0.1); }
+  50% { border-color: rgba(250, 204, 21, 0.9); box-shadow: 0 0 12px rgba(250, 204, 21, 0.4); }
+}
+
+@keyframes unlock-burst {
+  0% { transform: scale(0.8); opacity: 0; }
+  40% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 .pulse {
   animation: pulse-glow 2s ease-in-out infinite;
 }

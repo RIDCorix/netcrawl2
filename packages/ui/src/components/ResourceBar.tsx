@@ -54,9 +54,11 @@ function ResourceItem({ icon: Icon, value, label, color, prevValue, formatFn, to
         transition: 'border-color 0.3s',
         position: 'relative',
         cursor: 'pointer',
+        whiteSpace: 'nowrap',
+        flexShrink: 0,
       }}
     >
-      <Icon size={10} style={{ color }} />
+      <Icon size={10} style={{ color, flexShrink: 0 }} />
       <span style={{
         fontSize: 10,
         fontWeight: 700,

@@ -1,10 +1,11 @@
 /**
  * Crafting recipe slot with hover tooltip + craft family column.
+ * Newly unlocked recipes show a flashing "pending" state until the player clicks to reveal.
  */
 
 import { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Hammer, Lock } from 'lucide-react';
+import { Hammer, Lock, Sparkles } from 'lucide-react';
 import { useGameStore } from '../../store/gameStore';
 import { ITEM_LABELS, ITEM_COLORS } from '../../constants/colors';
 import { useT } from '../../hooks/useT';
@@ -13,11 +14,14 @@ import { ITEM_ICONS, type Recipe, type CraftFamily } from './inventoryConstants'
 
 export function CraftSlot({ recipe, dimmed, onCraft }: { recipe: Recipe; dimmed: boolean; onCraft: () => void }) {
   const t = useT();
-  const { resources } = useGameStore();
+  const { resources, pendingUnlocks, revealRecipe } = useGameStore();
   const [hover, setHover] = useState(false);
+  const [revealing, setRevealing] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const locked = !recipe.unlocked;
-  const Icon = locked ? Lock : (ITEM_ICONS[recipe.output.itemType] || Hammer);
+
+  const isPending = pendingUnlocks.includes(recipe.id);
+  const locked = !recipe.unlocked || (isPending && !revealing);
+  const Icon = locked ? (isPending ? Sparkles : Lock) : (ITEM_ICONS[recipe.output.itemType] || Hammer);
   const color = ITEM_COLORS[recipe.output.itemType] || '#666';
   const displayName = locked ? '???' : (t('item.' + recipe.output.itemType + '.name') || recipe.name);
   const displayDesc = t('item.' + recipe.output.itemType + '.desc') || recipe.description;
@@ -30,6 +34,17 @@ export function CraftSlot({ recipe, dimmed, onCraft }: { recipe: Recipe; dimmed:
 
   const canCraft = !locked && recipe.affordable && !dimmed;
 
+  const handleClick = () => {
+    if (isPending && !revealing) {
+      setRevealing(true);
+      setTimeout(() => {
+        revealRecipe(recipe.id);
+      }, 500);
+      return;
+    }
+    if (canCraft) onCraft();
+  };
+
   const rect = hover && ref.current ? ref.current.getBoundingClientRect() : null;
 
   return (
@@ -38,24 +53,41 @@ export function CraftSlot({ recipe, dimmed, onCraft }: { recipe: Recipe; dimmed:
       onMouseLeave={() => setHover(false)}
     >
       <button
-        onClick={canCraft ? onCraft : undefined}
-        disabled={!canCraft}
+        onClick={handleClick}
+        disabled={!canCraft && !isPending}
         style={{
           width: 64, height: 72,
           borderRadius: 'var(--radius-sm)',
-          background: locked ? 'var(--bg-primary)' : recipe.affordable ? 'var(--bg-elevated)' : 'var(--bg-primary)',
-          border: `1px ${locked ? 'dashed' : 'solid'} ${canCraft ? color : 'var(--border)'}`,
+          background: revealing
+            ? 'rgba(250, 204, 21, 0.15)'
+            : locked ? 'var(--bg-primary)' : recipe.affordable ? 'var(--bg-elevated)' : 'var(--bg-primary)',
+          border: `1px ${locked && !isPending ? 'dashed' : 'solid'} ${
+            isPending ? 'rgba(250, 204, 21, 0.6)' : canCraft ? color : 'var(--border)'
+          }`,
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
-          cursor: canCraft ? 'pointer' : 'default',
-          opacity: dimmed ? 0.15 : locked ? 0.35 : recipe.affordable ? 1 : 0.4,
+          cursor: isPending ? 'pointer' : canCraft ? 'pointer' : 'default',
+          opacity: dimmed ? 0.15 : revealing ? 1 : locked && !isPending ? 0.35 : recipe.affordable || isPending ? 1 : 0.4,
           transition: 'all 0.15s',
           position: 'relative',
           padding: 0,
+          animation: isPending && !revealing ? 'unlock-flash 1.5s ease-in-out infinite' : revealing ? 'unlock-burst 0.5s ease-out forwards' : 'none',
         }}
       >
-        <Icon size={locked ? 14 : 18} style={{ color: locked ? 'var(--text-muted)' : recipe.affordable ? color : 'var(--text-muted)' }} />
-        <span style={{ fontSize: 8, fontFamily: 'var(--font-mono)', color: locked ? 'var(--text-muted)' : 'var(--text-primary)', fontWeight: 600, textAlign: 'center', lineHeight: 1.1, padding: '0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
-          {displayName}
+        <Icon
+          size={locked ? 14 : 18}
+          style={{
+            color: isPending
+              ? 'rgba(250, 204, 21, 0.9)'
+              : locked ? 'var(--text-muted)' : recipe.affordable ? color : 'var(--text-muted)',
+          }}
+        />
+        <span style={{
+          fontSize: 8, fontFamily: 'var(--font-mono)',
+          color: isPending ? 'rgba(250, 204, 21, 0.9)' : locked ? 'var(--text-muted)' : 'var(--text-primary)',
+          fontWeight: 600, textAlign: 'center', lineHeight: 1.1,
+          padding: '0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%',
+        }}>
+          {isPending && !revealing ? t('ui.new_unlock') || 'NEW!' : displayName}
         </span>
         {!locked && (
           <div style={{ position: 'absolute', bottom: -2, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 1 }}>
@@ -78,7 +110,11 @@ export function CraftSlot({ recipe, dimmed, onCraft }: { recipe: Recipe; dimmed:
           padding: '8px 10px', minWidth: 140, whiteSpace: 'nowrap',
           boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
         }}>
-          {locked ? (
+          {isPending && !revealing ? (
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(250, 204, 21, 0.9)', fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Sparkles size={10} /> {t('ui.click_to_unlock') || 'Click to unlock!'}
+            </div>
+          ) : locked ? (
             <>
               <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Lock size={10} /> {t('ui.recipe_locked')}

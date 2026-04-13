@@ -394,6 +394,42 @@ function _loadStore() {
         };
       });
 
+      // Migrate: East trade route → Operator Academy (diamond)
+      // Removes old mine/relay/empty nodes and inserts new compute nodes.
+      {
+        const OLD_EAST = new Set(['e_mine1', 'e_mine2', 'e_relay2', 'e_empty1', 'e_mine3', 'e_mine4', 'e_empty2']);
+        const NEW_EAST = ['e_types', 'e_op_add', 'e_op_sub', 'e_op_mul', 'e_op_div', 'e_op_mod', 'e_calc'];
+        const hasOld = store.game_state.nodes.some((n: any) => OLD_EAST.has(n.id));
+        const hasAllNew = NEW_EAST.every((id) => store.game_state.nodes.some((n: any) => n.id === id));
+        if (hasOld || !hasAllNew) {
+          store.game_state.nodes = store.game_state.nodes.filter((n: any) => !OLD_EAST.has(n.id));
+          for (const newId of NEW_EAST) {
+            if (!store.game_state.nodes.some((n: any) => n.id === newId)) {
+              const template = INITIAL_NODES.find((n: any) => n.id === newId);
+              if (template) store.game_state.nodes.push(JSON.parse(JSON.stringify(template)));
+            }
+          }
+          // Rebuild edges: drop any edge touching a removed node, then re-add
+          // the full new east wiring from INITIAL_EDGES.
+          const removedNodeIds = new Set(OLD_EAST);
+          store.game_state.edges = store.game_state.edges.filter(
+            (e: any) => !removedNodeIds.has(e.source) && !removedNodeIds.has(e.target),
+          );
+          const NEW_EAST_EDGE_IDS = ['e30', 'e31', 'e32', 'e33', 'e34', 'e35', 'e36', 'e37', 'e38', 'e39', 'e3a', 'eapi1', 'eapi2', 'eapi3', 'eapi4'];
+          const existingEdgeIds = new Set(store.game_state.edges.map((e: any) => e.id));
+          for (const eid of NEW_EAST_EDGE_IDS) {
+            if (existingEdgeIds.has(eid)) continue;
+            const template = INITIAL_EDGES.find((e: any) => e.id === eid);
+            if (template) store.game_state.edges.push({ ...template });
+          }
+          // Sync layer 0 snapshot so graph stays consistent
+          if (store.layer_manager?.snapshots?.[0]) {
+            store.layer_manager.snapshots[0].nodes = store.game_state.nodes;
+            store.layer_manager.snapshots[0].edges = store.game_state.edges;
+          }
+        }
+      }
+
       // Migrate: retroactively unlock recipes for already-claimed quests
       {
         const qs = store.quest_state;

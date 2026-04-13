@@ -85,7 +85,6 @@ export async function handleSubmit(ctx: ActionContext, payload: any): Promise<an
     broadcastFullState(uid);
     incrementStat('total_puzzles_solved', 1, uid);
     incrementStat(`puzzle_solved_${submitNode}`, 1, uid);
-    if (submitNode === 's_comp1') incrementStat('compute_alpha_solved', 1, uid);
     if (submitNode === 'nw_locked1') incrementStat('observatory_solved', 1, uid);
     const puzzleDiff = sNode.data.difficulty || 'easy';
     awardXp(XP_REWARDS[`solve_puzzle_${puzzleDiff}`] || XP_REWARDS.solve_puzzle_easy, uid);

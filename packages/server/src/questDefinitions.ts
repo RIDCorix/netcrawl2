@@ -152,9 +152,9 @@ export const QUESTS: QuestDef[] = [
   },
   {
     id: 'q_operators', chapter: 1, name: 'Operators', codeConcept: 'Operators',
-    description: 'a > b, x == y, n + 1 — compare and compute to make smarter decisions.',
+    description: 'a + b, a - b, a * b — head east to the Operator Academy and solve a compute puzzle.',
     mainline: true, prerequisites: ['q_conditions'],
-    objectives: [{ id: 'o1', description: 'Repair 1 infected node', statKey: 'total_repairs', target: 1, type: 'stat_gte' }],
+    objectives: [{ id: 'o1', description: 'Solve 1 compute puzzle', statKey: 'total_puzzles_solved', target: 1, type: 'stat_gte' }],
     rewards: [{ kind: 'passive', effectId: 'defense_1', description: '+1 global defense', effect: { global_defense_bonus: 1 } }],
     position: { x: 400, y: 1200 },
   },
@@ -194,10 +194,10 @@ export const QUESTS: QuestDef[] = [
   },
   {
     id: 'q_ch1_challenge', chapter: 1, name: 'Chapter 1 Challenge', codeConcept: 'Skip Exam',
-    description: 'Already know Python basics? Reach the Compute Alpha node in the far NW corner, unlock it, and solve one puzzle there to skip all Chapter 1 quests.',
+    description: 'Already know Python basics? Reach the Observatory in the far NW corner and solve its Calculator puzzle to skip all Chapter 1 quests.',
     mainline: false, prerequisites: ['q_setup'],
     objectives: [
-      { id: 'o1', description: 'Solve a puzzle at Compute Alpha (NW corner)', statKey: 'compute_alpha_solved', target: 1, type: 'stat_gte' },
+      { id: 'o1', description: 'Solve the Observatory Calculator (NW corner)', statKey: 'observatory_solved', target: 1, type: 'stat_gte' },
     ],
     rewards: [
       { kind: 'resources', resources: { data: 200000, rp: 10 } },
