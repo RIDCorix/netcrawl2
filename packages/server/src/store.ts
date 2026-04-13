@@ -428,6 +428,21 @@ function _loadStore() {
             store.layer_manager.snapshots[0].edges = store.game_state.edges;
           }
         }
+
+        // Label sync — keep operator nodes' labels aligned with the canonical
+        // INITIAL_NODES so rename rollouts reach existing saves.
+        const labelMap = new Map(
+          NEW_EAST.map((id) => [id, INITIAL_NODES.find((n: any) => n.id === id)?.data?.label])
+            .filter(([, label]) => !!label) as [string, string][],
+        );
+        store.game_state.nodes = store.game_state.nodes.map((n: any) => {
+          const canonical = labelMap.get(n.id);
+          if (!canonical || n.data?.label === canonical) return n;
+          return { ...n, data: { ...n.data, label: canonical } };
+        });
+        if (store.layer_manager?.snapshots?.[0]) {
+          store.layer_manager.snapshots[0].nodes = store.game_state.nodes;
+        }
       }
 
       // Migrate: retroactively unlock recipes for already-claimed quests

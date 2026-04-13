@@ -6,7 +6,7 @@
 import { Pickaxe, Info, Box, Database, Cpu, AlertTriangle } from 'lucide-react';
 import type { GameNode } from '../../store/gameStore';
 import { SectionLabel } from '../ui/primitives';
-import { NODE_DIALOG_REGISTRY, NodeDialogConfig } from '../NodeInfoDialog';
+import { getDialogsForNode, type NodeDialogConfig } from '../NodeInfoDialog';
 import { useT } from '../../hooks/useT';
 import { InvCell } from '../ui/InvCell';
 
@@ -41,6 +41,7 @@ export function ResourceNodeInfo({ node }: { node: GameNode }) {
 
 export function ComputeNodeInfo({ node, onOpenDialog }: { node: GameNode; onOpenDialog: (cfg: NodeDialogConfig) => void }) {
   const difficultyColor = node.data.difficulty === 'easy' ? '#4ade80' : node.data.difficulty === 'medium' ? '#60a5fa' : '#f59e0b';
+  const dialogs = getDialogsForNode(node.type, node.data);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -68,22 +69,19 @@ export function ComputeNodeInfo({ node, onOpenDialog }: { node: GameNode; onOpen
       <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.5, marginTop: 4 }}>
         Send a worker here, then <span style={{ color: 'var(--accent)' }}>node = self.get_current_node()</span> to get a ComputeNode. Call <span style={{ color: 'var(--accent)' }}>node.get_task()</span> and <span style={{ color: 'var(--accent)' }}>node.submit(task_id, answer)</span>.
       </div>
-      {NODE_DIALOG_REGISTRY[node.type] && (
+      {dialogs.length > 0 && (
         <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-          {Object.entries(NODE_DIALOG_REGISTRY[node.type]).map(([key, configFn]) => {
-            const cfg = configFn(node.data);
-            return (
-              <button key={key} onClick={() => onOpenDialog(cfg)} style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                padding: '5px 10px', borderRadius: 'var(--radius-sm)',
-                background: 'var(--bg-elevated)', border: '1px solid var(--border-bright)',
-                color: 'var(--text-secondary)', fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 600,
-                cursor: 'pointer', transition: 'all 0.1s',
-              }}>
-                <Info size={10} /> {cfg.buttonLabel}
-              </button>
-            );
-          })}
+          {dialogs.map(({ key, config }) => (
+            <button key={key} onClick={() => onOpenDialog(config)} style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '5px 10px', borderRadius: 'var(--radius-sm)',
+              background: 'var(--bg-elevated)', border: '1px solid var(--border-bright)',
+              color: 'var(--text-secondary)', fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 600,
+              cursor: 'pointer', transition: 'all 0.1s',
+            }}>
+              <Info size={10} /> {config.buttonLabel}
+            </button>
+          ))}
         </div>
       )}
     </div>

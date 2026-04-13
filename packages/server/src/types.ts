@@ -368,11 +368,11 @@ export const INITIAL_NODES = [
   // EAST — Operator Academy (diamond: Data Types → 5 operators → Calculator)
   { id: 'e_relay1',  type: 'empty',   position: { x: 420,  y: 100 },   data: Y('Relay E1', { data: 18000 }) },
   { id: 'e_types',   type: 'compute', position: { x: 620,  y: 100 },   data: { ...C('Data Types', 'easy', { data: 15000 }), fixedPuzzleTemplate: 'typeof' } },
-  { id: 'e_op_add',  type: 'compute', position: { x: 880,  y: -120 },  data: { ...C('Addition', 'easy', { data: 20000 }), fixedPuzzleTemplate: 'add' } },
-  { id: 'e_op_sub',  type: 'compute', position: { x: 880,  y: -10 },   data: { ...C('Subtraction', 'easy', { data: 20000 }), fixedPuzzleTemplate: 'subtract' } },
-  { id: 'e_op_mul',  type: 'compute', position: { x: 880,  y: 100 },   data: { ...C('Multiplication', 'easy', { data: 25000 }), fixedPuzzleTemplate: 'multiply' } },
-  { id: 'e_op_div',  type: 'compute', position: { x: 880,  y: 210 },   data: { ...C('Floor Division', 'easy', { data: 25000 }), fixedPuzzleTemplate: 'floor_div' } },
-  { id: 'e_op_mod',  type: 'compute', position: { x: 880,  y: 320 },   data: { ...C('Modulo', 'easy', { data: 30000 }), fixedPuzzleTemplate: 'modulo' } },
+  { id: 'e_op_add',  type: 'compute', position: { x: 880,  y: -120 },  data: { ...C('Operator <+>', 'easy', { data: 20000 }), fixedPuzzleTemplate: 'add' } },
+  { id: 'e_op_sub',  type: 'compute', position: { x: 880,  y: -10 },   data: { ...C('Operator <->', 'easy', { data: 20000 }), fixedPuzzleTemplate: 'subtract' } },
+  { id: 'e_op_mul',  type: 'compute', position: { x: 880,  y: 100 },   data: { ...C('Operator <*>', 'easy', { data: 25000 }), fixedPuzzleTemplate: 'multiply' } },
+  { id: 'e_op_div',  type: 'compute', position: { x: 880,  y: 210 },   data: { ...C('Operator <//>', 'easy', { data: 25000 }), fixedPuzzleTemplate: 'floor_div' } },
+  { id: 'e_op_mod',  type: 'compute', position: { x: 880,  y: 320 },   data: { ...C('Operator <%>', 'easy', { data: 30000 }), fixedPuzzleTemplate: 'modulo' } },
   { id: 'e_calc',    type: 'compute', position: { x: 1140, y: 100 },   data: { ...C('Calculator', 'hard', { data: 50000, rp: 3 }), fixedPuzzleTemplate: 'calculator' } },
   // East API Cluster (after Calculator)
   { id: 'api_east_1', type: 'api',  position: { x: 1370, y: 0 },   data: P('Echo Service', 1, { data: 40000 }) },
