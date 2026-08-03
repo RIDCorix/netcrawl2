@@ -35,14 +35,23 @@ const EDGE_TYPES: EdgeTypes = {
 };
 
 export function GameGraph() {
-  const { nodes: gameNodes, edges: gameEdges, selectedNodeId, selectNode, edgeSelectMode, nodeSelectMode, routePath, settings } = useGameStore();
+  // Subscribe only to graph inputs. The server updates tick/resources frequently;
+  // subscribing to the whole store made the entire ReactFlow tree render for
+  // updates that cannot change the canvas.
+  const gameNodes = useGameStore(s => s.nodes);
+  const gameEdges = useGameStore(s => s.edges);
+  const selectedNodeId = useGameStore(s => s.selectedNodeId);
+  const selectNode = useGameStore(s => s.selectNode);
+  const edgeSelectMode = useGameStore(s => s.edgeSelectMode);
+  const nodeSelectMode = useGameStore(s => s.nodeSelectMode);
+  const routePath = useGameStore(s => s.routePath);
+  const edgeStyle = useGameStore(s => s.settings.edgeStyle);
+  const showWorkerDots = useGameStore(s => s.settings.showWorkerDots);
   const t = useT();
   const tn = useCallback((label: string) => { const k = `n.${label}`; const v = t(k); return v === k ? label : v; }, [t]);
   const [nodes, setNodes] = useNodesState([]);
   const [edges, setEdges] = useEdgesState([]);
   const isEdgeSelecting = !!edgeSelectMode;
-  const edgeStyle = settings.edgeStyle;
-  const showWorkerDots = settings.showWorkerDots;
 
   const knownNodeIdsRef = useRef<Set<string>>(new Set());
   const fadeInIdsRef = useRef<Set<string>>(new Set());

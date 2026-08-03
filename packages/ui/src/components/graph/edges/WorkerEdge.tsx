@@ -4,52 +4,22 @@ import { useGameStore } from '../../../store/gameStore';
 import { CLASS_COLORS } from '../../../constants/colors';
 
 function TrafficDot({ color, reverse, pathData }: { color: string; reverse: boolean; pathData: string }) {
-  const circleRef = React.useRef<SVGCircleElement>(null);
-  const pathElRef = React.useRef<SVGPathElement | null>(null);
-  const reverseRef = React.useRef(reverse);
-  reverseRef.current = reverse;
-
-  React.useEffect(() => {
-    const el = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    el.setAttribute('d', pathData);
-    pathElRef.current = el;
-  }, [pathData]);
-
-  React.useEffect(() => {
-    const MOVE_MS = 900;
-    const PAUSE_MS = 200;
-    const CYCLE = MOVE_MS + PAUSE_MS;
-    const start = performance.now();
-    let raf = 0;
-
-    const tick = (now: number) => {
-      const pathEl = pathElRef.current;
-      const circle = circleRef.current;
-      if (!pathEl || !circle) { raf = requestAnimationFrame(tick); return; }
-
-      const elapsed = (now - start) % CYCLE;
-      let t: number;
-      if (elapsed < MOVE_MS) {
-        const linear = elapsed / MOVE_MS;
-        t = linear < 0.5 ? 4 * linear * linear * linear : 1 - Math.pow(-2 * linear + 2, 3) / 2;
-      } else {
-        t = 1;
-      }
-      if (reverseRef.current) t = 1 - t;
-
-      const len = pathEl.getTotalLength();
-      const pt = pathEl.getPointAtLength(len * t);
-      circle.setAttribute('cx', String(pt.x));
-      circle.setAttribute('cy', String(pt.y));
-
-      raf = requestAnimationFrame(tick);
-    };
-
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, []);
-
-  return <circle ref={circleRef} r={4} fill={color} stroke="#000" strokeWidth={1} />;
+  // Let the SVG compositor move the dot. The previous implementation created
+  // one JS animation-frame loop per dot and forced path geometry calculations
+  // on every frame, which scales poorly in worker-heavy games.
+  const keyPoints = reverse ? '1;0;0' : '0;1;1';
+  return (
+    <circle r={4} fill={color} stroke="#000" strokeWidth={1}>
+      <animateMotion
+        path={pathData}
+        dur="1.1s"
+        repeatCount="indefinite"
+        keyPoints={keyPoints}
+        keyTimes="0;0.818;1"
+        calcMode="linear"
+      />
+    </circle>
+  );
 }
 
 const MemoTrafficDot = React.memo(TrafficDot);

@@ -1,19 +1,20 @@
 import React from 'react';
-import { useGameStore, Worker } from '../../store/gameStore';
+import { useGameStore } from '../../store/gameStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Pickaxe, Package, AlertTriangle } from 'lucide-react';
+import { Pickaxe, Package } from 'lucide-react';
 import { CLASS_COLORS } from '../../constants/colors';
+import { shallow } from 'zustand/shallow';
 
 export function WorkerDotsRow({ nodeId, show }: { nodeId: string; show: boolean }) {
   const selectWorker = useGameStore(s => s.selectWorker);
   const selectedWorkerId = useGameStore(s => s.selectedWorkerId);
-  const allWorkers = useGameStore(s => s.workers);
-  const workers = allWorkers.filter((w: any) => {
+  // Each node used to subscribe to the complete worker list, so one moving
+  // worker rendered every node. Stable worker references plus shallow equality
+  // limit updates to the node whose visible workers actually changed.
+  const workers = useGameStore(s => s.workers.filter((w: any) => {
     const at = w.current_node || w.node_id;
-    if (at !== nodeId) return false;
-    if (w.status === 'moving') return false;
-    return true;
-  });
+    return at === nodeId && w.status !== 'moving';
+  }), shallow);
 
   if (!show) return null;
 
