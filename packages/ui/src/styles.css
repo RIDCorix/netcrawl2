@@ -368,6 +368,24 @@ body::after {
   filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.6));
 }
 
+/* Viewport transforms run every pointer frame. Temporarily remove expensive
+   paint-only effects while panning, then restore them when movement stops. */
+.react-flow.is-panning .react-flow__edge-path,
+.react-flow.is-panning .react-flow__node,
+.react-flow.is-panning .react-flow__node > div {
+  filter: none !important;
+  box-shadow: none !important;
+}
+
+.react-flow.is-panning .react-flow__node *,
+.react-flow.is-panning .react-flow__edge animateMotion {
+  animation-play-state: paused !important;
+}
+
+.react-flow.is-panning .react-flow__minimap {
+  visibility: hidden;
+}
+
 /* ── Animations ────────────────────────────────────────────────────── */
 @keyframes pulse-glow {
   0%, 100% { opacity: 1; }

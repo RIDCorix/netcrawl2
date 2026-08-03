@@ -6,7 +6,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useGameStore } from '../../store/gameStore';
-import React, { useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import { useT } from '../../hooks/useT';
 
 import { HubNode } from './nodes/HubNode';
@@ -51,6 +51,7 @@ export function GameGraph() {
   const tn = useCallback((label: string) => { const k = `n.${label}`; const v = t(k); return v === k ? label : v; }, [t]);
   const [nodes, setNodes] = useNodesState([]);
   const [edges, setEdges] = useEdgesState([]);
+  const [isPanning, setIsPanning] = useState(false);
   const isEdgeSelecting = !!edgeSelectMode;
 
   const knownNodeIdsRef = useRef<Set<string>>(new Set());
@@ -113,6 +114,7 @@ export function GameGraph() {
   return (
     <div style={{ width: '100%', height: '100%' }}>
       <ReactFlow
+        className={isPanning ? 'is-panning' : undefined}
         nodes={nodes}
         edges={edges}
         onNodeClick={onNodeClick}
@@ -133,6 +135,9 @@ export function GameGraph() {
         nodesConnectable={false}
         elementsSelectable={false}
         deleteKeyCode={null}
+        onlyRenderVisibleElements
+        onMoveStart={() => setIsPanning(true)}
+        onMoveEnd={() => setIsPanning(false)}
       >
         <Background variant={BackgroundVariant.Dots} gap={32} size={1} color="rgba(0, 212, 170, 0.06)" />
         <MiniMap
