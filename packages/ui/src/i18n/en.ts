@@ -546,6 +546,7 @@ export const en: Record<string, string> = {
   'res.rp.desc': 'Earned by solving Compute puzzles.\nDeploy a worker to a Compute node and submit answers.',
   'res.credits.desc': 'Earned from achievements and quests.\nUsed for premium upgrades.',
   'ui.claim': 'Claim',
+  'ui.claimFailed': 'Failed to claim quest reward',
   'ui.claimed': 'Claimed!',
   'ui.no_guide': 'No guide steps available for this quest.',
   'ui.locked': 'LOCKED — Complete prerequisite quests to unlock',

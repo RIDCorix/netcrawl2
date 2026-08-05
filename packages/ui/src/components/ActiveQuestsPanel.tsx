@@ -23,6 +23,7 @@ export function ActiveQuestsPanel() {
   const [quests, setQuests] = useState<any[]>([]);
   const [collapsed, setCollapsed] = useState(false);
   const [selectedQuest, setSelectedQuest] = useState<any>(null);
+  const [claimError, setClaimError] = useState('');
   // Subscribe to primitive fields so new object refs from polling don't retrigger effects
   const questTotal = useGameStore(s => s.questSummary.total);
   const questClaimed = useGameStore(s => s.questSummary.claimed);
@@ -53,14 +54,17 @@ export function ActiveQuestsPanel() {
     }
     try {
       await axios.post(`/api/quests/${questId}/claim`);
+      setClaimError('');
       setClaimedIds(prev => new Set([...prev, questId]));
       // Remove after sweep (0.3s) + hold (0.4s) + collapse (0.3s) + buffer
       setTimeout(() => {
         setClaimedIds(prev => { const n = new Set(prev); n.delete(questId); return n; });
         setClaimedSnapshots(prev => { const n = { ...prev }; delete n[questId]; return n; });
       }, 1300);
-    } catch {}
-  }, [quests]);
+    } catch (err: any) {
+      setClaimError(err.response?.data?.error || t('ui.claimFailed'));
+    }
+  }, [quests, t]);
 
   // Merge: show fetched quests + any claimed snapshots still animating
   const displayQuests = [...quests];
@@ -181,8 +185,7 @@ export function ActiveQuestsPanel() {
                         : { duration: 0.15 }}
                       style={{ overflow: 'hidden', position: 'relative' }}
                     >
-                      <button
-                        onClick={() => !justClaimed && setSelectedQuest(q)}
+                      <div
                         style={{
                           width: '100%', display: 'flex', alignItems: 'flex-start', gap: 8,
                           padding: '6px 8px', marginBottom: 2,
@@ -191,21 +194,27 @@ export function ActiveQuestsPanel() {
                           cursor: justClaimed ? 'default' : 'pointer', textAlign: 'left',
                           transition: 'background 0.15s',
                         }}
-                        onMouseEnter={e => { if (!justClaimed) e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
-                        onMouseLeave={e => { if (!justClaimed) e.currentTarget.style.background = 'transparent'; }}
                       >
-                        {/* Status indicator */}
-                        <div style={{
-                          width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          marginTop: 1,
-                          background: allMet ? `${color}20` : 'var(--bg-primary)',
-                          border: `1.5px solid ${allMet ? color : 'var(--border)'}`,
-                        }}>
-                          {allMet ? <Gift size={9} style={{ color }} /> : null}
-                        </div>
+                        <button
+                          onClick={() => !justClaimed && setSelectedQuest(q)}
+                          style={{
+                            flex: 1, minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 8,
+                            padding: 0, background: 'none', border: 'none', cursor: justClaimed ? 'default' : 'pointer',
+                            textAlign: 'left', color: 'inherit',
+                          }}
+                        >
+                          {/* Status indicator */}
+                          <div style={{
+                            width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            marginTop: 1,
+                            background: allMet ? `${color}20` : 'var(--bg-primary)',
+                            border: `1.5px solid ${allMet ? color : 'var(--border)'}`,
+                          }}>
+                            {allMet ? <Gift size={9} style={{ color }} /> : null}
+                          </div>
 
-                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{
                             fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)',
                             color: 'var(--text-primary)',
@@ -250,12 +259,12 @@ export function ActiveQuestsPanel() {
                               </div>
                             );
                           })}
-                        </div>
+                          </div>
+                        </button>
 
                         {/* Claim button / chapter badge */}
                         {allMet && q.status === 'completed' && !justClaimed ? (
-                          <span
-                            role="button"
+                          <button
                             onClick={(e) => handleClaim(q.id, e)}
                             style={{
                               padding: '3px 8px', borderRadius: 'var(--radius-sm)',
@@ -266,13 +275,13 @@ export function ActiveQuestsPanel() {
                             }}
                           >
                             <Gift size={8} /> {t('ui.claim')}
-                          </span>
+                          </button>
                         ) : !justClaimed ? (
                           <span style={{ fontSize: 8, color, fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
                             Ch.{q.chapter}
                           </span>
                         ) : null}
-                      </button>
+                      </div>
 
                       {/* COMPLETED sweep overlay */}
                       <AnimatePresence>
@@ -302,6 +311,11 @@ export function ActiveQuestsPanel() {
                     </motion.div>
                   );
                 })}
+                {claimError && (
+                  <div role="alert" style={{ padding: '4px 8px', color: 'var(--danger)', fontSize: 9, fontFamily: 'var(--font-mono)' }}>
+                    {claimError}
+                  </div>
+                )}
               </div>
             </motion.div>
           )}

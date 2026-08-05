@@ -541,6 +541,7 @@ export const zhTW: Record<string, string> = {
   'res.rp.desc': '透過解決 Compute 謎題獲得。\n部署 worker 到 Compute 節點並提交答案。',
   'res.credits.desc': '透過成就和任務獲得。\n用於高級升級。',
   'ui.claim': '領取',
+  'ui.claimFailed': '無法領取任務獎勵',
   'ui.claimed': '已領取！',
   'ui.no_guide': '此任務沒有指南步驟。',
   'ui.locked': '已鎖定 — 完成前置任務以解鎖',

@@ -549,6 +549,7 @@ export const ja: Record<string, string> = {
   'res.rp.desc': 'Computeパズルを解いて獲得。\nComputeノードにworkerを配置して回答を提出。',
   'res.credits.desc': '実績やクエストから獲得。\nプレミアムアップグレードに使用。',
   'ui.claim': '受取',
+  'ui.claimFailed': 'クエスト報酬を受け取れませんでした',
   'ui.claimed': '受取済み！',
   'ui.no_guide': 'このクエストにガイドはありません。',
   'ui.locked': 'ロック中 — 前提クエストを完了してアンロック',

@@ -14,6 +14,8 @@ const { getWorker, upsertWorker } = await import('../packages/server/.test-dist/
 const { addToPlayerInventory, getPlayerInventory } = await import('../packages/server/.test-dist/domain/inventory.js');
 const { getGameState } = await import('../packages/server/.test-dist/domain/gameState.js');
 const { getQuestSummary } = await import('../packages/server/.test-dist/quests.js');
+const { incrementStat } = await import('../packages/server/.test-dist/domain/achievements.js');
+const { setQuestStatus } = await import('../packages/server/.test-dist/domain/questState.js');
 const { FLOP_COSTS } = await import('../packages/server/.test-dist/types.js');
 
 const { server, port } = await startServer({ port: 0, dataDir: testDir });
@@ -231,7 +233,17 @@ try {
   assert.equal(getWorker(workerId, userA)?.flopAllocated, true);
   assert.equal(getWorker(uniqueDeploy.body.workerId, userA)?.flopAllocated, false);
 
-  console.log('Deploy route integration: 90 assertions passed');
+  // Claiming Operators must persist the reward and unlock While rather than
+  // leaving the player with no active mainline quest.
+  incrementStat('total_puzzles_solved', 1, userA);
+  setQuestStatus('q_operators', 'completed', userA);
+  const operatorsClaim = await request('/api/quests/q_operators/claim', tokenA, {});
+  assert.equal(operatorsClaim.status, 200);
+  const questsAfterOperators = (await request('/api/quests', tokenA)).body.quests;
+  assert.equal(questsAfterOperators.find(q => q.id === 'q_operators').status, 'claimed');
+  assert.equal(questsAfterOperators.find(q => q.id === 'q_while_loop').status, 'available');
+
+  console.log('Deploy route integration: 93 assertions passed');
 } catch (error) {
   console.error(error);
   process.exitCode = 1;
