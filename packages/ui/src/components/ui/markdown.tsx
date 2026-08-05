@@ -188,7 +188,7 @@ function DiffView({ code }: { code: string }) {
 
 function CodeBlockInner({ language, code }: { language: string; code: string }) {
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative', width: '100%', maxWidth: '100%', minWidth: 0 }}>
       <CopyButton text={code} />
       <SyntaxHighlighter
         style={codeTheme as any}
@@ -203,6 +203,7 @@ function CodeBlockInner({ language, code }: { language: string; code: string }) 
           margin: 0,
           fontSize: '12px',
           lineHeight: '1.7',
+          overflowX: 'auto',
         }}
         codeTagProps={{
           style: { fontFamily: 'var(--font-mono)', fontVariantLigatures: 'none', fontFeatureSettings: '"liga" 0, "calt" 0' },
