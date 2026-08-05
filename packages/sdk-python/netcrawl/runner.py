@@ -28,6 +28,37 @@ signal.signal(signal.SIGTERM, _on_sigterm)
 signal.signal(signal.SIGINT, _on_sigterm)  # also handle Ctrl+C
 
 
+def _process_injected_fields(WorkerCls, injected_fields_raw):
+    """Convert serialized deployment fields into their runtime proxies."""
+    from netcrawl.fields import ItemField, EdgeField, RouteField
+    from netcrawl.runtime import RuntimeItem, RuntimeEdge, RuntimeRoute
+    from netcrawl.items.equipment import SensorGadget, BasicSensor, AdvancedSensor
+    from netcrawl.runtime import RuntimeSensorGadget, RuntimeBasicSensor, RuntimeAdvancedSensor
+
+    raw_fields = dict(injected_fields_raw)
+    route_metadata = raw_fields.pop("__netcrawl_route_metadata__", {})
+    injected_fields = {}
+    for field_name, cls_field in WorkerCls._fields.items():
+        if isinstance(cls_field, BasicSensor):
+            injected_fields[field_name] = RuntimeBasicSensor()
+        elif isinstance(cls_field, AdvancedSensor):
+            injected_fields[field_name] = RuntimeAdvancedSensor()
+        elif isinstance(cls_field, SensorGadget):
+            injected_fields[field_name] = RuntimeSensorGadget()
+
+    for field_name, value in raw_fields.items():
+        cls_field = WorkerCls._fields.get(field_name)
+        if isinstance(cls_field, ItemField) and isinstance(value, dict):
+            injected_fields[field_name] = RuntimeItem(value)
+        elif isinstance(cls_field, EdgeField) and isinstance(value, str):
+            injected_fields[field_name] = RuntimeEdge(value)
+        elif isinstance(cls_field, RouteField) and isinstance(value, list):
+            injected_fields[field_name] = RuntimeRoute(value, route_metadata.get(field_name))
+        else:
+            injected_fields[field_name] = value
+    return injected_fields
+
+
 def main():
     worker_id = os.environ.get("NETCRAWL_WORKER_ID", "")
     api_url = os.environ.get("NETCRAWL_API_URL", "http://localhost:4800")
@@ -61,33 +92,7 @@ def main():
     # - RouteField + list value → keep as list (edge IDs)
     # - GadgetField → create runtime gadget (no injected data needed)
     # - Other → keep as-is
-    from netcrawl.fields import ItemField, EdgeField, RouteField, GadgetField
-    from netcrawl.runtime import RuntimeItem, RuntimeEdge, RuntimeRoute
-    from netcrawl.items.equipment import SensorGadget, BasicSensor, AdvancedSensor
-    from netcrawl.runtime import RuntimeSensorGadget, RuntimeBasicSensor, RuntimeAdvancedSensor
-
-    # First: auto-create runtime proxies for gadget fields (not injected by server)
-    injected_fields = {}
-    for field_name, cls_field in WorkerCls._fields.items():
-        if isinstance(cls_field, BasicSensor):
-            injected_fields[field_name] = RuntimeBasicSensor()
-        elif isinstance(cls_field, AdvancedSensor):
-            injected_fields[field_name] = RuntimeAdvancedSensor()
-        elif isinstance(cls_field, SensorGadget):
-            injected_fields[field_name] = RuntimeSensorGadget()
-
-    # Then: process server-injected values
-    for field_name, value in injected_fields_raw.items():
-        cls_field = WorkerCls._fields.get(field_name)
-        if isinstance(cls_field, ItemField) and isinstance(value, dict):
-            item_proxy = RuntimeItem(value)
-            injected_fields[field_name] = item_proxy
-        elif isinstance(cls_field, EdgeField) and isinstance(value, str):
-            injected_fields[field_name] = RuntimeEdge(value)
-        elif isinstance(cls_field, RouteField) and isinstance(value, list):
-            injected_fields[field_name] = RuntimeRoute(value)
-        else:
-            injected_fields[field_name] = value
+    injected_fields = _process_injected_fields(WorkerCls, injected_fields_raw)
 
     # Instantiate with injected values
     worker = WorkerCls(

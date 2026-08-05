@@ -47,6 +47,7 @@ try {
     fields: {
       mining_tool: { type: 'item', field: 'mining_tool', item_type: 'Pickaxe', description: 'Pickaxe' },
       edge: { type: 'edge', field: 'edge', description: 'Mine edge' },
+      route: { type: 'route', field: 'route', description: 'Compute route' },
     },
   };
   assert.equal((await request('/api/worker-classes/register', tokenA, { classes: [workerClass] })).status, 200);
@@ -54,13 +55,18 @@ try {
 
   // Real UI-shaped payload → per-user queue → ACK → authoritative action.
   const deployed = await request('/api/deploy', tokenA, {
-    nodeId: 'hub', classId: 'miner_test', equippedItems: { mining_tool: 'pickaxe_basic' }, routes: { edge: 'e_hub_n1' },
+    nodeId: 'hub', classId: 'miner_test', equippedItems: { mining_tool: 'pickaxe_basic' }, routes: { edge: 'e_hub_n1', route: ['e2', 'e20'] },
   });
   assert.equal(deployed.status, 200);
   const workerId = deployed.body.workerId;
   const queue = await request('/api/deploy-queue', tokenA);
   assert.equal(queue.body.requests.length, 1);
   assert.equal(queue.body.requests[0].injectedFields.mining_tool.itemType, 'pickaxe_basic');
+  assert.deepEqual(queue.body.requests[0].injectedFields.route, ['e2', 'e20']);
+  assert.deepEqual(queue.body.requests[0].injectedFields.__netcrawl_route_metadata__.route, [
+    { id: 'e2', source: 'hub', target: 'ne_relay1' },
+    { id: 'e20', source: 'ne_relay1', target: 'ne_comp1' },
+  ]);
   assert.equal((await request('/api/deploy-queue', tokenB)).body.requests.length, 0, 'queue must be user-isolated');
 
   assert.equal((await request('/api/deploy-ack', tokenA, { workerId, pid: 4242 })).body.ok, true);

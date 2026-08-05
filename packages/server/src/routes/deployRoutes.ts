@@ -109,12 +109,21 @@ deployRoutes.post('/deploy', async (req: Request, res: Response) => {
     injectedFields[pickaxeSelection.fieldName] = { itemType: equippedPickaxe.itemType, efficiency: equippedPickaxe.efficiency };
   }
   if (routes && typeof routes === 'object') {
+    const routeMetadata: Record<string, any[]> = {};
     for (const [fieldName, edgeId] of Object.entries(routes)) {
       if (typeof edgeId === 'string') {
         injectedFields[fieldName] = edgeId;
       } else if (Array.isArray(edgeId)) {
         injectedFields[fieldName] = edgeId;
+        routeMetadata[fieldName] = edgeId.map(id => {
+          const edge = state.edges.find((candidate: any) => candidate.id === id);
+          return edge ? { id: edge.id, source: edge.source, target: edge.target } : { id };
+        });
       }
+    }
+    if (Object.keys(routeMetadata).length > 0) {
+      // Sidecar keeps bare route arrays compatible with SDK <=1.2.1.
+      injectedFields.__netcrawl_route_metadata__ = routeMetadata;
     }
   }
 

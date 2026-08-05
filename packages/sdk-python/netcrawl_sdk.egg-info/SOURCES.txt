@@ -24,4 +24,5 @@ netcrawl_sdk.egg-info/SOURCES.txt
 netcrawl_sdk.egg-info/dependency_links.txt
 netcrawl_sdk.egg-info/requires.txt
 netcrawl_sdk.egg-info/top_level.txt
+tests/test_route_injection.py
 tests/test_spawner_output.py
