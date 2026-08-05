@@ -36,11 +36,16 @@ const wikiContent = readFileSync('packages/ui/src/wiki/content.ts', 'utf8');
 assert.match(wikiContent, /id: 'pickaxe_basic'[\s\S]{0,500}unlock: \{ unlockedRecipe: 'pickaxe_basic' \}/);
 const questDialog = readFileSync('packages/ui/src/components/QuestGuideDialog.tsx', 'utf8');
 const activeQuests = readFileSync('packages/ui/src/components/ActiveQuestsPanel.tsx', 'utf8');
+const questTree = readFileSync('packages/ui/src/components/QuestTree.tsx', 'utf8');
 assert.match(questDialog, /quest\.\$\{quest\.id\}\.name/);
 assert.match(questDialog, /quest\.\$\{quest\.id\}\.objective\.\$\{obj\.id\}/);
 assert.match(questDialog, /translateWithFallback/);
 assert.match(activeQuests, /translateWithFallback\(t, `quest\.\$\{q\.id\}\.name`, q\.name\)/);
 assert.match(activeQuests, /`quest\.\$\{q\.id\}\.objective\.\$\{obj\.id\}`/);
+assert.match(questTree, /translateWithFallback\(t, `quest\.\$\{q\.id\}\.name`, q\.name\)/);
+assert.match(questTree, /translateWithFallback\(t, `quest\.\$\{quest\.id\}\.name`, quest\.name\)/);
+assert.match(questTree, /translateWithFallback\(t, `quest\.\$\{quest\.id\}\.desc`, quest\.description\)/);
+assert.match(questTree, /`quest\.\$\{quest\.id\}\.objective\.\$\{obj\.id\}`/);
 const translationFallback = readFileSync('packages/ui/src/i18n/translateWithFallback.ts', 'utf8');
 assert.match(
   translationFallback,
@@ -74,6 +79,7 @@ for (const locale of ['en', 'zh-TW', 'ja']) {
   const source = readFileSync(`packages/ui/src/i18n/${locale}.ts`, 'utf8');
   for (const quest of chapterOne) {
     assert.ok(source.includes(`'quest.${quest.id}.name'`), `${locale} missing quest.${quest.id}.name`);
+    assert.ok(source.includes(`'quest.${quest.id}.desc'`), `${locale} missing quest.${quest.id}.desc`);
     for (const objective of quest.objectives) {
       const key = `quest.${quest.id}.objective.${objective.id}`;
       assert.ok(source.includes(`'${key}'`), `${locale} missing ${key}`);

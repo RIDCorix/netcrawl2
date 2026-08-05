@@ -36,6 +36,7 @@ import axios from 'axios';
 import { QuestGuideDialog } from './QuestGuideDialog';
 import { CHAPTER_COLORS } from '../constants/colors';
 import { formatResource } from '../lib/format';
+import { translateWithFallback } from '../i18n/translateWithFallback';
 
 // ── Custom quest nodes ──────────────────────────────────────────────────────
 
@@ -115,7 +116,7 @@ function QuestNode({ data }: any) {
           fontFamily: 'var(--font-mono)',
         }}
       >
-        {t('quest.' + q.id + '.name') || q.name}
+        {translateWithFallback(t, `quest.${q.id}.name`, q.name)}
       </div>
 
       {/* Code concept tag */}
@@ -228,7 +229,7 @@ function QuestDetail({ quest, onClose }: { quest: any; onClose: () => void }) {
               marginTop: 2,
             }}
           >
-            {t('quest.' + quest.id + '.name') || quest.name}
+            {translateWithFallback(t, `quest.${quest.id}.name`, quest.name)}
           </div>
           <div
             style={{
@@ -263,7 +264,7 @@ function QuestDetail({ quest, onClose }: { quest: any; onClose: () => void }) {
 
       {/* Description */}
       <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', lineHeight: 1.6 }}>
-        {t('quest.' + quest.id + '.desc') || quest.description}
+        {translateWithFallback(t, `quest.${quest.id}.desc`, quest.description)}
       </div>
 
       {/* Objectives */}
@@ -290,7 +291,7 @@ function QuestDetail({ quest, onClose }: { quest: any; onClose: () => void }) {
                   fontFamily: 'var(--font-mono)',
                 }}
               >
-                {obj.description}
+                {translateWithFallback(t, `quest.${quest.id}.objective.${obj.id}`, obj.description)}
               </span>
               <span
                 style={{
