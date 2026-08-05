@@ -278,6 +278,15 @@ To unlock a node, you need enough resources. Click **"Unlock"** in the node deta
     },
   ],
 
+  q_craft_first: [
+    {
+      title: 'Craft a Basic Pickaxe',
+      content: `Open **Inventory** and select the **Crafting** tab. Choose **Basic Pickaxe**, review its data cost, and confirm the craft.
+
+Your starter pickaxe does not count: this quest completes only after you craft an additional Basic Pickaxe. Use **Open Manual** for the complete equip → move → mine → collect → return → deposit example.`,
+    },
+  ],
+
   q_conditions: [
     {
       title: 'The Bad Data Problem',

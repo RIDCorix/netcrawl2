@@ -156,7 +156,7 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
                   whiteSpace: 'nowrap',
                 }}
               >
-                {quest.name}
+                {t(`quest.${quest.id}.name`) || quest.name}
               </div>
             </div>
           </div>
@@ -262,7 +262,7 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
                   color: obj.met ? 'var(--text-primary)' : 'var(--text-muted)',
                 }}
               >
-                {obj.description}
+                {t(`quest.${quest.id}.objective.${obj.id}`) || obj.description}
               </span>
               <span
                 style={{

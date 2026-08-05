@@ -271,6 +271,15 @@ console.log(item.type);        // "data_fragment" 或 "bad_data"
     },
   ],
 
+  q_craft_first: [
+    {
+      title: '合成基礎十字鎬',
+      content: `開啟**背包**並選擇**合成**分頁。選取**基礎十字鎬**、確認所需 data，然後執行合成。
+
+起始十字鎬不計入任務；你必須額外合成一把基礎十字鎬。按下**開啟手冊**可查看裝備 → 移動 → 採礦 → 收集 → 返回 → 存入的完整示範。`,
+    },
+  ],
+
   q_conditions: [
     {
       title: 'Bad Data 問題',

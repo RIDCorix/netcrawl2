@@ -31,6 +31,15 @@ assert.match(sidebar, /q\.id !== 'q_ch1_challenge'/, 'challenge must be filtered
 const wiki = readFileSync('packages/ui/src/components/WikiDialog.tsx', 'utf8');
 assert.match(wiki, /selectedEntryId && !selectedLookup/);
 assert.match(wiki, /wiki\.invalid_entry\.action/);
+const wikiContent = readFileSync('packages/ui/src/wiki/content.ts', 'utf8');
+assert.match(
+  wikiContent,
+  /id: 'pickaxe_basic'[\s\S]{0,500}unlock: \{ always: true \}/,
+  'First Craft help must be readable before recipe unlock',
+);
+const questDialog = readFileSync('packages/ui/src/components/QuestGuideDialog.tsx', 'utf8');
+assert.match(questDialog, /quest\.\$\{quest\.id\}\.name/);
+assert.match(questDialog, /quest\.\$\{quest\.id\}\.objective\.\$\{obj\.id\}/);
 
 for (const locale of ['en', 'zh-TW', 'ja']) {
   const source = readFileSync(`packages/ui/src/i18n/${locale}.ts`, 'utf8');
@@ -41,8 +50,12 @@ for (const locale of ['en', 'zh-TW', 'ja']) {
     'wiki.invalid_entry.title',
     'wiki.invalid_entry.body',
     'wiki.invalid_entry.action',
+    'quest.q_craft_first.objective.o1',
+    'tutorial.chapter_zero.worker_ready',
   ])
     assert.ok(source.includes(`'${key}'`), `${locale} missing ${key}`);
+  const guidePath = locale === 'en' ? 'packages/server/src/questGuides.ts' : `packages/ui/src/i18n/guides/${locale}.ts`;
+  assert.ok(readFileSync(guidePath, 'utf8').includes('q_craft_first'), `${locale} missing localized First Craft guide`);
 }
 
 console.log('Onboarding release contract checks passed');
