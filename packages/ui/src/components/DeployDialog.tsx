@@ -36,6 +36,8 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
   const t = useT();
   const workerClasses = storeWorkerClasses as WorkerClassEntry[];
   const dialogRef = useRef<HTMLDivElement>(null);
+  const routePickerRef = useRef<HTMLDivElement>(null);
+  const routeReturnFocusRef = useRef<string | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   // ── State ──────────────────────────────────────────────────────────────────
@@ -146,46 +148,57 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
   // ── Callbacks ──────────────────────────────────────────────────────────────
   const getNodeLabel = (id: string) => gameNodes.find(n => n.id === id)?.data?.label || id;
 
+  const completeEdgeSelect = useCallback(
+    (fieldName: string, edge: { id: string; source: string; target: string }) => {
+      setRoutes(prev => ({ ...prev, [fieldName]: [edge] }));
+      setSelectingRoute(null);
+      setEdgeSelectMode(null);
+    },
+    [setEdgeSelectMode],
+  );
+
+  const selectRouteNode = useCallback(
+    (fieldName: string, nodeId: string) => {
+      setRouteNodes(prev => {
+        const existing = prev[fieldName] || [];
+        if (existing[existing.length - 1] === nodeId) return prev;
+        const updated = [...existing, nodeId];
+        const edges: { id: string; source: string; target: string }[] = [];
+        for (let i = 0; i < updated.length - 1; i++) {
+          const edge = gameEdges.find(
+            candidate =>
+              (candidate.source === updated[i] && candidate.target === updated[i + 1]) ||
+              (candidate.source === updated[i + 1] && candidate.target === updated[i]),
+          );
+          if (edge) edges.push({ id: edge.id, source: updated[i], target: updated[i + 1] });
+        }
+        setRoutes(current => ({ ...current, [fieldName]: edges }));
+        setState({ routePath: updated });
+        return { ...prev, [fieldName]: updated };
+      });
+    },
+    [gameEdges],
+  );
+
   const startRouteSelect = useCallback(
     (fieldName: string, fieldType: 'edge' | 'route') => {
+      routeReturnFocusRef.current = fieldName;
       setSelectingRoute(fieldName);
       if (fieldType === 'edge') {
         setEdgeSelectMode({
           fieldName,
-          onSelect: edge => {
-            setRoutes(prev => ({ ...prev, [fieldName]: [edge] }));
-            setSelectingRoute(null);
-            setEdgeSelectMode(null);
-          },
+          onSelect: edge => completeEdgeSelect(fieldName, edge),
         });
       } else {
         setRouteNodes(prev => ({ ...prev, [fieldName]: [] }));
         setRoutes(prev => ({ ...prev, [fieldName]: [] }));
         setNodeSelectMode({
           fieldName,
-          onSelect: nodeId => {
-            setRouteNodes(prev => {
-              const existing = prev[fieldName] || [];
-              if (existing[existing.length - 1] === nodeId) return prev;
-              const updated = [...existing, nodeId];
-              const edges: { id: string; source: string; target: string }[] = [];
-              for (let i = 0; i < updated.length - 1; i++) {
-                const e = gameEdges.find(
-                  e =>
-                    (e.source === updated[i] && e.target === updated[i + 1]) ||
-                    (e.source === updated[i + 1] && e.target === updated[i]),
-                );
-                if (e) edges.push({ id: e.id, source: updated[i], target: updated[i + 1] });
-              }
-              setRoutes(r => ({ ...r, [fieldName]: edges }));
-              setState({ routePath: updated });
-              return { ...prev, [fieldName]: updated };
-            });
-          },
+          onSelect: nodeId => selectRouteNode(fieldName, nodeId),
         });
       }
     },
-    [setEdgeSelectMode, setNodeSelectMode, gameEdges],
+    [completeEdgeSelect, selectRouteNode, setEdgeSelectMode, setNodeSelectMode],
   );
 
   const finishRouteSelect = useCallback(() => {
@@ -287,6 +300,13 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
   }, [onClose, setEdgeSelectMode]);
 
   const handleDialogKeyDown = useCallback((event: KeyboardEvent) => {
+    if (selectingRoute && event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      cancelRouteSelect();
+      return;
+    }
+
     if (event.key === 'Escape') {
       const visibleListbox = Array.from(document.querySelectorAll<HTMLElement>('[role="listbox"]')).some(
         element => element.getClientRects().length > 0,
@@ -300,20 +320,21 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
     }
     if (event.key !== 'Tab') return;
 
+    const focusContainer = selectingRoute ? routePickerRef.current : dialogRef.current;
     const focusable = Array.from(
-      dialogRef.current?.querySelectorAll<HTMLElement>(DIALOG_FOCUSABLE_SELECTOR) || [],
+      focusContainer?.querySelectorAll<HTMLElement>(DIALOG_FOCUSABLE_SELECTOR) || [],
     ).filter(element => element.getClientRects().length > 0 && element.getAttribute('aria-hidden') !== 'true');
 
     if (focusable.length === 0) {
       event.preventDefault();
-      dialogRef.current?.focus();
+      focusContainer?.focus();
       return;
     }
 
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
     const active = document.activeElement;
-    if (!dialogRef.current?.contains(active)) {
+    if (!focusContainer?.contains(active)) {
       event.preventDefault();
       (event.shiftKey ? last : first).focus();
     } else if (event.shiftKey && active === first) {
@@ -323,7 +344,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
       event.preventDefault();
       first.focus();
     }
-  }, [handleClose]);
+  }, [cancelRouteSelect, handleClose, selectingRoute]);
 
   useEffect(() => {
     document.addEventListener('keydown', handleDialogKeyDown, true);
@@ -345,11 +366,42 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
     return () => cancelAnimationFrame(frame);
   }, [currentStepKey]);
 
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      if (selectingRoute) {
+        const firstControl = routePickerRef.current?.querySelector<HTMLElement>(DIALOG_FOCUSABLE_SELECTOR);
+        (firstControl || routePickerRef.current)?.focus();
+        return;
+      }
+
+      const fieldName = routeReturnFocusRef.current;
+      if (!fieldName) return;
+      const trigger = Array.from(
+        dialogRef.current?.querySelectorAll<HTMLElement>('[data-route-select-field]') || [],
+      ).find(element => element.dataset.routeSelectField === fieldName);
+      (trigger || dialogRef.current)?.focus();
+      routeReturnFocusRef.current = null;
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [selectingRoute]);
+
   // ── Route selection overlay ────────────────────────────────────────────────
   if (selectingRoute) {
     const routeSlot = routeSlots.find(s => s.name === selectingRoute);
+    const isUnlocked = (id: string) => {
+      const node = gameNodes.find(n => n.id === id);
+      return node?.id === 'hub' || !!node?.data?.unlocked;
+    };
+    const compatibleEdges = gameEdges.filter(edge => isUnlocked(edge.source) && isUnlocked(edge.target));
+    const compatibleNodes = gameNodes.filter(node => isUnlocked(node.id));
     return (
       <motion.div
+        ref={routePickerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={routeSlot?.fieldType === 'route' ? `Build route: ${routeSlot?.name}` : `Select an edge: ${routeSlot?.name}`}
+        tabIndex={-1}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -367,6 +419,10 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
           display: 'flex',
           alignItems: 'center',
           gap: 16,
+          maxWidth: 'calc(100vw - 32px)',
+          maxHeight: 'calc(100dvh - 32px)',
+          overflowY: 'auto',
+          boxSizing: 'border-box',
           boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
         }}
       >
@@ -391,6 +447,48 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
               ? `Click nodes in order to define the path (${(routeNodes[selectingRoute!] || []).length} nodes selected)`
               : routeSlot?.description || 'Click on a connection between two nodes'}
           </div>
+        </div>
+        <div
+          aria-label={routeSlot?.fieldType === 'route' ? 'Available nodes' : 'Available edges'}
+          style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+        >
+          {routeSlot?.fieldType === 'edge'
+            ? compatibleEdges.map(edge => (
+                <button
+                  key={edge.id}
+                  onClick={() => completeEdgeSelect(selectingRoute, edge)}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-bright)',
+                    background: 'var(--bg-glass)',
+                    color: 'var(--text-primary)',
+                    fontSize: 10,
+                    fontFamily: 'var(--font-mono)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {getNodeLabel(edge.source)} ↔ {getNodeLabel(edge.target)}
+                </button>
+              ))
+            : compatibleNodes.map(node => (
+                <button
+                  key={node.id}
+                  onClick={() => selectRouteNode(selectingRoute, node.id)}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-bright)',
+                    background: 'var(--bg-glass)',
+                    color: 'var(--text-primary)',
+                    fontSize: 10,
+                    fontFamily: 'var(--font-mono)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {getNodeLabel(node.id)}
+                </button>
+              ))}
         </div>
         {routeSlot?.fieldType === 'route' && (routeNodes[selectingRoute!] || []).length >= 2 && (
           <button

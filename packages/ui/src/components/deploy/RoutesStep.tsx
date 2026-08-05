@@ -52,6 +52,7 @@ export function RoutesStep({
               </div>
               {!isSelecting ? (
                 <button
+                  data-route-select-field={slot.name}
                   onClick={() => startRouteSelect(slot.name, slot.fieldType)}
                   style={{
                     padding: '8px 14px', borderRadius: 'var(--radius-sm)',
