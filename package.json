@@ -16,7 +16,8 @@
     "lint": "eslint packages/server/src packages/ui/src --max-warnings 400",
     "lint:fix": "eslint packages/server/src packages/ui/src --fix",
     "format": "prettier --write packages/server/src packages/ui/src",
-    "format:check": "prettier --check packages/server/src packages/ui/src"
+    "format:check": "prettier --check packages/server/src packages/ui/src",
+    "test:quest-guides": "node scripts/verify-quest-guide-consistency.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

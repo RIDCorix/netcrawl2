@@ -2,16 +2,21 @@ import type { GuideStep } from './types';
 
 export const zhTW: Record<string, GuideStep[]> = {
   q_setup: [
-    { title: '安裝 VSCode', content: `NetCrawl 的 Worker 是 Python 腳本，你需要一個程式碼編輯器。
+    {
+      title: '安裝 VSCode',
+      content: `NetCrawl 的 Worker 是 Python 腳本，你需要一個程式碼編輯器。
 
 從 [code.visualstudio.com](https://code.visualstudio.com) 下載並安裝 **Visual Studio Code**。
 
 安裝 **Python 擴充套件**：
 1. 開啟 VSCode
 2. 按 \`Ctrl+Shift+X\`（擴充套件）
-3. 搜尋 "Python" → 安裝 Microsoft 的 Python 擴充套件` },
+3. 搜尋 "Python" → 安裝 Microsoft 的 Python 擴充套件`,
+    },
 
-    { title: '設定工作區', content: `**步驟 1：** 安裝 **uv**（Python 套件管理器）：
+    {
+      title: '設定工作區',
+      content: `**步驟 1：** 安裝 **uv**（Python 套件管理器）：
 \`\`\`powershell
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 \`\`\`
@@ -28,9 +33,12 @@ uv sync
 
 \`workspace/workspace_example/\` 資料夾包含：
 - \`main.py\` — 進入點（註冊你的 Worker）
-- \`workers/\` — 你的 Worker 類別放這裡` },
+- \`workers/\` — 你的 Worker 類別放這裡`,
+    },
 
-    { title: '設定 main.py', content: `用編輯器開啟 \`workspace/workspace_example/main.py\`，找到 \`NetCrawl(...)\` 的部分，更新 **伺服器 URL**。
+    {
+      title: '設定 main.py',
+      content: `用編輯器開啟 \`workspace/workspace_example/main.py\`，找到 \`NetCrawl(...)\` 的部分，更新 **伺服器 URL**。
 
 點擊右上角工具列的 **Connect** 按鈕（終端機圖示）取得你的伺服器 URL，然後修改：
 
@@ -54,9 +62,12 @@ uv sync
 +     api_key="eyJhbG...",                       # ← 從 Connect 對話框取得
 +     server="https://netcrawl-server-....app",   # ← 從 Connect 對話框取得
   )
-\`\`\`` },
+\`\`\``,
+    },
 
-    { title: '執行 Code Server', content: `在 \`workspace/workspace_example/\` 資料夾中啟動你的 Python code server：
+    {
+      title: '執行 Code Server',
+      content: `在 \`workspace/workspace_example/\` 資料夾中啟動你的 Python code server：
 
 \`\`\`bash
 uv run main.py
@@ -70,11 +81,14 @@ uv run main.py
 
 **當 code server 連線到遊戲伺服器時，此任務會自動完成！**
 
-🎉 連線成功後，部署 Worker 的按鈕就會啟用。前往下一個任務吧。` },
+🎉 連線成功後，部署 Worker 的按鈕就會啟用。前往下一個任務吧。`,
+    },
   ],
 
   q_hello_world: [
-    { title: 'Worker 生命週期', content: `每個 Worker 有兩個方法：
+    {
+      title: 'Worker 生命週期',
+      content: `每個 Worker 有兩個方法：
 
 - \`on_startup()\` — 啟動時執行**一次**
 - \`on_loop()\` — **永遠重複**執行
@@ -105,9 +119,12 @@ class HelloWorker extends WorkerClass {
 }
 \`\`\`
 
-遊戲引擎會先呼叫 \`on_startup()\` 一次，然後不斷呼叫 \`on_loop()\` 直到你停止 Worker。` },
+遊戲引擎會先呼叫 \`on_startup()\` 一次，然後不斷呼叫 \`on_loop()\` 直到你停止 Worker。`,
+    },
 
-    { title: '日誌：info、warn、error', content: `Worker 可以發送訊息到 UI：
+    {
+      title: '日誌：info、warn、error',
+      content: `Worker 可以發送訊息到 UI：
 
 \`\`\`python
 self.info("一切正常！")      # 綠色 — 正常狀態
@@ -122,9 +139,12 @@ this.error("無法移動！");     // 紅色 — 出了問題
 
 這些訊息會顯示在 Worker 的日誌面板和地圖上的對話氣泡。
 
-用 \`info()\` 報告正常狀態，\`warn()\` 報告不嚴重的問題，\`error()\` 報告需要處理的錯誤。` },
+用 \`info()\` 報告正常狀態，\`warn()\` 報告不嚴重的問題，\`error()\` 報告需要處理的錯誤。`,
+    },
 
-    { title: '部署你的第一個 Worker', content: `\`workspace/workers/helloworker.py\` 裡的 \`HelloWorker\` 已經可以部署：
+    {
+      title: '部署你的第一個 Worker',
+      content: `\`workspace/workers/helloworker.py\` 裡的 \`HelloWorker\` 已經可以部署：
 
 1. 點擊地圖上的 **Hub** 節點
 2. 點擊**部署 Worker**
@@ -133,11 +153,14 @@ this.error("無法移動！");     // 紅色 — 出了問題
 
 觀察 Worker 日誌 — 你會看到 \`"我剛啟動！"\` 出現一次，然後 \`"還在跑..."\` 不斷重複。
 
-**目標：** 部署 1 個 Worker 即可完成此任務。之後你就會學到真正的挖礦方法！` },
+**目標：** 部署 1 個 Worker 即可完成此任務。之後你就會學到真正的挖礦方法！`,
+    },
   ],
 
   q_method_call: [
-    { title: '什麼是方法？', content: `在 Python 中，**方法**是屬於物件的函式。用點號呼叫：
+    {
+      title: '什麼是方法？',
+      content: `在 Python 中，**方法**是屬於物件的函式。用點號呼叫：
 
 \`\`\`python
 self.mine()       # 呼叫挖礦方法
@@ -150,9 +173,12 @@ this.collect();    // 呼叫收集方法
 this.deposit();    // 呼叫存入方法
 \`\`\`
 
-每次方法呼叫都是告訴你的 Worker **執行某個動作**。方法是你與遊戲世界互動的方式。` },
+每次方法呼叫都是告訴你的 Worker **執行某個動作**。方法是你與遊戲世界互動的方式。`,
+    },
 
-    { title: '寫你的第一個 Worker', content: `開啟 \`workspace/workers/miner.py\`（或 \`miner.js\`）並寫入：
+    {
+      title: '寫你的第一個 Worker',
+      content: `開啟 \`workspace/workers/miner.py\`（或 \`miner.js\`）並寫入：
 
 \`\`\`python
 from netcrawl import WorkerClass, Edge
@@ -191,9 +217,12 @@ class Miner extends WorkerClass {
 }
 \`\`\`
 
-\`Edge\` 是兩個相鄰節點之間的單一連線。部署時在地圖上點選一條邊。\`self.move(edge)\` 可以沿著它來回移動。` },
+\`Edge\` 是兩個相鄰節點之間的單一連線。部署時在地圖上點選一條邊。\`self.move(edge)\` 可以沿著它來回移動。`,
+    },
 
-    { title: '部署並觀察', content: `1. 點擊 **Hub** 節點 → **部署 Worker**
+    {
+      title: '部署並觀察',
+      content: `1. 點擊 **Hub** 節點 → **部署 Worker**
 2. 從下拉選單選擇 **Miner**
 3. 選擇一條連接到資源節點的**邊**
 4. 從背包裝備一把**鎬子**
@@ -201,11 +230,14 @@ class Miner extends WorkerClass {
 
 觀察 Worker 日誌 — 你會看到每個方法呼叫依序執行。
 
-**目標：** 挖礦 1 次 + 存入 1 次即可完成此任務。` },
+**目標：** 挖礦 1 次 + 存入 1 次即可完成此任務。`,
+    },
   ],
 
   q_dot_notation: [
-    { title: '讀取屬性', content: `物件有**屬性**，可以用點號讀取：
+    {
+      title: '讀取屬性',
+      content: `物件有**屬性**，可以用點號讀取：
 
 \`\`\`python
 node = self.get_current_node()
@@ -224,27 +256,36 @@ const item = this.collect();
 console.log(item.type);        // "data_fragment" 或 "bad_data"
 \`\`\`
 
-點號讓你在行動前先**檢查**世界狀態。` },
+點號讓你在行動前先**檢查**世界狀態。`,
+    },
 
-    { title: '探索地圖', content: `看看地圖 — 有些節點是**鎖定**的（灰色）。點擊鎖定的節點可以看到：
+    {
+      title: '探索地圖',
+      content: `看看地圖 — 有些節點是**鎖定**的（灰色）。點擊鎖定的節點可以看到：
 - 它的**類型**（resource、compute、relay...）
 - 它的**解鎖費用**（需要多少 data）
 
 要解鎖節點，你需要足夠的資源。在節點詳情面板點擊 **"解鎖"**。
 
-**目標：** 解鎖 1 個節點。選擇 Hub 附近的資源節點方便挖礦。` },
+**目標：** 解鎖 1 個節點。選擇 Hub 附近的資源節點方便挖礦。`,
+    },
   ],
 
   q_conditions: [
-    { title: 'Bad Data 問題', content: `每個資料礦場都有機會產出 **bad data** — 混在好資料中的損壞數據。
+    {
+      title: 'Bad Data 問題',
+      content: `每個資料礦場都有機會產出 **bad data** — 混在好資料中的損壞數據。
 
 如果你在 Hub 存入 bad data，它會**倒扣**你的 data 資源！
 
 Data Mine Nano 有 **40% 的 bad data 率**（60% 乾淨度）。其他礦場比較乾淨，但都有風險。
 
-你需要學會 \`if\` 陳述式來在存入前**過濾掉 bad data**。` },
+你需要學會 \`if\` 陳述式來在存入前**過濾掉 bad data**。`,
+    },
 
-    { title: 'if 陳述式', content: `\`if\` 陳述式讓你的程式碼做決定：
+    {
+      title: 'if 陳述式',
+      content: `\`if\` 陳述式讓你的程式碼做決定：
 
 \`\`\`python
 if condition:
@@ -255,9 +296,12 @@ else:
 
 \`collect()\` 之後，檢查 \`self.holding\` 看你撿到了什麼：
 - \`self.holding.type\` — \`"data_fragment"\`（好的）或 \`"bad_data"\`（壞的）
-- \`self.discard()\` — 丟棄手持物品，不存入` },
+- \`self.discard()\` — 丟棄手持物品，不存入`,
+    },
 
-    { title: '帶過濾的聰明礦工', content: `這是一個會過濾 bad data 的礦工：
+    {
+      title: '帶過濾的聰明礦工',
+      content: `這是一個會過濾 bad data 的礦工：
 
 \`\`\`python
 def on_loop(self):
@@ -291,14 +335,17 @@ onLoop() {
 \`\`\`
 
 **目標：**
-- 丟棄 **5 個 bad data**
-- 總共存入 **300 data**
+- 丟棄 **100 個 bad data**
+- 總共存入 **10 kB data**
 
-不過濾的話，bad data 會吃掉你的資源！` },
+不過濾的話，bad data 會吃掉你的資源！`,
+    },
   ],
 
   q_operators: [
-    { title: '比較運算子', content: `Python 有比較值的運算子：
+    {
+      title: '比較運算子',
+      content: `Python 有比較值的運算子：
 
 | 運算子 | 意義 | 範例 |
 |--------|------|------|
@@ -308,9 +355,12 @@ onLoop() {
 | \`!=\` | 不等於 | \`type != "hub"\` |
 | \`>=\` | 大於或等於 | \`count >= 3\` |
 
-這些用在 \`if\` 陳述式中做數值判斷。` },
+這些用在 \`if\` 陳述式中做數值判斷。`,
+    },
 
-    { title: '感染防禦', content: `有些節點會被**感染** — 它們會變紅並將感染擴散到鄰居。
+    {
+      title: '感染防禦',
+      content: `有些節點會被**感染** — 它們會變紅並將感染擴散到鄰居。
 
 你可以寫一個用運算子檢查感染的 Worker：
 
@@ -326,21 +376,26 @@ if (node.isInfected) {
 }
 \`\`\`
 
-**目標：** 修復 1 個受感染的節點。你可能需要等待感染事件，或探索地圖找到一個。
-修復需要 **500 data** — 確保你有足夠的資源！` },
+**目標：** 往 Hub 東邊前往 **Operator Academy**，依題目指定的運算子解開 **1 個 compute puzzle**。伺服器記錄一次解題後任務即完成。`,
+    },
   ],
 
   q_while_loop: [
-    { title: '重複直到完成', content: `\`while\` 迴圈在**條件為真時重複**執行：
+    {
+      title: '重複直到完成',
+      content: `\`while\` 迴圈在**條件為真時重複**執行：
 
 \`\`\`python
 while there_is_work:
     do_work()
 \`\`\`
 
-不像 \`for\` 迴圈（遍歷已知集合），\`while\` 迴圈處理**未知**數量的工作。你事先不知道會迴圈多少次。` },
+不像 \`for\` 迴圈（遍歷已知集合），\`while\` 迴圈處理**未知**數量的工作。你事先不知道會迴圈多少次。`,
+    },
 
-    { title: '過濾 Bad Data', content: `有些資源節點會產出 **bad_data** 掉落物。你需要把它們過濾掉：
+    {
+      title: '過濾 Bad Data',
+      content: `有些資源節點會產出 **bad_data** 掉落物。你需要把它們過濾掉：
 
 \`\`\`python
 def on_loop(self):
@@ -380,11 +435,14 @@ onLoop() {
 
 \`has_dropped_items()\` 檢查節點是否還有掉落物。\`discard()\` 丟棄手持物品。
 
-**目標：** 總共存入 **1,000 data**。while 迴圈幫你更有效率地過濾。` },
+**目標：** 總共存入 **100 kB data**。while 迴圈幫你更有效率地過濾。`,
+    },
   ],
 
   q_for_loop: [
-    { title: '路徑與 For 迴圈', content: `之前你用的是 \`Edge\` — 兩個相鄰節點之間的單一連線。但如果礦場**很遠**，中間隔著中繼節點呢？
+    {
+      title: '路徑與 For 迴圈',
+      content: `之前你用的是 \`Edge\` — 兩個相鄰節點之間的單一連線。但如果礦場**很遠**，中間隔著中繼節點呢？
 
 \`Route\` 是**多節點路徑**。部署時按順序點擊節點。執行時它變成可迭代的邊列表：
 
@@ -394,9 +452,12 @@ route = Route("hub → 中繼站 → 深層礦場")
 # 執行時，self.route 可迭代：
 for edge in self.route:
     self.move(edge)       # 一步一步走
-\`\`\`` },
+\`\`\``,
+    },
 
-    { title: '建立遠程礦工', content: `建立 \`workspace/workers/long_range_miner.py\`：
+    {
+      title: '建立遠程礦工',
+      content: `建立 \`workspace/workers/long_range_miner.py\`：
 
 \`\`\`python
 from netcrawl import WorkerClass, Route
@@ -457,9 +518,12 @@ class LongRangeMiner extends WorkerClass {
 }
 \`\`\`
 
-在 \`main.py\` 中註冊，然後用一條路徑部署到遠處的礦場。` },
+在 \`main.py\` 中註冊，然後用一條路徑部署到遠處的礦場。`,
+    },
 
-    { title: '部署與測試', content: `1. 在 \`main.py\` 註冊 \`LongRangeMiner\`
+    {
+      title: '部署與測試',
+      content: `1. 在 \`main.py\` 註冊 \`LongRangeMiner\`
 2. 部署到 **Hub** → 選擇 **Route** → 點擊：**Hub → Data Mine Alpha**
 3. 裝備**鎬子**
 4. 觀察 log — 你會看到 worker 逐步走過每條邊
@@ -469,17 +533,23 @@ class LongRangeMiner extends WorkerClass {
 - \`reversed(self.route)\` — 反向走回去
 - \`Route\` 可以是任意長度 — 2 個節點、5 個、10 個都行
 
-**目標：** 用路徑到達更遠、產量更高的礦場，挖礦 **20 次**。` },
+**目標：** 用路徑到達更遠、產量更高的礦場，挖礦 **20 次**。`,
+    },
   ],
 
   q_cluster_mining: [
-    { title: '資料礦場叢集', content: `Hub 南方有一個**資料礦場叢集** — 一個中繼節點被多個小型資源節點包圍。
+    {
+      title: '資料礦場叢集',
+      content: `Hub 南方有一個**資料礦場叢集** — 一個中繼節點被多個小型資源節點包圍。
 
 這些節點容量低但補充快。技巧是用 **AdvancedSensor** 掃描附近的邊，找出所有礦場然後逐一訪問。
 
-\`AdvancedSensor\` 是一個 gadget，會掃描相鄰的邊並告訴你每個連接節點的**類型**。` },
+\`AdvancedSensor\` 是一個 gadget，會掃描相鄰的邊並告訴你每個連接節點的**類型**。`,
+    },
 
-    { title: '建立叢集礦工', content: `建立 \`workspace/workers/cluster_miner.py\`：
+    {
+      title: '建立叢集礦工',
+      content: `建立 \`workspace/workers/cluster_miner.py\`：
 
 \`\`\`python
 from netcrawl import WorkerClass, AdvancedSensor, ResourceNode
@@ -541,6 +611,7 @@ class ClusterMiner extends WorkerClass {
 - \`isinstance(edge.target_node, ResourceNode)\` 過濾出可挖掘的節點
 - 不需要 \`Route\` — sensor 動態探索路徑
 
-**目標：** 總共挖礦 **50 次**。部署到任何靠近礦場叢集的中繼站。` },
+**目標：** 總共挖礦 **50 次**。部署到任何靠近礦場叢集的中繼站。`,
+    },
   ],
 };

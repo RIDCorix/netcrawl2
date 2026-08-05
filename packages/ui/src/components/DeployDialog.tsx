@@ -20,10 +20,17 @@ const RAM_CAPACITY_MULT = 50;
 
 // ── Deploy Dialog ───────────────────────────────────────────────────────────
 
-export function DeployDialog({ nodeId, nodeName, onClose }: {
-  nodeId: string; nodeName: string; onClose: () => void;
-}) {
-  const { workers, playerInventory, nodes: gameNodes, edges: gameEdges, setEdgeSelectMode, setNodeSelectMode, setState, workerClasses: storeWorkerClasses } = useGameStore();
+export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; nodeName: string; onClose: () => void }) {
+  const {
+    workers,
+    playerInventory,
+    nodes: gameNodes,
+    edges: gameEdges,
+    setEdgeSelectMode,
+    setNodeSelectMode,
+    setState,
+    workerClasses: storeWorkerClasses,
+  } = useGameStore();
   const t = useT();
   const workerClasses = storeWorkerClasses as WorkerClassEntry[];
 
@@ -47,10 +54,14 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
   const selectedClassEntry = workerClasses.find(c => c.class_id === selectedClass);
 
   const classItemSlots = selectedClassEntry
-    ? Object.entries(selectedClassEntry.fields).filter(([, f]) => f.type === 'item').map(([name, f]) => ({ name, itemType: f.item_type || '', description: f.description }))
+    ? Object.entries(selectedClassEntry.fields)
+        .filter(([, f]) => f.type === 'item')
+        .map(([name, f]) => ({ name, itemType: f.item_type || '', description: f.description }))
     : [];
   const routeSlots = selectedClassEntry
-    ? Object.entries(selectedClassEntry.fields).filter(([, f]) => f.type === 'route' || f.type === 'edge').map(([name, f]) => ({ name, description: f.description, fieldType: f.type as 'route' | 'edge' }))
+    ? Object.entries(selectedClassEntry.fields)
+        .filter(([, f]) => f.type === 'route' || f.type === 'edge')
+        .map(([name, f]) => ({ name, description: f.description, fieldType: f.type as 'route' | 'edge' }))
     : [];
 
   const hasRoutes = routeSlots.length > 0;
@@ -72,7 +83,9 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
   const totalRamUsed = ramPerUnit.reduce((s, n) => s + n, 0);
   equippedCounts['cpu_basic'] = (equippedCounts['cpu_basic'] || 0) + totalCpuUsed;
   equippedCounts['ram_basic'] = (equippedCounts['ram_basic'] || 0) + totalRamUsed;
-  const availableInventory = playerInventory.map(i => ({ ...i, count: i.count - (equippedCounts[i.itemType] || 0) })).filter(i => i.count > 0);
+  const availableInventory = playerInventory
+    .map(i => ({ ...i, count: i.count - (equippedCounts[i.itemType] || 0) }))
+    .filter(i => i.count > 0);
 
   const currentCpu = cpuPerUnit[currentUnitIdx] || 0;
   const currentRam = ramPerUnit[currentUnitIdx] || 0;
@@ -82,8 +95,8 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
 
   const cpuOwned = playerInventory.find(i => i.itemType === 'cpu_basic')?.count || 0;
   const ramOwned = playerInventory.find(i => i.itemType === 'ram_basic')?.count || 0;
-  const cpuAvailForUnit = cpuOwned - cpuPerUnit.reduce((s, n, i) => i === currentUnitIdx ? s : s + n, 0);
-  const ramAvailForUnit = ramOwned - ramPerUnit.reduce((s, n, i) => i === currentUnitIdx ? s : s + n, 0);
+  const cpuAvailForUnit = cpuOwned - cpuPerUnit.reduce((s, n, i) => (i === currentUnitIdx ? s : s + n), 0);
+  const ramAvailForUnit = ramOwned - ramPerUnit.reduce((s, n, i) => (i === currentUnitIdx ? s : s + n), 0);
 
   const allSlotsFilled = equippedPerUnit.every(ue => classItemSlots.every(s => !!ue[s.name]));
   const allRoutesFilled = routeSlots.every(s => routes[s.name]?.length > 0);
@@ -94,63 +107,94 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
   }, [workerClasses, selectedClass]);
 
   useEffect(() => {
-    setEquippedPerUnit([{}]); setCurrentUnitIdx(0); setUnitCount(1);
-    setRoutes({}); setRouteNodes({}); setStep(0); setDeployed(false); setMessage('');
+    setEquippedPerUnit([{}]);
+    setCurrentUnitIdx(0);
+    setUnitCount(1);
+    setRoutes({});
+    setRouteNodes({});
+    setStep(0);
+    setDeployed(false);
+    setMessage('');
   }, [selectedClass]);
 
-  useEffect(() => () => { setEdgeSelectMode(null); setNodeSelectMode(null); setState({ routePath: [] }); }, []);
+  useEffect(
+    () => () => {
+      setEdgeSelectMode(null);
+      setNodeSelectMode(null);
+      setState({ routePath: [] });
+    },
+    [],
+  );
 
   // ── Callbacks ──────────────────────────────────────────────────────────────
   const getNodeLabel = (id: string) => gameNodes.find(n => n.id === id)?.data?.label || id;
 
-  const startRouteSelect = useCallback((fieldName: string, fieldType: 'edge' | 'route') => {
-    setSelectingRoute(fieldName);
-    if (fieldType === 'edge') {
-      setEdgeSelectMode({
-        fieldName,
-        onSelect: (edge) => {
-          setRoutes(prev => ({ ...prev, [fieldName]: [edge] }));
-          setSelectingRoute(null);
-          setEdgeSelectMode(null);
-        },
-      });
-    } else {
-      setRouteNodes(prev => ({ ...prev, [fieldName]: [] }));
-      setRoutes(prev => ({ ...prev, [fieldName]: [] }));
-      setNodeSelectMode({
-        fieldName,
-        onSelect: (nodeId) => {
-          setRouteNodes(prev => {
-            const existing = prev[fieldName] || [];
-            if (existing[existing.length - 1] === nodeId) return prev;
-            const updated = [...existing, nodeId];
-            const edges: { id: string; source: string; target: string }[] = [];
-            for (let i = 0; i < updated.length - 1; i++) {
-              const e = gameEdges.find(e =>
-                (e.source === updated[i] && e.target === updated[i + 1]) ||
-                (e.source === updated[i + 1] && e.target === updated[i])
-              );
-              if (e) edges.push({ id: e.id, source: updated[i], target: updated[i + 1] });
-            }
-            setRoutes(r => ({ ...r, [fieldName]: edges }));
-            setState({ routePath: updated });
-            return { ...prev, [fieldName]: updated };
-          });
-        },
-      });
-    }
-  }, [setEdgeSelectMode, setNodeSelectMode, gameEdges]);
+  const startRouteSelect = useCallback(
+    (fieldName: string, fieldType: 'edge' | 'route') => {
+      setSelectingRoute(fieldName);
+      if (fieldType === 'edge') {
+        setEdgeSelectMode({
+          fieldName,
+          onSelect: edge => {
+            setRoutes(prev => ({ ...prev, [fieldName]: [edge] }));
+            setSelectingRoute(null);
+            setEdgeSelectMode(null);
+          },
+        });
+      } else {
+        setRouteNodes(prev => ({ ...prev, [fieldName]: [] }));
+        setRoutes(prev => ({ ...prev, [fieldName]: [] }));
+        setNodeSelectMode({
+          fieldName,
+          onSelect: nodeId => {
+            setRouteNodes(prev => {
+              const existing = prev[fieldName] || [];
+              if (existing[existing.length - 1] === nodeId) return prev;
+              const updated = [...existing, nodeId];
+              const edges: { id: string; source: string; target: string }[] = [];
+              for (let i = 0; i < updated.length - 1; i++) {
+                const e = gameEdges.find(
+                  e =>
+                    (e.source === updated[i] && e.target === updated[i + 1]) ||
+                    (e.source === updated[i + 1] && e.target === updated[i]),
+                );
+                if (e) edges.push({ id: e.id, source: updated[i], target: updated[i + 1] });
+              }
+              setRoutes(r => ({ ...r, [fieldName]: edges }));
+              setState({ routePath: updated });
+              return { ...prev, [fieldName]: updated };
+            });
+          },
+        });
+      }
+    },
+    [setEdgeSelectMode, setNodeSelectMode, gameEdges],
+  );
 
   const finishRouteSelect = useCallback(() => {
-    setSelectingRoute(null); setEdgeSelectMode(null); setNodeSelectMode(null); setState({ routePath: [] });
+    setSelectingRoute(null);
+    setEdgeSelectMode(null);
+    setNodeSelectMode(null);
+    setState({ routePath: [] });
   }, [setEdgeSelectMode, setNodeSelectMode]);
 
   const cancelRouteSelect = useCallback(() => {
     if (selectingRoute) {
-      setRoutes(prev => { const n = { ...prev }; delete n[selectingRoute]; return n; });
-      setRouteNodes(prev => { const n = { ...prev }; delete n[selectingRoute]; return n; });
+      setRoutes(prev => {
+        const n = { ...prev };
+        delete n[selectingRoute];
+        return n;
+      });
+      setRouteNodes(prev => {
+        const n = { ...prev };
+        delete n[selectingRoute];
+        return n;
+      });
     }
-    setSelectingRoute(null); setEdgeSelectMode(null); setNodeSelectMode(null); setState({ routePath: [] });
+    setSelectingRoute(null);
+    setEdgeSelectMode(null);
+    setNodeSelectMode(null);
+    setState({ routePath: [] });
   }, [setEdgeSelectMode, setNodeSelectMode, selectingRoute]);
 
   const handleDeploy = async () => {
@@ -173,8 +217,14 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
         const unitEquip = { ...(equippedPerUnit[i] || {}) };
         const cpuN = cpuPerUnit[i] || 0;
         const ramN = ramPerUnit[i] || 0;
-        if (cpuN > 0) { unitEquip.cpuCount = String(cpuN); unitEquip.cpuType = 'cpu_basic'; }
-        if (ramN > 0) { unitEquip.ramCount = String(ramN); unitEquip.ramType = 'ram_basic'; }
+        if (cpuN > 0) {
+          unitEquip.cpuCount = String(cpuN);
+          unitEquip.cpuType = 'cpu_basic';
+        }
+        if (ramN > 0) {
+          unitEquip.ramCount = String(ramN);
+          unitEquip.ramType = 'ram_basic';
+        }
         if (Object.keys(unitEquip).length > 0) body.equippedItems = unitEquip;
         if (Object.keys(routePayload).length > 0) body.routes = routePayload;
         const res = await axios.post('/api/deploy', body);
@@ -214,23 +264,46 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
     return true;
   };
 
-  const handleClose = () => { setEdgeSelectMode(null); onClose(); };
+  const handleClose = () => {
+    setEdgeSelectMode(null);
+    onClose();
+  };
 
   // ── Route selection overlay ────────────────────────────────────────────────
   if (selectingRoute) {
     const routeSlot = routeSlots.find(s => s.name === selectingRoute);
     return (
       <motion.div
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
         style={{
-          position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 100,
-          background: 'var(--bg-glass-heavy)', backdropFilter: 'blur(24px)',
-          border: '1px solid var(--accent)', borderRadius: 'var(--radius-lg)',
-          padding: '14px 24px', display: 'flex', alignItems: 'center', gap: 16,
+          position: 'fixed',
+          top: 16,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 100,
+          background: 'var(--bg-glass-heavy)',
+          backdropFilter: 'blur(24px)',
+          border: '1px solid var(--accent)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '14px 24px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
           boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
         }}
       >
-        <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)', animation: 'pulse-glow 1.5s infinite' }} />
+        <div
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            background: 'var(--accent)',
+            boxShadow: '0 0 8px var(--accent)',
+            animation: 'pulse-glow 1.5s infinite',
+          }}
+        />
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>
             {routeSlot?.fieldType === 'route'
@@ -240,23 +313,41 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
           <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
             {routeSlot?.fieldType === 'route'
               ? `Click nodes in order to define the path (${(routeNodes[selectingRoute!] || []).length} nodes selected)`
-              : (routeSlot?.description || 'Click on a connection between two nodes')}
+              : routeSlot?.description || 'Click on a connection between two nodes'}
           </div>
         </div>
         {routeSlot?.fieldType === 'route' && (routeNodes[selectingRoute!] || []).length >= 2 && (
-          <button onClick={finishRouteSelect} style={{
-            padding: '6px 14px', borderRadius: 'var(--radius-sm)',
-            background: 'var(--accent)', border: 'none',
-            color: '#000', fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 700, cursor: 'pointer',
-          }}>
+          <button
+            onClick={finishRouteSelect}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--accent)',
+              border: 'none',
+              color: '#000',
+              fontSize: 11,
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
             Done
           </button>
         )}
-        <button onClick={cancelRouteSelect} style={{
-          padding: '6px 12px', borderRadius: 'var(--radius-sm)',
-          background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-          color: 'var(--text-muted)', fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 700, cursor: 'pointer',
-        }}>
+        <button
+          onClick={cancelRouteSelect}
+          style={{
+            padding: '6px 12px',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--border)',
+            color: 'var(--text-muted)',
+            fontSize: 11,
+            fontFamily: 'var(--font-mono)',
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}
+        >
           {t('common.cancel')}
         </button>
       </motion.div>
@@ -266,29 +357,80 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
   // ── Main dialog ────────────────────────────────────────────────────────────
   return (
     <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.6)',
+        backdropFilter: 'blur(6px)',
+        zIndex: 100,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
       onClick={handleClose}
     >
       <motion.div
-        initial={{ scale: 0.92, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.92, opacity: 0, y: 20 }}
+        initial={{ scale: 0.92, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.92, opacity: 0, y: 20 }}
         transition={{ type: 'spring', damping: 28, stiffness: 350 }}
         onClick={e => e.stopPropagation()}
         style={{
-          background: 'var(--bg-glass-heavy)', backdropFilter: 'blur(24px)',
-          border: '1px solid var(--border-bright)', borderRadius: 'var(--radius-lg)',
-          padding: 24, width: 520, maxWidth: 'calc(100vw - 64px)',
-          maxHeight: 'calc(100vh - 80px)', overflowY: 'auto',
-          display: 'flex', flexDirection: 'column', gap: 18,
+          background: 'var(--bg-glass-heavy)',
+          backdropFilter: 'blur(24px)',
+          border: '1px solid var(--border-bright)',
+          borderRadius: 'var(--radius-lg)',
+          padding: 24,
+          width: 520,
+          maxWidth: 'calc(100vw - 64px)',
+          maxHeight: 'calc(100vh - 80px)',
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 18,
         }}
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.12em' }}>{t('ui.deploy_to')}</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>{nodeName}</div>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: 'var(--text-muted)',
+                fontFamily: 'var(--font-mono)',
+                letterSpacing: '0.12em',
+              }}
+            >
+              {t('ui.deploy_to')}
+            </div>
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 800,
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-mono)',
+                marginTop: 2,
+              }}
+            >
+              {nodeName}
+            </div>
           </div>
-          <button onClick={handleClose} style={{ color: 'var(--text-muted)', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', padding: 4, display: 'flex' }}>
+          <button
+            onClick={handleClose}
+            style={{
+              color: 'var(--text-muted)',
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)',
+              cursor: 'pointer',
+              padding: 4,
+              display: 'flex',
+            }}
+          >
             <X size={14} />
           </button>
         </div>
@@ -296,50 +438,96 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
         {steps.length > 2 && <StepBar steps={steps} currentStep={step} />}
 
         {loading ? (
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', padding: '24px 0', textAlign: 'center' }}>{t('ui.loading')}</div>
+          <div
+            style={{
+              fontSize: 12,
+              color: 'var(--text-muted)',
+              fontFamily: 'var(--font-mono)',
+              padding: '24px 0',
+              textAlign: 'center',
+            }}
+          >
+            {t('ui.loading')}
+          </div>
         ) : workerClasses.length === 0 ? (
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', padding: '24px 0', textAlign: 'center', lineHeight: 1.6 }}>
-            {t('ui.no_worker_classes')}<br />{t('ui.run_code_server')}
+          <div
+            style={{
+              fontSize: 12,
+              color: 'var(--text-muted)',
+              fontFamily: 'var(--font-mono)',
+              padding: '24px 0',
+              textAlign: 'center',
+              lineHeight: 1.6,
+            }}
+          >
+            {t('ui.no_worker_classes')}
+            <br />
+            {t('ui.run_code_server')}
           </div>
         ) : (
           <>
             {currentStepKey === 'class' && (
               <ClassStep
-                workerClasses={workerClasses} selectedClass={selectedClass} setSelectedClass={setSelectedClass}
-                selectedClassEntry={selectedClassEntry} classItemSlots={classItemSlots} routeSlots={routeSlots}
-                playerInventory={playerInventory} unitCount={unitCount} setUnitCount={setUnitCount}
-                setEquippedPerUnit={setEquippedPerUnit} setCpuPerUnit={setCpuPerUnit}
-                setRamPerUnit={setRamPerUnit} setCurrentUnitIdx={setCurrentUnitIdx}
+                workerClasses={workerClasses}
+                selectedClass={selectedClass}
+                setSelectedClass={setSelectedClass}
+                selectedClassEntry={selectedClassEntry}
+                classItemSlots={classItemSlots}
+                routeSlots={routeSlots}
+                playerInventory={playerInventory}
+                unitCount={unitCount}
+                setUnitCount={setUnitCount}
+                setEquippedPerUnit={setEquippedPerUnit}
+                setCpuPerUnit={setCpuPerUnit}
+                setRamPerUnit={setRamPerUnit}
+                setCurrentUnitIdx={setCurrentUnitIdx}
               />
             )}
 
             {currentStepKey === 'routes' && (
               <RoutesStep
-                routeSlots={routeSlots} routes={routes} routeNodes={routeNodes}
-                selectingRoute={selectingRoute} startRouteSelect={startRouteSelect}
-                finishRouteSelect={finishRouteSelect} getNodeLabel={getNodeLabel}
+                routeSlots={routeSlots}
+                routes={routes}
+                routeNodes={routeNodes}
+                selectingRoute={selectingRoute}
+                startRouteSelect={startRouteSelect}
+                finishRouteSelect={finishRouteSelect}
+                getNodeLabel={getNodeLabel}
               />
             )}
 
             {currentStepKey === 'equipment' && (
               <EquipmentStep
-                unitCount={unitCount} currentUnitIdx={currentUnitIdx} setCurrentUnitIdx={setCurrentUnitIdx}
-                equippedPerUnit={equippedPerUnit} setEquippedPerUnit={setEquippedPerUnit}
-                cpuPerUnit={cpuPerUnit} setCpuPerUnit={setCpuPerUnit}
-                ramPerUnit={ramPerUnit} setRamPerUnit={setRamPerUnit}
-                classItemSlots={classItemSlots} playerInventory={playerInventory}
-                availableInventory={availableInventory} totalCompute={totalCompute}
-                totalCapacity={totalCapacity} usedCompute={usedCompute}
-                currentCpu={currentCpu} currentRam={currentRam}
-                cpuAvailForUnit={cpuAvailForUnit} ramAvailForUnit={ramAvailForUnit}
+                unitCount={unitCount}
+                currentUnitIdx={currentUnitIdx}
+                setCurrentUnitIdx={setCurrentUnitIdx}
+                equippedPerUnit={equippedPerUnit}
+                setEquippedPerUnit={setEquippedPerUnit}
+                cpuPerUnit={cpuPerUnit}
+                setCpuPerUnit={setCpuPerUnit}
+                ramPerUnit={ramPerUnit}
+                setRamPerUnit={setRamPerUnit}
+                classItemSlots={classItemSlots}
+                playerInventory={playerInventory}
+                availableInventory={availableInventory}
+                totalCompute={totalCompute}
+                totalCapacity={totalCapacity}
+                usedCompute={usedCompute}
+                currentCpu={currentCpu}
+                currentRam={currentRam}
+                cpuAvailForUnit={cpuAvailForUnit}
+                ramAvailForUnit={ramAvailForUnit}
                 allSlotsFilled={allSlotsFilled}
               />
             )}
 
             {currentStepKey === 'deploy' && (
               <ConfirmStep
-                selectedClassEntry={selectedClassEntry} unitCount={unitCount}
-                nodeName={nodeName} routes={routes} equipped={equipped}
+                selectedClassEntry={selectedClassEntry}
+                unitCount={unitCount}
+                nodeName={nodeName}
+                routes={routes}
+                equipped={equipped}
                 getNodeLabel={getNodeLabel}
               />
             )}
@@ -347,39 +535,95 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
             {/* Navigation */}
             <div style={{ display: 'flex', gap: 10 }}>
               {step > 0 && (
-                <button onClick={() => setStep(s => s - 1)} style={{
-                  flex: 1, background: 'var(--bg-elevated)', color: 'var(--text-muted)',
-                  border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                  padding: '12px', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)', cursor: 'pointer',
-                }}>{t('ui.back')}</button>
+                <button
+                  onClick={() => setStep(s => s - 1)}
+                  style={{
+                    flex: 1,
+                    background: 'var(--bg-elevated)',
+                    color: 'var(--text-muted)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '12px',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    fontFamily: 'var(--font-mono)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {t('ui.back')}
+                </button>
               )}
               {step === 0 && (
-                <button onClick={handleClose} style={{
-                  flex: 1, background: 'var(--bg-elevated)', color: 'var(--text-muted)',
-                  border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                  padding: '12px', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)', cursor: 'pointer',
-                }}>{t('common.cancel')}</button>
+                <button
+                  onClick={handleClose}
+                  style={{
+                    flex: 1,
+                    background: 'var(--bg-elevated)',
+                    color: 'var(--text-muted)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '12px',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    fontFamily: 'var(--font-mono)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {t('common.cancel')}
+                </button>
               )}
               {isLastStep ? (
-                <button onClick={handleDeploy} disabled={deploying || deployed} style={{
-                  flex: 2, background: deploying || deployed ? 'var(--bg-elevated)' : 'var(--accent)', color: deploying || deployed ? 'var(--text-muted)' : '#000',
-                  border: deploying || deployed ? '1px solid var(--border)' : 'none', borderRadius: 'var(--radius-sm)',
-                  padding: '12px', fontSize: 13, fontWeight: 800, fontFamily: 'var(--font-mono)',
-                  cursor: deploying || deployed ? 'not-allowed' : 'pointer', opacity: deploying || deployed ? 0.5 : 1,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                }}>
-                  <Upload size={14} /> {deploying ? t('ui.deploying', { n: unitCount }) : t(unitCount > 1 ? 'ui.deploy_n_plural' : 'ui.deploy_n', { n: unitCount })}
+                <button
+                  onClick={handleDeploy}
+                  disabled={deploying || deployed}
+                  style={{
+                    flex: 2,
+                    background: deploying || deployed ? 'var(--bg-elevated)' : 'var(--accent)',
+                    color: deploying || deployed ? 'var(--text-muted)' : '#000',
+                    border: deploying || deployed ? '1px solid var(--border)' : 'none',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '12px',
+                    fontSize: 13,
+                    fontWeight: 800,
+                    fontFamily: 'var(--font-mono)',
+                    cursor: deploying || deployed ? 'not-allowed' : 'pointer',
+                    opacity: deploying || deployed ? 0.5 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <Upload size={14} />{' '}
+                  {deploying
+                    ? t('ui.deploying', { n: unitCount })
+                    : t(unitCount > 1 ? 'ui.deploy_n_plural' : 'ui.deploy_n', { n: unitCount })}
                 </button>
               ) : (
-                <button onClick={() => setStep(s => s + 1)} disabled={!canGoNext()} style={{
-                  flex: 2, background: canGoNext() ? 'var(--accent)' : 'var(--bg-elevated)',
-                  color: canGoNext() ? '#000' : 'var(--text-muted)',
-                  border: canGoNext() ? 'none' : '1px solid var(--border)',
-                  borderRadius: 'var(--radius-sm)', padding: '12px', fontSize: 13, fontWeight: 800,
-                  fontFamily: 'var(--font-mono)', cursor: canGoNext() ? 'pointer' : 'not-allowed',
-                  opacity: canGoNext() ? 1 : 0.5,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                }}>
+                <button
+                  onClick={() => setStep(s => s + 1)}
+                  disabled={!canGoNext()}
+                  aria-describedby={
+                    currentStepKey === 'equipment' && !canGoNext() ? 'deploy-equipment-requirement' : undefined
+                  }
+                  style={{
+                    flex: 2,
+                    background: canGoNext() ? 'var(--accent)' : 'var(--bg-elevated)',
+                    color: canGoNext() ? '#000' : 'var(--text-muted)',
+                    border: canGoNext() ? 'none' : '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '12px',
+                    fontSize: 13,
+                    fontWeight: 800,
+                    fontFamily: 'var(--font-mono)',
+                    cursor: canGoNext() ? 'pointer' : 'not-allowed',
+                    opacity: canGoNext() ? 1 : 0.5,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                  }}
+                >
                   {t('ui.next')} <ChevronRight size={14} />
                 </button>
               )}
@@ -387,12 +631,23 @@ export function DeployDialog({ nodeId, nodeName, onClose }: {
 
             <AnimatePresence>
               {message && (
-                <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} style={{
-                  fontSize: 12, padding: '8px 12px', borderRadius: 'var(--radius-sm)',
-                  background: message.startsWith('Error') ? 'var(--danger-dim)' : 'rgba(46,213,115,0.1)',
-                  border: `1px solid ${message.startsWith('Error') ? 'rgba(255,71,87,0.2)' : 'rgba(46,213,115,0.2)'}`,
-                  color: message.startsWith('Error') ? 'var(--danger)' : 'var(--success)', fontFamily: 'var(--font-mono)', textAlign: 'center',
-                }}>{message}</motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  style={{
+                    fontSize: 12,
+                    padding: '8px 12px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: message.startsWith('Error') ? 'var(--danger-dim)' : 'rgba(46,213,115,0.1)',
+                    border: `1px solid ${message.startsWith('Error') ? 'rgba(255,71,87,0.2)' : 'rgba(46,213,115,0.2)'}`,
+                    color: message.startsWith('Error') ? 'var(--danger)' : 'var(--success)',
+                    fontFamily: 'var(--font-mono)',
+                    textAlign: 'center',
+                  }}
+                >
+                  {message}
+                </motion.div>
               )}
             </AnimatePresence>
           </>

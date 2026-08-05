@@ -26,6 +26,7 @@ class Miner(WorkerClass):
         if self.holding and self.holding.type == "bad_data":
             self.discard()
             self.info("Discarded bad data")
+            self.move(self.edge)        # mine → hub; reset route state for next loop
             return
 
         self.move(self.edge)            # mine → hub
