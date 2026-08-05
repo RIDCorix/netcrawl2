@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { translateWithFallback } from '../packages/ui/src/i18n/translateWithFallback.ts';
 import { QUESTS } from '../packages/server/.test-dist/questDefinitions.js';
 import {
   initialChapterZeroLoadState,
@@ -34,9 +35,37 @@ assert.match(wiki, /wiki\.invalid_entry\.action/);
 const wikiContent = readFileSync('packages/ui/src/wiki/content.ts', 'utf8');
 assert.match(wikiContent, /id: 'pickaxe_basic'[\s\S]{0,500}unlock: \{ unlockedRecipe: 'pickaxe_basic' \}/);
 const questDialog = readFileSync('packages/ui/src/components/QuestGuideDialog.tsx', 'utf8');
+const activeQuests = readFileSync('packages/ui/src/components/ActiveQuestsPanel.tsx', 'utf8');
 assert.match(questDialog, /quest\.\$\{quest\.id\}\.name/);
 assert.match(questDialog, /quest\.\$\{quest\.id\}\.objective\.\$\{obj\.id\}/);
-assert.match(questDialog, /translated === key \? fallback : translated/, 'missing keys must never render literally');
+assert.match(questDialog, /translateWithFallback/);
+assert.match(activeQuests, /translateWithFallback\(t, `quest\.\$\{q\.id\}\.name`, q\.name\)/);
+assert.match(activeQuests, /`quest\.\$\{q\.id\}\.objective\.\$\{obj\.id\}`/);
+const translationFallback = readFileSync('packages/ui/src/i18n/translateWithFallback.ts', 'utf8');
+assert.match(
+  translationFallback,
+  /translated === key \? fallback : translated/,
+  'missing keys must never render literally',
+);
+for (const status of ['available', 'completed']) {
+  const copy = {
+    'quest.q_craft_first.name': `${status} localized name`,
+    'quest.q_craft_first.objective.o1': `${status} localized objective`,
+  };
+  const translate = key => copy[key] ?? key;
+  assert.equal(
+    translateWithFallback(translate, 'quest.q_craft_first.name', 'First Craft'),
+    copy['quest.q_craft_first.name'],
+  );
+  assert.equal(
+    translateWithFallback(translate, 'quest.q_craft_first.objective.o1', 'Craft a Basic Pickaxe'),
+    copy['quest.q_craft_first.objective.o1'],
+  );
+}
+assert.equal(
+  translateWithFallback(key => key, 'quest.unknown.name', 'Server fallback'),
+  'Server fallback',
+);
 assert.match(questDialog, /openWikiPreview\(quest\.manualEntryId\)/);
 assert.match(wiki, /previewEntryId === selectedEntryId \|\| unlockedFn/);
 assert.match(wiki, /previewEntryId === selectedEntryId\) return/, 'preview must not mark seen or grant rewards');

@@ -14,6 +14,7 @@ import { useGameStore } from '../store/gameStore';
 import { DemoPlayer } from './guide/DemoPlayer';
 import { DEMO_SCRIPTS } from './guide/demoScripts';
 import { getTranslatedGuide } from '../i18n/guides';
+import { translateWithFallback } from '../i18n/translateWithFallback';
 import { formatResource } from '../lib/format';
 
 function RewardBadge({ reward, color }: { reward: any; color: string }) {
@@ -60,10 +61,6 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
   const [msg, setMsg] = useState('');
 
   const t = useT();
-  const translateQuestCopy = (key: string, fallback: string) => {
-    const translated = t(key);
-    return translated === key ? fallback : translated;
-  };
   const openWikiPreview = useGameStore(s => s.openWikiPreview);
   const lang = useGameStore(s => s.settings.language);
   const translatedGuide = getTranslatedGuide(lang, quest.id);
@@ -160,7 +157,7 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
                   whiteSpace: 'nowrap',
                 }}
               >
-                {translateQuestCopy(`quest.${quest.id}.name`, quest.name)}
+                {translateWithFallback(t, `quest.${quest.id}.name`, quest.name)}
               </div>
             </div>
           </div>
@@ -266,7 +263,7 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
                   color: obj.met ? 'var(--text-primary)' : 'var(--text-muted)',
                 }}
               >
-                {translateQuestCopy(`quest.${quest.id}.objective.${obj.id}`, obj.description)}
+                {translateWithFallback(t, `quest.${quest.id}.objective.${obj.id}`, obj.description)}
               </span>
               <span
                 style={{

@@ -11,6 +11,7 @@ import axios from 'axios';
 import { QuestGuideDialog } from './QuestGuideDialog';
 import { CHAPTER_COLORS } from '../constants/colors';
 import { useT } from '../hooks/useT';
+import { translateWithFallback } from '../i18n/translateWithFallback';
 
 function formatStat(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
@@ -315,7 +316,7 @@ export function ActiveQuestsPanel() {
                                 whiteSpace: 'nowrap',
                               }}
                             >
-                              {q.name}
+                              {translateWithFallback(t, `quest.${q.id}.name`, q.name)}
                             </div>
                             {/* Objective rows with border-bottom progress */}
                             {q.objectives.map((obj: any) => {
@@ -363,7 +364,8 @@ export function ActiveQuestsPanel() {
                                         minWidth: 0,
                                       }}
                                     >
-                                      {obj.met ? '✓' : '│'} {obj.description}
+                                      {obj.met ? '✓' : '│'}{' '}
+                                      {translateWithFallback(t, `quest.${q.id}.objective.${obj.id}`, obj.description)}
                                     </span>
                                     <span
                                       style={{
