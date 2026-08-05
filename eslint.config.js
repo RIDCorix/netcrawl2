@@ -4,7 +4,7 @@ import eslintConfigPrettier from 'eslint-config-prettier';
 
 export default tseslint.config(
   // Global ignores
-  { ignores: ['**/dist/**', '**/node_modules/**', '**/release/**', 'packages/desktop/**', 'workspace/**', 'workspace_example/**'] },
+  { ignores: ['**/dist/**', '**/node_modules/**', '**/release/**', 'packages/desktop/**', 'workspace/**'] },
 
   // Base JS rules
   js.configs.recommended,

@@ -158,8 +158,7 @@ export const ja: Record<string, string> = {
   'deploy.equip_item': '{item}を装備',
   'deploy.remove_item': '{item}を外す',
   'deploy.empty_slot': '空の{slot}スロット',
-  'quest.q_setup.desc':
-    'VSCodeをダウンロードし、workspace_exampleをコピーして、コードサーバーを接続してゲームを開始しましょう。',
+  'quest.q_setup.desc': 'NetCrawlが管理するワークスペースを開き、コードサーバーを接続してゲームを開始しましょう。',
 
   'quest.claim_all': 'すべて受け取る',
   'quest.q_ch1_challenge.name': '第1章チャレンジ',

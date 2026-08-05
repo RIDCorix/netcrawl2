@@ -26,19 +26,19 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 **步驟 2：** Clone NetCrawl 維護的範例工作區並安裝 SDK：
 \`\`\`bash
-git clone https://github.com/RIDCorix/netcrawl2.git workspace
-cd workspace/workspace_example
+git clone https://github.com/Starscribers/netcrawl-workspace.git workspace
+cd workspace
 uv sync
 \`\`\`
 
-\`workspace/workspace_example/\` 資料夾包含：
+\`workspace/\` 資料夾包含：
 - \`main.py\` — 進入點（註冊你的 Worker）
 - \`workers/\` — 你的 Worker 類別放這裡`,
     },
 
     {
       title: '設定 main.py',
-      content: `用編輯器開啟 \`workspace/workspace_example/main.py\`，找到 \`NetCrawl(...)\` 的部分，更新 **伺服器 URL**。
+      content: `用編輯器開啟 \`workspace/main.py\`，找到 \`NetCrawl(...)\` 的部分，更新 **伺服器 URL**。
 
 點擊右上角工具列的 **Connect** 按鈕（終端機圖示）取得你的伺服器 URL，然後修改：
 
@@ -67,7 +67,7 @@ uv sync
 
     {
       title: '執行 Code Server',
-      content: `在 \`workspace/workspace_example/\` 資料夾中啟動你的 Python code server：
+      content: `在 \`workspace/\` 資料夾中啟動你的 Python code server：
 
 \`\`\`bash
 uv run main.py

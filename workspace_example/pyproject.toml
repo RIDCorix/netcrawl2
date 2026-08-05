@@ -1,8 +1,0 @@
-[project]
-name = "netcrawl-workspace"
-version = "0.1.0"
-description = "Starter workspace for NetCrawl"
-requires-python = ">=3.10"
-dependencies = [
-    "netcrawl-sdk",
-]

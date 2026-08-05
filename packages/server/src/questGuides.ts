@@ -29,21 +29,21 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 curl -LsSf https://astral.sh/uv/install.sh | sh
 \`\`\`
 
-**Step 2:** Clone NetCrawl's maintained starter workspace and install the SDK:
+**Step 2:** Clone NetCrawl's maintained standalone workspace and install the SDK:
 \`\`\`bash
-git clone https://github.com/RIDCorix/netcrawl2.git workspace
-cd workspace/workspace_example
+git clone https://github.com/Starscribers/netcrawl-workspace.git workspace
+cd workspace
 uv sync
 \`\`\`
 
-The \`workspace/workspace_example/\` folder contains:
+The \`workspace/\` folder contains:
 - \`main.py\` — entry point (registers your workers)
 - \`workers/\` — your worker classes go here`,
     },
 
     {
       title: 'Configure main.py',
-      content: `Open \`workspace/workspace_example/main.py\` in your editor. Find the \`NetCrawl(...)\` section and update the **server URL**.
+      content: `Open \`workspace/main.py\` in your editor. Find the \`NetCrawl(...)\` section and update the **server URL**.
 
 Click the **Connect** button (terminal icon, top-right) to get your server URL, then edit:
 
@@ -72,7 +72,7 @@ If you're on the **cloud version**, also replace the \`api_key\` with the API Ke
 
     {
       title: 'Run Your Code Server',
-      content: `Now start your Python code server. In the \`workspace/workspace_example/\` folder:
+      content: `Now start your Python code server. In the \`workspace/\` folder:
 
 \`\`\`bash
 uv run main.py

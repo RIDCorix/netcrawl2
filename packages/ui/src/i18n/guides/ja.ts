@@ -3,16 +3,21 @@ import type { GuideStep } from './types';
 // Japanese translations — start with key quests, expand later
 export const ja: Record<string, GuideStep[]> = {
   q_setup: [
-    { title: 'VSCodeをインストール', content: `NetCrawlのワーカーはPythonスクリプトです。コードエディタが必要です。
+    {
+      title: 'VSCodeをインストール',
+      content: `NetCrawlのワーカーはPythonスクリプトです。コードエディタが必要です。
 
 [code.visualstudio.com](https://code.visualstudio.com) から **Visual Studio Code** をダウンロードしてインストールしてください。
 
 **Python拡張機能**もインストール：
 1. VSCodeを開く
 2. \`Ctrl+Shift+X\`（拡張機能）を押す
-3. "Python" を検索 → Microsoft Python拡張機能をインストール` },
+3. "Python" を検索 → Microsoft Python拡張機能をインストール`,
+    },
 
-    { title: 'ワークスペースの設定', content: `**uv**（Pythonパッケージマネージャー）をインストールし、ワークスペースをクローン：
+    {
+      title: 'ワークスペースの設定',
+      content: `**uv**（Pythonパッケージマネージャー）をインストールし、ワークスペースをクローン：
 
 **uv インストール — Windows (PowerShell)：**
 \`\`\`powershell
@@ -26,16 +31,19 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 **NetCrawl が管理するサンプルをクローンしてインストール：**
 \`\`\`bash
-git clone https://github.com/RIDCorix/netcrawl2.git workspace
-cd workspace/workspace_example
+git clone https://github.com/Starscribers/netcrawl-workspace.git workspace
+cd workspace
 uv sync
 \`\`\`
 
-\`workspace/workspace_example/\` フォルダには以下が含まれます：
+\`workspace/\` フォルダには以下が含まれます：
 - \`main.py\` — エントリーポイント（ワーカーの登録）
-- \`workers/\` — ワーカークラスはここに` },
+- \`workers/\` — ワーカークラスはここに`,
+    },
 
-    { title: 'main.py の設定', content: `\`workspace/workspace_example/main.py\` をエディタで開き、**サーバーURL**を更新します。
+    {
+      title: 'main.py の設定',
+      content: `\`workspace/main.py\` をエディタで開き、**サーバーURL**を更新します。
 
 ツールバー右上の **Connect** ボタン（ターミナルアイコン）をクリックしてURLを取得：
 
@@ -48,9 +56,12 @@ uv sync
   )
 \`\`\`
 
-**クラウド版**の場合は \`api_key\` も置き換えてください。` },
+**クラウド版**の場合は \`api_key\` も置き換えてください。`,
+    },
 
-    { title: 'コードサーバーを実行', content: `\`workspace/workspace_example/\` フォルダでPythonコードサーバーを起動：
+    {
+      title: 'コードサーバーを実行',
+      content: `\`workspace/\` フォルダでPythonコードサーバーを起動：
 
 \`\`\`bash
 uv run main.py
@@ -64,6 +75,7 @@ uv run main.py
 
 **コードサーバーがゲームサーバーに接続されると、このクエストは自動的に完了します！**
 
-🎉 接続成功後、ワーカーのデプロイボタンが有効になります。` },
+🎉 接続成功後、ワーカーのデプロイボタンが有効になります。`,
+    },
   ],
 };

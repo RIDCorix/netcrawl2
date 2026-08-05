@@ -155,7 +155,7 @@ export const zhTW: Record<string, string> = {
   'deploy.equip_item': '裝備 {item}',
   'deploy.remove_item': '卸下 {item}',
   'deploy.empty_slot': '空的 {slot} 欄位',
-  'quest.q_setup.desc': '下載 VSCode、複製 workspace_example，並連接 code server 以開始遊戲。',
+  'quest.q_setup.desc': '開啟 NetCrawl 維護的工作區，並連接 code server 以開始遊戲。',
 
   'quest.claim_all': '一鍵領取全部',
   'quest.q_ch1_challenge.name': '第一章 跳級挑戰',

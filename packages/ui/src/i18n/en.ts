@@ -158,7 +158,7 @@ export const en: Record<string, string> = {
   'deploy.equip_item': 'Equip {item}',
   'deploy.remove_item': 'Remove {item}',
   'deploy.empty_slot': 'Empty {slot} slot',
-  'quest.q_setup.desc': 'Download VSCode, copy workspace_example, and connect your code server to start the game.',
+  'quest.q_setup.desc': 'Open the maintained NetCrawl workspace and connect your code server to start the game.',
 
   'quest.claim_all': 'Claim All',
   'quest.q_ch1_challenge.name': 'Chapter 1 Challenge',

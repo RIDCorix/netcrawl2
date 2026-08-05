@@ -40,7 +40,7 @@ export interface QuestDef {
   name: string;
   description: string;
   codeConcept: string;
-  mainline: boolean;     // part of the main sequential line
+  mainline: boolean; // part of the main sequential line
   prerequisites: string[];
   objectives: QuestObjective[];
   rewards: RewardType[];
@@ -53,14 +53,14 @@ export interface QuestDef {
 // ── Chapter metadata ───────────────────────────────────────────────────────
 
 export const CHAPTER_COLORS: Record<number, string> = {
-  1: '#4ade80',   // Getting Started
-  2: '#60a5fa',   // Automation
-  3: '#a78bfa',   // Networking
-  4: '#ef4444',   // Security
-  5: '#f59e0b',   // Infrastructure
-  6: '#00d4aa',   // Optimization
-  7: '#ec4899',   // System Design
-  8: '#8b5cf6',   // Mastery
+  1: '#4ade80', // Getting Started
+  2: '#60a5fa', // Automation
+  3: '#a78bfa', // Networking
+  4: '#ef4444', // Security
+  5: '#f59e0b', // Infrastructure
+  6: '#00d4aa', // Optimization
+  7: '#ec4899', // System Design
+  8: '#8b5cf6', // Mastery
 };
 
 export const CHAPTER_NAMES: Record<number, string> = {
@@ -96,25 +96,41 @@ export const QUESTS: QuestDef[] = [
 
   // ── Mainline ──
   {
-    id: 'q_setup', chapter: 1, name: 'Dev Setup', codeConcept: 'Environment',
-    description: 'Download VSCode, copy workspace_example, and connect your code server to the game.',
-    mainline: true, prerequisites: [],
-    objectives: [{ id: 'o1', description: 'Connect code server', statKey: 'code_server_connected', target: 1, type: 'stat_gte' }],
+    id: 'q_setup',
+    chapter: 1,
+    name: 'Dev Setup',
+    codeConcept: 'Environment',
+    description: 'Open the maintained NetCrawl workspace and connect your code server to the game.',
+    mainline: true,
+    prerequisites: [],
+    objectives: [
+      { id: 'o1', description: 'Connect code server', statKey: 'code_server_connected', target: 1, type: 'stat_gte' },
+    ],
     rewards: [{ kind: 'resources', resources: { data: 20000 } }],
     position: { x: 400, y: 0 },
   },
   {
-    id: 'q_hello_world', chapter: 1, name: 'Hello World', codeConcept: 'Worker Lifecycle',
+    id: 'q_hello_world',
+    chapter: 1,
+    name: 'Hello World',
+    codeConcept: 'Worker Lifecycle',
     description: 'on_startup() runs once, on_loop() repeats forever — deploy your first worker.',
-    mainline: true, prerequisites: ['q_setup'],
-    objectives: [{ id: 'o1', description: 'Deploy 1 worker', statKey: 'total_workers_deployed', target: 1, type: 'stat_gte' }],
+    mainline: true,
+    prerequisites: ['q_setup'],
+    objectives: [
+      { id: 'o1', description: 'Deploy 1 worker', statKey: 'total_workers_deployed', target: 1, type: 'stat_gte' },
+    ],
     rewards: [{ kind: 'resources', resources: { data: 10000 } }],
     position: { x: 400, y: 150 },
   },
   {
-    id: 'q_method_call', chapter: 1, name: 'Method Call', codeConcept: 'Methods',
+    id: 'q_method_call',
+    chapter: 1,
+    name: 'Method Call',
+    codeConcept: 'Methods',
     description: 'self.mine(), self.collect(), self.deposit() — call methods to make things happen.',
-    mainline: true, prerequisites: ['q_hello_world'],
+    mainline: true,
+    prerequisites: ['q_hello_world'],
     objectives: [
       { id: 'o1', description: 'Mine a resource node', statKey: 'total_mines', target: 1, type: 'stat_gte' },
       { id: 'o2', description: 'Deposit at hub', statKey: 'total_deposits', target: 1, type: 'stat_gte' },
@@ -126,10 +142,16 @@ export const QUESTS: QuestDef[] = [
     position: { x: 400, y: 300 },
   },
   {
-    id: 'q_dot_notation', chapter: 1, name: 'Dot Notation', codeConcept: 'Attributes',
+    id: 'q_dot_notation',
+    chapter: 1,
+    name: 'Dot Notation',
+    codeConcept: 'Attributes',
     description: 'node.node_type, item.item_type — read properties to understand your world.',
-    mainline: true, prerequisites: ['q_method_call'],
-    objectives: [{ id: 'o1', description: 'Unlock 1 node', statKey: 'total_nodes_unlocked', target: 1, type: 'stat_gte' }],
+    mainline: true,
+    prerequisites: ['q_method_call'],
+    objectives: [
+      { id: 'o1', description: 'Unlock 1 node', statKey: 'total_nodes_unlocked', target: 1, type: 'stat_gte' },
+    ],
     rewards: [
       { kind: 'recipe_unlock', recipeId: 'shield', name: 'Shield' },
       { kind: 'resources', resources: { data: 30000 } },
@@ -137,32 +159,73 @@ export const QUESTS: QuestDef[] = [
     position: { x: 400, y: 600 },
   },
   {
-    id: 'q_conditions', chapter: 1, name: 'If Statement', codeConcept: 'Conditionals',
+    id: 'q_conditions',
+    chapter: 1,
+    name: 'If Statement',
+    codeConcept: 'Conditionals',
     description: 'if self.holding.type == "bad_data": self.discard() — filter contaminated data before depositing.',
-    mainline: true, prerequisites: ['q_dot_notation'],
+    mainline: true,
+    prerequisites: ['q_dot_notation'],
     objectives: [
-      { id: 'o1', description: 'Discard 100 bad data', statKey: 'total_bad_data_discarded', target: 100, type: 'stat_gte' },
-      { id: 'o2', description: 'Deposit 1 kB data total', statKey: 'total_data_deposited', target: 1000, type: 'stat_gte' },
+      {
+        id: 'o1',
+        description: 'Discard 100 bad data',
+        statKey: 'total_bad_data_discarded',
+        target: 100,
+        type: 'stat_gte',
+      },
+      {
+        id: 'o2',
+        description: 'Deposit 1 kB data total',
+        statKey: 'total_data_deposited',
+        target: 1000,
+        type: 'stat_gte',
+      },
     ],
     rewards: [
       { kind: 'recipe_unlock', recipeId: 'cpu_basic', name: 'CPU Module' },
-      { kind: 'passive', effectId: 'harvest_speed_5', description: '+5% harvest speed', effect: { global_harvest_speed_mult: 1.05 } },
+      {
+        kind: 'passive',
+        effectId: 'harvest_speed_5',
+        description: '+5% harvest speed',
+        effect: { global_harvest_speed_mult: 1.05 },
+      },
     ],
     position: { x: 400, y: 900 },
   },
   {
-    id: 'q_operators', chapter: 1, name: 'Operators', codeConcept: 'Operators',
+    id: 'q_operators',
+    chapter: 1,
+    name: 'Operators',
+    codeConcept: 'Operators',
     description: 'a + b, a - b, a * b — head east to the Operator Academy and solve a compute puzzle.',
-    mainline: true, prerequisites: ['q_conditions'],
-    objectives: [{ id: 'o1', description: 'Solve 1 compute puzzle', statKey: 'total_puzzles_solved', target: 1, type: 'stat_gte' }],
-    rewards: [{ kind: 'passive', effectId: 'defense_1', description: '+1 global defense', effect: { global_defense_bonus: 1 } }],
+    mainline: true,
+    prerequisites: ['q_conditions'],
+    objectives: [
+      { id: 'o1', description: 'Solve 1 compute puzzle', statKey: 'total_puzzles_solved', target: 1, type: 'stat_gte' },
+    ],
+    rewards: [
+      { kind: 'passive', effectId: 'defense_1', description: '+1 global defense', effect: { global_defense_bonus: 1 } },
+    ],
     position: { x: 400, y: 1200 },
   },
   {
-    id: 'q_while_loop', chapter: 1, name: 'While Loop', codeConcept: 'While Loops',
+    id: 'q_while_loop',
+    chapter: 1,
+    name: 'While Loop',
+    codeConcept: 'While Loops',
     description: 'while self.has_dropped_items(): collect and filter — repeat until done.',
-    mainline: true, prerequisites: ['q_operators'],
-    objectives: [{ id: 'o1', description: 'Deposit 2 kB data total', statKey: 'total_data_deposited', target: 2000, type: 'stat_gte' }],
+    mainline: true,
+    prerequisites: ['q_operators'],
+    objectives: [
+      {
+        id: 'o1',
+        description: 'Deposit 2 kB data total',
+        statKey: 'total_data_deposited',
+        target: 2000,
+        type: 'stat_gte',
+      },
+    ],
     rewards: [
       { kind: 'recipe_unlock', recipeId: 'ram_basic', name: 'RAM Module' },
       { kind: 'recipe_unlock', recipeId: 'pickaxe_iron', name: 'Iron Pickaxe' },
@@ -171,9 +234,13 @@ export const QUESTS: QuestDef[] = [
     position: { x: 400, y: 1500 },
   },
   {
-    id: 'q_for_loop', chapter: 1, name: 'For Loop', codeConcept: 'For Loops',
+    id: 'q_for_loop',
+    chapter: 1,
+    name: 'For Loop',
+    codeConcept: 'For Loops',
     description: 'for edge in self.route: reach distant mines with multi-node paths.',
-    mainline: true, prerequisites: ['q_while_loop'],
+    mainline: true,
+    prerequisites: ['q_while_loop'],
     objectives: [{ id: 'o1', description: 'Mine 20 times', statKey: 'total_mines', target: 20, type: 'stat_gte' }],
     rewards: [
       { kind: 'recipe_unlock', recipeId: 'beacon', name: 'Beacon' },
@@ -185,40 +252,82 @@ export const QUESTS: QuestDef[] = [
 
   // ── Side quests ──
   {
-    id: 'q_craft_first', chapter: 1, name: 'First Craft', codeConcept: 'Constructors',
+    id: 'q_craft_first',
+    chapter: 1,
+    name: 'First Craft',
+    codeConcept: 'Constructors',
     description: 'Create something new. Craft any item from the crafting menu.',
-    mainline: false, prerequisites: ['q_method_call'],
+    mainline: false,
+    prerequisites: ['q_method_call'],
     objectives: [{ id: 'o1', description: 'Craft 1 item', statKey: 'total_crafts', target: 1, type: 'stat_gte' }],
     rewards: [{ kind: 'resources', resources: { data: 20000 } }],
     position: { x: 0, y: 200 },
   },
   {
-    id: 'q_ch1_challenge', chapter: 1, name: 'Chapter 1 Challenge', codeConcept: 'Skip Exam',
-    description: 'Already know Python basics? Reach the Observatory in the far NW corner and solve its Calculator puzzle to skip all Chapter 1 quests.',
-    mainline: false, prerequisites: ['q_setup'],
+    id: 'q_ch1_challenge',
+    chapter: 1,
+    name: 'Chapter 1 Challenge',
+    codeConcept: 'Skip Exam',
+    description:
+      'Already know Python basics? Reach the Observatory in the far NW corner and solve its Calculator puzzle to skip all Chapter 1 quests.',
+    mainline: false,
+    prerequisites: ['q_setup'],
     objectives: [
-      { id: 'o1', description: 'Solve the Observatory Calculator (NW corner)', statKey: 'observatory_solved', target: 1, type: 'stat_gte' },
+      {
+        id: 'o1',
+        description: 'Solve the Observatory Calculator (NW corner)',
+        statKey: 'observatory_solved',
+        target: 1,
+        type: 'stat_gte',
+      },
     ],
     rewards: [
       { kind: 'resources', resources: { data: 200000, rp: 10 } },
-      { kind: 'items', items: [{ itemType: 'pickaxe_iron', count: 2, metadata: { efficiency: 1.5 } }, { itemType: 'shield', count: 1 }] },
-      { kind: 'passive', effectId: 'ch1_skip_bonus', description: 'Chapter 1 mastery: +10% harvest speed', effect: { global_harvest_speed_mult: 1.1 } },
+      {
+        kind: 'items',
+        items: [
+          { itemType: 'pickaxe_iron', count: 2, metadata: { efficiency: 1.5 } },
+          { itemType: 'shield', count: 1 },
+        ],
+      },
+      {
+        kind: 'passive',
+        effectId: 'ch1_skip_bonus',
+        description: 'Chapter 1 mastery: +10% harvest speed',
+        effect: { global_harvest_speed_mult: 1.1 },
+      },
     ],
     position: { x: 800, y: 0 },
     skipChapter: 1,
   },
   {
-    id: 'q_try_except', chapter: 1, name: 'Try / Except', codeConcept: 'Error Handling',
+    id: 'q_try_except',
+    chapter: 1,
+    name: 'Try / Except',
+    codeConcept: 'Error Handling',
     description: 'try: self.collect() except Error: recover() — handle the unexpected.',
-    mainline: false, prerequisites: ['q_while_loop'],
-    objectives: [{ id: 'o1', description: 'Deploy 3 workers total', statKey: 'total_workers_deployed', target: 3, type: 'stat_gte' }],
+    mainline: false,
+    prerequisites: ['q_while_loop'],
+    objectives: [
+      {
+        id: 'o1',
+        description: 'Deploy 3 workers total',
+        statKey: 'total_workers_deployed',
+        target: 3,
+        type: 'stat_gte',
+      },
+    ],
     rewards: [{ kind: 'items', items: [{ itemType: 'shield', count: 1 }] }],
     position: { x: 700, y: 1650 },
   },
   {
-    id: 'q_cluster_mining', chapter: 1, name: 'Cluster Mining', codeConcept: 'Sensor + For Loop',
+    id: 'q_cluster_mining',
+    chapter: 1,
+    name: 'Cluster Mining',
+    codeConcept: 'Sensor + For Loop',
     description: 'Use AdvancedSensor to scan edges, then for-loop through nearby mines.',
-    mainline: false, prerequisites: ['q_for_loop'],
+    mainline: false,
+    prerequisites: ['q_for_loop'],
     objectives: [{ id: 'o1', description: 'Mine 50 times', statKey: 'total_mines', target: 50, type: 'stat_gte' }],
     rewards: [
       { kind: 'items', items: [{ itemType: 'beacon', count: 1 }] },
@@ -233,18 +342,34 @@ export const QUESTS: QuestDef[] = [
 
   // ── Mainline ──
   {
-    id: 'q_event_loop', chapter: 2, name: 'Event Loop', codeConcept: 'Loops',
-    description: 'Your worker\'s on_loop() runs forever. Make it mine 30 times.',
-    mainline: true, prerequisites: ['q_for_loop'],
+    id: 'q_event_loop',
+    chapter: 2,
+    name: 'Event Loop',
+    codeConcept: 'Loops',
+    description: "Your worker's on_loop() runs forever. Make it mine 30 times.",
+    mainline: true,
+    prerequisites: ['q_for_loop'],
     objectives: [{ id: 'o1', description: 'Mine 30 times', statKey: 'total_mines', target: 30, type: 'stat_gte' }],
     rewards: [{ kind: 'resources', resources: { data: 100000 } }],
     position: { x: 400, y: 0 },
   },
   {
-    id: 'q_accumulator', chapter: 2, name: 'Accumulator Pattern', codeConcept: 'State',
+    id: 'q_accumulator',
+    chapter: 2,
+    name: 'Accumulator Pattern',
+    codeConcept: 'State',
     description: 'total = 0; for item in items: total += item. Deposit 200 kB data total.',
-    mainline: true, prerequisites: ['q_event_loop'],
-    objectives: [{ id: 'o1', description: 'Deposit 200 kB data', statKey: 'total_data_deposited', target: 200000, type: 'stat_gte' }],
+    mainline: true,
+    prerequisites: ['q_event_loop'],
+    objectives: [
+      {
+        id: 'o1',
+        description: 'Deposit 200 kB data',
+        statKey: 'total_data_deposited',
+        target: 200000,
+        type: 'stat_gte',
+      },
+    ],
     rewards: [
       { kind: 'recipe_unlock', recipeId: 'pickaxe_diamond', name: 'Diamond Pickaxe' },
       { kind: 'recipe_unlock', recipeId: 'cpu_advanced', name: 'CPU Module II' },
@@ -254,28 +379,56 @@ export const QUESTS: QuestDef[] = [
     position: { x: 400, y: 300 },
   },
   {
-    id: 'q_multiprocessing', chapter: 2, name: 'Multiprocessing', codeConcept: 'Concurrency',
+    id: 'q_multiprocessing',
+    chapter: 2,
+    name: 'Multiprocessing',
+    codeConcept: 'Concurrency',
     description: 'One worker is a thread. Deploy multiple for parallelism.',
-    mainline: true, prerequisites: ['q_accumulator'],
-    objectives: [{ id: 'o1', description: 'Have 3+ workers at once', statKey: 'total_workers_deployed', target: 3, type: 'stat_gte' }],
+    mainline: true,
+    prerequisites: ['q_accumulator'],
+    objectives: [
+      {
+        id: 'o1',
+        description: 'Have 3+ workers at once',
+        statKey: 'total_workers_deployed',
+        target: 3,
+        type: 'stat_gte',
+      },
+    ],
     rewards: [{ kind: 'recipe_unlock', recipeId: 'scanner', name: 'Scanner' }],
     position: { x: 400, y: 600 },
   },
 
   // ── Side quests ──
   {
-    id: 'q_batch_craft', chapter: 2, name: 'Batch Processing', codeConcept: 'Iteration',
+    id: 'q_batch_craft',
+    chapter: 2,
+    name: 'Batch Processing',
+    codeConcept: 'Iteration',
     description: '[craft(x) for x in materials] — craft multiple items.',
-    mainline: false, prerequisites: ['q_event_loop'],
+    mainline: false,
+    prerequisites: ['q_event_loop'],
     objectives: [{ id: 'o1', description: 'Craft 3 items', statKey: 'total_crafts', target: 3, type: 'stat_gte' }],
     rewards: [{ kind: 'items', items: [{ itemType: 'chip_pack_basic', count: 1 }] }],
     position: { x: 0, y: 150 },
   },
   {
-    id: 'q_error_handling', chapter: 2, name: 'Try / Except', codeConcept: 'Error Handling',
+    id: 'q_error_handling',
+    chapter: 2,
+    name: 'Try / Except',
+    codeConcept: 'Error Handling',
     description: 'Things break. The key is recovering. Deploy 5 workers to learn resilience.',
-    mainline: false, prerequisites: ['q_event_loop'],
-    objectives: [{ id: 'o1', description: 'Deploy 5 workers total', statKey: 'total_workers_deployed', target: 5, type: 'stat_gte' }],
+    mainline: false,
+    prerequisites: ['q_event_loop'],
+    objectives: [
+      {
+        id: 'o1',
+        description: 'Deploy 5 workers total',
+        statKey: 'total_workers_deployed',
+        target: 5,
+        type: 'stat_gte',
+      },
+    ],
     rewards: [{ kind: 'items', items: [{ itemType: 'shield', count: 1 }] }],
     position: { x: 700, y: 150 },
   },
@@ -286,36 +439,79 @@ export const QUESTS: QuestDef[] = [
 
   // ── Mainline ──
   {
-    id: 'q_graph_theory', chapter: 3, name: 'Graph Theory', codeConcept: 'Graphs',
+    id: 'q_graph_theory',
+    chapter: 3,
+    name: 'Graph Theory',
+    codeConcept: 'Graphs',
     description: 'Networks are graphs: nodes connected by edges. Unlock 3 nodes.',
-    mainline: true, prerequisites: ['q_multiprocessing'],
-    objectives: [{ id: 'o1', description: 'Unlock 3 nodes', statKey: 'total_nodes_unlocked', target: 3, type: 'stat_gte' }],
-    rewards: [{ kind: 'passive', effectId: 'unlock_discount', description: '-10% unlock cost', effect: { node_unlock_cost_mult: 0.9 } }],
+    mainline: true,
+    prerequisites: ['q_multiprocessing'],
+    objectives: [
+      { id: 'o1', description: 'Unlock 3 nodes', statKey: 'total_nodes_unlocked', target: 3, type: 'stat_gte' },
+    ],
+    rewards: [
+      {
+        kind: 'passive',
+        effectId: 'unlock_discount',
+        description: '-10% unlock cost',
+        effect: { node_unlock_cost_mult: 0.9 },
+      },
+    ],
     position: { x: 400, y: 0 },
   },
   {
-    id: 'q_routing', chapter: 3, name: 'Packet Routing', codeConcept: 'BFS / Pathfinding',
+    id: 'q_routing',
+    chapter: 3,
+    name: 'Packet Routing',
+    codeConcept: 'BFS / Pathfinding',
     description: 'Data finds the shortest path. Use move_through() with routes.',
-    mainline: true, prerequisites: ['q_graph_theory'],
-    objectives: [{ id: 'o1', description: 'Deposit 200 kB data', statKey: 'total_data_deposited', target: 200000, type: 'stat_gte' }],
+    mainline: true,
+    prerequisites: ['q_graph_theory'],
+    objectives: [
+      {
+        id: 'o1',
+        description: 'Deposit 200 kB data',
+        statKey: 'total_data_deposited',
+        target: 200000,
+        type: 'stat_gte',
+      },
+    ],
     rewards: [{ kind: 'items', items: [{ itemType: 'beacon', count: 2 }] }],
     position: { x: 400, y: 300 },
   },
 
   // ── Side quests ──
   {
-    id: 'q_dns', chapter: 3, name: 'DNS Resolution', codeConcept: 'Name Resolution',
+    id: 'q_dns',
+    chapter: 3,
+    name: 'DNS Resolution',
+    codeConcept: 'Name Resolution',
     description: 'Use get_current_node() to resolve node info by position.',
-    mainline: false, prerequisites: ['q_graph_theory'],
-    objectives: [{ id: 'o1', description: 'Deploy 6 workers total', statKey: 'total_workers_deployed', target: 6, type: 'stat_gte' }],
+    mainline: false,
+    prerequisites: ['q_graph_theory'],
+    objectives: [
+      {
+        id: 'o1',
+        description: 'Deploy 6 workers total',
+        statKey: 'total_workers_deployed',
+        target: 6,
+        type: 'stat_gte',
+      },
+    ],
     rewards: [{ kind: 'chips', chips: [{ chipType: 'move_speed_1', rarity: 'common' }] }],
     position: { x: 700, y: 150 },
   },
   {
-    id: 'q_relay_topology', chapter: 3, name: 'Network Topology', codeConcept: 'Topology',
+    id: 'q_relay_topology',
+    chapter: 3,
+    name: 'Network Topology',
+    codeConcept: 'Topology',
     description: 'Relay nodes connect segments. Unlock 4 nodes to see the full topology.',
-    mainline: false, prerequisites: ['q_graph_theory'],
-    objectives: [{ id: 'o1', description: 'Unlock 4 nodes', statKey: 'total_nodes_unlocked', target: 4, type: 'stat_gte' }],
+    mainline: false,
+    prerequisites: ['q_graph_theory'],
+    objectives: [
+      { id: 'o1', description: 'Unlock 4 nodes', statKey: 'total_nodes_unlocked', target: 4, type: 'stat_gte' },
+    ],
     rewards: [{ kind: 'recipe_unlock', recipeId: 'signal_booster', name: 'Signal Booster' }],
     position: { x: 0, y: 150 },
   },
@@ -326,36 +522,76 @@ export const QUESTS: QuestDef[] = [
 
   // ── Mainline ──
   {
-    id: 'q_if_statement', chapter: 4, name: 'If Statement', codeConcept: 'Conditionals',
+    id: 'q_if_statement',
+    chapter: 4,
+    name: 'If Statement',
+    codeConcept: 'Conditionals',
     description: 'if node.infected: repair(node). Repair your first infected node.',
-    mainline: true, prerequisites: ['q_routing'],
-    objectives: [{ id: 'o1', description: 'Repair 1 infected node', statKey: 'total_repairs', target: 1, type: 'stat_gte' }],
-    rewards: [{ kind: 'passive', effectId: 'defense_1', description: '+1 global defense', effect: { global_defense_bonus: 1 } }],
+    mainline: true,
+    prerequisites: ['q_routing'],
+    objectives: [
+      { id: 'o1', description: 'Repair 1 infected node', statKey: 'total_repairs', target: 1, type: 'stat_gte' },
+    ],
+    rewards: [
+      { kind: 'passive', effectId: 'defense_1', description: '+1 global defense', effect: { global_defense_bonus: 1 } },
+    ],
     position: { x: 400, y: 0 },
   },
   {
-    id: 'q_firewall', chapter: 4, name: 'Firewall Rules', codeConcept: 'Input Validation',
+    id: 'q_firewall',
+    chapter: 4,
+    name: 'Firewall Rules',
+    codeConcept: 'Input Validation',
     description: 'Validate before you act. Install chips to protect nodes.',
-    mainline: true, prerequisites: ['q_if_statement'],
-    objectives: [{ id: 'o1', description: 'Install 2 chips', statKey: 'total_chips_installed', target: 2, type: 'stat_gte' }],
+    mainline: true,
+    prerequisites: ['q_if_statement'],
+    objectives: [
+      { id: 'o1', description: 'Install 2 chips', statKey: 'total_chips_installed', target: 2, type: 'stat_gte' },
+    ],
     rewards: [{ kind: 'chips', chips: [{ chipType: 'defense_2', rarity: 'rare' }] }],
     position: { x: 400, y: 300 },
   },
 
   // ── Side quests ──
   {
-    id: 'q_antivirus', chapter: 4, name: 'Antivirus Daemon', codeConcept: 'Background Process',
+    id: 'q_antivirus',
+    chapter: 4,
+    name: 'Antivirus Daemon',
+    codeConcept: 'Background Process',
     description: 'A Guardian worker that auto-repairs. Repair 3 infections total.',
-    mainline: false, prerequisites: ['q_if_statement'],
-    objectives: [{ id: 'o1', description: 'Repair 3 infections', statKey: 'total_repairs', target: 3, type: 'stat_gte' }],
-    rewards: [{ kind: 'unique_equipment', itemType: 'antivirus_module', name: 'Antivirus Module', description: 'Shield with auto-repair', metadata: { efficiency: 2.0, autoRepair: true } }],
+    mainline: false,
+    prerequisites: ['q_if_statement'],
+    objectives: [
+      { id: 'o1', description: 'Repair 3 infections', statKey: 'total_repairs', target: 3, type: 'stat_gte' },
+    ],
+    rewards: [
+      {
+        kind: 'unique_equipment',
+        itemType: 'antivirus_module',
+        name: 'Antivirus Module',
+        description: 'Shield with auto-repair',
+        metadata: { efficiency: 2.0, autoRepair: true },
+      },
+    ],
     position: { x: 0, y: 150 },
   },
   {
-    id: 'q_token_auth', chapter: 4, name: 'Token Auth', codeConcept: 'Authentication',
+    id: 'q_token_auth',
+    chapter: 4,
+    name: 'Token Auth',
+    codeConcept: 'Authentication',
     description: 'Always check has_token before responding to API requests. Complete 5 API requests safely.',
-    mainline: false, prerequisites: ['q_firewall'],
-    objectives: [{ id: 'o1', description: 'Complete 5 API requests', statKey: 'total_api_requests_completed', target: 5, type: 'stat_gte' }],
+    mainline: false,
+    prerequisites: ['q_firewall'],
+    objectives: [
+      {
+        id: 'o1',
+        description: 'Complete 5 API requests',
+        statKey: 'total_api_requests_completed',
+        target: 5,
+        type: 'stat_gte',
+      },
+    ],
     rewards: [{ kind: 'resources', resources: { credits: 10 } }],
     position: { x: 700, y: 200 },
   },
@@ -366,36 +602,72 @@ export const QUESTS: QuestDef[] = [
 
   // ── Mainline ──
   {
-    id: 'q_build_first', chapter: 5, name: 'First Structure', codeConcept: 'Infrastructure as Code',
+    id: 'q_build_first',
+    chapter: 5,
+    name: 'First Structure',
+    codeConcept: 'Infrastructure as Code',
     description: 'Build your first structure on an empty node. The network is yours to shape.',
-    mainline: true, prerequisites: ['q_firewall'],
-    objectives: [{ id: 'o1', description: 'Build a structure', statKey: 'total_structures_built', target: 1, type: 'stat_gte' }],
+    mainline: true,
+    prerequisites: ['q_firewall'],
+    objectives: [
+      { id: 'o1', description: 'Build a structure', statKey: 'total_structures_built', target: 1, type: 'stat_gte' },
+    ],
     rewards: [{ kind: 'resources', resources: { data: 200000 } }],
     position: { x: 400, y: 0 },
   },
   {
-    id: 'q_compute_node', chapter: 5, name: 'Compute Service', codeConcept: 'Microservices',
+    id: 'q_compute_node',
+    chapter: 5,
+    name: 'Compute Service',
+    codeConcept: 'Microservices',
     description: 'Solve compute puzzles to earn RP. Each service has a single responsibility.',
-    mainline: true, prerequisites: ['q_build_first'],
-    objectives: [{ id: 'o1', description: 'Solve 5 puzzles', statKey: 'total_puzzles_solved', target: 5, type: 'stat_gte' }],
+    mainline: true,
+    prerequisites: ['q_build_first'],
+    objectives: [
+      { id: 'o1', description: 'Solve 5 puzzles', statKey: 'total_puzzles_solved', target: 5, type: 'stat_gte' },
+    ],
     rewards: [{ kind: 'recipe_unlock', recipeId: 'overclock_kit', name: 'Overclock Kit' }],
     position: { x: 400, y: 300 },
   },
 
   // ── Side quests ──
   {
-    id: 'q_redundancy', chapter: 5, name: 'Redundancy', codeConcept: 'Fault Tolerance',
+    id: 'q_redundancy',
+    chapter: 5,
+    name: 'Redundancy',
+    codeConcept: 'Fault Tolerance',
     description: 'Never rely on a single point of failure. Deploy 8 workers across the network.',
-    mainline: false, prerequisites: ['q_build_first'],
-    objectives: [{ id: 'o1', description: 'Deploy 8 workers total', statKey: 'total_workers_deployed', target: 8, type: 'stat_gte' }],
+    mainline: false,
+    prerequisites: ['q_build_first'],
+    objectives: [
+      {
+        id: 'o1',
+        description: 'Deploy 8 workers total',
+        statKey: 'total_workers_deployed',
+        target: 8,
+        type: 'stat_gte',
+      },
+    ],
     rewards: [{ kind: 'resources', resources: { data: 200000 } }],
     position: { x: 0, y: 150 },
   },
   {
-    id: 'q_api_service', chapter: 5, name: 'API Gateway', codeConcept: 'API Design',
+    id: 'q_api_service',
+    chapter: 5,
+    name: 'API Gateway',
+    codeConcept: 'API Design',
     description: 'Build an API node and serve your first external request.',
-    mainline: false, prerequisites: ['q_build_first'],
-    objectives: [{ id: 'o1', description: 'Complete 1 API request', statKey: 'total_api_requests_completed', target: 1, type: 'stat_gte' }],
+    mainline: false,
+    prerequisites: ['q_build_first'],
+    objectives: [
+      {
+        id: 'o1',
+        description: 'Complete 1 API request',
+        statKey: 'total_api_requests_completed',
+        target: 1,
+        type: 'stat_gte',
+      },
+    ],
     rewards: [{ kind: 'resources', resources: { credits: 5 } }],
     position: { x: 700, y: 150 },
   },
@@ -406,17 +678,32 @@ export const QUESTS: QuestDef[] = [
 
   // ── Mainline ──
   {
-    id: 'q_upgrade_node', chapter: 6, name: 'Profiling', codeConcept: 'Performance',
+    id: 'q_upgrade_node',
+    chapter: 6,
+    name: 'Profiling',
+    codeConcept: 'Performance',
     description: 'Measure before optimizing. Upgrade a node to see the difference.',
-    mainline: true, prerequisites: ['q_compute_node'],
+    mainline: true,
+    prerequisites: ['q_compute_node'],
     objectives: [{ id: 'o1', description: 'Upgrade a node', statKey: 'total_upgrades', target: 1, type: 'stat_gte' }],
-    rewards: [{ kind: 'passive', effectId: 'harvest_speed_15', description: '+15% harvest speed', effect: { global_harvest_speed_mult: 1.15 } }],
+    rewards: [
+      {
+        kind: 'passive',
+        effectId: 'harvest_speed_15',
+        description: '+15% harvest speed',
+        effect: { global_harvest_speed_mult: 1.15 },
+      },
+    ],
     position: { x: 400, y: 0 },
   },
   {
-    id: 'q_max_upgrade', chapter: 6, name: 'Max Level', codeConcept: 'Vertical Scaling',
+    id: 'q_max_upgrade',
+    chapter: 6,
+    name: 'Max Level',
+    codeConcept: 'Vertical Scaling',
     description: 'Push a single node to its limits. Max out an upgrade (LV3).',
-    mainline: true, prerequisites: ['q_upgrade_node'],
+    mainline: true,
+    prerequisites: ['q_upgrade_node'],
     objectives: [{ id: 'o1', description: 'Max a node (LV3)', statKey: 'max_node_level', target: 3, type: 'stat_gte' }],
     rewards: [{ kind: 'chips', chips: [{ chipType: 'overclock', rarity: 'legendary' }] }],
     position: { x: 400, y: 300 },
@@ -424,18 +711,37 @@ export const QUESTS: QuestDef[] = [
 
   // ── Side quests ──
   {
-    id: 'q_caching', chapter: 6, name: 'Caching', codeConcept: 'Memoization',
+    id: 'q_caching',
+    chapter: 6,
+    name: 'Caching',
+    codeConcept: 'Memoization',
     description: 'Build a Cache Node and use get_service() to store computed results.',
-    mainline: false, prerequisites: ['q_upgrade_node'],
-    objectives: [{ id: 'o1', description: 'Build a cache node', statKey: 'total_structures_built', target: 1, type: 'stat_gte' }],
-    rewards: [{ kind: 'passive', effectId: 'cache_bonus', description: '+20% cache capacity', effect: { cache_capacity_mult: 1.2 } }],
+    mainline: false,
+    prerequisites: ['q_upgrade_node'],
+    objectives: [
+      { id: 'o1', description: 'Build a cache node', statKey: 'total_structures_built', target: 1, type: 'stat_gte' },
+    ],
+    rewards: [
+      {
+        kind: 'passive',
+        effectId: 'cache_bonus',
+        description: '+20% cache capacity',
+        effect: { cache_capacity_mult: 1.2 },
+      },
+    ],
     position: { x: 0, y: 150 },
   },
   {
-    id: 'q_chip_gacha', chapter: 6, name: 'Big O Notation', codeConcept: 'Complexity',
+    id: 'q_chip_gacha',
+    chapter: 6,
+    name: 'Big O Notation',
+    codeConcept: 'Complexity',
     description: 'Analyze distributions. Open chip packs to study randomness.',
-    mainline: false, prerequisites: ['q_upgrade_node'],
-    objectives: [{ id: 'o1', description: 'Open 5 chip packs', statKey: 'total_packs_opened', target: 5, type: 'stat_gte' }],
+    mainline: false,
+    prerequisites: ['q_upgrade_node'],
+    objectives: [
+      { id: 'o1', description: 'Open 5 chip packs', statKey: 'total_packs_opened', target: 5, type: 'stat_gte' },
+    ],
     rewards: [{ kind: 'chips', chips: [{ chipType: 'production_rate_2', rarity: 'rare' }] }],
     position: { x: 700, y: 150 },
   },
@@ -446,37 +752,88 @@ export const QUESTS: QuestDef[] = [
 
   // ── Mainline ──
   {
-    id: 'q_ha', chapter: 7, name: 'High Availability', codeConcept: 'HA / Redundancy',
+    id: 'q_ha',
+    chapter: 7,
+    name: 'High Availability',
+    codeConcept: 'HA / Redundancy',
     description: 'Multiple workers on the same node = redundancy. Deploy 3 workers to one API node.',
-    mainline: true, prerequisites: ['q_max_upgrade'],
-    objectives: [{ id: 'o1', description: 'Complete 10 API requests', statKey: 'total_api_requests_completed', target: 10, type: 'stat_gte' }],
-    rewards: [{ kind: 'passive', effectId: 'worker_speed', description: '+10% worker speed', effect: { global_move_speed_mult: 0.9 } }],
+    mainline: true,
+    prerequisites: ['q_max_upgrade'],
+    objectives: [
+      {
+        id: 'o1',
+        description: 'Complete 10 API requests',
+        statKey: 'total_api_requests_completed',
+        target: 10,
+        type: 'stat_gte',
+      },
+    ],
+    rewards: [
+      {
+        kind: 'passive',
+        effectId: 'worker_speed',
+        description: '+10% worker speed',
+        effect: { global_move_speed_mult: 0.9 },
+      },
+    ],
     position: { x: 400, y: 0 },
   },
   {
-    id: 'q_load_balance', chapter: 7, name: 'Load Balancing', codeConcept: 'Distribution',
+    id: 'q_load_balance',
+    chapter: 7,
+    name: 'Load Balancing',
+    codeConcept: 'Distribution',
     description: 'Distribute work across multiple nodes. Mine from 3 different resource nodes.',
-    mainline: true, prerequisites: ['q_ha'],
-    objectives: [{ id: 'o1', description: 'Deposit 500 kB data', statKey: 'total_data_deposited', target: 500000, type: 'stat_gte' }],
+    mainline: true,
+    prerequisites: ['q_ha'],
+    objectives: [
+      {
+        id: 'o1',
+        description: 'Deposit 500 kB data',
+        statKey: 'total_data_deposited',
+        target: 500000,
+        type: 'stat_gte',
+      },
+    ],
     rewards: [{ kind: 'resources', resources: { credits: 20 } }],
     position: { x: 400, y: 300 },
   },
 
   // ── Side quests ──
   {
-    id: 'q_solve_many', chapter: 7, name: 'Horizontal Scaling', codeConcept: 'Scale Out',
+    id: 'q_solve_many',
+    chapter: 7,
+    name: 'Horizontal Scaling',
+    codeConcept: 'Scale Out',
     description: 'Solve 20 puzzles to prove compute capacity.',
-    mainline: false, prerequisites: ['q_ha'],
-    objectives: [{ id: 'o1', description: 'Solve 20 puzzles', statKey: 'total_puzzles_solved', target: 20, type: 'stat_gte' }],
+    mainline: false,
+    prerequisites: ['q_ha'],
+    objectives: [
+      { id: 'o1', description: 'Solve 20 puzzles', statKey: 'total_puzzles_solved', target: 20, type: 'stat_gte' },
+    ],
     rewards: [{ kind: 'chips', chips: [{ chipType: 'harvest_speed_3', rarity: 'rare' }] }],
     position: { x: 0, y: 150 },
   },
   {
-    id: 'q_earn_credits', chapter: 7, name: 'Revenue Model', codeConcept: 'Monetization',
+    id: 'q_earn_credits',
+    chapter: 7,
+    name: 'Revenue Model',
+    codeConcept: 'Monetization',
     description: 'Earn 50 credits from API requests. Time is money.',
-    mainline: false, prerequisites: ['q_ha'],
-    objectives: [{ id: 'o1', description: 'Earn 50 credits', statKey: 'total_credits_earned', target: 50, type: 'stat_gte' }],
-    rewards: [{ kind: 'unique_equipment', itemType: 'memory_allocator', name: 'Memory Allocator', description: '3.0x efficiency pickaxe', metadata: { efficiency: 3.0 } }],
+    mainline: false,
+    prerequisites: ['q_ha'],
+    objectives: [
+      { id: 'o1', description: 'Earn 50 credits', statKey: 'total_credits_earned', target: 50, type: 'stat_gte' },
+    ],
+    rewards: [
+      {
+        kind: 'unique_equipment',
+        itemType: 'memory_allocator',
+        name: 'Memory Allocator',
+        description: '3.0x efficiency pickaxe',
+        metadata: { efficiency: 3.0 },
+      },
+    ],
     position: { x: 700, y: 150 },
   },
 
@@ -486,30 +843,66 @@ export const QUESTS: QuestDef[] = [
 
   // ── Mainline ──
   {
-    id: 'q_architect', chapter: 8, name: 'Software Architect', codeConcept: 'Architecture',
+    id: 'q_architect',
+    chapter: 8,
+    name: 'Software Architect',
+    codeConcept: 'Architecture',
     description: 'Master the full stack. Unlock everything, craft everything.',
-    mainline: true, prerequisites: ['q_load_balance'],
+    mainline: true,
+    prerequisites: ['q_load_balance'],
     objectives: [
       { id: 'o1', description: 'Unlock 30 nodes', statKey: 'total_nodes_unlocked', target: 30, type: 'stat_gte' },
-      { id: 'o2', description: 'Craft all base recipes', statKey: 'crafted_recipes', target: 5, type: 'stat_array_length' },
+      {
+        id: 'o2',
+        description: 'Craft all base recipes',
+        statKey: 'crafted_recipes',
+        target: 5,
+        type: 'stat_array_length',
+      },
     ],
     rewards: [
-      { kind: 'passive', effectId: 'harvest_speed_25', description: '+25% harvest speed', effect: { global_harvest_speed_mult: 1.25 } },
+      {
+        kind: 'passive',
+        effectId: 'harvest_speed_25',
+        description: '+25% harvest speed',
+        effect: { global_harvest_speed_mult: 1.25 },
+      },
       { kind: 'chips', chips: [{ chipType: 'overclock', rarity: 'legendary' }] },
     ],
     position: { x: 400, y: 0 },
   },
   {
-    id: 'q_full_stack', chapter: 8, name: 'Full Stack Dev', codeConcept: 'Mastery',
-    description: 'You\'ve mastered it all. The network bends to your will.',
-    mainline: true, prerequisites: ['q_architect'],
+    id: 'q_full_stack',
+    chapter: 8,
+    name: 'Full Stack Dev',
+    codeConcept: 'Mastery',
+    description: "You've mastered it all. The network bends to your will.",
+    mainline: true,
+    prerequisites: ['q_architect'],
     objectives: [
       { id: 'o1', description: 'Deploy 20 workers', statKey: 'total_workers_deployed', target: 20, type: 'stat_gte' },
-      { id: 'o2', description: 'Deposit 1 MB data', statKey: 'total_data_deposited', target: 1000000, type: 'stat_gte' },
+      {
+        id: 'o2',
+        description: 'Deposit 1 MB data',
+        statKey: 'total_data_deposited',
+        target: 1000000,
+        type: 'stat_gte',
+      },
     ],
     rewards: [
-      { kind: 'unique_equipment', itemType: 'fullstack_pickaxe', name: 'Full Stack Pickaxe', description: '5.0x efficiency legendary', metadata: { efficiency: 5.0 } },
-      { kind: 'passive', effectId: 'carry_capacity', description: '+20 carry capacity', effect: { global_capacity_bonus: 20 } },
+      {
+        kind: 'unique_equipment',
+        itemType: 'fullstack_pickaxe',
+        name: 'Full Stack Pickaxe',
+        description: '5.0x efficiency legendary',
+        metadata: { efficiency: 5.0 },
+      },
+      {
+        kind: 'passive',
+        effectId: 'carry_capacity',
+        description: '+20 carry capacity',
+        effect: { global_capacity_bonus: 20 },
+      },
     ],
     position: { x: 400, y: 300 },
   },

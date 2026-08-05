@@ -21,7 +21,7 @@ packages/desktop/renderer/
 packages/docs/dist/
 packages/docs/.astro/
 
-# Player workspace (copy from workspace_example/ to start)
+# Local player workspace (clone Starscribers/netcrawl-workspace to start)
 workspace/
 
 .creative-mode/
