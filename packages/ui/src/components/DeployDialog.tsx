@@ -37,6 +37,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
   const workerClasses = storeWorkerClasses as WorkerClassEntry[];
   const dialogRef = useRef<HTMLDivElement>(null);
   const routePickerRef = useRef<HTMLDivElement>(null);
+  const selectingRouteRef = useRef<string | null>(null);
   const routeReturnFocusRef = useRef<string | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
@@ -151,6 +152,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
   const completeEdgeSelect = useCallback(
     (fieldName: string, edge: { id: string; source: string; target: string }) => {
       setRoutes(prev => ({ ...prev, [fieldName]: [edge] }));
+      selectingRouteRef.current = null;
       setSelectingRoute(null);
       setEdgeSelectMode(null);
     },
@@ -182,6 +184,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
 
   const startRouteSelect = useCallback(
     (fieldName: string, fieldType: 'edge' | 'route') => {
+      selectingRouteRef.current = fieldName;
       routeReturnFocusRef.current = fieldName;
       setSelectingRoute(fieldName);
       if (fieldType === 'edge') {
@@ -202,6 +205,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
   );
 
   const finishRouteSelect = useCallback(() => {
+    selectingRouteRef.current = null;
     setSelectingRoute(null);
     setEdgeSelectMode(null);
     setNodeSelectMode(null);
@@ -209,23 +213,25 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
   }, [setEdgeSelectMode, setNodeSelectMode]);
 
   const cancelRouteSelect = useCallback(() => {
-    if (selectingRoute) {
+    const fieldName = selectingRouteRef.current;
+    if (fieldName) {
       setRoutes(prev => {
         const n = { ...prev };
-        delete n[selectingRoute];
+        delete n[fieldName];
         return n;
       });
       setRouteNodes(prev => {
         const n = { ...prev };
-        delete n[selectingRoute];
+        delete n[fieldName];
         return n;
       });
     }
+    selectingRouteRef.current = null;
     setSelectingRoute(null);
     setEdgeSelectMode(null);
     setNodeSelectMode(null);
     setState({ routePath: [] });
-  }, [setEdgeSelectMode, setNodeSelectMode, selectingRoute]);
+  }, [setEdgeSelectMode, setNodeSelectMode]);
 
   const handleDeploy = async () => {
     if (!selectedClass || deploying || deployed) return;
@@ -300,7 +306,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
   }, [onClose, setEdgeSelectMode]);
 
   const handleDialogKeyDown = useCallback((event: KeyboardEvent) => {
-    if (selectingRoute && event.key === 'Escape') {
+    if (selectingRouteRef.current && event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
       cancelRouteSelect();
@@ -320,7 +326,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
     }
     if (event.key !== 'Tab') return;
 
-    const focusContainer = selectingRoute ? routePickerRef.current : dialogRef.current;
+    const focusContainer = selectingRouteRef.current ? routePickerRef.current : dialogRef.current;
     const focusable = Array.from(
       focusContainer?.querySelectorAll<HTMLElement>(DIALOG_FOCUSABLE_SELECTOR) || [],
     ).filter(element => element.getClientRects().length > 0 && element.getAttribute('aria-hidden') !== 'true');
@@ -344,7 +350,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
       event.preventDefault();
       first.focus();
     }
-  }, [cancelRouteSelect, handleClose, selectingRoute]);
+  }, [cancelRouteSelect, handleClose]);
 
   useEffect(() => {
     document.addEventListener('keydown', handleDialogKeyDown, true);
@@ -453,9 +459,10 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
           style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
         >
           {routeSlot?.fieldType === 'edge'
-            ? compatibleEdges.map(edge => (
+            ? compatibleEdges.map((edge, index) => (
                 <button
                   key={edge.id}
+                  autoFocus={index === 0}
                   onClick={() => completeEdgeSelect(selectingRoute, edge)}
                   style={{
                     padding: '6px 10px',
@@ -471,9 +478,10 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
                   {getNodeLabel(edge.source)} ↔ {getNodeLabel(edge.target)}
                 </button>
               ))
-            : compatibleNodes.map(node => (
+            : compatibleNodes.map((node, index) => (
                 <button
                   key={node.id}
+                  autoFocus={index === 0}
                   onClick={() => selectRouteNode(selectingRoute, node.id)}
                   style={{
                     padding: '6px 10px',
@@ -509,6 +517,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
           </button>
         )}
         <button
+          autoFocus={(routeSlot?.fieldType === 'edge' ? compatibleEdges : compatibleNodes).length === 0}
           onClick={cancelRouteSelect}
           style={{
             padding: '6px 12px',
