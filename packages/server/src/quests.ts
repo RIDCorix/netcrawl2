@@ -17,19 +17,19 @@ import { CHIP_DEFS } from './upgradeDefinitions.js';
 
 // ── Objective evaluation ────────────────────────────────────────────────────
 
-export function evaluateObjective(obj: QuestObjective): { met: boolean; current: number; target: number } {
+export function evaluateObjective(obj: QuestObjective, userId?: string): { met: boolean; current: number; target: number } {
   switch (obj.type) {
     case 'stat_gte': {
-      const current = getStat(obj.statKey);
+      const current = getStat(obj.statKey, userId);
       return { met: current >= obj.target, current, target: obj.target };
     }
     case 'stat_array_includes': {
-      const arr = getStatArray(obj.statKey);
+      const arr = getStatArray(obj.statKey, userId);
       const has = obj.statArrayValue ? arr.includes(obj.statArrayValue) : false;
       return { met: has, current: has ? 1 : 0, target: 1 };
     }
     case 'stat_array_length': {
-      const arr = getStatArray(obj.statKey);
+      const arr = getStatArray(obj.statKey, userId);
       return { met: arr.length >= obj.target, current: arr.length, target: obj.target };
     }
     default:
@@ -40,26 +40,26 @@ export function evaluateObjective(obj: QuestObjective): { met: boolean; current:
 // ── State machine ───────────────────────────────────────────────────────────
 
 /** Initialize quests that have no status yet. First quest starts as 'available'. */
-function ensureQuestInit() {
+function ensureQuestInit(userId?: string) {
   for (const q of QUESTS) {
-    if (!getQuestStatus(q.id)) {
+    if (!getQuestStatus(q.id, userId)) {
       if (q.prerequisites.length === 0) {
-        setQuestStatus(q.id, 'available');
+        setQuestStatus(q.id, 'available', userId);
       } else {
-        setQuestStatus(q.id, 'locked');
+        setQuestStatus(q.id, 'locked', userId);
       }
     }
   }
 }
 
 /** Promote locked → available when all prerequisites are claimed. */
-function checkAvailability(): QuestDef[] {
+function checkAvailability(userId?: string): QuestDef[] {
   const newlyAvailable: QuestDef[] = [];
   for (const q of QUESTS) {
-    if (getQuestStatus(q.id) !== 'locked') continue;
-    const allPreqsClaimed = q.prerequisites.every(pid => getQuestStatus(pid) === 'claimed');
+    if (getQuestStatus(q.id, userId) !== 'locked') continue;
+    const allPreqsClaimed = q.prerequisites.every(pid => getQuestStatus(pid, userId) === 'claimed');
     if (allPreqsClaimed) {
-      setQuestStatus(q.id, 'available');
+      setQuestStatus(q.id, 'available', userId);
       newlyAvailable.push(q);
     }
   }
@@ -67,13 +67,13 @@ function checkAvailability(): QuestDef[] {
 }
 
 /** Promote available → completed when all objectives are met. */
-function checkCompletion(): QuestDef[] {
+function checkCompletion(userId?: string): QuestDef[] {
   const newlyCompleted: QuestDef[] = [];
   for (const q of QUESTS) {
-    if (getQuestStatus(q.id) !== 'available') continue;
-    const allMet = q.objectives.every(obj => evaluateObjective(obj).met);
+    if (getQuestStatus(q.id, userId) !== 'available') continue;
+    const allMet = q.objectives.every(obj => evaluateObjective(obj, userId).met);
     if (allMet) {
-      setQuestStatus(q.id, 'completed');
+      setQuestStatus(q.id, 'completed', userId);
       newlyCompleted.push(q);
     }
   }
@@ -84,10 +84,10 @@ function checkCompletion(): QuestDef[] {
 
 export function checkQuests(userId?: string): void {
   const effectiveUserId = userId || getCurrentUserId() || undefined;
-  ensureQuestInit();
+  ensureQuestInit(effectiveUserId);
 
-  const newAvail = checkAvailability();
-  const newComplete = checkCompletion();
+  const newAvail = checkAvailability(effectiveUserId);
+  const newComplete = checkCompletion(effectiveUserId);
 
   for (const q of newAvail) {
     broadcast({ type: 'QUEST_AVAILABLE', payload: { id: q.id, name: q.name, chapter: q.chapter } }, effectiveUserId);
@@ -180,8 +180,8 @@ export function claimQuestReward(questId: string, userId?: string): { ok: boolea
   }
 
   // Cascade: claiming may unlock new quests
-  checkAvailability();
-  checkCompletion();
+  checkAvailability(uid);
+  checkCompletion(uid);
 
   return { ok: true };
 }
@@ -189,12 +189,12 @@ export function claimQuestReward(questId: string, userId?: string): { ok: boolea
 // ── API helpers ─────────────────────────────────────────────────────────────
 
 export function getQuestList(userId?: string) {
-  ensureQuestInit();
+  ensureQuestInit(userId);
   return QUESTS.map(q => {
-    const status = getQuestStatus(q.id) || 'locked';
+    const status = getQuestStatus(q.id, userId) || 'locked';
     const objectives = q.objectives.map(obj => ({
       ...obj,
-      ...evaluateObjective(obj),
+      ...evaluateObjective(obj, userId),
     }));
     return {
       id: q.id,
@@ -225,7 +225,7 @@ export function getQuestEdges() {
 }
 
 export function getQuestSummary(userId?: string) {
-  ensureQuestInit();
+  ensureQuestInit(userId);
   const state = getQuestState(userId);
   const statuses = state.questStatus;
   return {

@@ -100,6 +100,22 @@ try {
   assert.equal((await request('/api/worker/action', tokenA, { workerId, action: 'mine', payload: {} })).body.ok, true);
   assert.equal(getPlayerInventory(userA).some(item => item.itemType === 'pickaxe_basic'), false);
 
+  // Successful discard/deposit actions must update the same authenticated
+  // user's quest objectives and never leak progress to another user.
+  worker = getWorker(workerId, userA);
+  upsertWorker({ ...worker, current_node: 'hub', holding: [{ type: 'bad_data', count: 7 }] }, userA);
+  assert.equal((await request('/api/worker/action', tokenA, { workerId, action: 'discard', payload: {} })).body.ok, true);
+  upsertWorker({ ...getWorker(workerId, userA), holding: [{ type: 'data_fragment', count: 11 }] }, userA);
+  assert.equal((await request('/api/worker/action', tokenA, { workerId, action: 'deposit', payload: {} })).body.ok, true);
+  const userAQuests = (await request('/api/quests', tokenA)).body.quests;
+  const userBQuests = (await request('/api/quests', tokenB)).body.quests;
+  const conditionsA = userAQuests.find(quest => quest.id === 'q_conditions');
+  const conditionsB = userBQuests.find(quest => quest.id === 'q_conditions');
+  assert.equal(conditionsA.objectives.find(objective => objective.id === 'o1').current, 7);
+  assert.equal(conditionsA.objectives.find(objective => objective.id === 'o2').current, 11);
+  assert.equal(conditionsB.objectives.find(objective => objective.id === 'o1').current, 0);
+  assert.equal(conditionsB.objectives.find(objective => objective.id === 'o2').current, 0);
+
   // A late failure ACK cannot crash the live worker, restore inventory, or release ownership.
   const staleFailure = await request('/api/deploy-ack', tokenA, { workerId, error: 'late failure' });
   assert.equal(staleFailure.body.duplicate, true);
@@ -196,7 +212,7 @@ try {
   assert.equal(getWorker(workerId, userA)?.flopAllocated, true);
   assert.equal(getWorker(uniqueDeploy.body.workerId, userA)?.flopAllocated, false);
 
-  console.log('Deploy route integration: 77 assertions passed');
+  console.log('Deploy route integration: 83 assertions passed');
 } catch (error) {
   console.error(error);
   process.exitCode = 1;
