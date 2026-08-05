@@ -10,10 +10,11 @@ import { ClassStep, WorkerClassEntry } from './deploy/ClassStep';
 import { RoutesStep } from './deploy/RoutesStep';
 import { EquipmentStep } from './deploy/EquipmentStep';
 import { ConfirmStep } from './deploy/ConfirmStep';
+import { getEquipmentDefinition } from '@netcrawl/equipment-catalog';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-const COMPUTE_COSTS: Record<string, number> = { pickaxe_basic: 1, pickaxe_iron: 1, pickaxe_diamond: 2, beacon: 1 };
+const getComputeCost = (itemType: string) => getEquipmentDefinition(itemType)?.computeCost ?? 0;
 const BASE_COMPUTE = 1;
 const BASE_CAPACITY = 50;
 const RAM_CAPACITY_MULT = 50;
@@ -98,7 +99,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
   const currentRam = ramPerUnit[currentUnitIdx] || 0;
   const totalCompute = BASE_COMPUTE + currentCpu;
   const totalCapacity = BASE_CAPACITY + currentRam * RAM_CAPACITY_MULT;
-  const usedCompute = Object.values(equipped).reduce((s, itemType) => s + (COMPUTE_COSTS[itemType] || 0), 0);
+  const usedCompute = Object.values(equipped).reduce((s, itemType) => s + getComputeCost(itemType), 0);
 
   const cpuOwned = playerInventory.find(i => i.itemType === 'cpu_basic')?.count || 0;
   const ramOwned = playerInventory.find(i => i.itemType === 'ram_basic')?.count || 0;
@@ -292,7 +293,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
         const unitEquip = equippedPerUnit[i] || {};
         const unitCpu = cpuPerUnit[i] || 0;
         const unitCompute = 1 + unitCpu;
-        const unitCost = Object.values(unitEquip).reduce((s, t) => s + (COMPUTE_COSTS[t] || 0), 0);
+        const unitCost = Object.values(unitEquip).reduce((s, t) => s + getComputeCost(t), 0);
         if (unitCost > unitCompute) return false;
       }
       return true;

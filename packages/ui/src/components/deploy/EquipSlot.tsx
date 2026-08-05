@@ -2,11 +2,14 @@ import React, { useState, DragEvent } from 'react';
 import { Package, Pickaxe, Shield, Radio, Cpu, MemoryStick } from 'lucide-react';
 import { InventoryItem } from '../../store/gameStore';
 import { ITEM_LABELS, ITEM_COLORS } from '../../constants/colors';
+import { getAcceptedItems } from '@netcrawl/equipment-catalog';
 
 export const ITEM_ICONS: Record<string, any> = {
   pickaxe_basic: Pickaxe,
   pickaxe_iron: Pickaxe,
   pickaxe_diamond: Pickaxe,
+  memory_allocator: Pickaxe,
+  fullstack_pickaxe: Pickaxe,
   shield: Shield,
   beacon: Radio,
   cpu_basic: Cpu,
@@ -16,11 +19,11 @@ export const ITEM_ICONS: Record<string, any> = {
 };
 
 export const SLOT_ACCEPTS: Record<string, string[]> = {
-  Pickaxe: ['pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond'],
-  Shield: ['shield'],
-  Beacon: ['beacon'],
-  CPU: ['cpu_basic', 'cpu_advanced'],
-  RAM: ['ram_basic', 'ram_advanced'],
+  Pickaxe: getAcceptedItems('Pickaxe'),
+  Shield: getAcceptedItems('Shield'),
+  Beacon: getAcceptedItems('Beacon'),
+  CPU: getAcceptedItems('CPU'),
+  RAM: getAcceptedItems('RAM'),
 };
 
 export function EquipSlot({

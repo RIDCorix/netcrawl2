@@ -2,6 +2,7 @@
  * Player inventory management — add/remove items, item stat lookups.
  */
 
+import { getEquipmentDefinition } from '@netcrawl/equipment-catalog';
 import { resolveStore } from '../store.js';
 import type { InventoryItem } from '../types.js';
 
@@ -39,40 +40,20 @@ export function removeFromPlayerInventory(itemType: string, count: number, userI
 }
 
 export function getItemEfficiency(itemType: string): number {
-  const effMap: Record<string, number> = {
-    pickaxe_basic: 1.0,
-    pickaxe_iron: 1.5,
-    pickaxe_diamond: 2.5,
-  };
-  return effMap[itemType] ?? 1.0;
+  return getEquipmentDefinition(itemType)?.efficiency ?? 1;
 }
 
 /** Compute points provided by a CPU item */
 export function getCpuComputePoints(itemType: string): number {
-  const cpuMap: Record<string, number> = {
-    cpu_basic: 1,
-    cpu_advanced: 2,
-  };
-  return cpuMap[itemType] ?? 0;
+  return getEquipmentDefinition(itemType)?.computePoints ?? 0;
 }
 
 /** Carrying capacity bonus provided by a RAM item */
 export function getRamCapacityBonus(itemType: string): number {
-  const ramMap: Record<string, number> = {
-    ram_basic: 2,
-    ram_advanced: 4,
-  };
-  return ramMap[itemType] ?? 0;
+  return getEquipmentDefinition(itemType)?.capacityBonus ?? 0;
 }
 
 /** Compute points required to equip an item */
 export function getItemComputeCost(itemType: string): number {
-  const costMap: Record<string, number> = {
-    pickaxe_basic: 1,
-    pickaxe_iron: 1,
-    pickaxe_diamond: 2,
-    shield: 0,
-    beacon: 1,
-  };
-  return costMap[itemType] ?? 0;
+  return getEquipmentDefinition(itemType)?.computeCost ?? 0;
 }

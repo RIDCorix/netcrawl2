@@ -1,0 +1,13 @@
+{
+  "pickaxe_basic": { "slot": "Pickaxe", "efficiency": 1, "computeCost": 1 },
+  "pickaxe_iron": { "slot": "Pickaxe", "efficiency": 1.5, "computeCost": 1 },
+  "pickaxe_diamond": { "slot": "Pickaxe", "efficiency": 2.5, "computeCost": 2 },
+  "memory_allocator": { "slot": "Pickaxe", "efficiency": 3, "computeCost": 0 },
+  "fullstack_pickaxe": { "slot": "Pickaxe", "efficiency": 5, "computeCost": 0 },
+  "shield": { "slot": "Shield", "computeCost": 0 },
+  "beacon": { "slot": "Beacon", "computeCost": 1 },
+  "cpu_basic": { "slot": "CPU", "computePoints": 1 },
+  "cpu_advanced": { "slot": "CPU", "computePoints": 2 },
+  "ram_basic": { "slot": "RAM", "capacityBonus": 2 },
+  "ram_advanced": { "slot": "RAM", "capacityBonus": 4 }
+}

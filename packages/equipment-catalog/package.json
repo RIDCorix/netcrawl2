@@ -1,0 +1,14 @@
+{
+  "name": "@netcrawl/equipment-catalog",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "main": "index.cjs",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs",
+      "require": "./index.cjs"
+    }
+  }
+}

@@ -90,7 +90,19 @@ try {
   assert.equal(invalid.body.error, 'shield is not a valid Pickaxe');
   assert.equal(getPlayerInventory(userA).find(item => item.itemType === 'shield')?.count, 1);
 
-  console.log('Deploy route integration: 25 assertions passed');
+  // Unique quest Pickaxes use the same catalog-backed authorization and stats as crafted tools.
+  addToPlayerInventory('memory_allocator', 1, { efficiency: 3 }, userA);
+  const uniqueDeploy = await request('/api/deploy', tokenA, {
+    nodeId: 'hub', classId: 'miner_test', equippedItems: { mining_tool: 'memory_allocator' }, routes: { edge: 'e_hub_n1' },
+  });
+  assert.equal(uniqueDeploy.status, 200);
+  const uniqueQueue = await request('/api/deploy-queue', tokenA);
+  assert.equal(uniqueQueue.body.requests[0].injectedFields.mining_tool.itemType, 'memory_allocator');
+  assert.equal(uniqueQueue.body.requests[0].injectedFields.mining_tool.efficiency, 3);
+  assert.equal((await request('/api/deploy-ack', tokenA, { workerId: uniqueDeploy.body.workerId, pid: 4243 })).body.ok, true);
+  assert.equal(getWorker(uniqueDeploy.body.workerId, userA)?.equippedPickaxe?.efficiency, 3);
+
+  console.log('Deploy route integration: 30 assertions passed');
 } finally {
   await new Promise(resolve => server.close(resolve));
   rmSync(testDir, { recursive: true, force: true });

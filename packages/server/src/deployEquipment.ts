@@ -1,12 +1,12 @@
+import { getEquipmentDefinition } from '@netcrawl/equipment-catalog';
+
 export interface DeployField {
   type: string;
   item_type?: string;
 }
 
-const PICKAXE_ITEM_TYPES = new Set(['pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond']);
-
 export function isPickaxeItemType(itemType: string): boolean {
-  return PICKAXE_ITEM_TYPES.has(itemType);
+  return getEquipmentDefinition(itemType)?.slot === 'Pickaxe';
 }
 
 export type DeployAckDecision = 'spawn_succeeded' | 'spawn_failed' | 'duplicate';
