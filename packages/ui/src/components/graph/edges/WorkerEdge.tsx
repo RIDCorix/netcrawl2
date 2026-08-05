@@ -7,11 +7,19 @@ function TrafficDot({ color, reverse, pathData }: { color: string; reverse: bool
   // Let the SVG compositor move the dot. The previous implementation created
   // one JS animation-frame loop per dot and forced path geometry calculations
   // on every frame, which scales poorly in worker-heavy games.
+  const animationRef = React.useRef<SVGAnimateMotionElement>(null);
   const keyPoints = reverse ? '1;0;0' : '0;1;1';
+
+  React.useLayoutEffect(() => {
+    animationRef.current?.beginElement();
+  }, []);
+
   return (
     <circle r={4} fill={color} stroke="#000" strokeWidth={1}>
       <animateMotion
+        ref={animationRef}
         path={pathData}
+        begin="indefinite"
         dur="1.1s"
         repeatCount="1"
         fill="freeze"
