@@ -23,6 +23,7 @@ import { markCodeServerSeen } from '../codeServerTracker.js';
 import { broadcastFullState } from '../broadcastHelper.js';
 import { checkQuests } from '../quests.js';
 import { getUserId, returnWorkerItems, getWorkspacePath } from './helpers.js';
+import { rebuildInjectedEquipment } from '../deployEquipment.js';
 
 export const workerRoutes = Router();
 
@@ -65,6 +66,7 @@ workerRoutes.post('/worker/reset', (req: Request, res: Response) => {
 
   const worker = getWorker(workerId, uid);
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
+  const needsFlopAllocation = ['suspended', 'crashed', 'error'].includes(worker.status);
 
   if (['running', 'moving', 'harvesting', 'idle'].includes(worker.status)) {
     killWorker(workerId);
@@ -76,15 +78,6 @@ workerRoutes.post('/worker/reset', (req: Request, res: Response) => {
     }
   }
 
-  upsertWorker({
-    ...worker,
-    current_node: worker.node_id,
-    status: 'deploying',
-    pid: null,
-    holding: [],
-    carrying: {},
-  }, uid);
-
   const config = worker.deployConfig || {
     classId: (() => {
       const allClasses = getAllWorkerClasses(uid);
@@ -94,8 +87,23 @@ workerRoutes.post('/worker/reset', (req: Request, res: Response) => {
     equippedItems: {},
     injectedFields: {},
   };
+  const workerClass = getWorkerClass(config.classId, uid);
+  const injectedFields = workerClass
+    ? rebuildInjectedEquipment(workerClass.fields, config.injectedFields, config.equippedItems, worker.equippedPickaxe)
+    : config.injectedFields;
+  const refreshedConfig = { ...config, injectedFields };
 
-  if (!allocateFlop(FLOP_COSTS.worker, uid)) {
+  upsertWorker({
+    ...worker,
+    current_node: worker.node_id,
+    status: 'deploying',
+    pid: null,
+    holding: [],
+    carrying: {},
+    deployConfig: refreshedConfig,
+  }, uid);
+
+  if (needsFlopAllocation && !allocateFlop(FLOP_COSTS.worker, uid)) {
     upsertWorker({ ...worker, current_node: worker.node_id, status: 'suspended', pid: null, holding: [], carrying: {} }, uid);
     broadcastFullState(uid);
     return res.status(400).json({ error: 'Not enough FLOP' });
@@ -105,9 +113,9 @@ workerRoutes.post('/worker/reset', (req: Request, res: Response) => {
     id: worker.id,
     workerId: worker.id,
     nodeId: worker.node_id,
-    classId: config.classId,
-    equippedItems: config.equippedItems,
-    injectedFields: config.injectedFields,
+    classId: refreshedConfig.classId,
+    equippedItems: refreshedConfig.equippedItems,
+    injectedFields: refreshedConfig.injectedFields,
     createdAt: new Date().toISOString(),
   }, uid);
   broadcastFullState(uid);

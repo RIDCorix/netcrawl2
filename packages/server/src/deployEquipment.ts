@@ -32,3 +32,25 @@ export function resolvePickaxeSelection(
 
   return null;
 }
+
+/** Rebuild runtime injection from the authoritative worker equipment on restart/hot reload. */
+export function rebuildInjectedEquipment(
+  fields: Record<string, DeployField>,
+  injectedFields: Record<string, unknown> | undefined,
+  equippedItems: Record<string, string> | undefined,
+  equippedPickaxe: { itemType: string; efficiency: number } | null,
+): Record<string, unknown> {
+  const rebuilt = { ...(injectedFields || {}) };
+
+  // Remove the prior schema field so a renamed field cannot retain a stale proxy.
+  for (const [fieldName, itemType] of Object.entries(equippedItems || {})) {
+    if (isPickaxeItemType(itemType)) delete rebuilt[fieldName];
+  }
+
+  if (!equippedPickaxe) return rebuilt;
+  const currentField = Object.entries(fields).find(
+    ([, field]) => field.type === 'item' && field.item_type?.toLowerCase() === 'pickaxe',
+  );
+  if (currentField) rebuilt[currentField[0]] = { ...equippedPickaxe };
+  return rebuilt;
+}

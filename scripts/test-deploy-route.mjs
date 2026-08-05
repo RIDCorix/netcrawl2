@@ -73,6 +73,29 @@ try {
   assert.equal(getWorker(workerId, userA)?.equippedPickaxe?.itemType, 'pickaxe_basic');
   assert.equal((await request('/api/worker/action', tokenB, { workerId, action: 'mine', payload: {} })).body.error, 'Worker not found');
 
+  // A class edit/hot reload keeps authoritative equipment and injects it under
+  // the current schema field name before the same worker is spawned again.
+  const reloadedWorkerClass = {
+    ...workerClass,
+    fields: {
+      hot_tool: { type: 'item', field: 'hot_tool', item_type: 'Pickaxe', description: 'Reloaded Pickaxe' },
+      edge: workerClass.fields.edge,
+    },
+  };
+  assert.equal((await request('/api/worker-classes/register', tokenA, { classes: [reloadedWorkerClass] })).status, 200);
+  assert.equal((await request('/api/worker/reset', tokenA, { workerId })).body.ok, true);
+  const reloadQueue = await request('/api/deploy-queue', tokenA);
+  assert.equal(reloadQueue.body.requests.length, 1);
+  assert.equal(reloadQueue.body.requests[0].workerId, workerId);
+  assert.equal(reloadQueue.body.requests[0].injectedFields.hot_tool.itemType, 'pickaxe_basic');
+  assert.equal(reloadQueue.body.requests[0].injectedFields.mining_tool, undefined);
+  assert.equal((await request('/api/deploy-ack', tokenA, { workerId, pid: 4244 })).body.ok, true);
+  worker = getWorker(workerId, userA);
+  assert.equal(worker?.equippedPickaxe?.itemType, 'pickaxe_basic');
+  upsertWorker({ ...worker, current_node: 'n_relay1' }, userA);
+  assert.equal((await request('/api/worker/action', tokenA, { workerId, action: 'mine', payload: {} })).body.ok, true);
+  assert.equal(getPlayerInventory(userA).some(item => item.itemType === 'pickaxe_basic'), false);
+
   // A late failure ACK cannot crash the live worker, restore inventory, or release ownership.
   const staleFailure = await request('/api/deploy-ack', tokenA, { workerId, error: 'late failure' });
   assert.equal(staleFailure.body.duplicate, true);
@@ -102,7 +125,7 @@ try {
   assert.equal((await request('/api/deploy-ack', tokenA, { workerId: uniqueDeploy.body.workerId, pid: 4243 })).body.ok, true);
   assert.equal(getWorker(uniqueDeploy.body.workerId, userA)?.equippedPickaxe?.efficiency, 3);
 
-  console.log('Deploy route integration: 30 assertions passed');
+  console.log('Deploy route integration: 40 assertions passed');
 } finally {
   await new Promise(resolve => server.close(resolve));
   rmSync(testDir, { recursive: true, force: true });
