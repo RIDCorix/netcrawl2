@@ -12,6 +12,8 @@ const testDir = mkdtempSync(join(tmpdir(), 'netcrawl-deploy-route-'));
 const { startServer } = await import('../packages/server/.test-dist/index.js');
 const { getWorker, upsertWorker } = await import('../packages/server/.test-dist/domain/workers.js');
 const { addToPlayerInventory, getPlayerInventory } = await import('../packages/server/.test-dist/domain/inventory.js');
+const { getGameState } = await import('../packages/server/.test-dist/domain/gameState.js');
+const { FLOP_COSTS } = await import('../packages/server/.test-dist/types.js');
 
 const { server, port } = await startServer({ port: 0, dataDir: testDir });
 const base = `http://127.0.0.1:${port}`;
@@ -64,6 +66,7 @@ try {
   let worker = getWorker(workerId, userA);
   assert.equal(worker?.status, 'running');
   assert.equal(worker?.equippedPickaxe?.itemType, 'pickaxe_basic');
+  assert.equal(worker?.flopAllocated, true);
   assert.equal(getWorker(workerId, userB), null, 'worker row must be user-isolated');
 
   // Place the worker on the unlocked mine, then execute the real action route.
@@ -84,6 +87,7 @@ try {
   };
   assert.equal((await request('/api/worker-classes/register', tokenA, { classes: [reloadedWorkerClass] })).status, 200);
   assert.equal((await request('/api/worker/reset', tokenA, { workerId })).body.ok, true);
+  assert.equal(getGameState(userA).flop.used, FLOP_COSTS.worker, 'running hot reload must retain its allocation');
   const reloadQueue = await request('/api/deploy-queue', tokenA);
   assert.equal(reloadQueue.body.requests.length, 1);
   assert.equal(reloadQueue.body.requests[0].workerId, workerId);
@@ -107,7 +111,7 @@ try {
   // Crafted payloads cannot authorize mining with a non-Pickaxe inventory item.
   addToPlayerInventory('shield', 1, undefined, userA);
   const invalid = await request('/api/deploy', tokenA, {
-    nodeId: 'hub', classId: 'miner_test', equippedItems: { mining_tool: 'shield' }, routes: { edge: 'e_hub_n1' },
+    nodeId: 'hub', classId: 'miner_test', equippedItems: { hot_tool: 'shield' }, routes: { edge: 'e_hub_n1' },
   });
   assert.equal(invalid.status, 400);
   assert.equal(invalid.body.error, 'shield is not a valid Pickaxe');
@@ -116,19 +120,89 @@ try {
   // Unique quest Pickaxes use the same catalog-backed authorization and stats as crafted tools.
   addToPlayerInventory('memory_allocator', 1, { efficiency: 3 }, userA);
   const uniqueDeploy = await request('/api/deploy', tokenA, {
-    nodeId: 'hub', classId: 'miner_test', equippedItems: { mining_tool: 'memory_allocator' }, routes: { edge: 'e_hub_n1' },
+    nodeId: 'hub', classId: 'miner_test', equippedItems: { hot_tool: 'memory_allocator' }, routes: { edge: 'e_hub_n1' },
   });
   assert.equal(uniqueDeploy.status, 200);
   const uniqueQueue = await request('/api/deploy-queue', tokenA);
-  assert.equal(uniqueQueue.body.requests[0].injectedFields.mining_tool.itemType, 'memory_allocator');
-  assert.equal(uniqueQueue.body.requests[0].injectedFields.mining_tool.efficiency, 3);
+  assert.equal(uniqueQueue.body.requests[0].injectedFields.hot_tool.itemType, 'memory_allocator');
+  assert.equal(uniqueQueue.body.requests[0].injectedFields.hot_tool.efficiency, 3);
   assert.equal((await request('/api/deploy-ack', tokenA, { workerId: uniqueDeploy.body.workerId, pid: 4243 })).body.ok, true);
   assert.equal(getWorker(uniqueDeploy.body.workerId, userA)?.equippedPickaxe?.efficiency, 3);
 
-  console.log('Deploy route integration: 40 assertions passed');
+  // A failed spawn releases exactly its own allocation; resetting that crash
+  // reclaims once, and duplicate reset/ACK cannot change global ownership.
+  addToPlayerInventory('pickaxe_iron', 1, undefined, userA);
+  const failedDeploy = await request('/api/deploy', tokenA, {
+    nodeId: 'hub', classId: 'miner_test', equippedItems: { hot_tool: 'pickaxe_iron' }, routes: { edge: 'e_hub_n1' },
+  });
+  assert.equal(failedDeploy.status, 200);
+  const failedWorkerId = failedDeploy.body.workerId;
+  const usedBeforeFailedAck = getGameState(userA).flop.used;
+  assert.equal((await request('/api/deploy-ack', tokenA, { workerId: failedWorkerId, error: 'spawn failed' })).body.ok, true);
+  assert.equal(getWorker(failedWorkerId, userA)?.status, 'crashed');
+  assert.equal(getWorker(failedWorkerId, userA)?.flopAllocated, false);
+  assert.equal(getGameState(userA).flop.used, usedBeforeFailedAck - FLOP_COSTS.worker);
+  assert.equal((await request('/api/worker/reset', tokenA, { workerId: failedWorkerId })).body.ok, true);
+  const usedAfterCrashReset = getGameState(userA).flop.used;
+  assert.equal(getWorker(failedWorkerId, userA)?.flopAllocated, true);
+  assert.equal((await request('/api/worker/reset', tokenA, { workerId: failedWorkerId })).body.ok, true);
+  assert.equal(getGameState(userA).flop.used, usedAfterCrashReset, 'duplicate reset must not allocate twice');
+  assert.equal((await request('/api/deploy-ack', tokenA, { workerId: failedWorkerId, pid: 4245 })).body.ok, true);
+  assert.equal((await request('/api/deploy-ack', tokenA, { workerId: failedWorkerId, pid: 4245 })).body.duplicate, true);
+  assert.equal(getGameState(userA).flop.used, usedAfterCrashReset, 'duplicate ACK must not alter allocation');
+
+  // Fatal runtime errors retain the worker's explicit allocation, so recovery
+  // does not double-count it even though status changes to error.
+  assert.equal((await request('/api/worker/action', tokenA, {
+    workerId: failedWorkerId, action: 'report_error', payload: { message: 'fatal test error' },
+  })).body.ok, true);
+  assert.equal(getWorker(failedWorkerId, userA)?.status, 'error');
+  assert.equal(getWorker(failedWorkerId, userA)?.flopAllocated, true);
+  const usedBeforeErrorReset = getGameState(userA).flop.used;
+  assert.equal((await request('/api/worker/reset', tokenA, { workerId: failedWorkerId })).body.ok, true);
+  assert.equal(getGameState(userA).flop.used, usedBeforeErrorReset);
+
+  // Disconnect explicitly clears all ownership. Auto-resume then allocates
+  // only suspended workers, once each.
+  assert.equal((await request('/api/code-server/disconnect', tokenA, {})).body.ok, true);
+  assert.equal(getGameState(userA).flop.used, 0);
+  assert.equal(getWorker(workerId, userA)?.flopAllocated, false);
+  assert.equal(getWorker(uniqueDeploy.body.workerId, userA)?.flopAllocated, false);
+  const resumed = await request('/api/worker-classes/register', tokenA, { classes: [reloadedWorkerClass] });
+  assert.equal(resumed.status, 200);
+  assert.equal(resumed.body.resumed, 3);
+  assert.equal(getGameState(userA).flop.used, FLOP_COSTS.worker * 3);
+  assert.equal(getWorker(workerId, userA)?.flopAllocated, true);
+  assert.equal(getWorker(uniqueDeploy.body.workerId, userA)?.flopAllocated, true);
+
+  // A suspend failure leaves ownership explicit; reset must retain rather than
+  // infer from the suspended status and allocate again.
+  await request('/api/deploy-queue', tokenA);
+  assert.equal((await request('/api/deploy-ack', tokenA, { workerId, pid: 4246 })).body.ok, true);
+  assert.equal((await request('/api/worker/suspend', tokenA, { workerId })).body.ok, true);
+  assert.equal(getWorker(workerId, userA)?.status, 'suspended');
+  assert.equal(getWorker(workerId, userA)?.flopAllocated, true);
+  const usedBeforeSuspendedReset = getGameState(userA).flop.used;
+  assert.equal((await request('/api/worker/reset', tokenA, { workerId })).body.ok, true);
+  assert.equal(getGameState(userA).flop.used, usedBeforeSuspendedReset);
+
+  // Allocation failure rolls back only the requesting worker and never
+  // consumes or releases capacity owned by a second worker.
+  assert.equal((await request('/api/code-server/disconnect', tokenA, {})).body.ok, true);
+  getGameState(userA).flop.total = FLOP_COSTS.worker;
+  assert.equal((await request('/api/worker/reset', tokenA, { workerId })).body.ok, true);
+  assert.equal((await request('/api/worker/reset', tokenA, { workerId: uniqueDeploy.body.workerId })).status, 400);
+  assert.equal(getGameState(userA).flop.used, FLOP_COSTS.worker);
+  assert.equal(getWorker(workerId, userA)?.flopAllocated, true);
+  assert.equal(getWorker(uniqueDeploy.body.workerId, userA)?.flopAllocated, false);
+
+  console.log('Deploy route integration: 77 assertions passed');
+} catch (error) {
+  console.error(error);
+  process.exitCode = 1;
 } finally {
   await new Promise(resolve => server.close(resolve));
   rmSync(testDir, { recursive: true, force: true });
   rmSync(join(process.cwd(), 'packages/server/.test-dist'), { recursive: true, force: true });
-  process.exit(0);
+  process.exit(process.exitCode || 0);
 }

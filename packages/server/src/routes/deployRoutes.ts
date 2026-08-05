@@ -5,7 +5,7 @@
 import { Router, Request, Response } from 'express';
 import { FLOP_COSTS } from '../types.js';
 import { getGameState } from '../domain/gameState.js';
-import { getWorker, upsertWorker, addWorkerLog, allocateFlop, releaseFlop } from '../domain/workers.js';
+import { getWorker, upsertWorker, addWorkerLog, allocateFlop, releaseFlop, releaseWorkerFlop } from '../domain/workers.js';
 import { addToPlayerInventory, removeFromPlayerInventory, getItemEfficiency, getCpuComputePoints, getRamCapacityBonus, getItemComputeCost } from '../domain/inventory.js';
 import { incrementStat, addToStatArray, setStatMax, getStatArray } from '../domain/achievements.js';
 import { awardXp } from '../domain/level.js';
@@ -130,6 +130,7 @@ deployRoutes.post('/deploy', async (req: Request, res: Response) => {
     pid: null,
     deployed_at: new Date().toISOString(),
     holding: [],
+    flopAllocated: true,
     equippedPickaxe,
     equippedCpu,
     equippedRam,
@@ -180,7 +181,7 @@ deployRoutes.post('/deploy-ack', (req: Request, res: Response) => {
 
   if (ackDecision === 'spawn_failed') {
     returnWorkerItems(worker, uid);
-    releaseFlop(FLOP_COSTS.worker, uid);
+    releaseWorkerFlop(workerId, FLOP_COSTS.worker, uid);
     upsertWorker({
       ...worker,
       status: 'crashed',
@@ -189,6 +190,7 @@ deployRoutes.post('/deploy-ack', (req: Request, res: Response) => {
       equippedCpu: null,
       equippedRam: null,
       holding: [],
+      flopAllocated: false,
     }, uid);
     addWorkerLog(workerId, `[ERROR] Spawn failed: ${spawnError}`, uid);
   } else {

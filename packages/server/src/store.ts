@@ -279,12 +279,17 @@ function _loadStore() {
         n.type === 'relay' ? { ...n, type: 'empty' } : n
       );
 
-      // Migrate workers to add holding/equippedPickaxe/equippedCpu/equippedRam
+      // A fresh server process owns no worker capacity. Reconcile persisted
+      // operational ownership before any worker can be resumed.
+      store.game_state.flop.used = 0;
+
+      // Migrate workers to add holding/equipment/operational ownership fields.
       for (const w of Object.values(store.workers)) {
         if (w.holding === undefined || w.holding === null) (w as any).holding = [];
         if (w.equippedPickaxe === undefined) (w as any).equippedPickaxe = null;
         if (w.equippedCpu === undefined) (w as any).equippedCpu = null;
         if (w.equippedRam === undefined) (w as any).equippedRam = null;
+        w.flopAllocated = false;
       }
 
       // Clean up stale workers from previous session

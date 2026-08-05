@@ -8,7 +8,7 @@ import fs from 'fs';
 import { simpleGit } from 'simple-git';
 import { FLOP_COSTS } from '../types.js';
 import { getGameState, resetGameState } from '../domain/gameState.js';
-import { getWorkers, getWorker, upsertWorker, deleteWorker, resetAllWorkers, getWorkerLogs, allocateFlop, releaseFlop } from '../domain/workers.js';
+import { getWorkers, getWorker, upsertWorker, deleteWorker, resetAllWorkers, getWorkerLogs, allocateWorkerFlop, releaseWorkerFlop } from '../domain/workers.js';
 import { addToPlayerInventory } from '../domain/inventory.js';
 import { getAutosave, restoreAutosave } from '../domain/autosave.js';
 import { incrementStat } from '../domain/achievements.js';
@@ -37,10 +37,10 @@ workerRoutes.post('/recall', (req: Request, res: Response) => {
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
 
   returnWorkerItems(worker, uid);
+  releaseWorkerFlop(workerId, FLOP_COSTS.worker, uid);
 
   if (['deploying', 'suspended', 'crashed', 'error'].includes(worker.status)) {
     removeFromDeployQueue(workerId, uid);
-    releaseFlop(FLOP_COSTS.worker, uid);
     deleteWorker(workerId, uid);
     broadcastFullState(uid);
     return res.json({ ok: true });
@@ -48,7 +48,6 @@ workerRoutes.post('/recall', (req: Request, res: Response) => {
 
   const result = killWorker(workerId);
   if (!result.ok) {
-    releaseFlop(FLOP_COSTS.worker, uid);
     deleteWorker(workerId, uid);
     broadcastFullState(uid);
     return res.json({ ok: true });
@@ -66,8 +65,6 @@ workerRoutes.post('/worker/reset', (req: Request, res: Response) => {
 
   const worker = getWorker(workerId, uid);
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
-  const needsFlopAllocation = ['suspended', 'crashed', 'error'].includes(worker.status);
-
   if (['running', 'moving', 'harvesting', 'idle'].includes(worker.status)) {
     killWorker(workerId);
   }
@@ -103,8 +100,8 @@ workerRoutes.post('/worker/reset', (req: Request, res: Response) => {
     deployConfig: refreshedConfig,
   }, uid);
 
-  if (needsFlopAllocation && !allocateFlop(FLOP_COSTS.worker, uid)) {
-    upsertWorker({ ...worker, current_node: worker.node_id, status: 'suspended', pid: null, holding: [], carrying: {} }, uid);
+  if (!allocateWorkerFlop(workerId, FLOP_COSTS.worker, uid)) {
+    upsertWorker({ ...worker, current_node: worker.node_id, status: 'suspended', pid: null, holding: [], carrying: {}, flopAllocated: false }, uid);
     broadcastFullState(uid);
     return res.status(400).json({ error: 'Not enough FLOP' });
   }
@@ -287,12 +284,12 @@ workerRoutes.post('/worker-classes/register', (req: Request, res: Response) => {
     const wc = getWorkerClass(config.classId, uid);
     if (!wc) continue;
 
-    if (!allocateFlop(FLOP_COSTS.worker, uid)) {
+    if (!allocateWorkerFlop(w.id, FLOP_COSTS.worker, uid)) {
       console.log(`[NetCrawl] Cannot resume worker ${w.id}: not enough FLOP`);
       continue;
     }
 
-    upsertWorker({ ...w, status: 'deploying', deployConfig: config }, uid);
+    upsertWorker({ ...getWorker(w.id, uid)!, status: 'deploying', deployConfig: config }, uid);
 
     enqueueDeploy({
       id: w.id,

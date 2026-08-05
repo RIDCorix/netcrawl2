@@ -170,6 +170,8 @@ export interface WorkerRow {
   equippedPickaxe: { itemType: string; efficiency: number } | null;
   equippedCpu: { itemType: string; computePoints: number; count: number } | null;
   equippedRam: { itemType: string; capacityBonus: number; count: number } | null;
+  /** Explicit capacity ownership; worker status must never be used as a proxy. */
+  flopAllocated?: boolean;
   lastLog?: { message: string; level: string; ts: number } | null;
   /** Node the worker was at before the current move — cleared when move completes */
   previous_node?: string;

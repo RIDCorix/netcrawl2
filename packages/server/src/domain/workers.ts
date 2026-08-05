@@ -42,6 +42,7 @@ export function resetAllWorkers(userId?: string): void {
       pid: null,
       holding: [],
       carrying: {},
+      flopAllocated: false,
     };
   }
 
@@ -61,6 +62,25 @@ export function allocateFlop(cost: number, userId?: string): boolean {
 export function releaseFlop(cost: number, userId?: string): void {
   const flop = resolveStore(userId).game_state.flop;
   flop.used = Math.max(0, flop.used - cost);
+}
+
+/** Claim capacity for a persisted worker exactly once, independent of status. */
+export function allocateWorkerFlop(workerId: string, cost: number, userId?: string): boolean {
+  const worker = getWorker(workerId, userId);
+  if (!worker) return false;
+  if (worker.flopAllocated) return true;
+  if (!allocateFlop(cost, userId)) return false;
+  upsertWorker({ ...worker, flopAllocated: true }, userId);
+  return true;
+}
+
+/** Release only capacity owned by this worker; duplicate cleanup is a no-op. */
+export function releaseWorkerFlop(workerId: string, cost: number, userId?: string): boolean {
+  const worker = getWorker(workerId, userId);
+  if (!worker?.flopAllocated) return false;
+  releaseFlop(cost, userId);
+  upsertWorker({ ...worker, flopAllocated: false }, userId);
+  return true;
 }
 
 export function addWorkerLog(workerId: string, message: string, userId?: string) {
