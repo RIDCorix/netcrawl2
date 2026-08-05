@@ -180,7 +180,7 @@ export const en: Record<string, string> = {
   'quest.q_cluster_mining.name': 'Cluster Mining',
   'quest.q_cluster_mining.desc': 'Use AdvancedSensor to scan edges, then for-loop through nearby mines.',
   'quest.q_craft_first.name': 'First Craft',
-  'quest.q_craft_first.desc': 'Create something new. Craft any item from the crafting menu.',
+  'quest.q_craft_first.desc': 'Craft an additional Basic Pickaxe from Inventory → Crafting.',
   'quest.q_try_except.name': 'Try / Except',
   'quest.q_try_except.desc': 'try: self.collect() except Error: recover() — handle the unexpected.',
   'quest.q_event_loop.name': 'Event Loop',
@@ -728,6 +728,8 @@ export const en: Record<string, string> = {
   'wiki.entry.resource.summary': 'A minable source of data fragments and RP shards.',
   'wiki.entry.resource.body1': 'Resource nodes deplete temporarily when mined and recover on a short cooldown.',
   'wiki.entry.resource.body2': 'Higher-tier nodes drop rarer materials but demand sturdier workers.',
+  'wiki.entry.resource.interactions':
+    'Properties: nodeType, label, drops, depleted. Active methods: move(edge), mine(), collect(), deposit() at the Hub. Passive behavior: mining creates floor drops and depleted mines recover after a cooldown. Use the demo below for the full Hub → Data Mine → mine → collect → Hub → deposit loop.',
   'wiki.entry.resource.defense': 'Variable',
   'wiki.entry.relay.title': 'Relay Node',
   'wiki.entry.relay.summary': 'Passive junction that extends worker range.',
@@ -775,6 +777,8 @@ export const en: Record<string, string> = {
   'wiki.entry.pickaxe_basic.title': 'Basic Pickaxe',
   'wiki.entry.pickaxe_basic.summary': 'Starter tool for mining resource nodes.',
   'wiki.entry.pickaxe_basic.body1': 'Unremarkable but reliable. Suitable for tier-1 resource nodes.',
+  'wiki.entry.pickaxe_basic.interactions':
+    'Equip as equippedPickaxe when deploying. The worker then moves to a Data Mine and calls mine(); collect() picks up its drops, move("hub") returns, and deposit() banks them. The pickaxe passively scales mining yield at 1.0×.',
   'wiki.entry.pickaxe_basic.effect': 'Mining efficiency 1.0×',
   'wiki.entry.pickaxe_iron.title': 'Iron Pickaxe',
   'wiki.entry.pickaxe_iron.summary': 'Sturdier mining tool with improved yield.',
@@ -827,4 +831,18 @@ export const en: Record<string, string> = {
   'wiki.entry.chip_pack_premium.title': 'Premium Chip Pack',
   'wiki.entry.chip_pack_premium.summary': 'Guaranteed rare+ chip with legendary chance.',
   'wiki.entry.chip_pack_premium.body1': 'Best way to chase legendary modifiers. Expensive to craft but worth it.',
+  'ui.open_manual': 'OPEN MANUAL',
+  'tutorial.chapter_zero.title': 'Chapter 0 — Guided REPL',
+  'tutorial.chapter_zero.expected': 'Type this command:',
+  'tutorial.chapter_zero.input': 'Tutorial command',
+  'tutorial.chapter_zero.run': 'RUN',
+  'tutorial.chapter_zero.error':
+    'That command is out of order. Copy the expected command exactly; your confirmed progress is safe.',
+  'tutorial.chapter_zero.step_0':
+    'info() writes a visible worker status message. Start by reporting that your worker is ready.',
+  'tutorial.chapter_zero.step_1': 'move() follows an edge to another node. Move from the Hub to the Data Mine.',
+  'tutorial.chapter_zero.step_2': 'mine() uses the equipped pickaxe on the current resource node and creates drops.',
+  'tutorial.chapter_zero.step_3': 'collect() moves floor drops into the worker’s held inventory.',
+  'tutorial.chapter_zero.step_4': 'Return to the Hub before depositing. Movement changes the worker’s current node.',
+  'tutorial.chapter_zero.step_5': 'deposit() banks held resources at the Hub. This completes the basic mining loop.',
 };

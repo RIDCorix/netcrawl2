@@ -4,12 +4,26 @@
 
 import { Router, Request, Response } from 'express';
 import { getActivePassives, getQuestStatus, setQuestStatus } from '../domain/questState.js';
+import { getChapterZero, submitChapterZeroCommand } from '../domain/questState.js';
 import { getPlayerLevelSummary } from '../domain/level.js';
-import { claimQuestReward, getQuestList, getQuestEdges } from '../quests.js';
+import { checkQuests, claimQuestReward, getQuestList, getQuestEdges } from '../quests.js';
 import { broadcastFullState } from '../broadcastHelper.js';
 import { getUserId } from './helpers.js';
 
 export const questRoutes = Router();
+
+questRoutes.get('/tutorial/chapter-zero', (req: Request, res: Response) => {
+  res.json(getChapterZero(getUserId(req)));
+});
+
+questRoutes.post('/tutorial/chapter-zero', (req: Request, res: Response) => {
+  const uid = getUserId(req);
+  const result = submitChapterZeroCommand(String(req.body?.command || ''), uid);
+  if (!result.ok) return res.status(400).json(result);
+  checkQuests(uid);
+  broadcastFullState(uid);
+  res.json(result);
+});
 
 questRoutes.get('/quests', (req: Request, res: Response) => {
   const uid = getUserId(req);

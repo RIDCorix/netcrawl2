@@ -7,15 +7,43 @@
  */
 
 import {
-  PickaxeBasic, PickaxeIron, PickaxeDiamond, FullstackPickaxe, MemoryAllocator,
-  CpuBasic, CpuAdvanced, RamBasic, RamAdvanced,
-  ShieldIcon, BeaconIcon, AntivirusIcon, ScannerIcon,
-  ChipPackBasic, ChipPackPremium,
+  PickaxeBasic,
+  PickaxeIron,
+  PickaxeDiamond,
+  FullstackPickaxe,
+  MemoryAllocator,
+  CpuBasic,
+  CpuAdvanced,
+  RamBasic,
+  RamAdvanced,
+  ShieldIcon,
+  BeaconIcon,
+  AntivirusIcon,
+  ScannerIcon,
+  ChipPackBasic,
+  ChipPackPremium,
 } from '../components/icons/GameIcons';
 import {
-  Bot, Server, Network, Cpu as CpuLucide, HardDrive, Database, Shield as ShieldLucide,
-  Radar, Share2, Lock, AlertTriangle, Box, Sparkles, BookOpen, Zap, Terminal, Binary,
-  Pickaxe as PickaxeLucide, Route as RouteLucide, Cable,
+  Bot,
+  Server,
+  Network,
+  Cpu as CpuLucide,
+  HardDrive,
+  Database,
+  Shield as ShieldLucide,
+  Radar,
+  Share2,
+  Lock,
+  AlertTriangle,
+  Box,
+  Sparkles,
+  BookOpen,
+  Zap,
+  Terminal,
+  Binary,
+  Pickaxe as PickaxeLucide,
+  Route as RouteLucide,
+  Cable,
 } from 'lucide-react';
 
 // Permissive icon type covering both lucide-react (ForwardRef) and our custom
@@ -143,12 +171,13 @@ export const WIKI: WikiCategory[] = [
             color: '#45aaf2',
             title: 'wiki.entry.resource.title',
             summary: 'wiki.entry.resource.summary',
-            body: ['wiki.entry.resource.body1', 'wiki.entry.resource.body2'],
+            body: ['wiki.entry.resource.body1', 'wiki.entry.resource.body2', 'wiki.entry.resource.interactions'],
             fields: [
               { label: 'wiki.field.mineable', value: 'wiki.yes' },
               { label: 'wiki.field.defense', value: 'wiki.entry.resource.defense' },
             ],
             unlock: { always: true },
+            demoScriptId: 'wiki_pickaxe',
           },
           {
             id: 'relay',
@@ -229,9 +258,7 @@ export const WIKI: WikiCategory[] = [
             title: 'wiki.entry.spec_node.title',
             summary: 'wiki.entry.spec_node.summary',
             body: ['wiki.entry.spec_node.body1'],
-            fields: [
-              { label: 'wiki.field.type', value: 'Node' },
-            ],
+            fields: [{ label: 'wiki.field.type', value: 'Node' }],
             unlock: { always: true },
           },
         ],
@@ -247,7 +274,7 @@ export const WIKI: WikiCategory[] = [
             color: '#9ca3af',
             title: 'wiki.entry.pickaxe_basic.title',
             summary: 'wiki.entry.pickaxe_basic.summary',
-            body: ['wiki.entry.pickaxe_basic.body1'],
+            body: ['wiki.entry.pickaxe_basic.body1', 'wiki.entry.pickaxe_basic.interactions'],
             fields: [
               { label: 'wiki.field.effect', value: 'wiki.entry.pickaxe_basic.effect' },
               { label: 'wiki.field.slot', value: 'Pickaxe' },
@@ -552,11 +579,24 @@ export function findEntry(entryId: string): { category: WikiCategory; section: W
 export function wikiIdForItem(itemType: string): string | null {
   // Identity mapping covers most cases (entries share the item type id).
   const known = new Set([
-    'pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond', 'fullstack_pickaxe',
-    'memory_allocator', 'shield', 'beacon', 'scanner', 'antivirus_module',
-    'cpu_basic', 'cpu_advanced', 'ram_basic', 'ram_advanced',
-    'data_fragment', 'rp_shard', 'bad_data',
-    'chip_pack_basic', 'chip_pack_premium',
+    'pickaxe_basic',
+    'pickaxe_iron',
+    'pickaxe_diamond',
+    'fullstack_pickaxe',
+    'memory_allocator',
+    'shield',
+    'beacon',
+    'scanner',
+    'antivirus_module',
+    'cpu_basic',
+    'cpu_advanced',
+    'ram_basic',
+    'ram_advanced',
+    'data_fragment',
+    'rp_shard',
+    'bad_data',
+    'chip_pack_basic',
+    'chip_pack_premium',
   ]);
   return known.has(itemType) ? itemType : null;
 }

@@ -8,7 +8,14 @@ import { getGameState, saveGameState } from './domain/gameState.js';
 import { addToPlayerInventory } from './domain/inventory.js';
 import { addPlayerChip } from './domain/chips.js';
 import { getStat, getStatArray } from './domain/achievements.js';
-import { getQuestStatus, setQuestStatus, getQuestState, addActivePassive, addUnlockedRecipe, getActivePassives } from './domain/questState.js';
+import {
+  getQuestStatus,
+  setQuestStatus,
+  getQuestState,
+  addActivePassive,
+  addUnlockedRecipe,
+  getActivePassives,
+} from './domain/questState.js';
 import { awardXp } from './domain/level.js';
 import { XP_REWARDS } from './levelSystem.js';
 import { broadcast } from './websocket.js';
@@ -17,7 +24,10 @@ import { CHIP_DEFS } from './upgradeDefinitions.js';
 
 // ── Objective evaluation ────────────────────────────────────────────────────
 
-export function evaluateObjective(obj: QuestObjective, userId?: string): { met: boolean; current: number; target: number } {
+export function evaluateObjective(
+  obj: QuestObjective,
+  userId?: string,
+): { met: boolean; current: number; target: number } {
   switch (obj.type) {
     case 'stat_gte': {
       const current = getStat(obj.statKey, userId);
@@ -41,9 +51,10 @@ export function evaluateObjective(obj: QuestObjective, userId?: string): { met: 
 
 /** Initialize quests that have no status yet. First quest starts as 'available'. */
 function ensureQuestInit(userId?: string) {
+  const chapterZeroComplete = getQuestState(userId).chapterZero?.completed === true;
   for (const q of QUESTS) {
     if (!getQuestStatus(q.id, userId)) {
-      if (q.prerequisites.length === 0) {
+      if (q.prerequisites.length === 0 && (q.id !== 'q_setup' || chapterZeroComplete)) {
         setQuestStatus(q.id, 'available', userId);
       } else {
         setQuestStatus(q.id, 'locked', userId);
@@ -57,6 +68,7 @@ function checkAvailability(userId?: string): QuestDef[] {
   const newlyAvailable: QuestDef[] = [];
   for (const q of QUESTS) {
     if (getQuestStatus(q.id, userId) !== 'locked') continue;
+    if (q.id === 'q_setup' && getQuestState(userId).chapterZero?.completed !== true) continue;
     const allPreqsClaimed = q.prerequisites.every(pid => getQuestStatus(pid, userId) === 'claimed');
     if (allPreqsClaimed) {
       setQuestStatus(q.id, 'available', userId);
@@ -209,6 +221,7 @@ export function getQuestList(userId?: string) {
       rewards: q.rewards,
       position: q.position,
       guide: q.guide || [],
+      manualEntryId: q.manualEntryId,
       claimedAt: getQuestState(userId).claimedAt[q.id] || null,
     };
   });
@@ -229,7 +242,7 @@ export function getQuestSummary(userId?: string) {
   const state = getQuestState(userId);
   const statuses = state.questStatus;
   const progressRevision = QUESTS.flatMap(q =>
-    q.objectives.map(obj => `${q.id}:${obj.id}:${evaluateObjective(obj, userId).current}`)
+    q.objectives.map(obj => `${q.id}:${obj.id}:${evaluateObjective(obj, userId).current}`),
   ).join('|');
   return {
     total: QUESTS.length,

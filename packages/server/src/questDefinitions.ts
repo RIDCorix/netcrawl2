@@ -46,6 +46,8 @@ export interface QuestDef {
   rewards: RewardType[];
   position: { x: number; y: number };
   guide?: GuideStep[];
+  /** Manual entry opened from the quest guide. */
+  manualEntryId?: string;
   /** If set, claiming this quest auto-completes+claims all quests in this chapter */
   skipChapter?: number;
 }
@@ -137,26 +139,11 @@ export const QUESTS: QuestDef[] = [
     ],
     rewards: [
       { kind: 'recipe_unlock', recipeId: 'pickaxe_basic', name: 'Basic Pickaxe' },
+      { kind: 'recipe_unlock', recipeId: 'shield', name: 'Shield' },
       { kind: 'items', items: [{ itemType: 'pickaxe_basic', count: 1, metadata: { efficiency: 1.0 } }] },
     ],
     position: { x: 400, y: 300 },
-  },
-  {
-    id: 'q_dot_notation',
-    chapter: 1,
-    name: 'Dot Notation',
-    codeConcept: 'Attributes',
-    description: 'node.node_type, item.item_type — read properties to understand your world.',
-    mainline: true,
-    prerequisites: ['q_method_call'],
-    objectives: [
-      { id: 'o1', description: 'Unlock 1 node', statKey: 'total_nodes_unlocked', target: 1, type: 'stat_gte' },
-    ],
-    rewards: [
-      { kind: 'recipe_unlock', recipeId: 'shield', name: 'Shield' },
-      { kind: 'resources', resources: { data: 30000 } },
-    ],
-    position: { x: 400, y: 600 },
+    manualEntryId: 'resource',
   },
   {
     id: 'q_conditions',
@@ -165,7 +152,7 @@ export const QUESTS: QuestDef[] = [
     codeConcept: 'Conditionals',
     description: 'if self.holding.type == "bad_data": self.discard() — filter contaminated data before depositing.',
     mainline: true,
-    prerequisites: ['q_dot_notation'],
+    prerequisites: ['q_method_call'],
     objectives: [
       {
         id: 'o1',
@@ -256,12 +243,22 @@ export const QUESTS: QuestDef[] = [
     chapter: 1,
     name: 'First Craft',
     codeConcept: 'Constructors',
-    description: 'Create something new. Craft any item from the crafting menu.',
+    description: 'Craft an additional Basic Pickaxe from the Inventory crafting tab.',
     mainline: false,
     prerequisites: ['q_method_call'],
-    objectives: [{ id: 'o1', description: 'Craft 1 item', statKey: 'total_crafts', target: 1, type: 'stat_gte' }],
+    objectives: [
+      {
+        id: 'o1',
+        description: 'Craft a Basic Pickaxe',
+        statKey: 'crafted_recipes',
+        target: 1,
+        type: 'stat_array_includes',
+        statArrayValue: 'pickaxe_basic',
+      },
+    ],
     rewards: [{ kind: 'resources', resources: { data: 20000 } }],
     position: { x: 0, y: 200 },
+    manualEntryId: 'pickaxe_basic',
   },
   {
     id: 'q_ch1_challenge',

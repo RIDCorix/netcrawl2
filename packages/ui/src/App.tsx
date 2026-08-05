@@ -21,6 +21,7 @@ import { LoginPage } from './components/LoginPage';
 import { LevelPanel } from './components/LevelPanel';
 import { LevelUpToast } from './components/LevelUpToast';
 import { TutorialOverlay } from './components/TutorialOverlay';
+import { ChapterZeroRepl } from './components/ChapterZeroRepl';
 import { LayerSelectScreen } from './components/LayerSelectScreen';
 import { LayerUnlockToast } from './components/LayerUnlockToast';
 import { GameOverDialog } from './components/GameOverDialog';
@@ -39,27 +40,54 @@ const IS_CLOUD = !!import.meta.env.VITE_API_URL;
 
 // Apply saved theme on startup
 const _savedSettings = (() => {
-  try { return JSON.parse(localStorage.getItem('netcrawl-settings') || '{}') } catch { return {} }
-})()
-document.documentElement.setAttribute('data-theme', _savedSettings.theme || 'deep-space')
+  try {
+    return JSON.parse(localStorage.getItem('netcrawl-settings') || '{}');
+  } catch {
+    return {};
+  }
+})();
+document.documentElement.setAttribute('data-theme', _savedSettings.theme || 'deep-space');
 
 function GameView() {
   useGameState();
   useAudioInit();
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+    if (
+      e.target instanceof HTMLInputElement ||
+      e.target instanceof HTMLTextAreaElement ||
+      e.target instanceof HTMLSelectElement
+    )
+      return;
 
     const state = useGameStore.getState();
     const { keybindings } = state.settings;
 
     if (e.key === 'Escape') {
-      if (state.settingsOpen) { state.toggleSettings(); return; }
-      if (state.inventoryOpen) { state.toggleInventory(); return; }
-      if (state.achievementsOpen) { state.toggleAchievements(); return; }
-      if (state.questsOpen) { state.toggleQuests(); return; }
-      if (state.levelOpen) { state.toggleLevel(); return; }
-      if (state.docsOpen) { state.closeWiki(); return; }
+      if (state.settingsOpen) {
+        state.toggleSettings();
+        return;
+      }
+      if (state.inventoryOpen) {
+        state.toggleInventory();
+        return;
+      }
+      if (state.achievementsOpen) {
+        state.toggleAchievements();
+        return;
+      }
+      if (state.questsOpen) {
+        state.toggleQuests();
+        return;
+      }
+      if (state.levelOpen) {
+        state.toggleLevel();
+        return;
+      }
+      if (state.docsOpen) {
+        state.closeWiki();
+        return;
+      }
       state.toggleSettings();
       return;
     }
@@ -87,17 +115,22 @@ function GameView() {
   }, [handleKeyDown]);
 
   return (
-    <div style={{
-      width: '100vw',
-      height: '100vh',
-      background: 'var(--bg-primary)',
-      position: 'relative',
-    }}>
-      <div style={{
-        position: 'absolute', inset: 0,
-        background: 'radial-gradient(ellipse at 50% 40%, rgba(0, 212, 170, 0.03) 0%, transparent 60%)',
-        pointerEvents: 'none',
-      }} />
+    <div
+      style={{
+        width: '100vw',
+        height: '100vh',
+        background: 'var(--bg-primary)',
+        position: 'relative',
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'radial-gradient(ellipse at 50% 40%, rgba(0, 212, 170, 0.03) 0%, transparent 60%)',
+          pointerEvents: 'none',
+        }}
+      />
       <ResourceBar />
       <div style={{ paddingTop: 64, height: '100%', position: 'relative' }}>
         <GameGraph />
@@ -117,6 +150,7 @@ function GameView() {
       <QuestToast />
       <LevelUpToast />
       <TutorialOverlay />
+      <ChapterZeroRepl />
       <LayerSelectScreen />
       <LayerUnlockToast />
       <GameOverDialog />
@@ -131,21 +165,37 @@ function AuthGate() {
 
   useEffect(() => {
     const token = localStorage.getItem('netcrawl-token');
-    if (!token) { setChecking(false); return; }
+    if (!token) {
+      setChecking(false);
+      return;
+    }
 
     // Verify token is still valid
     apiFetch('/api/auth/me')
-      .then(r => { setAuthed(r.ok); setChecking(false); })
-      .catch(() => { setChecking(false); });
+      .then(r => {
+        setAuthed(r.ok);
+        setChecking(false);
+      })
+      .catch(() => {
+        setChecking(false);
+      });
   }, []);
 
   if (checking) {
     return (
-      <div style={{
-        width: '100vw', height: '100vh', background: '#0a0a0f',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: '#4b6479', fontFamily: 'monospace', fontSize: 12,
-      }}>
+      <div
+        style={{
+          width: '100vw',
+          height: '100vh',
+          background: '#0a0a0f',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#4b6479',
+          fontFamily: 'monospace',
+          fontSize: 12,
+        }}
+      >
         Connecting...
       </div>
     );
@@ -159,11 +209,7 @@ function AuthGate() {
 }
 
 export function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      {IS_CLOUD ? <AuthGate /> : <GameView />}
-    </QueryClientProvider>
-  );
+  return <QueryClientProvider client={queryClient}>{IS_CLOUD ? <AuthGate /> : <GameView />}</QueryClientProvider>;
 }
 
 export default App;

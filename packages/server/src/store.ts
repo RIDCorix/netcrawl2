@@ -9,8 +9,13 @@ import { INITIAL_LEVEL_STATE, type LevelState } from './levelSystem.js';
 import { getUpgradeKey, getNodeXpThreshold, NODE_UPGRADE_DEFS } from './upgradeDefinitions.js';
 import { QUESTS } from './questDefinitions.js';
 import {
-  type Store, type InventoryItem,
-  INITIAL_NODES, INITIAL_EDGES, INITIAL_RESOURCES, INITIAL_PLAYER_INVENTORY, INITIAL_FLOP,
+  type Store,
+  type InventoryItem,
+  INITIAL_NODES,
+  INITIAL_EDGES,
+  INITIAL_RESOURCES,
+  INITIAL_PLAYER_INVENTORY,
+  INITIAL_FLOP,
 } from './types.js';
 
 // ── Module state ────────────────────────────────────────────────────────────
@@ -41,7 +46,13 @@ const INITIAL_STORE: Store = {
   worker_logs: [],
   next_log_id: 1,
   achievement_state: { unlocked: {}, stats: {}, statArrays: {} },
-  quest_state: { questStatus: {}, activePassives: {}, unlockedRecipes: [], claimedAt: {} },
+  quest_state: {
+    questStatus: {},
+    activePassives: {},
+    unlockedRecipes: [],
+    claimedAt: {},
+    chapterZero: { step: 0, completed: false },
+  },
   level_state: { ...INITIAL_LEVEL_STATE },
   layer_manager: {
     currentLayer: 0,
@@ -149,7 +160,9 @@ export function forcePersist(userId?: string) {
     const userPath = userDataPaths.get(userId);
     const userStore = userStores.get(userId);
     if (userPath && userStore) {
-      try { fs.writeFileSync(userPath, JSON.stringify(userStore, null, 2)); } catch {}
+      try {
+        fs.writeFileSync(userPath, JSON.stringify(userStore, null, 2));
+      } catch {}
     }
   } else {
     persist();
@@ -249,7 +262,10 @@ function _loadStore() {
       store.game_state.nodes = store.game_state.nodes.map((n: any) => {
         const init = INITIAL_NODES.find(in_ => in_.id === n.id);
         if (init && (init.data as any).mineable && !n.data.mineable) {
-          return { ...n, data: { ...n.data, mineable: true, items: n.data.items || [], mineCount: n.data.mineCount || 0 } };
+          return {
+            ...n,
+            data: { ...n.data, mineable: true, items: n.data.items || [], mineCount: n.data.mineCount || 0 },
+          };
         }
         return n;
       });
@@ -257,7 +273,10 @@ function _loadStore() {
       // Migrate: drops → items, amount → count
       for (const node of store.game_state.nodes) {
         if (node.data.drops && !node.data.items) {
-          node.data.items = (node.data.drops as any[]).map((d: any) => ({ type: d.type, count: d.amount || d.count || 1 }));
+          node.data.items = (node.data.drops as any[]).map((d: any) => ({
+            type: d.type,
+            count: d.amount || d.count || 1,
+          }));
           delete node.data.drops;
         } else if (node.data.drops && node.data.items) {
           delete node.data.drops;
@@ -276,7 +295,7 @@ function _loadStore() {
 
       // Migrate: convert legacy 'relay' type to 'empty'
       store.game_state.nodes = store.game_state.nodes.map((n: any) =>
-        n.type === 'relay' ? { ...n, type: 'empty' } : n
+        n.type === 'relay' ? { ...n, type: 'empty' } : n,
       );
 
       // A fresh server process owns no worker capacity. Reconcile persisted
@@ -299,11 +318,17 @@ function _loadStore() {
           if (w.equippedPickaxe) {
             const existing = inv.find((i: any) => i.itemType === w.equippedPickaxe!.itemType);
             if (existing) existing.count += 1;
-            else inv.push({ id: `item_${Date.now()}`, itemType: w.equippedPickaxe.itemType as any, count: 1, metadata: { efficiency: w.equippedPickaxe.efficiency } });
+            else
+              inv.push({
+                id: `item_${Date.now()}`,
+                itemType: w.equippedPickaxe.itemType as any,
+                count: 1,
+                metadata: { efficiency: w.equippedPickaxe.efficiency },
+              });
           }
           if (w.equippedCpu) _addToPlayerInventoryDirect(inv, w.equippedCpu.itemType, w.equippedCpu.count || 1);
           if (w.equippedRam) _addToPlayerInventoryDirect(inv, w.equippedRam.itemType, w.equippedRam.count || 1);
-          for (const heldItem of (w.holding || [])) {
+          for (const heldItem of w.holding || []) {
             const existing = inv.find((i: any) => i.itemType === heldItem.type);
             if (existing) existing.count += heldItem.count || 1;
           }
@@ -330,7 +355,12 @@ function _loadStore() {
 
       if (!store.game_state.playerChips) (store.game_state as any).playerChips = [];
       if (!store.achievement_state) store.achievement_state = { unlocked: {}, stats: {}, statArrays: {} };
-      if (!store.quest_state) store.quest_state = { questStatus: {}, activePassives: {}, unlockedRecipes: [], claimedAt: {} };
+      if (!store.quest_state)
+        store.quest_state = { questStatus: {}, activePassives: {}, unlockedRecipes: [], claimedAt: {} };
+      if (!store.quest_state.chapterZero) {
+        const legacyProgress = Object.keys(store.quest_state.questStatus || {}).length > 0;
+        store.quest_state.chapterZero = { step: legacyProgress ? 6 : 0, completed: legacyProgress };
+      }
       if (!store.level_state) store.level_state = { ...INITIAL_LEVEL_STATE };
 
       // Migrate: initialize nodeXpToNext for unlocked nodes
@@ -405,7 +435,7 @@ function _loadStore() {
         const OLD_EAST = new Set(['e_mine1', 'e_mine2', 'e_relay2', 'e_empty1', 'e_mine3', 'e_mine4', 'e_empty2']);
         const NEW_EAST = ['e_types', 'e_op_add', 'e_op_sub', 'e_op_mul', 'e_op_div', 'e_op_mod', 'e_calc'];
         const hasOld = store.game_state.nodes.some((n: any) => OLD_EAST.has(n.id));
-        const hasAllNew = NEW_EAST.every((id) => store.game_state.nodes.some((n: any) => n.id === id));
+        const hasAllNew = NEW_EAST.every(id => store.game_state.nodes.some((n: any) => n.id === id));
         if (hasOld || !hasAllNew) {
           store.game_state.nodes = store.game_state.nodes.filter((n: any) => !OLD_EAST.has(n.id));
           for (const newId of NEW_EAST) {
@@ -420,7 +450,23 @@ function _loadStore() {
           store.game_state.edges = store.game_state.edges.filter(
             (e: any) => !removedNodeIds.has(e.source) && !removedNodeIds.has(e.target),
           );
-          const NEW_EAST_EDGE_IDS = ['e30', 'e31', 'e32', 'e33', 'e34', 'e35', 'e36', 'e37', 'e38', 'e39', 'e3a', 'eapi1', 'eapi2', 'eapi3', 'eapi4'];
+          const NEW_EAST_EDGE_IDS = [
+            'e30',
+            'e31',
+            'e32',
+            'e33',
+            'e34',
+            'e35',
+            'e36',
+            'e37',
+            'e38',
+            'e39',
+            'e3a',
+            'eapi1',
+            'eapi2',
+            'eapi3',
+            'eapi4',
+          ];
           const existingEdgeIds = new Set(store.game_state.edges.map((e: any) => e.id));
           for (const eid of NEW_EAST_EDGE_IDS) {
             if (existingEdgeIds.has(eid)) continue;
@@ -437,8 +483,9 @@ function _loadStore() {
         // Label sync — keep operator nodes' labels aligned with the canonical
         // INITIAL_NODES so rename rollouts reach existing saves.
         const labelMap = new Map(
-          NEW_EAST.map((id) => [id, INITIAL_NODES.find((n: any) => n.id === id)?.data?.label])
-            .filter(([, label]) => !!label) as [string, string][],
+          NEW_EAST.map(id => [id, INITIAL_NODES.find((n: any) => n.id === id)?.data?.label]).filter(
+            ([, label]) => !!label,
+          ) as [string, string][],
         );
         store.game_state.nodes = store.game_state.nodes.map((n: any) => {
           const canonical = labelMap.get(n.id);

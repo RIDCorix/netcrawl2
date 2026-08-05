@@ -15,11 +15,16 @@ import type { DemoScript, DemoGraphState } from '../components/guide/types';
 const BASE_STATE: DemoGraphState = {
   nodes: [
     { id: 'hub', type: 'hub', label: 'Hub', position: { x: 120, y: 20 }, color: '#00d4aa' },
-    { id: 'mine', type: 'resource', label: 'Data Mine', position: { x: 120, y: 130 }, color: '#45aaf2', subtitle: '+10/harvest' },
+    {
+      id: 'mine',
+      type: 'resource',
+      label: 'Data Mine',
+      position: { x: 120, y: 130 },
+      color: '#45aaf2',
+      subtitle: '+10/harvest',
+    },
   ],
-  edges: [
-    { id: 'e1', source: 'hub', target: 'mine' },
-  ],
+  edges: [{ id: 'e1', source: 'hub', target: 'mine' }],
   worker: { nodeId: 'hub', color: '#facc15', status: 'idle', holding: null },
   statusLabel: 'Worker idle at Hub',
   resources: { data: 0 },
@@ -33,6 +38,7 @@ const PICKAXE_DEMO: DemoScript = {
     equippedPickaxe = "pickaxe_basic"
 
     def on_loop(self):
+        self.move("mine")
         self.mine()        # swing pickaxe at node
         self.collect()     # pick up drops
         self.move("hub")
@@ -40,38 +46,48 @@ const PICKAXE_DEMO: DemoScript = {
   initialState: BASE_STATE,
   steps: [
     {
-      codeLine: 2, durationMs: 1500,
-      apply: (prev) => ({
+      codeLine: 2,
+      durationMs: 1500,
+      apply: prev => ({
         ...prev,
         statusLabel: 'Equipped: Basic Pickaxe (1.0x)',
         worker: { ...prev.worker!, nodeId: 'hub', status: 'idle' },
       }),
     },
     {
-      codeLine: 5, durationMs: 1800,
-      apply: (prev) => ({
+      codeLine: 5,
+      durationMs: 1200,
+      apply: prev => ({
+        ...prev,
+        worker: { ...prev.worker!, nodeId: 'mine', status: 'moving' },
+        edges: prev.edges.map(e => ({ ...e, highlighted: true })),
+        statusLabel: 'Moving Hub → Data Mine...',
+      }),
+    },
+    {
+      codeLine: 6,
+      durationMs: 1800,
+      apply: prev => ({
         ...prev,
         worker: { ...prev.worker!, nodeId: 'mine', status: 'mining' },
-        nodes: prev.nodes.map(n =>
-          n.id === 'mine' ? { ...n, highlighted: true, dropCount: 10 } : n
-        ),
+        nodes: prev.nodes.map(n => (n.id === 'mine' ? { ...n, highlighted: true, dropCount: 10 } : n)),
         statusLabel: 'Mining... +10 data fragments',
       }),
     },
     {
-      codeLine: 6, durationMs: 1200,
-      apply: (prev) => ({
+      codeLine: 7,
+      durationMs: 1200,
+      apply: prev => ({
         ...prev,
         worker: { ...prev.worker!, status: 'collecting', holding: { type: 'data_fragment', amount: 10 } },
-        nodes: prev.nodes.map(n =>
-          n.id === 'mine' ? { ...n, highlighted: false, dropCount: 0 } : n
-        ),
+        nodes: prev.nodes.map(n => (n.id === 'mine' ? { ...n, highlighted: false, dropCount: 0 } : n)),
         statusLabel: 'Collecting drops → holding 10 fragments',
       }),
     },
     {
-      codeLine: 7, durationMs: 1200,
-      apply: (prev) => ({
+      codeLine: 8,
+      durationMs: 1200,
+      apply: prev => ({
         ...prev,
         worker: { ...prev.worker!, nodeId: 'hub', status: 'moving' },
         edges: prev.edges.map(e => ({ ...e, highlighted: true })),
@@ -79,14 +95,13 @@ const PICKAXE_DEMO: DemoScript = {
       }),
     },
     {
-      codeLine: 8, durationMs: 1500,
-      apply: (prev) => ({
+      codeLine: 9,
+      durationMs: 1500,
+      apply: prev => ({
         ...prev,
         worker: { ...prev.worker!, status: 'depositing', holding: null },
         edges: prev.edges.map(e => ({ ...e, highlighted: false })),
-        nodes: prev.nodes.map(n =>
-          n.id === 'hub' ? { ...n, highlighted: true } : n
-        ),
+        nodes: prev.nodes.map(n => (n.id === 'hub' ? { ...n, highlighted: true } : n)),
         resources: { data: 10 },
         statusLabel: 'Deposited! Data: 0 → 10',
       }),
@@ -110,48 +125,47 @@ const CPU_DEMO: DemoScript = {
   initialState: BASE_STATE,
   steps: [
     {
-      codeLine: 2, durationMs: 1500,
-      apply: (prev) => ({
+      codeLine: 2,
+      durationMs: 1500,
+      apply: prev => ({
         ...prev,
         statusLabel: 'Equipped: CPU Module (+1 action slot)',
         worker: { ...prev.worker!, nodeId: 'hub', status: 'idle' },
       }),
     },
     {
-      codeLine: 5, durationMs: 1200,
-      apply: (prev) => ({
+      codeLine: 5,
+      durationMs: 1200,
+      apply: prev => ({
         ...prev,
         worker: { ...prev.worker!, nodeId: 'mine', status: 'mining' },
-        nodes: prev.nodes.map(n =>
-          n.id === 'mine' ? { ...n, highlighted: true, dropCount: 10 } : n
-        ),
+        nodes: prev.nodes.map(n => (n.id === 'mine' ? { ...n, highlighted: true, dropCount: 10 } : n)),
         statusLabel: 'Action 1: mine() → +10 fragments',
       }),
     },
     {
-      codeLine: 6, durationMs: 1200,
-      apply: (prev) => ({
+      codeLine: 6,
+      durationMs: 1200,
+      apply: prev => ({
         ...prev,
-        nodes: prev.nodes.map(n =>
-          n.id === 'mine' ? { ...n, dropCount: 20 } : n
-        ),
+        nodes: prev.nodes.map(n => (n.id === 'mine' ? { ...n, dropCount: 20 } : n)),
         statusLabel: 'Action 2: mine() again! → +20 total (CPU bonus)',
       }),
     },
     {
-      codeLine: 7, durationMs: 1000,
-      apply: (prev) => ({
+      codeLine: 7,
+      durationMs: 1000,
+      apply: prev => ({
         ...prev,
         worker: { ...prev.worker!, status: 'collecting', holding: { type: 'data_fragment', amount: 20 } },
-        nodes: prev.nodes.map(n =>
-          n.id === 'mine' ? { ...n, highlighted: false, dropCount: 0 } : n
-        ),
+        nodes: prev.nodes.map(n => (n.id === 'mine' ? { ...n, highlighted: false, dropCount: 0 } : n)),
         statusLabel: 'Collecting 20 fragments',
       }),
     },
     {
-      codeLine: 9, durationMs: 1500,
-      apply: (prev) => ({
+      codeLine: 9,
+      durationMs: 1500,
+      apply: prev => ({
         ...prev,
         worker: { ...prev.worker!, nodeId: 'hub', status: 'depositing', holding: null },
         resources: { data: 20 },
@@ -180,87 +194,90 @@ const RAM_DEMO: DemoScript = {
     ...BASE_STATE,
     nodes: [
       { id: 'hub', type: 'hub', label: 'Hub', position: { x: 120, y: 20 }, color: '#00d4aa' },
-      { id: 'mine', type: 'resource', label: 'Data Mine', position: { x: 120, y: 130 }, color: '#45aaf2', subtitle: '+10/harvest' },
+      {
+        id: 'mine',
+        type: 'resource',
+        label: 'Data Mine',
+        position: { x: 120, y: 130 },
+        color: '#45aaf2',
+        subtitle: '+10/harvest',
+      },
     ],
   },
   steps: [
     {
-      codeLine: 2, durationMs: 1500,
-      apply: (prev) => ({
+      codeLine: 2,
+      durationMs: 1500,
+      apply: prev => ({
         ...prev,
         statusLabel: 'Equipped: RAM Module (+8 capacity)',
         worker: { ...prev.worker!, nodeId: 'hub', status: 'idle' },
       }),
     },
     {
-      codeLine: 7, durationMs: 1200,
-      apply: (prev) => ({
+      codeLine: 7,
+      durationMs: 1200,
+      apply: prev => ({
         ...prev,
         worker: { ...prev.worker!, nodeId: 'mine', status: 'mining' },
-        nodes: prev.nodes.map(n =>
-          n.id === 'mine' ? { ...n, highlighted: true, dropCount: 10 } : n
-        ),
+        nodes: prev.nodes.map(n => (n.id === 'mine' ? { ...n, highlighted: true, dropCount: 10 } : n)),
         statusLabel: 'Loop 1: mine + collect → holding 10',
       }),
     },
     {
-      codeLine: 8, durationMs: 1200,
-      apply: (prev) => ({
+      codeLine: 8,
+      durationMs: 1200,
+      apply: prev => ({
         ...prev,
         worker: { ...prev.worker!, holding: { type: 'data_fragment', amount: 10 } },
-        nodes: prev.nodes.map(n =>
-          n.id === 'mine' ? { ...n, dropCount: 0 } : n
-        ),
+        nodes: prev.nodes.map(n => (n.id === 'mine' ? { ...n, dropCount: 0 } : n)),
         statusLabel: 'Collected round 1 (10 held)',
       }),
     },
     {
-      codeLine: 7, durationMs: 1200,
-      apply: (prev) => ({
+      codeLine: 7,
+      durationMs: 1200,
+      apply: prev => ({
         ...prev,
         worker: { ...prev.worker!, status: 'mining' },
-        nodes: prev.nodes.map(n =>
-          n.id === 'mine' ? { ...n, dropCount: 10 } : n
-        ),
+        nodes: prev.nodes.map(n => (n.id === 'mine' ? { ...n, dropCount: 10 } : n)),
         statusLabel: 'Loop 2: mine again...',
       }),
     },
     {
-      codeLine: 8, durationMs: 1200,
-      apply: (prev) => ({
+      codeLine: 8,
+      durationMs: 1200,
+      apply: prev => ({
         ...prev,
         worker: { ...prev.worker!, holding: { type: 'data_fragment', amount: 20 }, status: 'collecting' },
-        nodes: prev.nodes.map(n =>
-          n.id === 'mine' ? { ...n, dropCount: 0 } : n
-        ),
+        nodes: prev.nodes.map(n => (n.id === 'mine' ? { ...n, dropCount: 0 } : n)),
         statusLabel: 'Collected round 2 (20 held — RAM has room!)',
       }),
     },
     {
-      codeLine: 7, durationMs: 1200,
-      apply: (prev) => ({
+      codeLine: 7,
+      durationMs: 1200,
+      apply: prev => ({
         ...prev,
         worker: { ...prev.worker!, status: 'mining' },
-        nodes: prev.nodes.map(n =>
-          n.id === 'mine' ? { ...n, dropCount: 10 } : n
-        ),
+        nodes: prev.nodes.map(n => (n.id === 'mine' ? { ...n, dropCount: 10 } : n)),
         statusLabel: 'Loop 3: mine once more...',
       }),
     },
     {
-      codeLine: 8, durationMs: 1200,
-      apply: (prev) => ({
+      codeLine: 8,
+      durationMs: 1200,
+      apply: prev => ({
         ...prev,
         worker: { ...prev.worker!, holding: { type: 'data_fragment', amount: 30 }, status: 'collecting' },
-        nodes: prev.nodes.map(n =>
-          n.id === 'mine' ? { ...n, highlighted: false, dropCount: 0 } : n
-        ),
+        nodes: prev.nodes.map(n => (n.id === 'mine' ? { ...n, highlighted: false, dropCount: 0 } : n)),
         statusLabel: 'Collected round 3 (30 held — still fits!)',
       }),
     },
     {
-      codeLine: 11, durationMs: 1500,
-      apply: (prev) => ({
+      codeLine: 11,
+      durationMs: 1500,
+      apply: prev => ({
         ...prev,
         worker: { ...prev.worker!, nodeId: 'hub', status: 'depositing', holding: null },
         resources: { data: 30 },
