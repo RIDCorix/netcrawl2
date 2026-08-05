@@ -126,6 +126,7 @@ export interface Worker {
   status: 'deploying' | 'running' | 'suspending' | 'suspended' | 'crashed' | 'error' | 'idle' | 'moving' | 'harvesting' | 'dead';
   current_node: string;
   previous_node?: string;
+  move_id?: number;
   carrying: Partial<Resources>;
   pid: number | null;
   deployed_at?: string;

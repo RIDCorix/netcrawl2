@@ -13,7 +13,8 @@ function TrafficDot({ color, reverse, pathData }: { color: string; reverse: bool
       <animateMotion
         path={pathData}
         dur="1.1s"
-        repeatCount="indefinite"
+        repeatCount="1"
+        fill="freeze"
         keyPoints={keyPoints}
         keyTimes="0;0.818;1"
         calcMode="linear"
@@ -52,7 +53,7 @@ export function WorkerEdge(props: EdgeProps) {
         const key = `${w.class_name}-${isFwd ? 'f' : 'r'}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        lines.push(`${CLASS_COLORS[w.class_name] || '#a78bfa'}:${isFwd ? 'f' : 'r'}`);
+        lines.push(`${CLASS_COLORS[w.class_name] || '#a78bfa'}:${isFwd ? 'f' : 'r'}:${w.move_id ?? w.id}`);
       }
       const next = lines.sort().join('|');
       setSnapshot(prev => prev === next ? prev : next);
@@ -65,8 +66,8 @@ export function WorkerEdge(props: EdgeProps) {
   const dots = React.useMemo(() => {
     if (!snapshot) return [];
     return snapshot.split('|').map(s => {
-      const [color, dir] = s.split(':');
-      return { color, reverse: dir === 'r' };
+      const [color, dir, moveId] = s.split(':');
+      return { color, reverse: dir === 'r', moveId };
     });
   }, [snapshot]);
 
@@ -85,8 +86,8 @@ export function WorkerEdge(props: EdgeProps) {
         }}
         id={id}
       />
-      {hasTraffic && dots.map((dot, i) => (
-        <MemoTrafficDot key={`${i}-${dot.color}-${dot.reverse}`} color={dot.color} reverse={dot.reverse} pathData={edgePath} />
+      {hasTraffic && dots.map(dot => (
+        <MemoTrafficDot key={`${dot.color}-${dot.reverse}-${dot.moveId}`} color={dot.color} reverse={dot.reverse} pathData={edgePath} />
       ))}
     </>
   );
