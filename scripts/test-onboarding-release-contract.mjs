@@ -36,12 +36,20 @@ assert.match(wikiContent, /id: 'pickaxe_basic'[\s\S]{0,500}unlock: \{ unlockedRe
 const questDialog = readFileSync('packages/ui/src/components/QuestGuideDialog.tsx', 'utf8');
 assert.match(questDialog, /quest\.\$\{quest\.id\}\.name/);
 assert.match(questDialog, /quest\.\$\{quest\.id\}\.objective\.\$\{obj\.id\}/);
+assert.match(questDialog, /translated === key \? fallback : translated/, 'missing keys must never render literally');
 assert.match(questDialog, /openWikiPreview\(quest\.manualEntryId\)/);
 assert.match(wiki, /previewEntryId === selectedEntryId \|\| unlockedFn/);
 assert.match(wiki, /previewEntryId === selectedEntryId\) return/, 'preview must not mark seen or grant rewards');
 
 for (const locale of ['en', 'zh-TW', 'ja']) {
   const source = readFileSync(`packages/ui/src/i18n/${locale}.ts`, 'utf8');
+  for (const quest of chapterOne) {
+    assert.ok(source.includes(`'quest.${quest.id}.name'`), `${locale} missing quest.${quest.id}.name`);
+    for (const objective of quest.objectives) {
+      const key = `quest.${quest.id}.objective.${objective.id}`;
+      assert.ok(source.includes(`'${key}'`), `${locale} missing ${key}`);
+    }
+  }
   for (const key of [
     'tutorial.chapter_zero.loading',
     'tutorial.chapter_zero.load_error',

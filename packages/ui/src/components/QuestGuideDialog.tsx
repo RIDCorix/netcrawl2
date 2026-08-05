@@ -60,6 +60,10 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
   const [msg, setMsg] = useState('');
 
   const t = useT();
+  const translateQuestCopy = (key: string, fallback: string) => {
+    const translated = t(key);
+    return translated === key ? fallback : translated;
+  };
   const openWikiPreview = useGameStore(s => s.openWikiPreview);
   const lang = useGameStore(s => s.settings.language);
   const translatedGuide = getTranslatedGuide(lang, quest.id);
@@ -156,7 +160,7 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
                   whiteSpace: 'nowrap',
                 }}
               >
-                {t(`quest.${quest.id}.name`) || quest.name}
+                {translateQuestCopy(`quest.${quest.id}.name`, quest.name)}
               </div>
             </div>
           </div>
@@ -262,7 +266,7 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
                   color: obj.met ? 'var(--text-primary)' : 'var(--text-muted)',
                 }}
               >
-                {t(`quest.${quest.id}.objective.${obj.id}`) || obj.description}
+                {translateQuestCopy(`quest.${quest.id}.objective.${obj.id}`, obj.description)}
               </span>
               <span
                 style={{
