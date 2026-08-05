@@ -841,6 +841,14 @@ export const ja: Record<string, string> = {
   'tutorial.chapter_zero.held': '所持 {count}',
   'tutorial.chapter_zero.drops': 'ドロップ {count}',
   'tutorial.chapter_zero.data': 'data {count}',
+  'tutorial.chapter_zero.loading': '正規のチュートリアル進行を読み込み中…',
+  'tutorial.chapter_zero.load_error':
+    'チュートリアルを読み込めません。チャプター1は安全にロックされています。接続を確認して再試行してください。',
+  'tutorial.chapter_zero.retry': '再試行',
+  'wiki.invalid_entry.title': 'マニュアルページを利用できません',
+  'wiki.invalid_entry.body':
+    'このクエストは不明なページを参照しています。マニュアル一覧に戻り、有効な項目を選択してください。',
+  'wiki.invalid_entry.action': 'マニュアルへ戻る',
   'tutorial.chapter_zero.continue': 'チャプター1へ',
   'tutorial.chapter_zero.transition_logged_ready': '状態を記録',
   'tutorial.chapter_zero.transition_moved_to_mine': '鉱山へ移動',

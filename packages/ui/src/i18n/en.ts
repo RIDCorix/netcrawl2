@@ -853,6 +853,14 @@ export const en: Record<string, string> = {
   'tutorial.chapter_zero.held': '{count} held',
   'tutorial.chapter_zero.drops': '{count} drops',
   'tutorial.chapter_zero.data': '{count} data',
+  'tutorial.chapter_zero.loading': 'Loading your authoritative tutorial session…',
+  'tutorial.chapter_zero.load_error':
+    'The tutorial session could not be loaded. Chapter 1 remains safely locked. Check the server connection and retry.',
+  'tutorial.chapter_zero.retry': 'RETRY',
+  'wiki.invalid_entry.title': 'Manual page unavailable',
+  'wiki.invalid_entry.body':
+    'This quest links to an unknown manual page. Return to the manual index and choose a valid entry.',
+  'wiki.invalid_entry.action': 'BACK TO MANUAL',
   'tutorial.chapter_zero.continue': 'CONTINUE TO CHAPTER 1',
   'tutorial.chapter_zero.transition_logged_ready': 'Status logged',
   'tutorial.chapter_zero.transition_moved_to_mine': 'Moved to mine',

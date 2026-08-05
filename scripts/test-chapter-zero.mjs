@@ -7,6 +7,7 @@ import {
 } from '../packages/server/.test-dist/domain/chapterZero.js';
 
 let session = createChapterZeroSession();
+const otherUserSession = createChapterZeroSession();
 assert.equal(isChapterZeroGateOpen(session), false, 'clean saves must remain gated');
 assert.equal(shouldBypassChapterZero({ q_setup: 'available' }), false, 'availability alone is not legacy completion');
 assert.equal(shouldBypassChapterZero({ q_setup: 'claimed' }), true, 'claimed legacy saves bypass onboarding');
@@ -21,6 +22,7 @@ const rejected = applyChapterZeroCommand(session, 'mine()');
 assert.equal(rejected.ok, false);
 assert.equal(rejected.error, 'out_of_order');
 assert.deepEqual(rejected.session, session, 'wrong-order input must not mutate the session');
+assert.deepEqual(otherUserSession, createChapterZeroSession(), 'another user session remains isolated');
 
 const commands = ['info()', 'move("mine")', 'mine()', 'collect()', 'move("hub")', 'deposit()'];
 const assertions = [

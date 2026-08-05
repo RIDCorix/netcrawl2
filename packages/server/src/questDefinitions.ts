@@ -110,6 +110,7 @@ export const QUESTS: QuestDef[] = [
     ],
     rewards: [{ kind: 'resources', resources: { data: 20000 } }],
     position: { x: 400, y: 0 },
+    manualEntryId: 'how-to-read',
   },
   {
     id: 'q_hello_world',
@@ -124,6 +125,7 @@ export const QUESTS: QuestDef[] = [
     ],
     rewards: [{ kind: 'resources', resources: { data: 10000 } }],
     position: { x: 400, y: 150 },
+    manualEntryId: 'spec-node',
   },
   {
     id: 'q_method_call',
@@ -179,6 +181,7 @@ export const QUESTS: QuestDef[] = [
       },
     ],
     position: { x: 400, y: 900 },
+    manualEntryId: 'bad_data',
   },
   {
     id: 'q_operators',
@@ -195,6 +198,7 @@ export const QUESTS: QuestDef[] = [
       { kind: 'passive', effectId: 'defense_1', description: '+1 global defense', effect: { global_defense_bonus: 1 } },
     ],
     position: { x: 400, y: 1200 },
+    manualEntryId: 'spec-node',
   },
   {
     id: 'q_while_loop',
@@ -219,6 +223,7 @@ export const QUESTS: QuestDef[] = [
       { kind: 'items', items: [{ itemType: 'pickaxe_iron', count: 1, metadata: { efficiency: 1.5 } }] },
     ],
     position: { x: 400, y: 1500 },
+    manualEntryId: 'resource',
   },
   {
     id: 'q_for_loop',
@@ -235,6 +240,7 @@ export const QUESTS: QuestDef[] = [
       { kind: 'resources', resources: { data: 50000 } },
     ],
     position: { x: 400, y: 1800 },
+    manualEntryId: 'spec-route',
   },
 
   // ── Side quests ──
@@ -295,6 +301,7 @@ export const QUESTS: QuestDef[] = [
       },
     ],
     position: { x: 800, y: 0 },
+    manualEntryId: 'spec-route',
     skipChapter: 1,
   },
   {
@@ -316,6 +323,7 @@ export const QUESTS: QuestDef[] = [
     ],
     rewards: [{ kind: 'items', items: [{ itemType: 'shield', count: 1 }] }],
     position: { x: 700, y: 1650 },
+    manualEntryId: 'bad_data',
   },
   {
     id: 'q_cluster_mining',
@@ -331,6 +339,7 @@ export const QUESTS: QuestDef[] = [
       { kind: 'resources', resources: { data: 100000 } },
     ],
     position: { x: 700, y: 1950 },
+    manualEntryId: 'spec-route',
   },
 
   // ════════════════════════════════════════════════════════════════════════════
