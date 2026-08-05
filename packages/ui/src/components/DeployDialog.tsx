@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Upload, ChevronRight } from 'lucide-react';
 import { useGameStore, InventoryItem } from '../store/gameStore';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { useT } from '../hooks/useT';
 import { StepBar } from './deploy/StepBar';
@@ -33,6 +33,8 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
   } = useGameStore();
   const t = useT();
   const workerClasses = storeWorkerClasses as WorkerClassEntry[];
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [selectedClass, setSelectedClass] = useState('');
@@ -125,6 +127,19 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
     },
     [],
   );
+
+  useEffect(() => {
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = requestAnimationFrame(() => {
+      const initialFocus = dialogRef.current?.querySelector<HTMLElement>('[data-deploy-initial-focus]');
+      (initialFocus || dialogRef.current)?.focus();
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      previousFocusRef.current?.focus();
+    };
+  }, []);
 
   // ── Callbacks ──────────────────────────────────────────────────────────────
   const getNodeLabel = (id: string) => gameNodes.find(n => n.id === id)?.data?.label || id;
@@ -269,6 +284,42 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
     onClose();
   };
 
+  const handleDialogKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      handleClose();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+
+    const focusable = Array.from(
+      dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])',
+      ) || [],
+    ).filter(element => element.getClientRects().length > 0 && element.getAttribute('aria-hidden') !== 'true');
+
+    if (focusable.length === 0) {
+      event.preventDefault();
+      dialogRef.current?.focus();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    if (!dialogRef.current?.contains(active)) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
+    } else if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
   // ── Route selection overlay ────────────────────────────────────────────────
   if (selectingRoute) {
     const routeSlot = routeSlots.find(s => s.name === selectingRoute);
@@ -375,11 +426,17 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
       onClick={handleClose}
     >
       <motion.div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${t('ui.deploy_to')} ${nodeName}`}
+        tabIndex={-1}
         initial={{ scale: 0.92, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.92, opacity: 0, y: 20 }}
         transition={{ type: 'spring', damping: 28, stiffness: 350 }}
         onClick={e => e.stopPropagation()}
+        onKeyDown={handleDialogKeyDown}
         style={{
           background: 'var(--bg-glass-heavy)',
           backdropFilter: 'blur(24px)',
