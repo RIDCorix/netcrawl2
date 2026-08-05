@@ -38,9 +38,11 @@ def spawn_worker(
     process = subprocess.Popen(
         [sys.executable, "-m", "netcrawl.runner"],
         env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
+        # Inherit the code-server terminal. A PIPE without a reader eventually
+        # fills and blocks the worker on print(), while the server still shows
+        # it as active.
+        stdout=None,
+        stderr=None,
     )
 
     _active_processes[worker_id] = process
