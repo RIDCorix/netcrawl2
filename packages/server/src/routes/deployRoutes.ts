@@ -18,6 +18,7 @@ import { checkAchievements } from '../achievements.js';
 import { checkQuests } from '../quests.js';
 import { XP_REWARDS } from '../levelSystem.js';
 import { getUserId, returnWorkerItems } from './helpers.js';
+import { resolvePickaxeSelection } from '../deployEquipment.js';
 
 export const deployRoutes = Router();
 
@@ -72,8 +73,9 @@ deployRoutes.post('/deploy', async (req: Request, res: Response) => {
 
   // Handle equipped pickaxe
   let equippedPickaxe: { itemType: string; efficiency: number } | null = null;
-  const pickaxeItemType = equippedItems?.pickaxe;
-  if (pickaxeItemType) {
+  const pickaxeSelection = resolvePickaxeSelection(workerClass.fields, equippedItems);
+  if (pickaxeSelection) {
+    const pickaxeItemType = pickaxeSelection.itemType;
     const baseCompute = 1;
     const totalCompute = baseCompute + (equippedCpu?.computePoints || 0);
     let totalCost = getItemComputeCost(pickaxeItemType);
@@ -97,8 +99,8 @@ deployRoutes.post('/deploy', async (req: Request, res: Response) => {
 
   // Build injected fields
   const injectedFields: Record<string, any> = {};
-  if (equippedPickaxe) {
-    injectedFields['pickaxe'] = { itemType: equippedPickaxe.itemType, efficiency: equippedPickaxe.efficiency };
+  if (equippedPickaxe && pickaxeSelection) {
+    injectedFields[pickaxeSelection.fieldName] = { itemType: equippedPickaxe.itemType, efficiency: equippedPickaxe.efficiency };
   }
   if (routes && typeof routes === 'object') {
     for (const [fieldName, edgeId] of Object.entries(routes)) {
@@ -163,10 +165,24 @@ deployRoutes.post('/deploy-ack', (req: Request, res: Response) => {
   const worker = getWorker(workerId, uid);
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
 
+  // ACKs can be retried by a reconnecting code server. A terminal worker must
+  // never return reserved equipment twice or be revived by a stale success ACK.
+  if (worker.status === 'crashed' || worker.status === 'error') {
+    return res.json({ ok: true, duplicate: true });
+  }
+
   if (spawnError) {
     returnWorkerItems(worker, uid);
     releaseFlop(FLOP_COSTS.worker, uid);
-    upsertWorker({ ...worker, status: 'crashed' }, uid);
+    upsertWorker({
+      ...worker,
+      status: 'crashed',
+      pid: null,
+      equippedPickaxe: null,
+      equippedCpu: null,
+      equippedRam: null,
+      holding: [],
+    }, uid);
     addWorkerLog(workerId, `[ERROR] Spawn failed: ${spawnError}`, uid);
   } else {
     upsertWorker({ ...worker, status: 'running', pid: pid || null }, uid);

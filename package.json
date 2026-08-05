@@ -17,7 +17,8 @@
     "lint:fix": "eslint packages/server/src packages/ui/src --fix",
     "format": "prettier --write packages/server/src packages/ui/src",
     "format:check": "prettier --check packages/server/src packages/ui/src",
-    "test:quest-guides": "node scripts/verify-quest-guide-consistency.mjs"
+    "test:quest-guides": "node scripts/verify-quest-guide-consistency.mjs",
+    "test:deploy-equipment": "node scripts/test-deploy-equipment.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
