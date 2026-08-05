@@ -369,6 +369,8 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        padding: 16,
+        boxSizing: 'border-box',
       }}
       onClick={handleClose}
     >
@@ -385,16 +387,17 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
           borderRadius: 'var(--radius-lg)',
           padding: 24,
           width: 520,
-          maxWidth: 'calc(100vw - 64px)',
-          maxHeight: 'calc(100vh - 80px)',
-          overflowY: 'auto',
+          maxWidth: '100%',
+          maxHeight: 'calc(100dvh - 32px)',
+          boxSizing: 'border-box',
+          overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
           gap: 18,
         }}
       >
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
             <div
               style={{
@@ -435,7 +438,11 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
           </button>
         </div>
 
-        {steps.length > 2 && <StepBar steps={steps} currentStep={step} />}
+        {steps.length > 2 && (
+          <div style={{ flexShrink: 0 }}>
+            <StepBar steps={steps} currentStep={step} />
+          </div>
+        )}
 
         {loading ? (
           <div
@@ -466,74 +473,76 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
           </div>
         ) : (
           <>
-            {currentStepKey === 'class' && (
-              <ClassStep
-                workerClasses={workerClasses}
-                selectedClass={selectedClass}
-                setSelectedClass={setSelectedClass}
-                selectedClassEntry={selectedClassEntry}
-                classItemSlots={classItemSlots}
-                routeSlots={routeSlots}
-                playerInventory={playerInventory}
-                unitCount={unitCount}
-                setUnitCount={setUnitCount}
-                setEquippedPerUnit={setEquippedPerUnit}
-                setCpuPerUnit={setCpuPerUnit}
-                setRamPerUnit={setRamPerUnit}
-                setCurrentUnitIdx={setCurrentUnitIdx}
-              />
-            )}
+            <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
+              {currentStepKey === 'class' && (
+                <ClassStep
+                  workerClasses={workerClasses}
+                  selectedClass={selectedClass}
+                  setSelectedClass={setSelectedClass}
+                  selectedClassEntry={selectedClassEntry}
+                  classItemSlots={classItemSlots}
+                  routeSlots={routeSlots}
+                  playerInventory={playerInventory}
+                  unitCount={unitCount}
+                  setUnitCount={setUnitCount}
+                  setEquippedPerUnit={setEquippedPerUnit}
+                  setCpuPerUnit={setCpuPerUnit}
+                  setRamPerUnit={setRamPerUnit}
+                  setCurrentUnitIdx={setCurrentUnitIdx}
+                />
+              )}
 
-            {currentStepKey === 'routes' && (
-              <RoutesStep
-                routeSlots={routeSlots}
-                routes={routes}
-                routeNodes={routeNodes}
-                selectingRoute={selectingRoute}
-                startRouteSelect={startRouteSelect}
-                finishRouteSelect={finishRouteSelect}
-                getNodeLabel={getNodeLabel}
-              />
-            )}
+              {currentStepKey === 'routes' && (
+                <RoutesStep
+                  routeSlots={routeSlots}
+                  routes={routes}
+                  routeNodes={routeNodes}
+                  selectingRoute={selectingRoute}
+                  startRouteSelect={startRouteSelect}
+                  finishRouteSelect={finishRouteSelect}
+                  getNodeLabel={getNodeLabel}
+                />
+              )}
 
-            {currentStepKey === 'equipment' && (
-              <EquipmentStep
-                unitCount={unitCount}
-                currentUnitIdx={currentUnitIdx}
-                setCurrentUnitIdx={setCurrentUnitIdx}
-                equippedPerUnit={equippedPerUnit}
-                setEquippedPerUnit={setEquippedPerUnit}
-                cpuPerUnit={cpuPerUnit}
-                setCpuPerUnit={setCpuPerUnit}
-                ramPerUnit={ramPerUnit}
-                setRamPerUnit={setRamPerUnit}
-                classItemSlots={classItemSlots}
-                playerInventory={playerInventory}
-                availableInventory={availableInventory}
-                totalCompute={totalCompute}
-                totalCapacity={totalCapacity}
-                usedCompute={usedCompute}
-                currentCpu={currentCpu}
-                currentRam={currentRam}
-                cpuAvailForUnit={cpuAvailForUnit}
-                ramAvailForUnit={ramAvailForUnit}
-                allSlotsFilled={allSlotsFilled}
-              />
-            )}
+              {currentStepKey === 'equipment' && (
+                <EquipmentStep
+                  unitCount={unitCount}
+                  currentUnitIdx={currentUnitIdx}
+                  setCurrentUnitIdx={setCurrentUnitIdx}
+                  equippedPerUnit={equippedPerUnit}
+                  setEquippedPerUnit={setEquippedPerUnit}
+                  cpuPerUnit={cpuPerUnit}
+                  setCpuPerUnit={setCpuPerUnit}
+                  ramPerUnit={ramPerUnit}
+                  setRamPerUnit={setRamPerUnit}
+                  classItemSlots={classItemSlots}
+                  playerInventory={playerInventory}
+                  availableInventory={availableInventory}
+                  totalCompute={totalCompute}
+                  totalCapacity={totalCapacity}
+                  usedCompute={usedCompute}
+                  currentCpu={currentCpu}
+                  currentRam={currentRam}
+                  cpuAvailForUnit={cpuAvailForUnit}
+                  ramAvailForUnit={ramAvailForUnit}
+                  allSlotsFilled={allSlotsFilled}
+                />
+              )}
 
-            {currentStepKey === 'deploy' && (
-              <ConfirmStep
-                selectedClassEntry={selectedClassEntry}
-                unitCount={unitCount}
-                nodeName={nodeName}
-                routes={routes}
-                equipped={equipped}
-                getNodeLabel={getNodeLabel}
-              />
-            )}
+              {currentStepKey === 'deploy' && (
+                <ConfirmStep
+                  selectedClassEntry={selectedClassEntry}
+                  unitCount={unitCount}
+                  nodeName={nodeName}
+                  routes={routes}
+                  equipped={equipped}
+                  getNodeLabel={getNodeLabel}
+                />
+              )}
+            </div>
 
             {/* Navigation */}
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
               {step > 0 && (
                 <button
                   onClick={() => setStep(s => s - 1)}
