@@ -17,6 +17,8 @@ const COMPUTE_COSTS: Record<string, number> = { pickaxe_basic: 1, pickaxe_iron: 
 const BASE_COMPUTE = 1;
 const BASE_CAPACITY = 50;
 const RAM_CAPACITY_MULT = 50;
+const DIALOG_FOCUSABLE_SELECTOR =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])';
 
 // ── Deploy Dialog ───────────────────────────────────────────────────────────
 
@@ -279,13 +281,18 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
     return true;
   };
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setEdgeSelectMode(null);
     onClose();
-  };
+  }, [onClose, setEdgeSelectMode]);
 
-  const handleDialogKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleDialogKeyDown = useCallback((event: KeyboardEvent) => {
     if (event.key === 'Escape') {
+      const visibleListbox = Array.from(document.querySelectorAll<HTMLElement>('[role="listbox"]')).some(
+        element => element.getClientRects().length > 0,
+      );
+      if (visibleListbox) return;
+
       event.preventDefault();
       event.stopPropagation();
       handleClose();
@@ -294,9 +301,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
     if (event.key !== 'Tab') return;
 
     const focusable = Array.from(
-      dialogRef.current?.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])',
-      ) || [],
+      dialogRef.current?.querySelectorAll<HTMLElement>(DIALOG_FOCUSABLE_SELECTOR) || [],
     ).filter(element => element.getClientRects().length > 0 && element.getAttribute('aria-hidden') !== 'true');
 
     if (focusable.length === 0) {
@@ -318,7 +323,27 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
       event.preventDefault();
       first.focus();
     }
-  };
+  }, [handleClose]);
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleDialogKeyDown, true);
+    return () => document.removeEventListener('keydown', handleDialogKeyDown, true);
+  }, [handleDialogKeyDown]);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+
+      const stepContent = dialog.querySelector<HTMLElement>('[data-deploy-step-content]');
+      const firstStepControl = Array.from(
+        stepContent?.querySelectorAll<HTMLElement>(DIALOG_FOCUSABLE_SELECTOR) || [],
+      ).find(element => element.getClientRects().length > 0 && element.getAttribute('aria-hidden') !== 'true');
+      (firstStepControl || dialog).focus();
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [currentStepKey]);
 
   // ── Route selection overlay ────────────────────────────────────────────────
   if (selectingRoute) {
@@ -436,7 +461,6 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
         exit={{ scale: 0.92, opacity: 0, y: 20 }}
         transition={{ type: 'spring', damping: 28, stiffness: 350 }}
         onClick={e => e.stopPropagation()}
-        onKeyDown={handleDialogKeyDown}
         style={{
           background: 'var(--bg-glass-heavy)',
           backdropFilter: 'blur(24px)',
@@ -530,7 +554,10 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
           </div>
         ) : (
           <>
-            <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
+            <div
+              data-deploy-step-content
+              style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', paddingRight: 4 }}
+            >
               {currentStepKey === 'class' && (
                 <ClassStep
                   workerClasses={workerClasses}
