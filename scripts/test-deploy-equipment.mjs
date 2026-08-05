@@ -15,7 +15,7 @@ const module = { exports: {} };
 vm.runInNewContext(`(function(exports, module, require) { ${compiled} })(module.exports, module, require)`, {
   module,
   require: id => {
-    if (id === '@netcrawl/equipment-catalog') return equipmentCatalog;
+    if (id === './generatedEquipmentCatalog.js') return equipmentCatalog;
     throw new Error(`Unexpected module import: ${id}`);
   },
 });

@@ -107,9 +107,6 @@ importers:
 
   packages/server:
     dependencies:
-      '@netcrawl/equipment-catalog':
-        specifier: workspace:*
-        version: link:../equipment-catalog
       cors:
         specifier: ^2.8.5
         version: 2.8.6

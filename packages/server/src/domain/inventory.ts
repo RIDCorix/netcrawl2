@@ -2,7 +2,7 @@
  * Player inventory management — add/remove items, item stat lookups.
  */
 
-import { getEquipmentDefinition } from '@netcrawl/equipment-catalog';
+import { getEquipmentDefinition } from '../generatedEquipmentCatalog.js';
 import { resolveStore } from '../store.js';
 import type { InventoryItem } from '../types.js';
 

@@ -1,4 +1,4 @@
-import { getEquipmentDefinition } from '@netcrawl/equipment-catalog';
+import { getEquipmentDefinition } from './generatedEquipmentCatalog.js';
 
 export interface DeployField {
   type: string;
