@@ -8,6 +8,7 @@ import fs from 'fs';
 import { INITIAL_LEVEL_STATE, type LevelState } from './levelSystem.js';
 import { getUpgradeKey, getNodeXpThreshold, NODE_UPGRADE_DEFS } from './upgradeDefinitions.js';
 import { QUESTS } from './questDefinitions.js';
+import { createChapterZeroSession, shouldBypassChapterZero } from './domain/chapterZero.js';
 import {
   type Store,
   type InventoryItem,
@@ -51,7 +52,7 @@ const INITIAL_STORE: Store = {
     activePassives: {},
     unlockedRecipes: [],
     claimedAt: {},
-    chapterZero: { step: 0, completed: false },
+    chapterZero: createChapterZeroSession(),
   },
   level_state: { ...INITIAL_LEVEL_STATE },
   layer_manager: {
@@ -357,9 +358,9 @@ function _loadStore() {
       if (!store.achievement_state) store.achievement_state = { unlocked: {}, stats: {}, statArrays: {} };
       if (!store.quest_state)
         store.quest_state = { questStatus: {}, activePassives: {}, unlockedRecipes: [], claimedAt: {} };
-      if (!store.quest_state.chapterZero) {
-        const legacyProgress = Object.keys(store.quest_state.questStatus || {}).length > 0;
-        store.quest_state.chapterZero = { step: legacyProgress ? 6 : 0, completed: legacyProgress };
+      if (!store.quest_state.chapterZero || store.quest_state.chapterZero.version !== 2) {
+        const legacyProgress = shouldBypassChapterZero(store.quest_state.questStatus || {});
+        store.quest_state.chapterZero = createChapterZeroSession(legacyProgress);
       }
       if (!store.level_state) store.level_state = { ...INITIAL_LEVEL_STATE };
 

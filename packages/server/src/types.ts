@@ -306,7 +306,7 @@ export interface QuestState {
   activePassives: Record<string, { description: string; effect: Record<string, number> }>;
   unlockedRecipes: string[];
   claimedAt: Record<string, string>;
-  chapterZero?: { step: number; completed: boolean };
+  chapterZero?: import('./domain/chapterZero.js').ChapterZeroSession;
 }
 
 // ── Achievement System ──────────────────────────────────────────────────────

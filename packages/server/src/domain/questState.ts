@@ -4,6 +4,12 @@
 
 import { resolveStore } from '../store.js';
 import type { QuestState } from '../types.js';
+import {
+  applyChapterZeroCommand,
+  CHAPTER_ZERO_COMMANDS,
+  createChapterZeroSession,
+  shouldBypassChapterZero,
+} from './chapterZero.js';
 
 export function getQuestState(userId?: string): QuestState {
   return resolveStore(userId).quest_state;
@@ -46,29 +52,19 @@ export function getUnlockedRecipes(userId?: string): string[] {
   return resolveStore(userId).quest_state.unlockedRecipes || [];
 }
 
-export const CHAPTER_ZERO_COMMANDS = [
-  'info()',
-  'move("mine")',
-  'mine()',
-  'collect()',
-  'move("hub")',
-  'deposit()',
-] as const;
-
 export function getChapterZero(userId?: string) {
   const state = resolveStore(userId).quest_state;
-  if (!state.chapterZero) state.chapterZero = { step: 0, completed: false };
-  return { ...state.chapterZero, expected: CHAPTER_ZERO_COMMANDS[state.chapterZero.step] || null };
+  if (!state.chapterZero || state.chapterZero.version !== 2) {
+    const legacyProgress = shouldBypassChapterZero(state.questStatus || {});
+    state.chapterZero = createChapterZeroSession(legacyProgress);
+  }
+  return { ...structuredClone(state.chapterZero), expected: CHAPTER_ZERO_COMMANDS[state.chapterZero.step] || null };
 }
 
 export function submitChapterZeroCommand(command: string, userId?: string) {
   const state = resolveStore(userId).quest_state;
-  if (!state.chapterZero) state.chapterZero = { step: 0, completed: false };
-  if (state.chapterZero.completed) return { ok: true, ...getChapterZero(userId) };
-  const normalized = command.trim().replace(/'/g, '"');
-  const expected = CHAPTER_ZERO_COMMANDS[state.chapterZero.step];
-  if (normalized !== expected) return { ok: false, error: 'out_of_order', ...getChapterZero(userId) };
-  state.chapterZero.step += 1;
-  state.chapterZero.completed = state.chapterZero.step >= CHAPTER_ZERO_COMMANDS.length;
-  return { ok: true, ...getChapterZero(userId) };
+  getChapterZero(userId);
+  const result = applyChapterZeroCommand(state.chapterZero!, command);
+  if (result.ok) state.chapterZero = result.session;
+  return { ...result, ...getChapterZero(userId) };
 }

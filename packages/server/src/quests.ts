@@ -21,6 +21,7 @@ import { XP_REWARDS } from './levelSystem.js';
 import { broadcast } from './websocket.js';
 import { QUESTS, QuestDef, QuestObjective } from './questDefinitions.js';
 import { CHIP_DEFS } from './upgradeDefinitions.js';
+import { isChapterZeroGateOpen } from './domain/chapterZero.js';
 
 // ── Objective evaluation ────────────────────────────────────────────────────
 
@@ -51,7 +52,7 @@ export function evaluateObjective(
 
 /** Initialize quests that have no status yet. First quest starts as 'available'. */
 function ensureQuestInit(userId?: string) {
-  const chapterZeroComplete = getQuestState(userId).chapterZero?.completed === true;
+  const chapterZeroComplete = isChapterZeroGateOpen(getQuestState(userId).chapterZero);
   for (const q of QUESTS) {
     if (!getQuestStatus(q.id, userId)) {
       if (q.prerequisites.length === 0 && (q.id !== 'q_setup' || chapterZeroComplete)) {
@@ -68,7 +69,7 @@ function checkAvailability(userId?: string): QuestDef[] {
   const newlyAvailable: QuestDef[] = [];
   for (const q of QUESTS) {
     if (getQuestStatus(q.id, userId) !== 'locked') continue;
-    if (q.id === 'q_setup' && getQuestState(userId).chapterZero?.completed !== true) continue;
+    if (q.id === 'q_setup' && !isChapterZeroGateOpen(getQuestState(userId).chapterZero)) continue;
     const allPreqsClaimed = q.prerequisites.every(pid => getQuestStatus(pid, userId) === 'claimed');
     if (allPreqsClaimed) {
       setQuestStatus(q.id, 'available', userId);
