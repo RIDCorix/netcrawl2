@@ -228,11 +228,15 @@ export function getQuestSummary(userId?: string) {
   ensureQuestInit(userId);
   const state = getQuestState(userId);
   const statuses = state.questStatus;
+  const progressRevision = QUESTS.flatMap(q =>
+    q.objectives.map(obj => `${q.id}:${obj.id}:${evaluateObjective(obj, userId).current}`)
+  ).join('|');
   return {
     total: QUESTS.length,
     claimed: Object.values(statuses).filter(s => s === 'claimed').length,
     completed: Object.values(statuses).filter(s => s === 'completed').length,
     available: Object.values(statuses).filter(s => s === 'available').length,
+    progressRevision,
     activePassives: state.activePassives,
   };
 }

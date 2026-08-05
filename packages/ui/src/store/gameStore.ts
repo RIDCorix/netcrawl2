@@ -224,7 +224,7 @@ export interface GameState {
   };
   achievementToasts: Array<{ id: string; name: string; description: string; category: string; timestamp: number }>;
   achievementsOpen: boolean;
-  questSummary: { total: number; claimed: number; completed: number; available: number };
+  questSummary: { total: number; claimed: number; completed: number; available: number; progressRevision: string };
   questsOpen: boolean;
   selectedQuestId: string | null;
   questToasts: Array<{ id: string; name: string; type: 'available' | 'completed'; timestamp: number }>;
@@ -342,7 +342,7 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   })(),
   connectOpen: false,
   settings: savedSettings,
-  questSummary: { total: 0, claimed: 0, completed: 0, available: 0 },
+  questSummary: { total: 0, claimed: 0, completed: 0, available: 0, progressRevision: '' },
   questsOpen: false,
   selectedQuestId: null,
   questToasts: [],

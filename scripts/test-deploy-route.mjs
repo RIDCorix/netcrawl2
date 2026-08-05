@@ -13,6 +13,7 @@ const { startServer } = await import('../packages/server/.test-dist/index.js');
 const { getWorker, upsertWorker } = await import('../packages/server/.test-dist/domain/workers.js');
 const { addToPlayerInventory, getPlayerInventory } = await import('../packages/server/.test-dist/domain/inventory.js');
 const { getGameState } = await import('../packages/server/.test-dist/domain/gameState.js');
+const { getQuestSummary } = await import('../packages/server/.test-dist/quests.js');
 const { FLOP_COSTS } = await import('../packages/server/.test-dist/types.js');
 
 const { server, port } = await startServer({ port: 0, dataDir: testDir });
@@ -115,8 +116,10 @@ try {
   worker = getWorker(workerId, userA);
   upsertWorker({ ...worker, current_node: 'hub', holding: [{ type: 'bad_data', count: 7 }] }, userA);
   assert.equal((await request('/api/worker/action', tokenA, { workerId, action: 'discard', payload: {} })).body.ok, true);
+  const progressRevisionBeforeDeposit = getQuestSummary(userA).progressRevision;
   upsertWorker({ ...getWorker(workerId, userA), holding: [{ type: 'data_fragment', count: 11 }] }, userA);
   assert.equal((await request('/api/worker/action', tokenA, { workerId, action: 'deposit', payload: {} })).body.ok, true);
+  assert.notEqual(getQuestSummary(userA).progressRevision, progressRevisionBeforeDeposit, 'quest summary must invalidate cached UI progress after deposit');
   const userAQuests = (await request('/api/quests', tokenA)).body.quests;
   const userBQuests = (await request('/api/quests', tokenB)).body.quests;
   const conditionsA = userAQuests.find(quest => quest.id === 'q_conditions');
@@ -222,7 +225,7 @@ try {
   assert.equal(getWorker(workerId, userA)?.flopAllocated, true);
   assert.equal(getWorker(uniqueDeploy.body.workerId, userA)?.flopAllocated, false);
 
-  console.log('Deploy route integration: 89 assertions passed');
+  console.log('Deploy route integration: 90 assertions passed');
 } catch (error) {
   console.error(error);
   process.exitCode = 1;

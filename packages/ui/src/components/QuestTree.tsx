@@ -459,6 +459,7 @@ export function QuestTree() {
   const questClaimed = useGameStore(s => s.questSummary.claimed);
   const questCompleted = useGameStore(s => s.questSummary.completed);
   const questAvailable = useGameStore(s => s.questSummary.available);
+  const questProgressRevision = useGameStore(s => s.questSummary.progressRevision);
 
   // Fetch quest data
   useEffect(() => {
@@ -467,7 +468,7 @@ export function QuestTree() {
       .get('/api/quests')
       .then(r => setQuestData(r.data))
       .catch(() => {});
-  }, [questsOpen, questTotal, questClaimed, questCompleted, questAvailable]);
+  }, [questsOpen, questTotal, questClaimed, questCompleted, questAvailable, questProgressRevision]);
 
   // Get chapters that have quests
   const chapters = questData

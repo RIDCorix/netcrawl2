@@ -28,6 +28,7 @@ export function ActiveQuestsPanel() {
   const questClaimed = useGameStore(s => s.questSummary.claimed);
   const questCompleted = useGameStore(s => s.questSummary.completed);
   const questAvailable = useGameStore(s => s.questSummary.available);
+  const questProgressRevision = useGameStore(s => s.questSummary.progressRevision);
 
   // Fetch active quests
   useEffect(() => {
@@ -37,7 +38,7 @@ export function ActiveQuestsPanel() {
       const active = all.filter((q: any) => q.status === 'available' || q.status === 'completed');
       setQuests(active);
     }).catch(() => {});
-  }, [questTotal, questClaimed, questCompleted, questAvailable]);
+  }, [questTotal, questClaimed, questCompleted, questAvailable, questProgressRevision]);
 
   const [claimedIds, setClaimedIds] = useState<Set<string>>(new Set());
   // Snapshot quests that are mid-animation so they don't vanish on refetch
