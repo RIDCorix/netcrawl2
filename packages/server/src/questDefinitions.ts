@@ -142,7 +142,7 @@ export const QUESTS: QuestDef[] = [
     mainline: true, prerequisites: ['q_dot_notation'],
     objectives: [
       { id: 'o1', description: 'Discard 100 bad data', statKey: 'total_bad_data_discarded', target: 100, type: 'stat_gte' },
-      { id: 'o2', description: 'Deposit 10 kB data total', statKey: 'total_data_deposited', target: 10000, type: 'stat_gte' },
+      { id: 'o2', description: 'Deposit 1 kB data total', statKey: 'total_data_deposited', target: 1000, type: 'stat_gte' },
     ],
     rewards: [
       { kind: 'recipe_unlock', recipeId: 'cpu_basic', name: 'CPU Module' },
@@ -162,7 +162,7 @@ export const QUESTS: QuestDef[] = [
     id: 'q_while_loop', chapter: 1, name: 'While Loop', codeConcept: 'While Loops',
     description: 'while self.has_dropped_items(): collect and filter — repeat until done.',
     mainline: true, prerequisites: ['q_operators'],
-    objectives: [{ id: 'o1', description: 'Deposit 100 kB data total', statKey: 'total_data_deposited', target: 100000, type: 'stat_gte' }],
+    objectives: [{ id: 'o1', description: 'Deposit 2 kB data total', statKey: 'total_data_deposited', target: 2000, type: 'stat_gte' }],
     rewards: [
       { kind: 'recipe_unlock', recipeId: 'ram_basic', name: 'RAM Module' },
       { kind: 'recipe_unlock', recipeId: 'pickaxe_iron', name: 'Iron Pickaxe' },

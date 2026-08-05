@@ -343,7 +343,7 @@ onLoop() {
 
 **Goals:**
 - Discard **100 bad data** fragments
-- Deposit **10 kB data** total
+- Deposit **1 kB data** total
 
 Without filtering, bad data will eat into your resources!`,
     },
@@ -442,7 +442,7 @@ onLoop() {
 
 \`has_dropped_items()\` checks if the node still has drops. \`discard()\` throws away the held item.
 
-**Goal:** Deposit **100 kB data total**. The while loop helps you filter efficiently.`,
+**Goal:** Deposit **2 kB data total**. The while loop helps you filter efficiently.`,
     },
   ],
 

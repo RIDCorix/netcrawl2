@@ -114,6 +114,7 @@ export const zhTW: Record<string, string> = {
   'craft.craft': '合成',
   'craft.cancel': '取消',
   'craft.not_enough': '資源不足',
+  'ui.new_unlock': '新解鎖!',
 
   // === Quests ===
   'quests.title': '任務樹',

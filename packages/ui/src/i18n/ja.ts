@@ -114,6 +114,7 @@ export const ja: Record<string, string> = {
   'craft.craft': 'クラフト',
   'craft.cancel': 'キャンセル',
   'craft.not_enough': 'リソース不足',
+  'ui.new_unlock': '新規!',
 
   // === Quests ===
   'quests.title': 'クエストツリー',

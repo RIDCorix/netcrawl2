@@ -114,6 +114,7 @@ export const en: Record<string, string> = {
   'craft.craft': 'Craft',
   'craft.cancel': 'Cancel',
   'craft.not_enough': 'Not enough resources',
+  'ui.new_unlock': 'NEW!',
 
   // === Quests ===
   'quests.title': 'Quest Tree',
