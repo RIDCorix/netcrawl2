@@ -24,18 +24,18 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 curl -LsSf https://astral.sh/uv/install.sh | sh
 \`\`\`
 
-**クローンとインストール：**
+**NetCrawl が管理するサンプルをクローンしてインストール：**
 \`\`\`bash
-git clone https://github.com/Starscribers/netcrawl-workspace.git workspace
-cd workspace
+git clone https://github.com/RIDCorix/netcrawl2.git workspace
+cd workspace/workspace_example
 uv sync
 \`\`\`
 
-\`workspace/\` フォルダが作成されます：
+\`workspace/workspace_example/\` フォルダには以下が含まれます：
 - \`main.py\` — エントリーポイント（ワーカーの登録）
 - \`workers/\` — ワーカークラスはここに` },
 
-    { title: 'main.py の設定', content: `\`workspace/main.py\` をエディタで開き、**サーバーURL**を更新します。
+    { title: 'main.py の設定', content: `\`workspace/workspace_example/main.py\` をエディタで開き、**サーバーURL**を更新します。
 
 ツールバー右上の **Connect** ボタン（ターミナルアイコン）をクリックしてURLを取得：
 
@@ -50,7 +50,7 @@ uv sync
 
 **クラウド版**の場合は \`api_key\` も置き換えてください。` },
 
-    { title: 'コードサーバーを実行', content: `\`workspace/\` フォルダでPythonコードサーバーを起動：
+    { title: 'コードサーバーを実行', content: `\`workspace/workspace_example/\` フォルダでPythonコードサーバーを起動：
 
 \`\`\`bash
 uv run main.py
