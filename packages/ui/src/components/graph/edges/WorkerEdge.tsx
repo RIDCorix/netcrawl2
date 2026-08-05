@@ -3,16 +3,35 @@ import { EdgeProps, BaseEdge, getSmoothStepPath, getBezierPath } from 'reactflow
 import { useGameStore } from '../../../store/gameStore';
 import { CLASS_COLORS } from '../../../constants/colors';
 
-function TrafficDot({ color, reverse, pathData }: { color: string; reverse: boolean; pathData: string }) {
+function TrafficDot({
+  color,
+  reverse,
+  pathData,
+  workerId,
+  moveId,
+}: {
+  color: string;
+  reverse: boolean;
+  pathData: string;
+  workerId: string;
+  moveId: string;
+}) {
   // Let the SVG compositor move the dot. The previous implementation created
   // one JS animation-frame loop per dot and forced path geometry calculations
   // on every frame, which scales poorly in worker-heavy games.
   const animationRef = React.useRef<SVGAnimateMotionElement>(null);
   const keyPoints = reverse ? '1;0;0' : '0;1;1';
+  const isCurrentMove = useGameStore(s =>
+    s.workers.some(w =>
+      w.id === workerId && w.status === 'moving' && String(w.move_id ?? w.id) === moveId
+    )
+  );
 
   React.useLayoutEffect(() => {
-    animationRef.current?.beginElement();
-  }, []);
+    if (isCurrentMove) animationRef.current?.beginElement();
+  }, [isCurrentMove]);
+
+  if (!isCurrentMove) return null;
 
   return (
     <circle
@@ -68,7 +87,7 @@ export function WorkerEdge(props: EdgeProps) {
         const key = `${w.class_name}-${isFwd ? 'f' : 'r'}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        lines.push(`${CLASS_COLORS[w.class_name] || '#a78bfa'}:${isFwd ? 'f' : 'r'}:${w.move_id ?? w.id}`);
+        lines.push(`${CLASS_COLORS[w.class_name] || '#a78bfa'}:${isFwd ? 'f' : 'r'}:${w.move_id ?? w.id}:${w.id}`);
       }
       const next = lines.sort().join('|');
       setSnapshot(prev => prev === next ? prev : next);
@@ -81,8 +100,8 @@ export function WorkerEdge(props: EdgeProps) {
   const dots = React.useMemo(() => {
     if (!snapshot) return [];
     return snapshot.split('|').map(s => {
-      const [color, dir, moveId] = s.split(':');
-      return { color, reverse: dir === 'r', moveId };
+      const [color, dir, moveId, workerId] = s.split(':');
+      return { color, reverse: dir === 'r', moveId, workerId };
     });
   }, [snapshot]);
 
@@ -102,7 +121,14 @@ export function WorkerEdge(props: EdgeProps) {
         id={id}
       />
       {hasTraffic && dots.map(dot => (
-        <MemoTrafficDot key={`${dot.color}-${dot.reverse}-${dot.moveId}`} color={dot.color} reverse={dot.reverse} pathData={edgePath} />
+        <MemoTrafficDot
+          key={`${dot.color}-${dot.reverse}-${dot.moveId}`}
+          color={dot.color}
+          reverse={dot.reverse}
+          pathData={edgePath}
+          workerId={dot.workerId}
+          moveId={dot.moveId}
+        />
       ))}
     </>
   );

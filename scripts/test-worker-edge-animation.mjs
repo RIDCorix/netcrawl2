@@ -10,6 +10,8 @@ assert.match(source, /drop-shadow\(0 0 6px/, 'moving workers must retain their a
 assert.match(source, /calcMode=["']spline["']/, 'movement speed must use easing rather than linear interpolation');
 assert.match(source, /keySplines=["']0\.42 0 0\.58 1;0 0 1 1["']/, 'movement easing must preserve the established ease-in-out curve');
 assert.match(source, /w\.move_id/, 'the movement snapshot must retain the server movement identity');
+assert.match(source, /workerId/, 'the movement snapshot must retain the worker identity');
+assert.match(source, /w\.id === workerId[\s\S]*w\.status === 'moving'[\s\S]*String\(w\.move_id \?\? w\.id\) === moveId/, 'a stale edge snapshot must stop rendering as soon as its exact movement ends');
 assert.match(source, /key=\{`\$\{dot\.color\}-\$\{dot\.reverse\}-\$\{dot\.moveId\}`\}/, 'each server movement must give the SVG animation a fresh React identity');
 
 console.log('worker edge animation regression checks passed');
