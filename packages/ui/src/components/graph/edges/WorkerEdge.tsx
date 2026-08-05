@@ -15,7 +15,13 @@ function TrafficDot({ color, reverse, pathData }: { color: string; reverse: bool
   }, []);
 
   return (
-    <circle r={4} fill={color} stroke="#000" strokeWidth={1}>
+    <circle
+      r={4}
+      fill={color}
+      stroke="#000"
+      strokeWidth={1}
+      style={{ filter: `drop-shadow(0 0 6px ${color}) drop-shadow(0 0 12px ${color}40)` }}
+    >
       <animateMotion
         ref={animationRef}
         path={pathData}
@@ -25,7 +31,8 @@ function TrafficDot({ color, reverse, pathData }: { color: string; reverse: bool
         fill="freeze"
         keyPoints={keyPoints}
         keyTimes="0;0.818;1"
-        calcMode="linear"
+        calcMode="spline"
+        keySplines="0.42 0 0.58 1;0 0 1 1"
       />
     </circle>
   );
