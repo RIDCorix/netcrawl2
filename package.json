@@ -18,7 +18,8 @@
     "format": "prettier --write packages/server/src packages/ui/src",
     "format:check": "prettier --check packages/server/src packages/ui/src",
     "test:quest-guides": "node scripts/verify-quest-guide-consistency.mjs",
-    "test:deploy-equipment": "node scripts/test-deploy-equipment.mjs"
+    "test:deploy-equipment": "node scripts/test-deploy-equipment.mjs",
+    "test:deploy-route": "tsc -p packages/server/tsconfig.json --declaration false --outDir packages/server/.test-dist && node scripts/test-deploy-route.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

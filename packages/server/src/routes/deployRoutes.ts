@@ -18,7 +18,7 @@ import { checkAchievements } from '../achievements.js';
 import { checkQuests } from '../quests.js';
 import { XP_REWARDS } from '../levelSystem.js';
 import { getUserId, returnWorkerItems } from './helpers.js';
-import { resolvePickaxeSelection } from '../deployEquipment.js';
+import { decideDeployAck, isPickaxeItemType, resolvePickaxeSelection } from '../deployEquipment.js';
 
 export const deployRoutes = Router();
 
@@ -76,9 +76,15 @@ deployRoutes.post('/deploy', async (req: Request, res: Response) => {
   const pickaxeSelection = resolvePickaxeSelection(workerClass.fields, equippedItems);
   if (pickaxeSelection) {
     const pickaxeItemType = pickaxeSelection.itemType;
+    if (!isPickaxeItemType(pickaxeItemType)) {
+      releaseFlop(flopCost, uid);
+      if (equippedCpu) addToPlayerInventory(equippedCpu.itemType, equippedCpu.count, undefined, uid);
+      if (equippedRam) addToPlayerInventory(equippedRam.itemType, equippedRam.count, undefined, uid);
+      return res.status(400).json({ error: `${pickaxeItemType} is not a valid Pickaxe` });
+    }
     const baseCompute = 1;
     const totalCompute = baseCompute + (equippedCpu?.computePoints || 0);
-    let totalCost = getItemComputeCost(pickaxeItemType);
+    const totalCost = getItemComputeCost(pickaxeItemType);
     if (totalCost > totalCompute) {
       releaseFlop(flopCost, uid);
       if (equippedCpu) addToPlayerInventory(equippedCpu.itemType, equippedCpu.count, undefined, uid);
@@ -165,13 +171,14 @@ deployRoutes.post('/deploy-ack', (req: Request, res: Response) => {
   const worker = getWorker(workerId, uid);
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
 
-  // ACKs can be retried by a reconnecting code server. A terminal worker must
-  // never return reserved equipment twice or be revived by a stale success ACK.
-  if (worker.status === 'crashed' || worker.status === 'error') {
+  // ACKs can be retried or arrive out of order. Only the first ACK may change
+  // a worker that is still awaiting spawn confirmation.
+  const ackDecision = decideDeployAck(worker.status, Boolean(spawnError));
+  if (ackDecision === 'duplicate') {
     return res.json({ ok: true, duplicate: true });
   }
 
-  if (spawnError) {
+  if (ackDecision === 'spawn_failed') {
     returnWorkerItems(worker, uid);
     releaseFlop(FLOP_COSTS.worker, uid);
     upsertWorker({

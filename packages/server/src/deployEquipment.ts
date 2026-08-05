@@ -3,6 +3,20 @@ export interface DeployField {
   item_type?: string;
 }
 
+const PICKAXE_ITEM_TYPES = new Set(['pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond']);
+
+export function isPickaxeItemType(itemType: string): boolean {
+  return PICKAXE_ITEM_TYPES.has(itemType);
+}
+
+export type DeployAckDecision = 'spawn_succeeded' | 'spawn_failed' | 'duplicate';
+
+/** ACKs are accepted only while the authoritative worker is awaiting its first ACK. */
+export function decideDeployAck(workerStatus: string, hasSpawnError: boolean): DeployAckDecision {
+  if (workerStatus !== 'deploying') return 'duplicate';
+  return hasSpawnError ? 'spawn_failed' : 'spawn_succeeded';
+}
+
 /** Resolve equipment by the worker schema's declared field name, never a UI label. */
 export function resolvePickaxeSelection(
   fields: Record<string, DeployField>,
