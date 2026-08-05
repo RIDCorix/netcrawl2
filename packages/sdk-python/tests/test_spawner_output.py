@@ -8,15 +8,18 @@ from netcrawl.daemon.spawner import kill_worker, spawn_worker
 
 def test_worker_output_is_drained_while_on_loop_keeps_running(tmp_path, capfd):
     action_count = 0
+    observed_nodes = []
     count_lock = threading.Lock()
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self):
             nonlocal action_count
             length = int(self.headers.get("Content-Length", "0"))
-            self.rfile.read(length)
+            request = json.loads(self.rfile.read(length))
             with count_lock:
                 action_count += 1
+                if request.get("action") == "log":
+                    observed_nodes.append(request.get("payload", {}).get("message"))
             body = json.dumps({"ok": True}).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -38,7 +41,7 @@ def test_worker_output_is_drained_while_on_loop_keeps_running(tmp_path, capfd):
         "    class_name = 'Chatty'\n"
         "    class_id = 'chatty'\n"
         "    def on_loop(self):\n"
-        "        self.info('x' * 1024)\n",
+        "        self.info(self.current_node + ':' + 'x' * 1024)\n",
         encoding="utf-8",
     )
 
@@ -50,6 +53,7 @@ def test_worker_output_is_drained_while_on_loop_keeps_running(tmp_path, capfd):
             class_name="Chatty",
             api_url=f"http://127.0.0.1:{server.server_port}",
             injected_fields={},
+            node_id="n_relay1",
         )
         deadline = time.time() + 10
         while time.time() < deadline:
@@ -60,6 +64,7 @@ def test_worker_output_is_drained_while_on_loop_keeps_running(tmp_path, capfd):
 
         with count_lock:
             assert action_count >= 128, "worker stalled after its unconsumed stdout pipe filled"
+            assert any("n_relay1:" in message for message in observed_nodes)
     finally:
         kill_worker(worker_id)
         server.shutdown()

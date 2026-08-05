@@ -32,6 +32,7 @@ def main():
     worker_id = os.environ.get("NETCRAWL_WORKER_ID", "")
     api_url = os.environ.get("NETCRAWL_API_URL", "http://localhost:4800")
     api_key = os.environ.get("NETCRAWL_API_KEY", "")
+    initial_node = os.environ.get("NETCRAWL_INITIAL_NODE", "hub")
     script_path = os.environ["NETCRAWL_SCRIPT_PATH"]
     class_name = os.environ["NETCRAWL_CLASS_NAME"]
     injected_raw = os.environ.get("NETCRAWL_INJECTED", "{}")
@@ -94,6 +95,7 @@ def main():
         api_url=api_url,
         injected_fields=injected_fields,
         api_key=api_key,
+        initial_node=initial_node,
     )
 
     print(f"[{worker_id}] Starting {class_name}...")

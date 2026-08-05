@@ -20,6 +20,7 @@ def spawn_worker(
     api_url: str,
     injected_fields: dict,
     api_key: str = "",
+    node_id: str = "hub",
 ) -> int:
     """
     Spawn a Python worker subprocess.
@@ -33,6 +34,7 @@ def spawn_worker(
         "NETCRAWL_CLASS_NAME": class_name,
         "NETCRAWL_INJECTED": json.dumps(injected_fields),
         "NETCRAWL_API_KEY": api_key,
+        "NETCRAWL_INITIAL_NODE": node_id,
     })
 
     process = subprocess.Popen(

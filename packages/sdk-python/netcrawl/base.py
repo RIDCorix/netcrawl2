@@ -143,10 +143,10 @@ class WorkerClass(metaclass=WorkerMeta):
     _holding: list = []  # List[Item] — inventory (capacity = 1 + RAM bonus)
     _client = None  # ApiClient instance
 
-    def __init__(self, worker_id: str, api_url: str, injected_fields: dict, api_key: str = ""):
+    def __init__(self, worker_id: str, api_url: str, injected_fields: dict, api_key: str = "", initial_node: str = "hub"):
         self._worker_id = worker_id
         self._api_url = api_url
-        self._current_node = "hub"
+        self._current_node = initial_node
         self._inventory = {}
         self._holding: list = []
 

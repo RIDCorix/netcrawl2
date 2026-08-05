@@ -89,10 +89,11 @@ workerRoutes.post('/worker/reset', (req: Request, res: Response) => {
     ? rebuildInjectedEquipment(workerClass.fields, config.injectedFields, config.equippedItems, worker.equippedPickaxe)
     : config.injectedFields;
   const refreshedConfig = { ...config, injectedFields };
+  const recoveryNode = worker.current_node || worker.node_id;
 
   upsertWorker({
     ...worker,
-    current_node: worker.node_id,
+    current_node: recoveryNode,
     status: 'deploying',
     pid: null,
     holding: [],
@@ -101,7 +102,7 @@ workerRoutes.post('/worker/reset', (req: Request, res: Response) => {
   }, uid);
 
   if (!allocateWorkerFlop(workerId, FLOP_COSTS.worker, uid)) {
-    upsertWorker({ ...worker, current_node: worker.node_id, status: 'suspended', pid: null, holding: [], carrying: {}, flopAllocated: false }, uid);
+    upsertWorker({ ...worker, current_node: recoveryNode, status: 'suspended', pid: null, holding: [], carrying: {}, flopAllocated: false }, uid);
     broadcastFullState(uid);
     return res.status(400).json({ error: 'Not enough FLOP' });
   }
@@ -109,7 +110,7 @@ workerRoutes.post('/worker/reset', (req: Request, res: Response) => {
   enqueueDeploy({
     id: worker.id,
     workerId: worker.id,
-    nodeId: worker.node_id,
+    nodeId: recoveryNode,
     classId: refreshedConfig.classId,
     equippedItems: refreshedConfig.equippedItems,
     injectedFields: refreshedConfig.injectedFields,

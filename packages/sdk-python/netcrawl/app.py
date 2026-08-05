@@ -111,6 +111,7 @@ class NetCrawl:
                 api_url=self.server,
                 injected_fields=injected_fields,
                 api_key=self.api_key,
+                node_id=node_id,
             )
             print(f"[NetCrawl] Spawned {cls.class_name} — PID {pid}")
             self._post("/api/deploy-ack", {

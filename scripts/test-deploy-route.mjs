@@ -86,17 +86,27 @@ try {
     },
   };
   assert.equal((await request('/api/worker-classes/register', tokenA, { classes: [reloadedWorkerClass] })).status, 200);
+  const recoveryNode = getWorker(workerId, userA)?.current_node;
   assert.equal((await request('/api/worker/reset', tokenA, { workerId })).body.ok, true);
   assert.equal(getGameState(userA).flop.used, FLOP_COSTS.worker, 'running hot reload must retain its allocation');
   const reloadQueue = await request('/api/deploy-queue', tokenA);
   assert.equal(reloadQueue.body.requests.length, 1);
   assert.equal(reloadQueue.body.requests[0].workerId, workerId);
+  assert.equal(reloadQueue.body.requests[0].nodeId, recoveryNode, 'hot reload must restart at the authoritative current node');
+  assert.equal(getWorker(workerId, userA)?.current_node, recoveryNode, 'reset must not rewind persisted worker position');
   assert.equal(reloadQueue.body.requests[0].injectedFields.hot_tool.itemType, 'pickaxe_basic');
   assert.equal(reloadQueue.body.requests[0].injectedFields.mining_tool, undefined);
   assert.equal((await request('/api/deploy-ack', tokenA, { workerId, pid: 4244 })).body.ok, true);
   worker = getWorker(workerId, userA);
   assert.equal(worker?.equippedPickaxe?.itemType, 'pickaxe_basic');
-  upsertWorker({ ...worker, current_node: 'n_relay1' }, userA);
+  const movedHome = await request('/api/worker/action', tokenA, { workerId, action: 'move_edge', payload: { edgeId: 'e1' } });
+  assert.equal(movedHome.body.ok, true);
+  assert.equal(movedHome.body.from, 'n_relay1');
+  assert.equal(movedHome.body.to, 'hub');
+  assert.equal(getWorker(workerId, userA)?.current_node, 'hub');
+  const movedBack = await request('/api/worker/action', tokenA, { workerId, action: 'move_edge', payload: { edgeId: 'e1' } });
+  assert.equal(movedBack.body.ok, true);
+  assert.equal(getWorker(workerId, userA)?.current_node, 'n_relay1');
   assert.equal((await request('/api/worker/action', tokenA, { workerId, action: 'mine', payload: {} })).body.ok, true);
   assert.equal(getPlayerInventory(userA).some(item => item.itemType === 'pickaxe_basic'), false);
 
@@ -212,7 +222,7 @@ try {
   assert.equal(getWorker(workerId, userA)?.flopAllocated, true);
   assert.equal(getWorker(uniqueDeploy.body.workerId, userA)?.flopAllocated, false);
 
-  console.log('Deploy route integration: 83 assertions passed');
+  console.log('Deploy route integration: 89 assertions passed');
 } catch (error) {
   console.error(error);
   process.exitCode = 1;
