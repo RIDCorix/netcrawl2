@@ -279,7 +279,7 @@ export const WIKI: WikiCategory[] = [
               { label: 'wiki.field.effect', value: 'wiki.entry.pickaxe_basic.effect' },
               { label: 'wiki.field.slot', value: 'Pickaxe' },
             ],
-            unlock: { always: true },
+            unlock: { unlockedRecipe: 'pickaxe_basic' },
             reward: { kind: 'credits', amount: 10 },
             demoScriptId: 'wiki_pickaxe',
           },

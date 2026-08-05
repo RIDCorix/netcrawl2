@@ -18,10 +18,8 @@ function stableArray<T>(oldArr: T[] | undefined, newArr: T[] | undefined): T[] |
       const n = newArr[i];
       // Try to find a structurally-equal old item (by id if possible, else index)
       const nId = (n as any)?.id;
-      const o = nId != null
-        ? oldArr.find(x => (x as any)?.id === nId)
-        : oldArr[i];
-      out[i] = (o !== undefined && JSON.stringify(o) === JSON.stringify(n)) ? o : n;
+      const o = nId != null ? oldArr.find(x => (x as any)?.id === nId) : oldArr[i];
+      out[i] = o !== undefined && JSON.stringify(o) === JSON.stringify(n) ? o : n;
     }
     return out;
   }
@@ -110,7 +108,26 @@ export interface GameEdge {
 
 export interface InventoryItem {
   id: string;
-  itemType: 'pickaxe_basic' | 'pickaxe_iron' | 'pickaxe_diamond' | 'shield' | 'beacon' | 'data_fragment' | 'rp_shard' | 'chip_pack_basic' | 'chip_pack_premium' | 'scanner' | 'signal_booster' | 'overclock_kit' | 'antivirus_module' | 'memory_allocator' | 'fullstack_pickaxe' | 'cpu_basic' | 'cpu_advanced' | 'ram_basic' | 'ram_advanced';
+  itemType:
+    | 'pickaxe_basic'
+    | 'pickaxe_iron'
+    | 'pickaxe_diamond'
+    | 'shield'
+    | 'beacon'
+    | 'data_fragment'
+    | 'rp_shard'
+    | 'chip_pack_basic'
+    | 'chip_pack_premium'
+    | 'scanner'
+    | 'signal_booster'
+    | 'overclock_kit'
+    | 'antivirus_module'
+    | 'memory_allocator'
+    | 'fullstack_pickaxe'
+    | 'cpu_basic'
+    | 'cpu_advanced'
+    | 'ram_basic'
+    | 'ram_advanced';
   count: number;
   metadata?: {
     efficiency?: number;
@@ -123,7 +140,17 @@ export interface Worker {
   class_name: string;
   class_icon?: string;
   commit_hash: string;
-  status: 'deploying' | 'running' | 'suspending' | 'suspended' | 'crashed' | 'error' | 'idle' | 'moving' | 'harvesting' | 'dead';
+  status:
+    | 'deploying'
+    | 'running'
+    | 'suspending'
+    | 'suspended'
+    | 'crashed'
+    | 'error'
+    | 'idle'
+    | 'moving'
+    | 'harvesting'
+    | 'dead';
   current_node: string;
   previous_node?: string;
   move_id?: number;
@@ -153,15 +180,15 @@ export interface LevelSummary {
 }
 
 export interface Settings {
-  edgeStyle: 'straight' | 'smoothstep' | 'bezier'
-  showTrafficDots: boolean
-  showWorkerDots: boolean
-  keybindings: Record<string, string>
-  theme: 'deep-space' | 'synthwave' | 'matrix' | 'amber' | 'ice' | 'cloud' | 'sakura' | 'arctic'
-  language: Language
-  bgmVolume: number
-  sfxVolume: number
-  currentTrack: string
+  edgeStyle: 'straight' | 'smoothstep' | 'bezier';
+  showTrafficDots: boolean;
+  showWorkerDots: boolean;
+  keybindings: Record<string, string>;
+  theme: 'deep-space' | 'synthwave' | 'matrix' | 'amber' | 'ice' | 'cloud' | 'sakura' | 'arctic';
+  language: Language;
+  bgmVolume: number;
+  sfxVolume: number;
+  currentTrack: string;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -174,14 +201,16 @@ const DEFAULT_SETTINGS: Settings = {
   bgmVolume: 50,
   sfxVolume: 70,
   currentTrack: 'default',
-}
+};
 
 const savedSettings = (() => {
   try {
-    const raw = localStorage.getItem('netcrawl-settings')
-    return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS
-  } catch { return DEFAULT_SETTINGS }
-})()
+    const raw = localStorage.getItem('netcrawl-settings');
+    return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS;
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
+})();
 
 export interface LayerMeta {
   id: number;
@@ -238,6 +267,7 @@ export interface GameState {
   docsOpen: boolean;
   // Wiki (in-game interactive manual)
   wikiSelectedEntry: string | null;
+  wikiPreviewEntry: string | null;
   wikiSeenEntries: Record<string, number>; // entryId -> timestamp of first view
   connectOpen: boolean;
   settings: Settings;
@@ -283,6 +313,7 @@ interface GameActions {
   toggleSettings: () => void;
   toggleDocs: () => void;
   openWiki: (entryId?: string | null) => void;
+  openWikiPreview: (entryId: string) => void;
   closeWiki: () => void;
   markWikiEntrySeen: (entryId: string) => void;
   toggleConnect: () => void;
@@ -315,7 +346,7 @@ interface GameActions {
   revealRecipe: (recipeId: string) => void;
 }
 
-export const useGameStore = create<GameState & GameActions>((set) => ({
+export const useGameStore = create<GameState & GameActions>(set => ({
   nodes: [],
   edges: [],
   resources: { data: 0, rp: 0, credits: 0 },
@@ -335,11 +366,14 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   settingsOpen: false,
   docsOpen: false,
   wikiSelectedEntry: null,
+  wikiPreviewEntry: null,
   wikiSeenEntries: (() => {
     try {
       const raw = localStorage.getItem('netcrawl-wiki-seen');
       return raw ? JSON.parse(raw) : {};
-    } catch { return {}; }
+    } catch {
+      return {};
+    }
   })(),
   connectOpen: false,
   settings: savedSettings,
@@ -347,7 +381,18 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   questsOpen: false,
   selectedQuestId: null,
   questToasts: [],
-  levelSummary: { level: 1, xp: 0, xpToNext: 100, totalXp: 0, title: 'Script Kiddie', titleZh: '腳本小子', maxLevel: 30, maxWorkersBonus: 0, flopBonus: 0, milestones: [] },
+  levelSummary: {
+    level: 1,
+    xp: 0,
+    xpToNext: 100,
+    totalXp: 0,
+    title: 'Script Kiddie',
+    titleZh: '腳本小子',
+    maxLevel: 30,
+    maxWorkersBonus: 0,
+    flopBonus: 0,
+    milestones: [],
+  },
   levelOpen: false,
   levelUpToasts: [],
   edgeSelectMode: null,
@@ -364,99 +409,114 @@ export const useGameStore = create<GameState & GameActions>((set) => ({
   workerLogs: {},
   hubDeposits: [],
 
-  setState: (partial) => set((state) => ({ ...state, ...partial })),
-  setConnected: (connected) => set({ connected }),
-  selectNode: (nodeId) => set({ selectedNodeId: nodeId, selectedWorkerId: null }),
-  selectWorker: (workerId) => set({ selectedWorkerId: workerId, selectedNodeId: null }),
-  setEdgeSelectMode: (mode) => set({ edgeSelectMode: mode }),
-  setNodeSelectMode: (mode) => set({ nodeSelectMode: mode }),
-  toggleInventory: () => set((state) => ({ inventoryOpen: !state.inventoryOpen })),
-  toggleAchievements: () => set((state) => ({ achievementsOpen: !state.achievementsOpen })),
-  toggleSettings: () => set((state) => ({ settingsOpen: !state.settingsOpen })),
-  toggleDocs: () => set((state) => ({ docsOpen: !state.docsOpen })),
-  openWiki: (entryId) => set({ docsOpen: true, wikiSelectedEntry: entryId ?? null }),
-  closeWiki: () => set({ docsOpen: false }),
-  markWikiEntrySeen: (entryId) => set((state) => {
-    if (state.wikiSeenEntries[entryId]) return state;
-    const next = { ...state.wikiSeenEntries, [entryId]: Date.now() };
-    try { localStorage.setItem('netcrawl-wiki-seen', JSON.stringify(next)); } catch {}
-    return { wikiSeenEntries: next };
-  }),
-  toggleConnect: () => set((state) => ({ connectOpen: !state.connectOpen })),
-  updateSettings: (patch) => set((state) => {
-    const newSettings = { ...state.settings, ...patch }
-    localStorage.setItem('netcrawl-settings', JSON.stringify(newSettings))
-    if (patch.theme) {
-      document.documentElement.setAttribute('data-theme', newSettings.theme)
-    }
-    return { settings: newSettings }
-  }),
-  toggleQuests: () => set((state) => ({ questsOpen: !state.questsOpen })),
-  selectQuest: (questId) => set({ selectedQuestId: questId }),
-  addQuestToast: (toast) => set((state) => ({
-    questToasts: [...state.questToasts.slice(-2), { ...toast, timestamp: Date.now() }],
-  })),
-  removeQuestToast: (id) => set((state) => ({
-    questToasts: state.questToasts.filter(t => t.id !== id),
-  })),
-  addAchievementToast: (toast) => set((state) => ({
-    achievementToasts: [...state.achievementToasts.slice(-2), { ...toast, timestamp: Date.now() }],
-  })),
-  removeAchievementToast: (id) => set((state) => ({
-    achievementToasts: state.achievementToasts.filter(t => t.id !== id),
-  })),
-  setInventory: (inventory) => set({ playerInventory: inventory }),
-  toggleLevel: () => set((state) => ({ levelOpen: !state.levelOpen })),
-  addLevelUpToast: (toast) => set((state) => ({
-    levelUpToasts: [...state.levelUpToasts.slice(-2), { ...toast, timestamp: Date.now() }],
-  })),
-  removeLevelUpToast: (level) => set((state) => ({
-    levelUpToasts: state.levelUpToasts.filter(t => t.level !== level),
-  })),
+  setState: partial => set(state => ({ ...state, ...partial })),
+  setConnected: connected => set({ connected }),
+  selectNode: nodeId => set({ selectedNodeId: nodeId, selectedWorkerId: null }),
+  selectWorker: workerId => set({ selectedWorkerId: workerId, selectedNodeId: null }),
+  setEdgeSelectMode: mode => set({ edgeSelectMode: mode }),
+  setNodeSelectMode: mode => set({ nodeSelectMode: mode }),
+  toggleInventory: () => set(state => ({ inventoryOpen: !state.inventoryOpen })),
+  toggleAchievements: () => set(state => ({ achievementsOpen: !state.achievementsOpen })),
+  toggleSettings: () => set(state => ({ settingsOpen: !state.settingsOpen })),
+  toggleDocs: () => set(state => ({ docsOpen: !state.docsOpen })),
+  openWiki: entryId => set({ docsOpen: true, wikiSelectedEntry: entryId ?? null, wikiPreviewEntry: null }),
+  openWikiPreview: entryId => set({ docsOpen: true, wikiSelectedEntry: entryId, wikiPreviewEntry: entryId }),
+  closeWiki: () => set({ docsOpen: false, wikiPreviewEntry: null }),
+  markWikiEntrySeen: entryId =>
+    set(state => {
+      if (state.wikiSeenEntries[entryId]) return state;
+      const next = { ...state.wikiSeenEntries, [entryId]: Date.now() };
+      try {
+        localStorage.setItem('netcrawl-wiki-seen', JSON.stringify(next));
+      } catch {}
+      return { wikiSeenEntries: next };
+    }),
+  toggleConnect: () => set(state => ({ connectOpen: !state.connectOpen })),
+  updateSettings: patch =>
+    set(state => {
+      const newSettings = { ...state.settings, ...patch };
+      localStorage.setItem('netcrawl-settings', JSON.stringify(newSettings));
+      if (patch.theme) {
+        document.documentElement.setAttribute('data-theme', newSettings.theme);
+      }
+      return { settings: newSettings };
+    }),
+  toggleQuests: () => set(state => ({ questsOpen: !state.questsOpen })),
+  selectQuest: questId => set({ selectedQuestId: questId }),
+  addQuestToast: toast =>
+    set(state => ({
+      questToasts: [...state.questToasts.slice(-2), { ...toast, timestamp: Date.now() }],
+    })),
+  removeQuestToast: id =>
+    set(state => ({
+      questToasts: state.questToasts.filter(t => t.id !== id),
+    })),
+  addAchievementToast: toast =>
+    set(state => ({
+      achievementToasts: [...state.achievementToasts.slice(-2), { ...toast, timestamp: Date.now() }],
+    })),
+  removeAchievementToast: id =>
+    set(state => ({
+      achievementToasts: state.achievementToasts.filter(t => t.id !== id),
+    })),
+  setInventory: inventory => set({ playerInventory: inventory }),
+  toggleLevel: () => set(state => ({ levelOpen: !state.levelOpen })),
+  addLevelUpToast: toast =>
+    set(state => ({
+      levelUpToasts: [...state.levelUpToasts.slice(-2), { ...toast, timestamp: Date.now() }],
+    })),
+  removeLevelUpToast: level =>
+    set(state => ({
+      levelUpToasts: state.levelUpToasts.filter(t => t.level !== level),
+    })),
   resetTutorial: () => {
     localStorage.removeItem('netcrawl-tutorial');
   },
 
   openLayerSelect: () => set({ layerSelectOpen: true }),
   closeLayerSelect: () => set({ layerSelectOpen: false }),
-  addLayerUnlockToast: (toast) => set((state) => ({
-    layerUnlockToasts: [...state.layerUnlockToasts.slice(-2), { ...toast, timestamp: Date.now() }],
-  })),
-  removeLayerUnlockToast: (id) => set((state) => ({
-    layerUnlockToasts: state.layerUnlockToasts.filter(t => t.id !== id),
-  })),
+  addLayerUnlockToast: toast =>
+    set(state => ({
+      layerUnlockToasts: [...state.layerUnlockToasts.slice(-2), { ...toast, timestamp: Date.now() }],
+    })),
+  removeLayerUnlockToast: id =>
+    set(state => ({
+      layerUnlockToasts: state.layerUnlockToasts.filter(t => t.id !== id),
+    })),
 
-  appendWorkerLog: (workerId, entry) => set((state) => {
-    const prev = state.workerLogs[workerId] || [];
-    const record = {
-      message: entry.message,
-      level: entry.level,
-      created_at: entry.created_at || new Date().toISOString(),
-    };
-    // Keep last 200 entries per worker
-    const next = [...prev, record].slice(-200);
-    return { workerLogs: { ...state.workerLogs, [workerId]: next } };
-  }),
-  setWorkerLogs: (workerId, logs) => set((state) => ({
-    workerLogs: { ...state.workerLogs, [workerId]: logs },
-  })),
+  appendWorkerLog: (workerId, entry) =>
+    set(state => {
+      const prev = state.workerLogs[workerId] || [];
+      const record = {
+        message: entry.message,
+        level: entry.level,
+        created_at: entry.created_at || new Date().toISOString(),
+      };
+      // Keep last 200 entries per worker
+      const next = [...prev, record].slice(-200);
+      return { workerLogs: { ...state.workerLogs, [workerId]: next } };
+    }),
+  setWorkerLogs: (workerId, logs) =>
+    set(state => ({
+      workerLogs: { ...state.workerLogs, [workerId]: logs },
+    })),
 
-  pushHubDeposit: (deposit) => set((state) => ({
-    hubDeposits: [
-      ...state.hubDeposits,
-      { id: Date.now() + Math.random(), ts: Date.now(), ...deposit },
-    ],
-  })),
-  removeHubDeposit: (id) => set((state) => ({
-    hubDeposits: state.hubDeposits.filter(d => d.id !== id),
-  })),
+  pushHubDeposit: deposit =>
+    set(state => ({
+      hubDeposits: [...state.hubDeposits, { id: Date.now() + Math.random(), ts: Date.now(), ...deposit }],
+    })),
+  removeHubDeposit: id =>
+    set(state => ({
+      hubDeposits: state.hubDeposits.filter(d => d.id !== id),
+    })),
 
-  revealRecipe: (recipeId) => set((state) => ({
-    pendingUnlocks: state.pendingUnlocks.filter(id => id !== recipeId),
-  })),
+  revealRecipe: recipeId =>
+    set(state => ({
+      pendingUnlocks: state.pendingUnlocks.filter(id => id !== recipeId),
+    })),
 
-  updateFromServer: (data) => {
-    set((state) => ({
+  updateFromServer: data => {
+    set(state => ({
       // Arrays: reuse references (per-item) when structurally unchanged
       nodes: stableArray(state.nodes, data.nodes) ?? state.nodes,
       edges: stableArray(state.edges, data.edges) ?? state.edges,

@@ -32,14 +32,13 @@ const wiki = readFileSync('packages/ui/src/components/WikiDialog.tsx', 'utf8');
 assert.match(wiki, /selectedEntryId && !selectedLookup/);
 assert.match(wiki, /wiki\.invalid_entry\.action/);
 const wikiContent = readFileSync('packages/ui/src/wiki/content.ts', 'utf8');
-assert.match(
-  wikiContent,
-  /id: 'pickaxe_basic'[\s\S]{0,500}unlock: \{ always: true \}/,
-  'First Craft help must be readable before recipe unlock',
-);
+assert.match(wikiContent, /id: 'pickaxe_basic'[\s\S]{0,500}unlock: \{ unlockedRecipe: 'pickaxe_basic' \}/);
 const questDialog = readFileSync('packages/ui/src/components/QuestGuideDialog.tsx', 'utf8');
 assert.match(questDialog, /quest\.\$\{quest\.id\}\.name/);
 assert.match(questDialog, /quest\.\$\{quest\.id\}\.objective\.\$\{obj\.id\}/);
+assert.match(questDialog, /openWikiPreview\(quest\.manualEntryId\)/);
+assert.match(wiki, /previewEntryId === selectedEntryId \|\| unlockedFn/);
+assert.match(wiki, /previewEntryId === selectedEntryId\) return/, 'preview must not mark seen or grant rewards');
 
 for (const locale of ['en', 'zh-TW', 'ja']) {
   const source = readFileSync(`packages/ui/src/i18n/${locale}.ts`, 'utf8');

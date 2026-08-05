@@ -589,6 +589,7 @@ export function WikiDialog() {
   const docsOpen = useGameStore(s => s.docsOpen);
   const closeWiki = useGameStore(s => s.closeWiki);
   const selectedEntryId = useGameStore(s => s.wikiSelectedEntry);
+  const previewEntryId = useGameStore(s => s.wikiPreviewEntry);
   const setState = useGameStore(s => s.setState);
   const markSeen = useGameStore(s => s.markWikiEntrySeen);
   const seenMap = useGameStore(s => s.wikiSeenEntries);
@@ -613,7 +614,7 @@ export function WikiDialog() {
 
   // Grant reward + mark seen when an unlocked entry is viewed for the first time.
   useEffect(() => {
-    if (!docsOpen || !selectedEntryId) return;
+    if (!docsOpen || !selectedEntryId || previewEntryId === selectedEntryId) return;
     const found = findEntry(selectedEntryId);
     if (!found) return;
     if (!unlockedFn(found.entry)) return;
@@ -630,12 +631,13 @@ export function WikiDialog() {
         category: 'secret',
       });
     }
-  }, [docsOpen, selectedEntryId, unlockedFn, seenMap, markSeen, addAchievementToast, t]);
+  }, [docsOpen, selectedEntryId, previewEntryId, unlockedFn, seenMap, markSeen, addAchievementToast, t]);
 
   const activeCategory = WIKI.find(c => c.id === activeCategoryId) || WIKI[0];
   const selectedLookup = selectedEntryId ? findEntry(selectedEntryId) : null;
 
   const handleSelectCategory = (id: string) => {
+    setState({ wikiPreviewEntry: null });
     setActiveCategoryId(id);
     // auto-select first unlocked entry in category
     const cat = WIKI.find(c => c.id === id);
@@ -651,7 +653,7 @@ export function WikiDialog() {
     }
   };
 
-  const handleSelectEntry = (id: string) => setState({ wikiSelectedEntry: id });
+  const handleSelectEntry = (id: string) => setState({ wikiSelectedEntry: id, wikiPreviewEntry: null });
 
   return (
     <AnimatePresence>
@@ -863,7 +865,9 @@ export function WikiDialog() {
                   <EntryDetail
                     entry={selectedLookup?.entry ?? null}
                     category={selectedLookup?.category ?? null}
-                    unlocked={selectedLookup ? unlockedFn(selectedLookup.entry) : false}
+                    unlocked={
+                      selectedLookup ? previewEntryId === selectedEntryId || unlockedFn(selectedLookup.entry) : false
+                    }
                     claimedReward={selectedEntryId ? seenMap[selectedEntryId] !== undefined : false}
                   />
                 )}

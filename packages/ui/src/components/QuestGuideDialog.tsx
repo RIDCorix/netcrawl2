@@ -60,7 +60,7 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
   const [msg, setMsg] = useState('');
 
   const t = useT();
-  const openWiki = useGameStore(s => s.openWiki);
+  const openWikiPreview = useGameStore(s => s.openWikiPreview);
   const lang = useGameStore(s => s.settings.language);
   const translatedGuide = getTranslatedGuide(lang, quest.id);
   const guide = translatedGuide || quest.guide || [];
@@ -335,7 +335,7 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
             <button
               onClick={() => {
                 onClose();
-                openWiki(quest.manualEntryId);
+                openWikiPreview(quest.manualEntryId);
               }}
               style={{
                 marginLeft: quest.status === 'completed' ? 0 : 'auto',

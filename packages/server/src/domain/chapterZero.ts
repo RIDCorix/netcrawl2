@@ -66,7 +66,7 @@ export function applyChapterZeroCommand(current: ChapterZeroSession, command: st
 
   switch (session.step) {
     case 0:
-      worker.lastLog = 'Worker ready';
+      worker.lastLog = 'worker_ready';
       session.transition = 'logged_ready';
       break;
     case 1:

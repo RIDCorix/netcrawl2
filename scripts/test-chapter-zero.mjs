@@ -26,7 +26,7 @@ assert.deepEqual(otherUserSession, createChapterZeroSession(), 'another user ses
 
 const commands = ['info()', 'move("mine")', 'mine()', 'collect()', 'move("hub")', 'deposit()'];
 const assertions = [
-  next => assert.equal(next.world.worker.lastLog, 'Worker ready'),
+  next => assert.equal(next.world.worker.lastLog, 'worker_ready'),
   next => assert.equal(next.world.worker.nodeId, 'mine'),
   next => assert.deepEqual(next.world.mine.drops, [{ type: 'data_fragment', count: 10 }]),
   next => {

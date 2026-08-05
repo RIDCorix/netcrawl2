@@ -104,7 +104,7 @@ export function ChapterZeroRepl() {
                 <div style={{ color: 'var(--text-muted)', fontSize: 9 }}>{t('tutorial.chapter_zero.worker')}</div>
                 <div>{state.world.worker.nodeId}</div>
                 <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
-                  {state.world.worker.lastLog === 'Worker ready'
+                  {state.world.worker.lastLog === 'worker_ready' || state.world.worker.lastLog === 'Worker ready'
                     ? t('tutorial.chapter_zero.worker_ready')
                     : state.world.worker.lastLog || '—'}
                 </div>
