@@ -111,12 +111,15 @@ assert.match(chapterZeroGraph, /from '\.\.\/graph\/nodes\/HubNode'/);
 assert.match(chapterZeroGraph, /from '\.\.\/graph\/nodes\/ResourceNode'/);
 assert.match(chapterZeroGraph, /from '\.\.\/graph\/nodes\/SimpleNodes'/);
 assert.doesNotMatch(chapterZeroGraph, /useGameStore/, 'tutorial graph must not subscribe to the game store');
+assert.match(chapterZeroGraph, /sourceHandle: 'right'/, 'horizontal tutorial edge must leave from the right handle');
+assert.match(chapterZeroGraph, /targetHandle: 'left'/, 'horizontal tutorial edge must enter from the left handle');
 const dialogueHook = readFileSync('packages/ui/src/components/chapter0/useChapterZeroDialogue.ts', 'utf8');
 assert.match(dialogueHook, /export function useChapterZeroDialogue/);
 assert.doesNotMatch(dialogueHook, /setInterval\(/, 'no auto-advance interval');
 const codeEditor = readFileSync('packages/ui/src/components/chapter0/ChapterZeroCodeEditor.tsx', 'utf8');
 assert.match(codeEditor, /on_startup/);
 assert.match(codeEditor, /on_loop/);
+assert.match(codeEditor, /SyntaxHighlighter/, 'chapter zero editor must syntax-highlight Python');
 
 // Plain global styles.css must not use CSS-Modules `:global(...)` — silently drops the rule.
 const chapterStyles = readFileSync('packages/ui/src/styles.css', 'utf8');

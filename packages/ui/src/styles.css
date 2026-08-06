@@ -1122,6 +1122,13 @@ body::after {
   margin: 0;
   overflow-x: auto;
 }
+.chapter0-editor-locked > div {
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  font-size: inherit;
+  line-height: inherit;
+}
 .chapter0-editor-locked-icon {
   position: absolute;
   left: 10px;
@@ -1131,17 +1138,53 @@ body::after {
 .chapter0-editor-block {
   display: block;
 }
+.chapter0-editor-highlight-wrap {
+  position: relative;
+  min-height: 90px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--border-bright);
+  overflow: hidden;
+}
+.chapter0-editor-highlight {
+  position: absolute;
+  inset: 0;
+  padding: 10px;
+  overflow: hidden;
+  pointer-events: none;
+  white-space: pre;
+}
+.chapter0-editor-highlight > div {
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre !important;
+}
 .chapter0-editor-textarea {
+  position: relative;
+  z-index: 1;
   width: 100%;
   min-height: 90px;
   padding: 10px;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid var(--border-bright);
-  color: var(--text-primary);
+  background: transparent;
+  border: 0;
+  color: transparent;
+  caret-color: var(--text-primary);
   font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.55;
   resize: vertical;
+  white-space: pre;
+  overflow: auto;
+}
+.chapter0-editor-textarea::selection {
+  color: transparent;
+  background: rgba(120, 220, 255, 0.28);
+}
+.chapter0-editor-textarea:focus {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
 }
 
 @media (prefers-reduced-motion: reduce) {
