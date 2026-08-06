@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 const definitions = readFileSync('packages/server/src/questDefinitions.ts', 'utf8');
 const english = readFileSync('packages/server/src/questGuides.ts', 'utf8');
 const traditionalChinese = readFileSync('packages/ui/src/i18n/guides/zh-TW.ts', 'utf8');
+const japanese = readFileSync('packages/ui/src/i18n/guides/ja.ts', 'utf8');
 const uiEnglish = readFileSync('packages/ui/src/i18n/en.ts', 'utf8');
 const uiJapanese = readFileSync('packages/ui/src/i18n/ja.ts', 'utf8');
 const uiTraditionalChinese = readFileSync('packages/ui/src/i18n/zh-TW.ts', 'utf8');
@@ -26,6 +27,21 @@ const checks = [
     /Operator Academy[\s\S]{0,200}\*\*1 個 compute puzzle\*\*/,
   ],
   ['Traditional Chinese While Loop guide', traditionalChinese, /\*\*2 kB data\*\*/],
+  [
+    'English preset Codespaces onboarding',
+    english,
+    /codespaces\.new\/Starscribers\/netcrawl-workspace\/tree\/main\?quickstart=1[\s\S]{0,4000}Run and Debug/,
+  ],
+  [
+    'Traditional Chinese preset Codespaces onboarding',
+    traditionalChinese,
+    /codespaces\.new\/Starscribers\/netcrawl-workspace\/tree\/main\?quickstart=1[\s\S]{0,4000}Run and Debug/,
+  ],
+  [
+    'Japanese preset Codespaces onboarding',
+    japanese,
+    /codespaces\.new\/Starscribers\/netcrawl-workspace\/tree\/main\?quickstart=1[\s\S]{0,4000}Run and Debug/,
+  ],
   ['Chapter 0 gate', definitions, /q_setup[\s\S]{0,400}prerequisites: \[\]/],
   ['First Craft exact recipe', definitions, /q_craft_first[\s\S]{0,500}stat_array_includes[\s\S]{0,100}pickaxe_basic/],
   ['Dot Notation removed from quest graph', definitions, /id: 'q_method_call'[\s\S]{0,1200}id: 'q_conditions'/],

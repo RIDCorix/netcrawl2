@@ -4,46 +4,28 @@ import type { GuideStep } from './types';
 export const ja: Record<string, GuideStep[]> = {
   q_setup: [
     {
-      title: 'VSCodeをインストール',
-      content: `NetCrawlのワーカーはPythonスクリプトです。コードエディタが必要です。
+      title: 'Codespaceを開く',
+      content: `設定済みの [NetCrawl Codespace](https://codespaces.new/Starscribers/netcrawl-workspace/tree/main?quickstart=1) を開きます。
 
-[code.visualstudio.com](https://code.visualstudio.com) から **Visual Studio Code** をダウンロードしてインストールしてください。
+必要に応じてGitHubにサインインし、Codespaceの支払元を確認して **Create codespace** をクリックします。ローカルへのVS CodeやPythonのインストールは不要です。
 
-**Python拡張機能**もインストール：
-1. VSCodeを開く
-2. \`Ctrl+Shift+X\`（拡張機能）を押す
-3. "Python" を検索 → Microsoft Python拡張機能をインストール`,
+> Codespaceからゲームサーバーへインターネット経由で接続できる必要があります。**Connect** ダイアログが \`localhost\` URLを表示する場合は、[ローカルclone手順](https://github.com/Starscribers/netcrawl-workspace#quick-start)を使用してください。Codespaceから自分のPCだけで動くサーバーには接続できません。`,
     },
 
     {
-      title: 'ワークスペースの設定',
-      content: `**uv**（Pythonパッケージマネージャー）をインストールし、ワークスペースをクローン：
+      title: '自動セットアップを待つ',
+      content: `GitHubがブラウザでワークスペースを開き、次を自動設定します：
 
-**uv インストール — Windows (PowerShell)：**
-\`\`\`powershell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-\`\`\`
+- Python 3.12、Microsoft Python拡張機能、\`uv\` のインストール
+- 固定バージョンの \`.venv\` の作成とinterpreter選択
+- 緑のRunボタン／F5用の **NetCrawl: Start Code Server**
 
-**uv インストール — macOS / Linux：**
-\`\`\`bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-\`\`\`
-
-**NetCrawl が管理するサンプルをクローンしてインストール：**
-\`\`\`bash
-git clone https://github.com/Starscribers/netcrawl-workspace.git workspace
-cd workspace
-uv sync
-\`\`\`
-
-\`workspace/\` フォルダには以下が含まれます：
-- \`main.py\` — エントリーポイント（ワーカーの登録）
-- \`workers/\` — ワーカークラスはここに`,
+post-create setupが完了してから編集してください。失敗した場合はrepository rootで \`uv sync --frozen\` を実行し、それでも失敗する場合は **Codespaces: Rebuild Container** を実行します。不完全な環境のまま続行しないでください。`,
     },
 
     {
       title: 'main.py の設定',
-      content: `\`workspace/main.py\` をエディタで開き、**サーバーURL**を更新します。
+      content: `Codespaceで \`main.py\` を開き、**サーバーURL**を更新します。
 
 ツールバー右上の **Connect** ボタン（ターミナルアイコン）をクリックしてURLを取得：
 
@@ -61,11 +43,7 @@ uv sync
 
     {
       title: 'コードサーバーを実行',
-      content: `\`workspace/\` フォルダでPythonコードサーバーを起動：
-
-\`\`\`bash
-uv run main.py
-\`\`\`
+      content: `**Run and Debug** を開き、**NetCrawl: Start Code Server** を選択して緑の再生ボタンをクリックします（またはF5キー）。
 
 以下が表示されるはずです：
 \`\`\`

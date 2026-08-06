@@ -8,42 +8,28 @@ import type { GuideStep } from './questDefinitions.js';
 export const QUEST_GUIDES: Record<string, GuideStep[]> = {
   q_setup: [
     {
-      title: 'Install VSCode',
-      content: `NetCrawl workers are Python scripts. You need a code editor.
+      title: 'Open Your Codespace',
+      content: `Open the preconfigured [NetCrawl Codespace](https://codespaces.new/Starscribers/netcrawl-workspace/tree/main?quickstart=1).
 
-Download **Visual Studio Code** from [code.visualstudio.com](https://code.visualstudio.com) and install it.
+Sign in to GitHub if prompted, review who will pay for the Codespace, then click **Create codespace**. No local VS Code or Python installation is required.
 
-Also install the **Python extension** in VSCode:
-1. Open VSCode
-2. Press \`Ctrl+Shift+X\` (Extensions)
-3. Search "Python" → Install the Microsoft Python extension`,
+> Codespaces must reach your game server over the internet. If the **Connect** dialog shows a \`localhost\` URL, use the [local clone setup](https://github.com/Starscribers/netcrawl-workspace#quick-start) instead; a Codespace cannot connect to a server running only on your computer.`,
     },
 
     {
-      title: 'Set Up Your Workspace',
-      content: `**Step 1:** Install **uv** (Python package manager):
-\`\`\`powershell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-\`\`\`
-\`\`\`bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-\`\`\`
+      title: 'Wait for Setup',
+      content: `GitHub opens the workspace in your browser and automatically:
 
-**Step 2:** Clone NetCrawl's maintained standalone workspace and install the SDK:
-\`\`\`bash
-git clone https://github.com/Starscribers/netcrawl-workspace.git workspace
-cd workspace
-uv sync
-\`\`\`
+- installs Python 3.12, the Microsoft Python extension, and \`uv\`
+- creates the pinned \`.venv\` and selects its interpreter
+- configures **NetCrawl: Start Code Server** for the green Run button and F5
 
-The \`workspace/\` folder contains:
-- \`main.py\` — entry point (registers your workers)
-- \`workers/\` — your worker classes go here`,
+Wait for the post-create setup to finish before editing. If setup fails, run \`uv sync --frozen\` in the repository root. If it still fails, run **Codespaces: Rebuild Container**; do not continue from a partially installed environment.`,
     },
 
     {
       title: 'Configure main.py',
-      content: `Open \`workspace/main.py\` in your editor. Find the \`NetCrawl(...)\` section and update the **server URL**.
+      content: `Open \`main.py\` in the Codespace. Find the \`NetCrawl(...)\` section and update the **server URL**.
 
 Click the **Connect** button (terminal icon, top-right) to get your server URL, then edit:
 
@@ -72,11 +58,7 @@ If you're on the **cloud version**, also replace the \`api_key\` with the API Ke
 
     {
       title: 'Run Your Code Server',
-      content: `Now start your Python code server. In the \`workspace/\` folder:
-
-\`\`\`bash
-uv run main.py
-\`\`\`
+      content: `Open **Run and Debug**, select **NetCrawl: Start Code Server**, and click the green play button (or press F5).
 
 You should see:
 \`\`\`

@@ -3,42 +3,28 @@ import type { GuideStep } from './types';
 export const zhTW: Record<string, GuideStep[]> = {
   q_setup: [
     {
-      title: '安裝 VSCode',
-      content: `NetCrawl 的 Worker 是 Python 腳本，你需要一個程式碼編輯器。
+      title: '開啟 Codespace',
+      content: `開啟預先設定好的 [NetCrawl Codespace](https://codespaces.new/Starscribers/netcrawl-workspace/tree/main?quickstart=1)。
 
-從 [code.visualstudio.com](https://code.visualstudio.com) 下載並安裝 **Visual Studio Code**。
+依提示登入 GitHub、確認由誰支付 Codespace 費用，然後點擊 **Create codespace**。不需要在電腦安裝 VS Code 或 Python。
 
-安裝 **Python 擴充套件**：
-1. 開啟 VSCode
-2. 按 \`Ctrl+Shift+X\`（擴充套件）
-3. 搜尋 "Python" → 安裝 Microsoft 的 Python 擴充套件`,
+> Codespace 必須透過網路連到遊戲伺服器。如果 **Connect** 對話框顯示的是 \`localhost\` URL，請改用[本機 clone 流程](https://github.com/Starscribers/netcrawl-workspace#quick-start)；Codespace 無法連到只在你電腦上執行的伺服器。`,
     },
 
     {
-      title: '設定工作區',
-      content: `**步驟 1：** 安裝 **uv**（Python 套件管理器）：
-\`\`\`powershell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-\`\`\`
-\`\`\`bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-\`\`\`
+      title: '等待自動設定',
+      content: `GitHub 會在瀏覽器開啟工作區，並自動：
 
-**步驟 2：** Clone NetCrawl 維護的範例工作區並安裝 SDK：
-\`\`\`bash
-git clone https://github.com/Starscribers/netcrawl-workspace.git workspace
-cd workspace
-uv sync
-\`\`\`
+- 安裝 Python 3.12、Microsoft Python 擴充套件與 \`uv\`
+- 建立鎖定版本的 \`.venv\` 並選為 interpreter
+- 設定綠色 Run 按鈕與 F5 使用的 **NetCrawl: Start Code Server**
 
-\`workspace/\` 資料夾包含：
-- \`main.py\` — 進入點（註冊你的 Worker）
-- \`workers/\` — 你的 Worker 類別放這裡`,
+請等 post-create setup 完成後再編輯。如果設定失敗，先在 repository root 執行 \`uv sync --frozen\`；仍失敗時執行 **Codespaces: Rebuild Container**，不要在安裝不完整的環境中繼續。`,
     },
 
     {
       title: '設定 main.py',
-      content: `用編輯器開啟 \`workspace/main.py\`，找到 \`NetCrawl(...)\` 的部分，更新 **伺服器 URL**。
+      content: `在 Codespace 開啟 \`main.py\`，找到 \`NetCrawl(...)\` 的部分，更新 **伺服器 URL**。
 
 點擊右上角工具列的 **Connect** 按鈕（終端機圖示）取得你的伺服器 URL，然後修改：
 
@@ -67,11 +53,7 @@ uv sync
 
     {
       title: '執行 Code Server',
-      content: `在 \`workspace/\` 資料夾中啟動你的 Python code server：
-
-\`\`\`bash
-uv run main.py
-\`\`\`
+      content: `開啟 **Run and Debug**，選擇 **NetCrawl: Start Code Server**，然後點擊綠色播放鍵（或按 F5）。
 
 你應該會看到：
 \`\`\`
