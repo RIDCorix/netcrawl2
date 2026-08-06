@@ -358,7 +358,7 @@ function _loadStore() {
       if (!store.achievement_state) store.achievement_state = { unlocked: {}, stats: {}, statArrays: {} };
       if (!store.quest_state)
         store.quest_state = { questStatus: {}, activePassives: {}, unlockedRecipes: [], claimedAt: {} };
-      if (!store.quest_state.chapterZero || store.quest_state.chapterZero.version !== 2) {
+      if (!store.quest_state.chapterZero || store.quest_state.chapterZero.version !== 3) {
         const legacyProgress = shouldBypassChapterZero(store.quest_state.questStatus || {});
         store.quest_state.chapterZero = createChapterZeroSession(legacyProgress);
       }

@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 import {
   createChapterZeroSession,
+  advanceChapterZeroStage,
   applyChapterZeroCommand,
+  runChapterZeroSandbox,
   isChapterZeroGateOpen,
   shouldBypassChapterZero,
+  expectedCommand,
 } from '../packages/server/.test-dist/domain/chapterZero.js';
 
 let session = createChapterZeroSession();
@@ -12,49 +15,80 @@ assert.equal(isChapterZeroGateOpen(session), false, 'clean saves must remain gat
 assert.equal(shouldBypassChapterZero({ q_setup: 'available' }), false, 'availability alone is not legacy completion');
 assert.equal(shouldBypassChapterZero({ q_setup: 'claimed' }), true, 'claimed legacy saves bypass onboarding');
 assert.equal(shouldBypassChapterZero({ q_setup: 'completed' }), true, 'completed legacy saves bypass onboarding');
+assert.equal(session.stage, 'cold_open');
+assert.equal(session.version, 3);
 assert.deepEqual(session.world, {
   worker: { nodeId: 'hub', holding: [], equippedPickaxe: 'pickaxe_basic', lastLog: null },
   mine: { drops: [] },
   resources: { data: 0 },
 });
+assert.equal(expectedCommand(session), null, 'no command expected during cold_open');
 
-const rejected = applyChapterZeroCommand(session, 'mine()');
-assert.equal(rejected.ok, false);
-assert.equal(rejected.error, 'out_of_order');
-assert.deepEqual(rejected.session, session, 'wrong-order input must not mutate the session');
+// Commands are gated to their stage.
+const preInfo = applyChapterZeroCommand(session, 'self.info()');
+assert.equal(preInfo.ok, false, 'self.info() must be gated to choice_intro');
+assert.equal(preInfo.error, 'out_of_order');
+
+// Advance cold_open → voice_arrival → choice_intro.
+session = advanceChapterZeroStage(session, 'voice_arrival').session;
+assert.equal(session.stage, 'voice_arrival');
+session = advanceChapterZeroStage(session, 'choice_intro').session;
+assert.equal(session.stage, 'choice_intro');
+assert.equal(expectedCommand(session), 'self.info()');
+
+// self.info() from choice_intro records worker_ready.
+const afterInfo = applyChapterZeroCommand(session, 'self.info()');
+assert.equal(afterInfo.ok, true);
+session = afterInfo.session;
+assert.equal(session.world.worker.lastLog, 'worker_ready');
+assert.equal(session.transition, 'logged_ready');
+assert.equal(session.step, 1);
+
+// Advance to direct_commands — server seeds the mine drops.
+session = advanceChapterZeroStage(session, 'direct_commands').session;
+assert.equal(session.stage, 'direct_commands');
+assert.deepEqual(session.world.mine.drops, [{ type: 'data_fragment', count: 3 }]);
+assert.equal(expectedCommand(session), 'self.move(self.edge)');
+
+// self.move(self.edge) — hub → mine.
+session = applyChapterZeroCommand(session, 'self.move(self.edge)').session;
+assert.equal(session.world.worker.nodeId, 'mine');
+assert.equal(session.transition, 'moved_to_mine');
+assert.equal(expectedCommand(session), 'self.collect()');
+
+// self.collect() — pick up fragments.
+session = applyChapterZeroCommand(session, 'self.collect()').session;
+assert.equal(session.world.worker.holding.length, 1);
+assert.equal(session.world.worker.holding[0].count, 3);
+assert.equal(session.world.mine.drops.length, 0);
+
+// Cannot skip straight to complete.
+const badJump = advanceChapterZeroStage(session, 'complete');
+assert.equal(badJump.ok, false, 'complete must be reached through code_editor + sandbox pass');
+
+// Advance to code_editor legitimately.
+session = advanceChapterZeroStage(session, 'code_editor').session;
+assert.equal(session.stage, 'code_editor');
+
+// Empty sandbox — stays stuck (holding fragments, in mine).
+const stuckRun = runChapterZeroSandbox(session, 'pass', 'pass');
+assert.equal(stuckRun.passed, false);
+assert.ok(stuckRun.failureReason === 'no_deposit' || stuckRun.failureReason === 'stuck_at_mine');
+
+// Winning sandbox — moves back to hub and deposits.
+const winRun = runChapterZeroSandbox(session, 'pass', 'self.move(self.edge)\nself.deposit()');
+assert.equal(winRun.passed, true);
+assert.equal(winRun.session.stage, 'complete');
+assert.equal(winRun.session.world.worker.nodeId, 'hub');
+assert.equal(winRun.session.world.worker.holding.length, 0);
+assert.equal(winRun.session.world.resources.data, 3);
+assert.equal(isChapterZeroGateOpen(winRun.session), true);
+
+// Isolation — a different user's session was never touched.
 assert.deepEqual(otherUserSession, createChapterZeroSession(), 'another user session remains isolated');
 
-const commands = ['info()', 'move("mine")', 'mine()', 'collect()', 'move("hub")', 'deposit()'];
-const assertions = [
-  next => assert.equal(next.world.worker.lastLog, 'worker_ready'),
-  next => assert.equal(next.world.worker.nodeId, 'mine'),
-  next => assert.deepEqual(next.world.mine.drops, [{ type: 'data_fragment', count: 10 }]),
-  next => {
-    assert.deepEqual(next.world.mine.drops, []);
-    assert.deepEqual(next.world.worker.holding, [{ type: 'data_fragment', count: 10 }]);
-  },
-  next => assert.equal(next.world.worker.nodeId, 'hub'),
-  next => {
-    assert.deepEqual(next.world.worker.holding, []);
-    assert.equal(next.world.resources.data, 10);
-    assert.equal(next.completed, true);
-  },
-];
+// Serialized reload preserves the gate.
+const serialized = JSON.parse(JSON.stringify(winRun.session));
+assert.equal(isChapterZeroGateOpen(serialized), true);
 
-for (let i = 0; i < commands.length; i++) {
-  const result = applyChapterZeroCommand(session, commands[i]);
-  assert.equal(result.ok, true);
-  session = result.session;
-  assert.equal(session.step, i + 1);
-  assertions[i](session);
-
-  // Serialized state is the reload contract.
-  session = JSON.parse(JSON.stringify(session));
-  assert.equal(isChapterZeroGateOpen(session), i === commands.length - 1, 'serialized reload must preserve the gate');
-}
-
-const completedReplay = applyChapterZeroCommand(session, 'deposit()');
-assert.equal(completedReplay.ok, true);
-assert.deepEqual(completedReplay.session, session, 'completed replay must be idempotent');
-
-console.log('Chapter Zero behavioral transitions passed');
+console.log('Chapter Zero v3 stage/command/sandbox transitions passed');

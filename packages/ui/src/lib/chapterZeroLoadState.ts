@@ -13,6 +13,6 @@ export function reduceChapterZeroLoad<T>(
   return { status: 'loaded', session: action.session };
 }
 
-export function chapterZeroMustBlock<T extends { completed: boolean }>(state: ChapterZeroLoadState<T>): boolean {
-  return state.status !== 'loaded' || !state.session.completed;
+export function chapterZeroMustBlock<T extends { stage?: string }>(state: ChapterZeroLoadState<T>): boolean {
+  return state.status !== 'loaded' || state.session.stage !== 'complete';
 }

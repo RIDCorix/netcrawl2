@@ -14,9 +14,9 @@ loadState = reduceChapterZeroLoad(loadState, { type: 'failed' });
 assert.equal(chapterZeroMustBlock(loadState), true, 'load failure must keep the overlay blocking');
 loadState = reduceChapterZeroLoad(loadState, { type: 'retry' });
 assert.equal(loadState.status, 'loading');
-loadState = reduceChapterZeroLoad(loadState, { type: 'loaded', session: { completed: false } });
+loadState = reduceChapterZeroLoad(loadState, { type: 'loaded', session: { stage: 'cold_open' } });
 assert.equal(chapterZeroMustBlock(loadState), true, 'an incomplete authoritative session remains blocking');
-loadState = reduceChapterZeroLoad(loadState, { type: 'loaded', session: { completed: true } });
+loadState = reduceChapterZeroLoad(loadState, { type: 'loaded', session: { stage: 'complete' } });
 assert.equal(chapterZeroMustBlock(loadState), false, 'only authoritative completion releases the overlay');
 
 const validWikiIds = new Set(['how-to-read', 'spec-node', 'resource', 'bad_data', 'spec-route', 'pickaxe_basic']);
@@ -98,6 +98,50 @@ for (const locale of ['en', 'zh-TW', 'ja']) {
     assert.ok(source.includes(`'${key}'`), `${locale} missing ${key}`);
   const guidePath = locale === 'en' ? 'packages/server/src/questGuides.ts' : `packages/ui/src/i18n/guides/${locale}.ts`;
   assert.ok(readFileSync(guidePath, 'utf8').includes('q_craft_first'), `${locale} missing localized First Craft guide`);
+}
+
+// ── Chapter Zero v3 stage/machine surface ──────────────────────────────────
+const chapterZeroRepl = readFileSync('packages/ui/src/components/ChapterZeroRepl.tsx', 'utf8');
+assert.match(chapterZeroRepl, /'\/api\/tutorial\/chapter-zero\/command'/);
+assert.match(chapterZeroRepl, /'\/api\/tutorial\/chapter-zero\/stage'/);
+assert.match(chapterZeroRepl, /action: 'advance'/);
+assert.match(chapterZeroRepl, /action: 'code-run'/);
+const chapterZeroGraph = readFileSync('packages/ui/src/components/chapter0/ChapterZeroGraph.tsx', 'utf8');
+assert.match(chapterZeroGraph, /from '\.\.\/graph\/nodes\/HubNode'/);
+assert.match(chapterZeroGraph, /from '\.\.\/graph\/nodes\/ResourceNode'/);
+assert.match(chapterZeroGraph, /from '\.\.\/graph\/nodes\/SimpleNodes'/);
+assert.doesNotMatch(chapterZeroGraph, /useGameStore/, 'tutorial graph must not subscribe to the game store');
+const dialogueHook = readFileSync('packages/ui/src/components/chapter0/useChapterZeroDialogue.ts', 'utf8');
+assert.match(dialogueHook, /export function useChapterZeroDialogue/);
+assert.doesNotMatch(dialogueHook, /setInterval\(/, 'no auto-advance interval');
+const codeEditor = readFileSync('packages/ui/src/components/chapter0/ChapterZeroCodeEditor.tsx', 'utf8');
+assert.match(codeEditor, /on_startup/);
+assert.match(codeEditor, /on_loop/);
+
+for (const locale of ['en', 'zh-TW', 'ja']) {
+  const source = readFileSync(`packages/ui/src/i18n/${locale}.ts`, 'utf8');
+  for (const key of [
+    'tutorial.chapter_zero.cold_open.L1',
+    'tutorial.chapter_zero.cold_open.L2',
+    'tutorial.chapter_zero.cold_open.L3',
+    'tutorial.chapter_zero.voice_arrival.L1',
+    'tutorial.chapter_zero.voice_arrival.pickup_cta',
+    'tutorial.chapter_zero.choice_intro.prompt',
+    'tutorial.chapter_zero.choice_intro.choice_cold',
+    'tutorial.chapter_zero.choice_intro.choice_confused',
+    'tutorial.chapter_zero.choice_intro.choice_curious',
+    'tutorial.chapter_zero.choice_intro.ack_1',
+    'tutorial.chapter_zero.direct_commands.hint_move_L1',
+    'tutorial.chapter_zero.direct_commands.hint_move_L3',
+    'tutorial.chapter_zero.direct_commands.hint_collect_L1',
+    'tutorial.chapter_zero.code_editor.intro_L1',
+    'tutorial.chapter_zero.code_editor.outro_L1',
+    'tutorial.chapter_zero.code_editor.fail_stuck_at_mine',
+    'tutorial.chapter_zero.code_editor.fail_no_deposit',
+    'tutorial.chapter_zero.code_editor.fail_syntax',
+    'tutorial.chapter_zero.code_editor.fail_unknown_ref',
+  ])
+    assert.ok(source.includes(`'${key}'`), `${locale} missing ${key}`);
 }
 
 console.log('Onboarding release contract checks passed');

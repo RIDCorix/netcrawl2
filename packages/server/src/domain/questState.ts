@@ -5,10 +5,13 @@
 import { resolveStore } from '../store.js';
 import type { QuestState } from '../types.js';
 import {
+  advanceChapterZeroStage,
   applyChapterZeroCommand,
-  CHAPTER_ZERO_COMMANDS,
   createChapterZeroSession,
+  expectedCommand,
+  runChapterZeroSandbox,
   shouldBypassChapterZero,
+  type ChapterZeroStage,
 } from './chapterZero.js';
 
 export function getQuestState(userId?: string): QuestState {
@@ -54,11 +57,11 @@ export function getUnlockedRecipes(userId?: string): string[] {
 
 export function getChapterZero(userId?: string) {
   const state = resolveStore(userId).quest_state;
-  if (!state.chapterZero || state.chapterZero.version !== 2) {
+  if (!state.chapterZero || state.chapterZero.version !== 3) {
     const legacyProgress = shouldBypassChapterZero(state.questStatus || {});
     state.chapterZero = createChapterZeroSession(legacyProgress);
   }
-  return { ...structuredClone(state.chapterZero), expected: CHAPTER_ZERO_COMMANDS[state.chapterZero.step] || null };
+  return { ...structuredClone(state.chapterZero), expected: expectedCommand(state.chapterZero) };
 }
 
 export function submitChapterZeroCommand(command: string, userId?: string) {
@@ -66,5 +69,21 @@ export function submitChapterZeroCommand(command: string, userId?: string) {
   getChapterZero(userId);
   const result = applyChapterZeroCommand(state.chapterZero!, command);
   if (result.ok) state.chapterZero = result.session;
+  return { ...result, ...getChapterZero(userId) };
+}
+
+export function advanceChapterZeroStageTo(stage: ChapterZeroStage, userId?: string) {
+  const state = resolveStore(userId).quest_state;
+  getChapterZero(userId);
+  const result = advanceChapterZeroStage(state.chapterZero!, stage);
+  if (result.ok) state.chapterZero = result.session;
+  return { ...result, ...getChapterZero(userId) };
+}
+
+export function runChapterZeroCodeEditor(onStartup: string, onLoop: string, userId?: string) {
+  const state = resolveStore(userId).quest_state;
+  getChapterZero(userId);
+  const result = runChapterZeroSandbox(state.chapterZero!, onStartup, onLoop);
+  state.chapterZero = result.session;
   return { ...result, ...getChapterZero(userId) };
 }
