@@ -213,6 +213,9 @@ export function runChapterZeroSandbox(current: ChapterZeroSession, onStartup: st
     session.stage = 'complete';
     session.step = 0;
     session.transition = 'chapter_zero_complete';
+  } else if (w.nodeId !== 'hub') {
+    // Worker never made it back — narrator says "still at the mine".
+    failureReason = 'stuck_at_mine';
   } else if (w.holding.length > 0) {
     failureReason = 'no_deposit';
   } else {

@@ -362,13 +362,6 @@ function Shell({
     }
   }, [state.transition]);
 
-  // Auto-advance choice_intro to direct_commands after ack lines drained.
-  useEffect(() => {
-    if (state.stage === 'choice_intro' && state.step >= 1 && dialogue.done) {
-      // Wait for a manual advance beyond the last line — we intercept in the click handler.
-    }
-  }, [state.stage, state.step, dialogue.done]);
-
   const commandExpected = state.expected;
 
   const onCommandSubmit = async (event: FormEvent) => {

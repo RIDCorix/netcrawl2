@@ -31,7 +31,6 @@ export function ChapterZeroGraph({
         data: {
           label: 'HUB',
           showWorkerDots: false,
-          tutorial_active: workerAt === 'hub',
         },
         draggable: false,
         selectable: false,
@@ -46,7 +45,6 @@ export function ChapterZeroGraph({
           rate: 3,
           items: [],
           showWorkerDots: false,
-          tutorial_active: workerAt === 'mine',
         },
         draggable: false,
         selectable: false,
@@ -60,7 +58,7 @@ export function ChapterZeroGraph({
         selectable: false,
       },
     ],
-    [workerAt],
+    [],
   );
 
   const edges = useMemo<Edge[]>(

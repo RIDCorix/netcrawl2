@@ -70,10 +70,16 @@ assert.equal(badJump.ok, false, 'complete must be reached through code_editor + 
 session = advanceChapterZeroStage(session, 'code_editor').session;
 assert.equal(session.stage, 'code_editor');
 
-// Empty sandbox — stays stuck (holding fragments, in mine).
+// Empty sandbox — worker never leaves the mine; must be classified as stuck_at_mine
+// so the narrator says "still at the mine" rather than the misleading "you got back but…".
 const stuckRun = runChapterZeroSandbox(session, 'pass', 'pass');
 assert.equal(stuckRun.passed, false);
-assert.ok(stuckRun.failureReason === 'no_deposit' || stuckRun.failureReason === 'stuck_at_mine');
+assert.equal(stuckRun.failureReason, 'stuck_at_mine');
+
+// Move once but never deposit — worker reaches hub but keeps holding, so classify as no_deposit.
+const noDepositRun = runChapterZeroSandbox(session, 'self.move(self.edge)', 'pass');
+assert.equal(noDepositRun.passed, false);
+assert.equal(noDepositRun.failureReason, 'no_deposit');
 
 // Winning sandbox — moves back to hub and deposits.
 const winRun = runChapterZeroSandbox(session, 'pass', 'self.move(self.edge)\nself.deposit()');

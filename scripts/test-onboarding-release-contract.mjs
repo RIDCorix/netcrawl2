@@ -118,6 +118,10 @@ const codeEditor = readFileSync('packages/ui/src/components/chapter0/ChapterZero
 assert.match(codeEditor, /on_startup/);
 assert.match(codeEditor, /on_loop/);
 
+// Plain global styles.css must not use CSS-Modules `:global(...)` — silently drops the rule.
+const chapterStyles = readFileSync('packages/ui/src/styles.css', 'utf8');
+assert.doesNotMatch(chapterStyles, /:global\(/, 'plain styles.css cannot use CSS-Modules `:global(...)` selectors');
+
 for (const locale of ['en', 'zh-TW', 'ja']) {
   const source = readFileSync(`packages/ui/src/i18n/${locale}.ts`, 'utf8');
   for (const key of [

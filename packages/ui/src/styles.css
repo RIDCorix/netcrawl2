@@ -1003,8 +1003,8 @@ body::after {
   overflow: hidden;
 }
 
-.chapter0-graph-active-hub :global(.react-flow__node[data-id='hub']),
-.chapter0-graph-active-mine :global(.react-flow__node[data-id='mine']) {
+.chapter0-graph-active-hub .react-flow__node[data-id='hub'],
+.chapter0-graph-active-mine .react-flow__node[data-id='mine'] {
   filter: drop-shadow(0 0 12px var(--accent));
 }
 
