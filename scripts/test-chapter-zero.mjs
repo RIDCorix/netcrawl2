@@ -7,6 +7,8 @@ import {
   isChapterZeroGateOpen,
   shouldBypassChapterZero,
   expectedCommand,
+  migrateChapterZeroSession,
+  setDeployTutorialField,
 } from '../packages/server/.test-dist/domain/chapterZero.js';
 
 let session = createChapterZeroSession();
@@ -21,6 +23,7 @@ assert.deepEqual(session.world, {
   worker: { nodeId: 'hub', holding: [], equippedPickaxe: 'pickaxe_basic', lastLog: null },
   mine: { drops: [] },
   resources: { data: 0 },
+  deployTutorial: { grantedItems: false, selectedEdgeId: null, selectedPickaxeType: null, workerId: null },
 });
 assert.equal(expectedCommand(session), null, 'no command expected during cold_open');
 
@@ -105,13 +108,76 @@ assert.equal(winRun.session.stage, 'complete');
 assert.equal(winRun.session.world.worker.nodeId, 'hub');
 assert.equal(winRun.session.world.worker.holding.length, 0);
 assert.equal(winRun.session.world.resources.data, 13);
-assert.equal(isChapterZeroGateOpen(winRun.session), true);
+// After fragment tutorial passes, stage is 'complete' (internal milestone, gate NOT open yet)
+assert.equal(winRun.session.stage, 'complete');
+assert.equal(isChapterZeroGateOpen(winRun.session), false, 'gate must stay closed at complete — deploy tutorial required');
+
+// Advance through deploy tutorial stages
+let deploySession = winRun.session;
+
+// complete → edge_select
+const esResult = advanceChapterZeroStage(deploySession, 'edge_select');
+assert.equal(esResult.ok, true);
+deploySession = esResult.session;
+assert.equal(deploySession.stage, 'edge_select');
+
+// Cannot advance to pickaxe_equip without an edge selected
+const earlyPickaxe = advanceChapterZeroStage(deploySession, 'pickaxe_equip');
+assert.equal(earlyPickaxe.ok, false, 'must select edge before pickaxe_equip');
+assert.equal(earlyPickaxe.error, 'out_of_order');
+
+// Set the edge, then advance
+deploySession = setDeployTutorialField(deploySession, 'selectedEdgeId', 'e1');
+const peResult = advanceChapterZeroStage(deploySession, 'pickaxe_equip');
+assert.equal(peResult.ok, true);
+deploySession = peResult.session;
+assert.equal(deploySession.stage, 'pickaxe_equip');
+
+// Cannot advance to deploy_confirm without a pickaxe selected
+const earlyConfirm = advanceChapterZeroStage(deploySession, 'deploy_confirm');
+assert.equal(earlyConfirm.ok, false, 'must select pickaxe before deploy_confirm');
+
+// Set the pickaxe, then advance
+deploySession = setDeployTutorialField(deploySession, 'selectedPickaxeType', 'pickaxe_basic');
+const dcResult = advanceChapterZeroStage(deploySession, 'deploy_confirm');
+assert.equal(dcResult.ok, true);
+deploySession = dcResult.session;
+
+// deploy_confirm → deploy_execute
+const dxResult = advanceChapterZeroStage(deploySession, 'deploy_execute');
+assert.equal(dxResult.ok, true);
+deploySession = dxResult.session;
+
+// Cannot advance to deploy_verified without a workerId
+const earlyVerified = advanceChapterZeroStage(deploySession, 'deploy_verified');
+assert.equal(earlyVerified.ok, false, 'must have workerId before deploy_verified');
+
+// Set workerId, then advance to deploy_verified
+deploySession = setDeployTutorialField(deploySession, 'workerId', 'worker_test_123');
+const dvResult = advanceChapterZeroStage(deploySession, 'deploy_verified');
+assert.equal(dvResult.ok, true);
+deploySession = dvResult.session;
+
+// deploy_verified → handoff
+const hoResult = advanceChapterZeroStage(deploySession, 'handoff');
+assert.equal(hoResult.ok, true);
+deploySession = hoResult.session;
+assert.equal(deploySession.stage, 'handoff');
+
+// Gate is now open at handoff
+assert.equal(isChapterZeroGateOpen(deploySession), true, 'gate must open at handoff');
 
 // Isolation — a different user's session was never touched.
 assert.deepEqual(otherUserSession, createChapterZeroSession(), 'another user session remains isolated');
 
 // Serialized reload preserves the gate.
-const serialized = JSON.parse(JSON.stringify(winRun.session));
+const serialized = JSON.parse(JSON.stringify(deploySession));
 assert.equal(isChapterZeroGateOpen(serialized), true);
 
-console.log('Chapter Zero v3 stage/command/sandbox transitions passed');
+// Migration: legacy save at 'complete' without deployTutorial → migrates to 'handoff'
+const legacySession = { version: 3, stage: 'complete', step: 0, world: { worker: { nodeId: 'hub', holding: [], equippedPickaxe: 'pickaxe_basic', lastLog: null }, mine: { drops: [] }, resources: { data: 13 } }, transition: null, transcript: [] };
+const migrated = migrateChapterZeroSession(legacySession);
+assert.equal(migrated.stage, 'handoff', 'legacy complete saves must migrate to handoff');
+assert.equal(isChapterZeroGateOpen(migrated), true, 'migrated legacy saves must have gate open');
+
+console.log('Chapter Zero v3 stage/command/sandbox/deploy transitions passed');

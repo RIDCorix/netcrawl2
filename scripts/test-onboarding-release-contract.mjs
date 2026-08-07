@@ -17,7 +17,11 @@ assert.equal(loadState.status, 'loading');
 loadState = reduceChapterZeroLoad(loadState, { type: 'loaded', session: { stage: 'cold_open' } });
 assert.equal(chapterZeroMustBlock(loadState), true, 'an incomplete authoritative session remains blocking');
 loadState = reduceChapterZeroLoad(loadState, { type: 'loaded', session: { stage: 'complete' } });
-assert.equal(chapterZeroMustBlock(loadState), false, 'only authoritative completion releases the overlay');
+assert.equal(chapterZeroMustBlock(loadState), true, 'fragment-complete stage still shows immersive deploy intro screen');
+loadState = reduceChapterZeroLoad(loadState, { type: 'loaded', session: { stage: 'edge_select' } });
+assert.equal(chapterZeroMustBlock(loadState), false, 'deploy tutorial stages release the immersive overlay (non-blocking guide)');
+loadState = reduceChapterZeroLoad(loadState, { type: 'loaded', session: { stage: 'handoff' } });
+assert.equal(chapterZeroMustBlock(loadState), false, 'handoff = chapter 0 complete, overlay released');
 
 const validWikiIds = new Set(['how-to-read', 'spec-node', 'resource', 'bad_data', 'spec-route', 'pickaxe_basic']);
 const chapterOne = QUESTS.filter(quest => quest.chapter === 1);

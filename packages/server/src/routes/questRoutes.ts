@@ -9,6 +9,9 @@ import {
   getChapterZero,
   runChapterZeroCodeEditor,
   submitChapterZeroCommand,
+  grantChapterZeroDeployItems,
+  setChapterZeroDeploySelection,
+  verifyChapterZeroDeploy,
 } from '../domain/questState.js';
 import type { ChapterZeroStage } from '../domain/chapterZero.js';
 import { getPlayerLevelSummary } from '../domain/level.js';
@@ -38,11 +41,18 @@ const VALID_STAGES: ChapterZeroStage[] = [
   'direct_commands',
   'code_editor',
   'complete',
+  'edge_select',
+  'pickaxe_equip',
+  'deploy_confirm',
+  'deploy_execute',
+  'deploy_verified',
+  'handoff',
 ];
 
 questRoutes.post('/tutorial/chapter-zero/stage', (req: Request, res: Response) => {
   const uid = getUserId(req);
   const action = String(req.body?.action || '');
+
   if (action === 'advance') {
     const to = String(req.body?.to || '') as ChapterZeroStage;
     if (!VALID_STAGES.includes(to)) return res.status(400).json({ ok: false, error: 'invalid_stage' });
@@ -52,6 +62,7 @@ questRoutes.post('/tutorial/chapter-zero/stage', (req: Request, res: Response) =
     broadcastFullState(uid);
     return res.json(result);
   }
+
   if (action === 'code-run') {
     const onStartup = String(req.body?.on_startup || '');
     const onLoop = String(req.body?.on_loop || '');
@@ -60,6 +71,35 @@ questRoutes.post('/tutorial/chapter-zero/stage', (req: Request, res: Response) =
     broadcastFullState(uid);
     return res.json(result);
   }
+
+  if (action === 'grant-deploy-items') {
+    const result = grantChapterZeroDeployItems(uid);
+    broadcastFullState(uid);
+    return res.json(result);
+  }
+
+  if (action === 'set-deploy-edge') {
+    const edgeId = req.body?.edgeId ? String(req.body.edgeId) : null;
+    const result = setChapterZeroDeploySelection('selectedEdgeId', edgeId, uid);
+    return res.json(result);
+  }
+
+  if (action === 'set-deploy-pickaxe') {
+    const pickaxeType = req.body?.pickaxeType ? String(req.body.pickaxeType) : null;
+    const result = setChapterZeroDeploySelection('selectedPickaxeType', pickaxeType, uid);
+    return res.json(result);
+  }
+
+  if (action === 'verify-deploy') {
+    const workerId = String(req.body?.workerId || '');
+    if (!workerId) return res.status(400).json({ ok: false, error: 'workerId required' });
+    const result = verifyChapterZeroDeploy(workerId, uid);
+    if (!result.ok) return res.status(400).json(result);
+    checkQuests(uid);
+    broadcastFullState(uid);
+    return res.json(result);
+  }
+
   return res.status(400).json({ ok: false, error: 'unknown_action' });
 });
 

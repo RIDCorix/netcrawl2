@@ -7,7 +7,13 @@ export type ChapterZeroStage =
   | 'choice_intro'
   | 'direct_commands'
   | 'code_editor'
-  | 'complete';
+  | 'complete'
+  | 'edge_select'
+  | 'pickaxe_equip'
+  | 'deploy_confirm'
+  | 'deploy_execute'
+  | 'deploy_verified'
+  | 'handoff';
 
 const STAGE_ORDER: ChapterZeroStage[] = [
   'cold_open',
@@ -16,12 +22,26 @@ const STAGE_ORDER: ChapterZeroStage[] = [
   'direct_commands',
   'code_editor',
   'complete',
+  'edge_select',
+  'pickaxe_equip',
+  'deploy_confirm',
+  'deploy_execute',
+  'deploy_verified',
+  'handoff',
 ];
+
+export interface ChapterZeroDeployState {
+  grantedItems: boolean;
+  selectedEdgeId: string | null;
+  selectedPickaxeType: string | null;
+  workerId: string | null;
+}
 
 export interface ChapterZeroWorld {
   worker: { nodeId: 'hub' | 'mine'; holding: Item[]; equippedPickaxe: 'pickaxe_basic'; lastLog: string | null };
   mine: { drops: Item[] };
   resources: { data: number };
+  deployTutorial: ChapterZeroDeployState;
 }
 
 export interface ChapterZeroSession {
@@ -38,19 +58,41 @@ export const DIRECT_COMMAND_SEQUENCE = ['self.move(self.edge)', 'self.collect()'
 export const INITIAL_MINE_DROPS: Item[] = [{ type: 'data_fragment', count: 3 }];
 export const LOOP_MINE_DROPS: Item[] = [{ type: 'data_fragment', count: 10 }];
 
+export const TUTORIAL_WORKER_CLASS_ID = 'tutorial_miner';
+
+function initialDeployState(): ChapterZeroDeployState {
+  return { grantedItems: false, selectedEdgeId: null, selectedPickaxeType: null, workerId: null };
+}
+
 export function createChapterZeroSession(completed = false): ChapterZeroSession {
   return {
     version: 3,
-    stage: completed ? 'complete' : 'cold_open',
+    stage: completed ? 'handoff' : 'cold_open',
     step: 0,
     world: {
       worker: { nodeId: 'hub', holding: [], equippedPickaxe: 'pickaxe_basic', lastLog: null },
       mine: { drops: [] },
       resources: { data: 0 },
+      deployTutorial: initialDeployState(),
     },
     transition: null,
     transcript: [],
   };
+}
+
+export function migrateChapterZeroSession(session: ChapterZeroSession): ChapterZeroSession {
+  if (!session.world.deployTutorial) {
+    const s = structuredClone(session);
+    s.world.deployTutorial = initialDeployState();
+    // Legacy saves at 'complete' without deployment done → skip to 'handoff' so gate opens
+    if (s.stage === 'complete') {
+      s.stage = 'handoff';
+      s.world.deployTutorial.grantedItems = true;
+      s.world.deployTutorial.workerId = 'legacy';
+    }
+    return s;
+  }
+  return session;
 }
 
 export function shouldBypassChapterZero(
@@ -60,7 +102,8 @@ export function shouldBypassChapterZero(
 }
 
 export function isChapterZeroGateOpen(session: ChapterZeroSession | undefined): boolean {
-  return session?.version === 3 && session.stage === 'complete';
+  if (!session || session.version !== 3) return false;
+  return session.stage === 'handoff';
 }
 
 export function expectedCommand(session: ChapterZeroSession): string | null {
@@ -154,14 +197,47 @@ export function advanceChapterZeroStage(current: ChapterZeroSession, to: Chapter
     }
   }
 
+  if (to === 'pickaxe_equip') {
+    if (!current.world.deployTutorial?.selectedEdgeId) {
+      return { ok: false, error: 'out_of_order', session: structuredClone(current) };
+    }
+  }
+
+  if (to === 'deploy_confirm') {
+    if (!current.world.deployTutorial?.selectedPickaxeType) {
+      return { ok: false, error: 'out_of_order', session: structuredClone(current) };
+    }
+  }
+
+  if (to === 'deploy_verified') {
+    if (!current.world.deployTutorial?.workerId) {
+      return { ok: false, error: 'out_of_order', session: structuredClone(current) };
+    }
+  }
+
   const session = structuredClone(current);
   if (to === 'direct_commands') {
     session.world.mine.drops = mergeItemStacks(session.world.mine.drops, INITIAL_MINE_DROPS);
+  }
+  if (to === 'edge_select' && !session.world.deployTutorial) {
+    session.world.deployTutorial = initialDeployState();
   }
   session.stage = to;
   session.step = 0;
   session.transition = null;
   return { ok: true, session };
+}
+
+/** Set a deploy tutorial field (edge or pickaxe) without stage change. */
+export function setDeployTutorialField(
+  current: ChapterZeroSession,
+  field: 'selectedEdgeId' | 'selectedPickaxeType' | 'workerId' | 'grantedItems',
+  value: string | boolean | null,
+): ChapterZeroSession {
+  const session = structuredClone(current);
+  if (!session.world.deployTutorial) session.world.deployTutorial = initialDeployState();
+  (session.world.deployTutorial as any)[field] = value;
+  return session;
 }
 
 export interface CodeRunResult {

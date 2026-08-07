@@ -7,9 +7,32 @@ import { ChapterZeroParticles } from './chapter0/ChapterZeroParticles';
 import { ChapterZeroGraph } from './chapter0/ChapterZeroGraph';
 import { ChapterZeroCodeEditor } from './chapter0/ChapterZeroCodeEditor';
 import { useChapterZeroDialogue } from './chapter0/useChapterZeroDialogue';
+import { DeployTutorialGuide } from './chapter0/DeployTutorialGuide';
 
 type Item = { type: string; count: number };
-type Stage = 'cold_open' | 'voice_arrival' | 'choice_intro' | 'direct_commands' | 'code_editor' | 'complete';
+type Stage =
+  | 'cold_open'
+  | 'voice_arrival'
+  | 'choice_intro'
+  | 'direct_commands'
+  | 'code_editor'
+  | 'complete'
+  | 'edge_select'
+  | 'pickaxe_equip'
+  | 'deploy_confirm'
+  | 'deploy_execute'
+  | 'deploy_verified'
+  | 'handoff';
+
+const DEPLOY_STAGES: Stage[] = [
+  'edge_select',
+  'pickaxe_equip',
+  'deploy_confirm',
+  'deploy_execute',
+  'deploy_verified',
+  'handoff',
+];
+
 type TutorialState = {
   version: 3;
   stage: Stage;
@@ -21,6 +44,12 @@ type TutorialState = {
     worker: { nodeId: 'hub' | 'mine'; holding: Item[]; equippedPickaxe: 'pickaxe_basic'; lastLog: string | null };
     mine: { drops: Item[] };
     resources: { data: number };
+    deployTutorial: {
+      grantedItems: boolean;
+      selectedEdgeId: string | null;
+      selectedPickaxeType: string | null;
+      workerId: string | null;
+    };
   };
 };
 
@@ -66,7 +95,6 @@ export function ChapterZeroRepl() {
       .get('/api/tutorial/chapter-zero')
       .then(r => {
         dispatchLoad({ type: 'loaded', session: r.data });
-        if (r.data.stage === 'complete') setDismissed(true);
       })
       .catch(() => dispatchLoad({ type: 'failed' }));
   }, []);
@@ -111,7 +139,21 @@ export function ChapterZeroRepl() {
     }
   }, []);
 
-  if (state?.stage === 'complete' && dismissed) return null;
+  // Deploy tutorial stages — shown as non-blocking guide over the real game map
+  if (state && (DEPLOY_STAGES as Stage[]).includes(state.stage)) {
+    if (state.stage === 'handoff' && dismissed) return null;
+    return (
+      <DeployTutorialGuide
+        stage={state.stage as any}
+        world={state.world as any}
+        onSessionUpdate={session => dispatchLoad({ type: 'loaded', session })}
+        onDismiss={() => setDismissed(true)}
+        reducedMotion={typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+          ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+          : false}
+      />
+    );
+  }
 
   if (loadState.status === 'failed') {
     return (
@@ -461,7 +503,7 @@ function Shell({
     // Once dialogue is fully consumed for the ack sequences, auto-advance.
     if (state.stage === 'choice_intro' && state.step >= 1) fadeToStage('direct_commands');
     else if (state.stage === 'direct_commands' && state.step >= 2) fadeToStage('code_editor');
-    else if (state.stage === 'complete') onDismiss();
+    else if (state.stage === 'complete') fadeToStage('edge_select');
   };
 
   const fadeToStage = (stage: Stage) => {
@@ -628,10 +670,10 @@ function Shell({
                   className="chapter0-continue-btn"
                   onClick={e => {
                     e.stopPropagation();
-                    onDismiss();
+                    fadeToStage('edge_select');
                   }}
                 >
-                  {t('tutorial.chapter_zero.continue')}
+                  {t('tutorial.chapter_zero.deploy.continue_to_deploy')}
                 </button>
               )}
               {!dialogue.done && (

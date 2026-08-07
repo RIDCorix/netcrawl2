@@ -13,6 +13,18 @@ export function reduceChapterZeroLoad<T>(
   return { status: 'loaded', session: action.session };
 }
 
+// Stages where the immersive full-screen overlay is NOT shown (deploy guide or done).
+const CHAPTER_ZERO_NON_BLOCKING_STAGES = new Set([
+  'edge_select',
+  'pickaxe_equip',
+  'deploy_confirm',
+  'deploy_execute',
+  'deploy_verified',
+  'handoff',
+]);
+
 export function chapterZeroMustBlock<T extends { stage?: string }>(state: ChapterZeroLoadState<T>): boolean {
-  return state.status !== 'loaded' || state.session.stage !== 'complete';
+  if (state.status !== 'loaded') return true;
+  const stage = state.session.stage ?? '';
+  return !CHAPTER_ZERO_NON_BLOCKING_STAGES.has(stage);
 }

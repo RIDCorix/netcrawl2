@@ -1325,3 +1325,207 @@ body::after {
     transform: none !important;
   }
 }
+
+/* ── Deploy Tutorial Guide ─────────────────────────────────────────────── */
+
+.chapter0-deploy-dim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  z-index: 90;
+}
+
+.chapter0-deploy-guide {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  pointer-events: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 24px;
+}
+
+.chapter0-deploy-guide--success {
+  align-items: center;
+}
+
+.chapter0-deploy-guide-inner {
+  pointer-events: all;
+  background: var(--bg-secondary, #0f1117);
+  border: 1px solid var(--accent, #00d4aa);
+  border-radius: 8px;
+  padding: 20px 24px;
+  width: 100%;
+  max-width: 560px;
+  box-shadow: 0 4px 32px rgba(0, 212, 170, 0.12);
+  font-family: var(--font-mono, monospace);
+}
+
+.chapter0-deploy-guide-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--accent, #00d4aa);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.chapter0-deploy-guide-body {
+  color: var(--text-primary, #e0e0e0);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+
+.chapter0-deploy-guide-hint {
+  color: var(--text-secondary, #888);
+  font-size: 0.8rem;
+  margin: 0 0 8px;
+}
+
+.chapter0-deploy-guide-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 18px;
+  border-radius: 4px;
+  border: none;
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.chapter0-deploy-guide-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.chapter0-deploy-guide-btn--primary {
+  background: var(--accent, #00d4aa);
+  color: #000;
+}
+
+.chapter0-deploy-guide-btn--primary:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.chapter0-deploy-steps {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.chapter0-deploy-step-dot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #888);
+  position: relative;
+  padding-left: 18px;
+}
+
+.chapter0-deploy-step-dot::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--text-secondary, #888);
+}
+
+.chapter0-deploy-step-dot--done {
+  color: var(--accent, #00d4aa);
+}
+
+.chapter0-deploy-step-dot--done::before {
+  border-color: var(--accent, #00d4aa);
+  background: var(--accent, #00d4aa);
+}
+
+.chapter0-deploy-step-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.chapter0-deploy-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 80, 80, 0.12);
+  border: 1px solid rgba(255, 80, 80, 0.4);
+  border-radius: 4px;
+  padding: 8px 12px;
+  color: #ff7070;
+  font-size: 0.82rem;
+  margin-bottom: 10px;
+}
+
+.chapter0-deploy-error-retry {
+  background: none;
+  border: 1px solid #ff7070;
+  color: #ff7070;
+  border-radius: 3px;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  font-family: var(--font-mono, monospace);
+}
+
+.chapter0-deploy-edge-list,
+.chapter0-deploy-pickaxe-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.chapter0-deploy-edge-item,
+.chapter0-deploy-pickaxe-item {
+  background: rgba(0, 212, 170, 0.08);
+  border: 1px solid rgba(0, 212, 170, 0.3);
+  border-radius: 4px;
+  padding: 8px 12px;
+  color: var(--text-primary, #e0e0e0);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.chapter0-deploy-edge-item:hover,
+.chapter0-deploy-pickaxe-item:hover {
+  background: rgba(0, 212, 170, 0.18);
+  border-color: var(--accent, #00d4aa);
+}
+
+.chapter0-deploy-summary {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 14px;
+  font-size: 0.82rem;
+  color: var(--text-secondary, #888);
+  line-height: 1.8;
+}
+
+.chapter0-deploy-summary li::before {
+  content: '· ';
+  color: var(--accent, #00d4aa);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chapter0-deploy-guide-btn,
+  .chapter0-deploy-edge-item,
+  .chapter0-deploy-pickaxe-item {
+    transition: none !important;
+  }
+}
