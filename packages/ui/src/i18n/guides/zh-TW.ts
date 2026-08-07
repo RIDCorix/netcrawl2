@@ -61,6 +61,13 @@ export const zhTW: Record<string, GuideStep[]> = {
 [NetCrawl] Code server connected ✓
 \`\`\`
 
+請用這個簡化的點擊骨架對照畫面：
+
+\`\`\`text
+[VS Code] Explorer → main.py → Run and Debug → NetCrawl: Start Code Server → ▶ / F5
+[遊戲]   地圖 → Hub → 部署 Worker → HelloWorker → 部署
+\`\`\`
+
 **當 code server 連線到遊戲伺服器時，此任務會自動完成！**
 
 🎉 連線成功後，部署 Worker 的按鈕就會啟用。前往下一個任務吧。`,
@@ -126,12 +133,12 @@ this.error("無法移動！");     // 紅色 — 出了問題
 
     {
       title: '部署你的第一個 Worker',
-      content: `\`workspace/workers/helloworker.py\` 裡的 \`HelloWorker\` 已經可以部署：
+      content: `\`workers/helloworker.py\` 裡的 \`HelloWorker\` 已由 \`main.py\` 註冊，可以部署：
 
 1. 點擊地圖上的 **Hub** 節點
 2. 點擊**部署 Worker**
-3. 從下拉選單選擇 **Hello**
-4. 點擊**部署**（不需要裝備！）
+3. 從下拉選單選擇 **HelloWorker**
+4. 依照真正的對話框按下**部署**（不需要路線或裝備！）
 
 觀察 Worker 日誌 — 你會看到 \`"我剛啟動！"\` 出現一次，然後 \`"還在跑..."\` 不斷重複。
 

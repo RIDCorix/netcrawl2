@@ -125,8 +125,8 @@ export function DeployDialog({
   }, [workerClasses, selectedClass]);
 
   useEffect(() => {
-    if (tutorialMode && workerClasses.some(c => c.class_id === 'tutorial_miner')) {
-      setSelectedClass('tutorial_miner');
+    if (tutorialMode && workerClasses.some(c => c.class_id === 'helloworker')) {
+      setSelectedClass('helloworker');
     }
   }, [tutorialMode, workerClasses]);
 
@@ -327,11 +327,19 @@ export function DeployDialog({
   const handleNext = async () => {
     if (!canGoNext()) return;
     try {
-      if (tutorialMode && currentStepKey === 'routes') {
+      if (tutorialMode && currentStepKey === 'class' && selectedClass === 'helloworker') {
+        // HelloWorker has no route field. Keep the server-owned tutorial
+        // machine monotonic while letting the real wizard advance to its
+        // normal Equipment step.
+        await axios.post('/api/tutorial/chapter-zero/stage', {
+          action: 'set-deploy-edge',
+          edgeId: '__hello_worker__',
+        });
+        await advanceTutorial('pickaxe_equip');
+      } else if (tutorialMode && currentStepKey === 'routes') {
         await advanceTutorial('pickaxe_equip');
       } else if (tutorialMode && currentStepKey === 'equipment') {
-        const pickaxeType = Object.values(equippedPerUnit[0] || {})[0];
-        if (!pickaxeType) throw new Error('pickaxe is required');
+        const pickaxeType = Object.values(equippedPerUnit[0] || {})[0] || '__no_equipment__';
         const selection = await axios.post('/api/tutorial/chapter-zero/stage', {
           action: 'set-deploy-pickaxe',
           pickaxeType,

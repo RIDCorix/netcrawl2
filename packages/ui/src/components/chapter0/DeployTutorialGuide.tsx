@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { useT } from '../../hooks/useT';
+import { useGameStore } from '../../store/gameStore';
 
 type DeployStage =
   | 'edge_select'
@@ -17,6 +18,7 @@ interface Props {
 
 export function DeployTutorialGuide({ stage, onDismiss }: Props) {
   const t = useT();
+  const selectedNodeId = useGameStore(s => s.selectedNodeId);
   const [grantError, setGrantError] = useState(false);
   const grantItems = useCallback(() => {
     setGrantError(false);
@@ -31,6 +33,27 @@ export function DeployTutorialGuide({ stage, onDismiss }: Props) {
       window.dispatchEvent(new CustomEvent('chapter-zero-deploy-mode', { detail: false }));
     };
   }, [grantItems]);
+
+  // Chapter Zero's first deployment action is deliberately a real map click.
+  // Capture and reject clicks elsewhere while the Hub target is active.
+  useEffect(() => {
+    if (stage !== 'edge_select' || selectedNodeId === 'hub') return;
+    const blockOutsideHub = (event: MouseEvent) => {
+      const target = event.target as Element | null;
+      if (!target?.closest('[data-id="hub"]')) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    document.addEventListener('click', blockOutsideHub, true);
+    return () => document.removeEventListener('click', blockOutsideHub, true);
+  }, [stage, selectedNodeId]);
+
+  useEffect(() => {
+    const targetingHub = stage === 'edge_select' && selectedNodeId !== 'hub';
+    document.body.classList.toggle('chapter0-target-hub', targetingHub);
+    return () => document.body.classList.remove('chapter0-target-hub');
+  }, [stage, selectedNodeId]);
 
   const isHandoff = stage === 'handoff' || stage === 'deploy_verified';
 
@@ -56,14 +79,20 @@ export function DeployTutorialGuide({ stage, onDismiss }: Props) {
   }
 
   const copy = {
-    edge_select: ['tutorial.chapter_zero.deploy.edge_prompt', 'tutorial.chapter_zero.deploy.edge_cta'],
+    edge_select: selectedNodeId === 'hub'
+      ? ['tutorial.chapter_zero.deploy.hub_selected_prompt', 'tutorial.chapter_zero.deploy.hub_selected_hint']
+      : ['tutorial.chapter_zero.deploy.hub_prompt', 'tutorial.chapter_zero.deploy.hub_hint'],
     pickaxe_equip: ['tutorial.chapter_zero.deploy.pickaxe_prompt', 'tutorial.chapter_zero.deploy.equipment_hint'],
     deploy_confirm: ['tutorial.chapter_zero.deploy.confirm_prompt', 'tutorial.chapter_zero.deploy.confirm_cta'],
     deploy_execute: ['tutorial.chapter_zero.deploy.execute_prompt', 'tutorial.chapter_zero.deploy.execute_cta'],
   }[stage];
 
+  const forceHub = stage === 'edge_select' && selectedNodeId !== 'hub';
+
   return (
-    <div className="chapter0-deploy-guide" role="complementary" aria-label={t('tutorial.chapter_zero.deploy.guide_label')}>
+    <>
+      {forceHub && <div className="chapter0-deploy-blocker" aria-hidden="true" />}
+      <div className={`chapter0-deploy-guide${forceHub ? ' chapter0-deploy-guide--targeting' : ''}`} role="complementary" aria-label={t('tutorial.chapter_zero.deploy.guide_label')}>
 
       <div className="chapter0-deploy-guide-inner">
         <StepIndicator stage={stage} t={t} />
@@ -82,7 +111,8 @@ export function DeployTutorialGuide({ stage, onDismiss }: Props) {
           <p className="chapter0-deploy-guide-hint">{t(copy[1])}</p>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 

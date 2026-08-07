@@ -66,6 +66,13 @@ You should see:
 [NetCrawl] Code server connected ✓
 \`\`\`
 
+Use this small click map while you work:
+
+\`\`\`text
+[VS Code] Explorer → main.py → Run and Debug → NetCrawl: Start Code Server → ▶ / F5
+[Game]    map → Hub → Deploy Worker → HelloWorker → Deploy
+\`\`\`
+
 **This quest completes automatically** when the code server connects to the game server!
 
 🎉 Once connected, the Deploy Worker button becomes active. Head to the next quest.`,
@@ -133,12 +140,12 @@ Use \`info()\` for normal status updates, \`warn()\` for issues that aren't crit
 
     {
       title: 'Deploy Your First Worker',
-      content: `The \`HelloWorker\` class in \`workspace/workers/helloworker.py\` is ready to deploy:
+      content: `The \`HelloWorker\` class in \`workers/helloworker.py\` is already registered by \`main.py\` and ready to deploy:
 
 1. Click the **Hub** node on the map
 2. Click **Deploy Worker**
-3. Select **Hello** from the class dropdown
-4. Click **Deploy** (no equipment needed!)
+3. Select **HelloWorker** from the class dropdown
+4. Follow the normal dialog to **Deploy** (no route or equipment needed!)
 
 Watch the worker logs — you'll see \`"I just started!"\` once, then \`"Still running..."\` repeating.
 

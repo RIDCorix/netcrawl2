@@ -1339,6 +1339,24 @@ body::after {
   pointer-events: none;
 }
 
+/* During the first map action, only the highlighted Hub is clickable. */
+.chapter0-deploy-blocker {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.58);
+}
+
+.chapter0-target-hub .react-flow__node[data-id='hub'] {
+  z-index: 91 !important;
+  filter: brightness(1.35);
+  outline: 3px solid var(--accent);
+  outline-offset: 8px;
+  border-radius: 12px;
+  animation: chapter0-deploy-pulse 1.4s ease-in-out infinite;
+}
+
 /* The guide points at the real Hub deploy action; it does not replace it. */
 .chapter0-deploy-target {
   position: relative;
