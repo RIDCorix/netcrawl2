@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict';
 import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
-import { ChapterZeroInstructionEditor } from '../packages/ui/src/components/ChapterZeroRepl';
+import { ChapterZeroInstructionEditor, DIRECT_MOVE_NARRATOR_KEYS } from '../packages/ui/src/components/ChapterZeroRepl';
 
 type Renderer = TestRenderer.ReactTestRenderer;
 
 function renderEditor(
   stage: 'direct_commands' | 'code_editor',
   step: number,
+  dialogueIndex = 0,
+  dialogueDone = true,
   onDirectCommand: (command: string) => void = () => undefined,
   onCodeRun: (startup: string, loop: string) => void = () => undefined,
 ): Renderer {
@@ -17,7 +19,8 @@ function renderEditor(
       <ChapterZeroInstructionEditor
         stage={stage}
         step={step}
-        dialogueIndex={0}
+        dialogueIndex={dialogueIndex}
+        dialogueDone={dialogueDone}
         running={false}
         onDirectCommand={onDirectCommand}
         onCodeRun={onCodeRun}
@@ -27,6 +30,12 @@ function renderEditor(
   return renderer!;
 }
 
+function activeRange(renderer: Renderer, range: string) {
+  return renderer.root
+    .findAllByProps({ 'data-code-range': range })
+    .some(node => String(node.props.className).includes('chapter0-code-range-active'));
+}
+
 async function fillAndRun(renderer: Renderer, values: string[]) {
   const textareas = renderer.root.findAllByType('textarea');
   assert.equal(textareas.length, values.length);
@@ -34,23 +43,46 @@ async function fillAndRun(renderer: Renderer, values: string[]) {
   await act(async () => renderer.root.findByType('button').props.onClick());
 }
 
+assert.deepEqual(DIRECT_MOVE_NARRATOR_KEYS, [
+  'tutorial.chapter_zero.code_editor.intro_L1',
+  'tutorial.chapter_zero.code_editor.intro_L2',
+  'tutorial.chapter_zero.code_editor.intro_L3',
+  'tutorial.chapter_zero.code_editor.intro_L4',
+  'tutorial.chapter_zero.direct_commands.hint_move_L3',
+]);
+for (const [index, range] of ['class', 'identity', 'edge', 'startup', 'startup'].entries()) {
+  const explaining = renderEditor('direct_commands', 0, index, false);
+  assert.equal(activeRange(explaining, range), true, `dialogue ${index} must highlight ${range}`);
+  assert.equal(explaining.root.findByType('button').props.disabled, true, `dialogue ${index} must gate Run`);
+}
+
 const directCommands: string[] = [];
-const firstMove = renderEditor('direct_commands', 0, command => directCommands.push(command));
+const firstMove = renderEditor('direct_commands', 0, 4, true, command => directCommands.push(command));
 assert.equal(firstMove.root.findAllByProps({ 'data-code-range': 'class' }).length, 1);
 assert.equal(firstMove.root.findAllByProps({ 'data-code-range': 'startup' }).length, 1);
 assert.equal(firstMove.root.findAllByProps({ 'data-code-range': 'loop' }).length, 0);
+assert.equal(activeRange(firstMove, 'startup'), true);
+assert.equal(firstMove.root.findByType('button').props.disabled, false);
 await fillAndRun(firstMove, ['        self.move(self.edge)']);
 assert.deepEqual(directCommands, ['self.move(self.edge)']);
 
+const collect = renderEditor('direct_commands', 1, 1, true);
+assert.equal(activeRange(collect, 'startup'), true);
+assert.equal(collect.root.findByType('button').props.disabled, false);
+
 const lockedRuns: Array<[string, string]> = [];
-const startupCheckpoint = renderEditor('code_editor', 0, undefined, (startup, loop) =>
+const startupCheckpoint = renderEditor('code_editor', 0, 0, true, undefined, (startup, loop) =>
   lockedRuns.push([startup, loop]),
 );
+assert.equal(activeRange(startupCheckpoint, 'startup'), true);
 await fillAndRun(startupCheckpoint, ['        self.move(self.edge)\n        self.deposit()']);
 assert.deepEqual(lockedRuns, [['self.move(self.edge)\nself.deposit()', 'pass']]);
 
 const unlockedRuns: Array<[string, string]> = [];
-const loopCheckpoint = renderEditor('code_editor', 1, undefined, (startup, loop) => unlockedRuns.push([startup, loop]));
+const loopCheckpoint = renderEditor('code_editor', 1, 1, true, undefined, (startup, loop) =>
+  unlockedRuns.push([startup, loop]),
+);
+assert.equal(activeRange(loopCheckpoint, 'loop'), true);
 await fillAndRun(loopCheckpoint, [
   '        pass',
   '        self.move(self.edge)\n        self.collect()\n        self.move(self.edge)\n        self.deposit()',
@@ -59,4 +91,4 @@ assert.deepEqual(unlockedRuns, [
   ['pass', 'self.move(self.edge)\nself.collect()\nself.move(self.edge)\nself.deposit()'],
 ]);
 
-console.log('Chapter Zero editor interactions passed');
+console.log('Chapter Zero editor dialogue and interactions passed');

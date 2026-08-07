@@ -877,14 +877,14 @@ export const en: Record<string, string> = {
   'tutorial.chapter_zero.direct_commands.ack_move': 'Good. You can move.',
   'tutorial.chapter_zero.direct_commands.hint_collect_L1': 'Fragments at your feet. self.collect() — pick them up.',
   'tutorial.chapter_zero.direct_commands.ack_collect_L1': 'Got them. But I need more.',
-  'tutorial.chapter_zero.direct_commands.ack_collect_L2':
-    "I see it — you don't have your worker's startup code yet. I'll teach you.",
+  'tutorial.chapter_zero.direct_commands.ack_collect_L2': 'Bring what you mined back to the hub and put it down.',
   'tutorial.chapter_zero.code_editor.intro_L1':
     'You need more complete code before you can operate on your own. First, class MyWorker(WorkerClass): defines your behavior.',
   'tutorial.chapter_zero.code_editor.intro_L2': 'Next, declare your name and identifier.',
   'tutorial.chapter_zero.code_editor.intro_L3': 'Declare a route to specify where you will move next.',
-  'tutorial.chapter_zero.code_editor.intro_L4':
-    'on_startup runs once. Use two lines here to return to the hub and deposit the fragments.',
+  'tutorial.chapter_zero.code_editor.intro_L4': 'on_startup runs once; you can enter instructions in this block now.',
+  'tutorial.chapter_zero.code_editor.startup_checkpoint':
+    'Enter two lines in on_startup: self.move(self.edge) to return to the hub, then self.deposit() to put down the data.',
   'tutorial.chapter_zero.code_editor.loop_intro_L1': 'Good. on_loop is now unlocked; this block repeats.',
   'tutorial.chapter_zero.code_editor.loop_intro_L2':
     'Write a mining loop that moves, collects, returns, and deposits until you bring back ten data fragments.',

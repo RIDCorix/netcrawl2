@@ -278,10 +278,40 @@ function VoiceArrival({ advance }: { advance: () => void }) {
 
 /* ─── Stage 3-5: Shell (terminal + graph + narrator) ────────────────── */
 
+export const DIRECT_MOVE_NARRATOR_KEYS = [
+  'tutorial.chapter_zero.code_editor.intro_L1',
+  'tutorial.chapter_zero.code_editor.intro_L2',
+  'tutorial.chapter_zero.code_editor.intro_L3',
+  'tutorial.chapter_zero.code_editor.intro_L4',
+  'tutorial.chapter_zero.direct_commands.hint_move_L3',
+] as const;
+
+export function chapterZeroEditorPresentation(
+  stage: 'direct_commands' | 'code_editor' | 'complete',
+  step: number,
+  dialogueIndex: number,
+  dialogueDone: boolean,
+) {
+  const loopUnlocked = (stage === 'code_editor' && step >= 1) || stage === 'complete';
+  const highlight: 'class' | 'identity' | 'edge' | 'startup' | 'loop' =
+    stage === 'direct_commands' && step === 0
+      ? (['class', 'identity', 'edge', 'startup', 'startup'][Math.min(dialogueIndex, 4)] as
+          | 'class'
+          | 'identity'
+          | 'edge'
+          | 'startup')
+      : stage === 'code_editor' && step >= 1
+        ? 'loop'
+        : 'startup';
+  const disabled = !dialogueDone || stage === 'complete' || (stage === 'direct_commands' && step >= 2);
+  return { loopUnlocked, highlight, disabled };
+}
+
 export function ChapterZeroInstructionEditor({
   stage,
   step,
   dialogueIndex,
+  dialogueDone,
   running,
   onDirectCommand,
   onCodeRun,
@@ -289,21 +319,12 @@ export function ChapterZeroInstructionEditor({
   stage: 'direct_commands' | 'code_editor' | 'complete';
   step: number;
   dialogueIndex: number;
+  dialogueDone: boolean;
   running: boolean;
   onDirectCommand: (command: string) => void | Promise<void>;
   onCodeRun: (startup: string, loop: string) => void | Promise<void>;
 }) {
-  const loopUnlocked = (stage === 'code_editor' && step >= 1) || stage === 'complete';
-  const highlight =
-    stage === 'direct_commands'
-      ? 'edge'
-      : step === 0
-        ? (['class', 'identity', 'edge', 'startup'][Math.min(dialogueIndex, 3)] as
-            | 'class'
-            | 'identity'
-            | 'edge'
-            | 'startup')
-        : 'loop';
+  const presentation = chapterZeroEditorPresentation(stage, step, dialogueIndex, dialogueDone);
 
   return (
     <ChapterZeroCodeEditor
@@ -311,9 +332,9 @@ export function ChapterZeroInstructionEditor({
         stage === 'direct_commands' ? onDirectCommand(startup.trim()) : onCodeRun(startup, loop)
       }
       running={running}
-      disabled={stage === 'complete' || (stage === 'direct_commands' && step >= 2)}
-      loopUnlocked={loopUnlocked}
-      highlight={highlight}
+      disabled={presentation.disabled}
+      loopUnlocked={presentation.loopUnlocked}
+      highlight={presentation.highlight}
     />
   );
 }
@@ -356,11 +377,7 @@ function Shell({
       ];
     }
     if (state.stage === 'direct_commands' && state.step === 0) {
-      return [
-        t('tutorial.chapter_zero.direct_commands.hint_move_L1'),
-        t('tutorial.chapter_zero.direct_commands.hint_move_L2'),
-        t('tutorial.chapter_zero.direct_commands.hint_move_L3'),
-      ];
+      return DIRECT_MOVE_NARRATOR_KEYS.map(key => t(key));
     }
     if (state.stage === 'direct_commands' && state.step === 1) {
       return [
@@ -375,12 +392,7 @@ function Shell({
       ];
     }
     if (state.stage === 'code_editor' && state.step === 0 && !runResult) {
-      return [
-        t('tutorial.chapter_zero.code_editor.intro_L1'),
-        t('tutorial.chapter_zero.code_editor.intro_L2'),
-        t('tutorial.chapter_zero.code_editor.intro_L3'),
-        t('tutorial.chapter_zero.code_editor.intro_L4'),
-      ];
+      return [t('tutorial.chapter_zero.code_editor.startup_checkpoint')];
     }
     if (state.stage === 'code_editor' && state.step >= 1 && (!runResult || !runResult.failureReason)) {
       return [
@@ -538,6 +550,7 @@ function Shell({
                 stage={state.stage as 'direct_commands' | 'code_editor' | 'complete'}
                 step={state.step}
                 dialogueIndex={dialogue.index}
+                dialogueDone={dialogue.done}
                 running={running}
                 onDirectCommand={runDirectCommand}
                 onCodeRun={runCode}

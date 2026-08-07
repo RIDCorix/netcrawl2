@@ -865,13 +865,14 @@ export const ja: Record<string, string> = {
   'tutorial.chapter_zero.direct_commands.ack_move': 'よし、動けるみたいだ。',
   'tutorial.chapter_zero.direct_commands.hint_collect_L1': '足元にドロップ。self.collect() で拾って。',
   'tutorial.chapter_zero.direct_commands.ack_collect_L1': '手に入った。まだ足りない。',
-  'tutorial.chapter_zero.direct_commands.ack_collect_L2': '分かる——君にはまだ起動コードがない。教えるよ。',
+  'tutorial.chapter_zero.direct_commands.ack_collect_L2': '採掘したものを hub に持ち帰って置こう。',
   'tutorial.chapter_zero.code_editor.intro_L1':
     '自律して動くには、もっと完全なコードが必要だ。まず class MyWorker(WorkerClass): で自分の動作を定義する。',
   'tutorial.chapter_zero.code_editor.intro_L2': '次に、自分の名前と識別子を宣言する。',
   'tutorial.chapter_zero.code_editor.intro_L3': '次にどこへ移動するかを示す経路を宣言する必要がある。',
-  'tutorial.chapter_zero.code_editor.intro_L4':
-    'on_startup は一度だけ実行される。ここに二行書いて hub に戻り、データを預けよう。',
+  'tutorial.chapter_zero.code_editor.intro_L4': 'on_startup は一度だけ実行される。今はこのブロックに命令を入力できる。',
+  'tutorial.chapter_zero.code_editor.startup_checkpoint':
+    'on_startup に二行入力しよう。self.move(self.edge) で hub に戻り、self.deposit() でデータを置く。',
   'tutorial.chapter_zero.code_editor.loop_intro_L1': 'よし。on_loop が解放された。このブロックは繰り返し実行される。',
   'tutorial.chapter_zero.code_editor.loop_intro_L2':
     '移動、回収、帰還、預入を繰り返し、data fragment を十個持ち帰る採掘ループを書こう。',

@@ -852,12 +852,14 @@ export const zhTW: Record<string, string> = {
   'tutorial.chapter_zero.direct_commands.ack_move': '好，看來你可以移動。',
   'tutorial.chapter_zero.direct_commands.hint_collect_L1': '腳邊有掉落物。用 self.collect() 拿起來。',
   'tutorial.chapter_zero.direct_commands.ack_collect_L1': '拿到了。但我還需要更多。',
-  'tutorial.chapter_zero.direct_commands.ack_collect_L2': '我看到了——你還沒有 worker 程式的啟動碼。我來教你。',
+  'tutorial.chapter_zero.direct_commands.ack_collect_L2': '把剛挖到的東西帶回 hub 放下。',
   'tutorial.chapter_zero.code_editor.intro_L1':
     '你需要更完整的程式碼才能夠自主運作。首先，你需要宣告 class MyWorker(WorkerClass): 來定義你自己的行為。',
   'tutorial.chapter_zero.code_editor.intro_L2': '接著，你需要宣告你的名稱和代號。',
   'tutorial.chapter_zero.code_editor.intro_L3': '你需要宣告一條路徑，用來指定等等你要從哪裡移動。',
-  'tutorial.chapter_zero.code_editor.intro_L4': 'on_startup 只執行一次。先在這裡用兩行指令回到 hub，再把資料放下。',
+  'tutorial.chapter_zero.code_editor.intro_L4': 'on_startup 只執行一次；你現在可以在這個區塊輸入指令。',
+  'tutorial.chapter_zero.code_editor.startup_checkpoint':
+    '現在在 on_startup 輸入兩行：先用 self.move(self.edge) 回到 hub，再用 self.deposit() 放下資料。',
   'tutorial.chapter_zero.code_editor.loop_intro_L1': '做得好。現在解鎖 on_loop；這個區塊會反覆執行。',
   'tutorial.chapter_zero.code_editor.loop_intro_L2':
     '寫一個挖礦循環：移動、收集、返回並存入，直到帶回十個 data fragment。',
