@@ -21,7 +21,8 @@ export function DeployTutorialGuide({ stage, onDismiss }: Props) {
   const selectedNodeId = useGameStore(s => s.selectedNodeId);
   const codeServerConnected = useGameStore(s => s.codeServerConnected);
   const workerClasses = useGameStore(s => s.workerClasses);
-  const codeReady = codeServerConnected || workerClasses.some((entry: any) => entry.class_id === 'helloworker');
+  const helloWorkerRegistered = workerClasses.some((entry: any) => entry.class_id === 'helloworker');
+  const codeReady = codeServerConnected && helloWorkerRegistered;
   const [grantError, setGrantError] = useState(false);
   const grantItems = useCallback(() => {
     setGrantError(false);
