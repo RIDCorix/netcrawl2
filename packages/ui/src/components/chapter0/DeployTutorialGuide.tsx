@@ -19,6 +19,9 @@ interface Props {
 export function DeployTutorialGuide({ stage, onDismiss }: Props) {
   const t = useT();
   const selectedNodeId = useGameStore(s => s.selectedNodeId);
+  const codeServerConnected = useGameStore(s => s.codeServerConnected);
+  const workerClasses = useGameStore(s => s.workerClasses);
+  const codeReady = codeServerConnected || workerClasses.some((entry: any) => entry.class_id === 'helloworker');
   const [grantError, setGrantError] = useState(false);
   const grantItems = useCallback(() => {
     setGrantError(false);
@@ -37,23 +40,24 @@ export function DeployTutorialGuide({ stage, onDismiss }: Props) {
   // Chapter Zero's first deployment action is deliberately a real map click.
   // Capture and reject clicks elsewhere while the Hub target is active.
   useEffect(() => {
-    if (stage !== 'edge_select' || selectedNodeId === 'hub') return;
+    if (stage !== 'edge_select' || (codeReady && selectedNodeId === 'hub')) return;
     const blockOutsideHub = (event: MouseEvent) => {
       const target = event.target as Element | null;
-      if (!target?.closest('[data-id="hub"]')) {
+      if (!codeReady && target?.closest('.chapter0-deploy-guide')) return;
+      if (!codeReady || !target?.closest('[data-id="hub"]')) {
         event.preventDefault();
         event.stopPropagation();
       }
     };
     document.addEventListener('click', blockOutsideHub, true);
     return () => document.removeEventListener('click', blockOutsideHub, true);
-  }, [stage, selectedNodeId]);
+  }, [stage, selectedNodeId, codeReady]);
 
   useEffect(() => {
-    const targetingHub = stage === 'edge_select' && selectedNodeId !== 'hub';
+    const targetingHub = stage === 'edge_select' && codeReady && selectedNodeId !== 'hub';
     document.body.classList.toggle('chapter0-target-hub', targetingHub);
     return () => document.body.classList.remove('chapter0-target-hub');
-  }, [stage, selectedNodeId]);
+  }, [stage, selectedNodeId, codeReady]);
 
   const isHandoff = stage === 'handoff' || stage === 'deploy_verified';
 
@@ -78,6 +82,26 @@ export function DeployTutorialGuide({ stage, onDismiss }: Props) {
     );
   }
 
+  if (stage === 'edge_select' && !codeReady) {
+    return (
+      <div className="chapter0-deploy-guide chapter0-deploy-guide--setup" role="dialog" aria-modal="true">
+        <div className="chapter0-deploy-guide-inner">
+          <div className="chapter0-deploy-guide-title">{t('tutorial.chapter_zero.deploy.setup_title')}</div>
+          <p className="chapter0-deploy-guide-body">{t('tutorial.chapter_zero.deploy.setup_body')}</p>
+          <pre className="chapter0-deploy-guide-skeleton">{t('tutorial.chapter_zero.deploy.setup_skeleton')}</pre>
+          <a
+            className="chapter0-deploy-guide-btn chapter0-deploy-guide-btn--primary"
+            href="https://codespaces.new/Starscribers/netcrawl-workspace/tree/main?quickstart=1"
+            target="_blank"
+            rel="noreferrer"
+          >
+            {t('tutorial.chapter_zero.deploy.setup_cta')}
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   const copy = {
     edge_select: selectedNodeId === 'hub'
       ? ['tutorial.chapter_zero.deploy.hub_selected_prompt', 'tutorial.chapter_zero.deploy.hub_selected_hint']
@@ -87,7 +111,7 @@ export function DeployTutorialGuide({ stage, onDismiss }: Props) {
     deploy_execute: ['tutorial.chapter_zero.deploy.execute_prompt', 'tutorial.chapter_zero.deploy.execute_cta'],
   }[stage];
 
-  const forceHub = stage === 'edge_select' && selectedNodeId !== 'hub';
+  const forceHub = stage === 'edge_select' && codeReady && selectedNodeId !== 'hub';
 
   return (
     <>
