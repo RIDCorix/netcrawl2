@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useReducer, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import axios from 'axios';
 import { useT } from '../hooks/useT';
 import { initialChapterZeroLoadState, reduceChapterZeroLoad } from '../lib/chapterZeroLoadState';
@@ -278,6 +278,46 @@ function VoiceArrival({ advance }: { advance: () => void }) {
 
 /* ─── Stage 3-5: Shell (terminal + graph + narrator) ────────────────── */
 
+export function ChapterZeroInstructionEditor({
+  stage,
+  step,
+  dialogueIndex,
+  running,
+  onDirectCommand,
+  onCodeRun,
+}: {
+  stage: 'direct_commands' | 'code_editor' | 'complete';
+  step: number;
+  dialogueIndex: number;
+  running: boolean;
+  onDirectCommand: (command: string) => void | Promise<void>;
+  onCodeRun: (startup: string, loop: string) => void | Promise<void>;
+}) {
+  const loopUnlocked = (stage === 'code_editor' && step >= 1) || stage === 'complete';
+  const highlight =
+    stage === 'direct_commands'
+      ? 'edge'
+      : step === 0
+        ? (['class', 'identity', 'edge', 'startup'][Math.min(dialogueIndex, 3)] as
+            | 'class'
+            | 'identity'
+            | 'edge'
+            | 'startup')
+        : 'loop';
+
+  return (
+    <ChapterZeroCodeEditor
+      onRun={(startup, loop) =>
+        stage === 'direct_commands' ? onDirectCommand(startup.trim()) : onCodeRun(startup, loop)
+      }
+      running={running}
+      disabled={stage === 'complete' || (stage === 'direct_commands' && step >= 2)}
+      loopUnlocked={loopUnlocked}
+      highlight={highlight}
+    />
+  );
+}
+
 function Shell({
   state,
   submitCommand,
@@ -296,7 +336,6 @@ function Shell({
   const t = useT();
   const reducedMotion = useMemo(() => prefersReducedMotion(), []);
   const [inputError, setInputError] = useState(false);
-  const [command, setCommand] = useState('');
   const [running, setRunning] = useState(false);
   const [runResult, setRunResult] = useState<CodeRunResponse | null>(null);
   const [visualWorkerAt, setVisualWorkerAt] = useState(state.world.worker.nodeId);
@@ -384,21 +423,6 @@ function Shell({
     }
   }, [state.transition]);
 
-  const commandExpected = state.expected;
-
-  const onCommandSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    const trimmed = command.trim();
-    if (!trimmed) return;
-    const result = await submitCommand(trimmed);
-    if (result.ok) {
-      setInputError(false);
-      setCommand('');
-    } else {
-      setInputError(true);
-    }
-  };
-
   const echoChoice = async (choiceText: string) => {
     if (state.stage !== 'choice_intro' || state.step !== 0) return;
     // Client-side echo: append the player's choice + self.info() to transcript
@@ -476,8 +500,22 @@ function Shell({
     setRunning(false);
   };
 
-  const showTerminalInput = state.stage === 'direct_commands';
-  const showEditor = state.stage === 'code_editor' || state.stage === 'complete';
+  const runDirectCommand = async (commandBody: string) => {
+    const commandLine = commandBody
+      .split('\n')
+      .map(line => line.trim())
+      .find(line => line && !line.startsWith('#') && line !== 'pass');
+    if (!commandLine) {
+      setInputError(true);
+      return;
+    }
+    setRunning(true);
+    const result = await submitCommand(commandLine);
+    setInputError(!result.ok);
+    setRunning(false);
+  };
+
+  const showEditor = state.stage === 'direct_commands' || state.stage === 'code_editor' || state.stage === 'complete';
 
   return (
     <div className="chapter0-overlay">
@@ -495,31 +533,23 @@ function Shell({
           </header>
 
           {showEditor ? (
-            <ChapterZeroCodeEditor
-              onRun={runCode}
-              running={running}
-              disabled={state.stage === 'complete'}
-              loopUnlocked={state.step >= 1 || state.stage === 'complete'}
-              highlight={
-                state.step === 0
-                  ? (['class', 'identity', 'edge', 'startup'][Math.min(dialogue.index, 3)] as
-                      | 'class'
-                      | 'identity'
-                      | 'edge'
-                      | 'startup')
-                  : state.step >= 1
-                    ? 'loop'
-                    : undefined
-              }
-            />
+            <>
+              <ChapterZeroInstructionEditor
+                stage={state.stage as 'direct_commands' | 'code_editor' | 'complete'}
+                step={state.step}
+                dialogueIndex={dialogue.index}
+                running={running}
+                onDirectCommand={runDirectCommand}
+                onCodeRun={runCode}
+              />
+              {inputError && (
+                <p role="alert" className="chapter0-error-msg">
+                  {t('tutorial.chapter_zero.error')}
+                </p>
+              )}
+            </>
           ) : (
             <>
-              {commandExpected && showTerminalInput && (
-                <div className="chapter0-hint-line" aria-live="polite">
-                  <span style={{ color: 'var(--accent)', marginRight: 6 }}>&gt;</span>
-                  <code>{commandExpected}</code>
-                </div>
-              )}
               <div className="chapter0-transcript" aria-live="polite">
                 {state.transcript.length === 0 && !choicePreview && <div className="chapter0-transcript-empty">—</div>}
                 {choicePreview && (
@@ -536,24 +566,6 @@ function Shell({
                   </div>
                 ))}
               </div>
-              {showTerminalInput && (
-                <form onSubmit={onCommandSubmit} className="chapter0-form">
-                  <span style={{ color: 'var(--accent)', paddingTop: 8 }}>&gt;&gt;&gt;</span>
-                  <input
-                    autoFocus
-                    value={command}
-                    onChange={e => setCommand(e.target.value)}
-                    aria-label={t('tutorial.chapter_zero.input')}
-                    className="chapter0-input"
-                  />
-                  <button
-                    type="submit"
-                    style={{ background: 'var(--accent)', border: 0, padding: '8px 14px', fontWeight: 800 }}
-                  >
-                    {t('tutorial.chapter_zero.run')}
-                  </button>
-                </form>
-              )}
               {inputError && (
                 <p role="alert" className="chapter0-error-msg">
                   {t('tutorial.chapter_zero.error')}

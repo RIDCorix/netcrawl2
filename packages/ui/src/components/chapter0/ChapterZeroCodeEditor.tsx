@@ -84,16 +84,16 @@ export function ChapterZeroCodeEditor({
       .map(line => line.replace(/^ {8}/, ''))
       .join('\n') || 'pass';
 
+  const submit = () => {
+    if (running || disabled) return;
+    onRun(body(startup), loopUnlocked ? body(loop) : 'pass');
+  };
+
   return (
     <div className="chapter0-editor">
       <div className="chapter0-editor-header">
         <span>worker.py // draft</span>
-        <button
-          type="button"
-          className="chapter0-editor-run"
-          onClick={() => onRun(body(startup), body(loop))}
-          disabled={running || disabled}
-        >
+        <button type="button" className="chapter0-editor-run" onClick={submit} disabled={running || disabled}>
           <Play size={12} />
           <span>{t('tutorial.chapter_zero.editor_run')}</span>
         </button>
