@@ -91,8 +91,8 @@ Use this small click map while you work:
 
 \`\`\`python
 class HelloWorker(WorkerClass):
-    class_name = "Hello"
-    class_id = "hello"
+    class_name = "HelloWorker"
+    class_id = "helloworker"
 
     def on_startup(self):
         self.info("I just started!")    # runs once

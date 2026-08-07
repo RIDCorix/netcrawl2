@@ -84,8 +84,8 @@ export const zhTW: Record<string, GuideStep[]> = {
 
 \`\`\`python
 class HelloWorker(WorkerClass):
-    class_name = "Hello"
-    class_id = "hello"
+    class_name = "HelloWorker"
+    class_id = "helloworker"
 
     def on_startup(self):
         self.info("我剛啟動！")    # 執行一次
