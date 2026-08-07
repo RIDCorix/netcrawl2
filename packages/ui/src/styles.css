@@ -938,9 +938,11 @@ body::after {
 .chapter0-coldopen {
   background: #000;
   place-items: center;
+}
+.chapter0-coldopen > * {
   transition: opacity 1.5s ease;
 }
-.chapter0-coldopen-fading {
+.chapter0-coldopen-fading > * {
   opacity: 0;
 }
 .chapter0-coldopen-text {
@@ -985,6 +987,15 @@ body::after {
   align-items: flex-end;
   justify-items: center;
   padding-bottom: 40px;
+}
+.chapter0-voicearrival > * {
+  transition: opacity 220ms ease;
+}
+.chapter0-voicearrival.chapter0-screen-fading {
+  opacity: 1;
+}
+.chapter0-voicearrival.chapter0-screen-fading > * {
+  opacity: 0;
 }
 .chapter0-voicearrival-panel {
   position: relative;
@@ -1306,7 +1317,9 @@ body::after {
   .chapter0-error-msg,
   .chapter0-continue-hint,
   .chapter0-voicearrival-panel,
-  .chapter0-coldopen {
+  .chapter0-coldopen,
+  .chapter0-coldopen > *,
+  .chapter0-voicearrival > * {
     animation: none !important;
     transition: none !important;
     transform: none !important;

@@ -31,5 +31,25 @@ assert.ok(
 assert.match(styles, /\.chapter0-screen-fading\s*\{[^}]*opacity:\s*0/s, 'screen fade-out must be defined');
 assert.match(styles, /\.chapter0-stage-fade\s*\{[^}]*animation:/s, 'screen fade-in must be defined');
 assert.match(styles, /prefers-reduced-motion:\s*reduce/, 'reduced motion must be supported');
+assert.doesNotMatch(
+  styles,
+  /\.chapter0-coldopen-fading\s*\{[^}]*opacity:\s*0/s,
+  'cold-open fade must not make the opaque overlay transparent',
+);
+assert.match(
+  styles,
+  /\.chapter0-coldopen-fading\s*>\s*\*\s*\{[^}]*opacity:\s*0/s,
+  'cold-open fade must target scene content only',
+);
+assert.match(
+  styles,
+  /\.chapter0-voicearrival\.chapter0-screen-fading\s*\{[^}]*opacity:\s*1/s,
+  'voice-arrival fade must keep its black overlay opaque',
+);
+assert.match(
+  styles,
+  /\.chapter0-voicearrival\.chapter0-screen-fading\s*>\s*\*\s*\{[^}]*opacity:\s*0/s,
+  'voice-arrival fade must target scene content only',
+);
 
 console.log('Chapter Zero UI structure, highlight, transition, and playback contracts passed');
