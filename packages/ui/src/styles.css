@@ -1339,6 +1339,23 @@ body::after {
   pointer-events: none;
 }
 
+/* The guide points at the real Hub deploy action; it does not replace it. */
+.chapter0-deploy-target {
+  position: relative;
+  animation: chapter0-deploy-pulse 1.6s ease-in-out infinite;
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+@keyframes chapter0-deploy-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 212, 170, 0.35); }
+  50% { box-shadow: 0 0 0 7px rgba(0, 212, 170, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chapter0-deploy-target { animation: none; }
+}
+
 .chapter0-deploy-guide--success {
   bottom: 50%;
   transform: translateX(-50%) translateY(50%);

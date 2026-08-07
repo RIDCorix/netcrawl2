@@ -103,6 +103,15 @@ export function ChapterZeroRepl() {
 
   const state = loadState.status === 'loaded' ? loadState.session : null;
 
+  useEffect(() => {
+    const onTutorialSession = (event: Event) => {
+      const session = (event as CustomEvent).detail;
+      if (session?.stage) dispatchLoad({ type: 'loaded', session });
+    };
+    window.addEventListener('chapter-zero-deploy-session', onTutorialSession);
+    return () => window.removeEventListener('chapter-zero-deploy-session', onTutorialSession);
+  }, []);
+
   const advanceStage = useCallback(
     async (to: Stage) => {
       try {
@@ -145,12 +154,7 @@ export function ChapterZeroRepl() {
     return (
       <DeployTutorialGuide
         stage={state.stage as any}
-        world={state.world as any}
-        onSessionUpdate={session => dispatchLoad({ type: 'loaded', session })}
         onDismiss={() => setDismissed(true)}
-        reducedMotion={typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-          ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
-          : false}
       />
     );
   }

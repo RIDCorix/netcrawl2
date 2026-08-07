@@ -31,11 +31,12 @@ export function CostBadge({ cost }: { cost: Partial<Resources> }) {
   );
 }
 
-export function ActionButton({ onClick, children, variant = 'primary', disabled = false }: {
+export function ActionButton({ onClick, children, variant = 'primary', disabled = false, className }: {
   onClick: () => void;
   children: React.ReactNode;
   variant?: 'primary' | 'danger' | 'secondary';
   disabled?: boolean;
+  className?: string;
 }) {
   const styles: any = {
     primary: { bg: 'var(--accent)', text: '#000' },
@@ -44,7 +45,7 @@ export function ActionButton({ onClick, children, variant = 'primary', disabled 
   };
   const s = styles[variant];
   return (
-    <button onClick={onClick} disabled={disabled} style={{
+    <button className={className} onClick={onClick} disabled={disabled} style={{
       background: disabled ? 'var(--bg-elevated)' : s.bg,
       color: disabled ? 'var(--text-muted)' : s.text,
       border: disabled ? '1px solid var(--border)' : 'none',

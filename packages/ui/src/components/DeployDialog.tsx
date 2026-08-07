@@ -23,7 +23,17 @@ const DIALOG_FOCUSABLE_SELECTOR =
 
 // ── Deploy Dialog ───────────────────────────────────────────────────────────
 
-export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; nodeName: string; onClose: () => void }) {
+export function DeployDialog({
+  nodeId,
+  nodeName,
+  onClose,
+  tutorialMode = false,
+}: {
+  nodeId: string;
+  nodeName: string;
+  onClose: () => void;
+  tutorialMode?: boolean;
+}) {
   const {
     workers,
     playerInventory,
@@ -115,6 +125,12 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
   }, [workerClasses, selectedClass]);
 
   useEffect(() => {
+    if (tutorialMode && workerClasses.some(c => c.class_id === 'tutorial_miner')) {
+      setSelectedClass('tutorial_miner');
+    }
+  }, [tutorialMode, workerClasses]);
+
+  useEffect(() => {
     setEquippedPerUnit([{}]);
     setCurrentUnitIdx(0);
     setUnitCount(1);
@@ -150,14 +166,37 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
   // ── Callbacks ──────────────────────────────────────────────────────────────
   const getNodeLabel = (id: string) => gameNodes.find(n => n.id === id)?.data?.label || id;
 
+  const publishTutorialSession = useCallback((session: any) => {
+    if (session?.stage) {
+      window.dispatchEvent(new CustomEvent('chapter-zero-deploy-session', { detail: session }));
+    }
+  }, []);
+
+  const advanceTutorial = useCallback(async (to: string) => {
+    const response = await axios.post('/api/tutorial/chapter-zero/stage', { action: 'advance', to });
+    publishTutorialSession(response.data);
+    return response.data;
+  }, [publishTutorialSession]);
+
   const completeEdgeSelect = useCallback(
-    (fieldName: string, edge: { id: string; source: string; target: string }) => {
+    async (fieldName: string, edge: { id: string; source: string; target: string }) => {
       setRoutes(prev => ({ ...prev, [fieldName]: [edge] }));
       selectingRouteRef.current = null;
       setSelectingRoute(null);
       setEdgeSelectMode(null);
+      if (tutorialMode) {
+        try {
+          const response = await axios.post('/api/tutorial/chapter-zero/stage', {
+            action: 'set-deploy-edge',
+            edgeId: edge.id,
+          });
+          publishTutorialSession(response.data);
+        } catch {
+          setMessage(tutorialMode ? t('tutorial.chapter_zero.deploy.error_generic') : 'Error: unable to save the selected edge');
+        }
+      }
     },
-    [setEdgeSelectMode],
+    [publishTutorialSession, setEdgeSelectMode, t, tutorialMode],
   );
 
   const selectRouteNode = useCallback(
@@ -248,6 +287,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
     }
 
     try {
+      if (tutorialMode) await advanceTutorial('deploy_execute');
       const ids: string[] = [];
       for (let i = 0; i < unitCount; i++) {
         const body: any = { nodeId, classId: selectedClass };
@@ -269,10 +309,40 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
       }
       setDeployed(true);
       setMessage(`Deployed ${ids.length} unit${ids.length > 1 ? 's' : ''}`);
+      if (tutorialMode) {
+        const response = await axios.post('/api/tutorial/chapter-zero/stage', {
+          action: 'verify-deploy',
+          workerId: ids[0],
+        });
+        publishTutorialSession(response.data);
+      }
       onClose();
     } catch (err: any) {
-      setMessage('Error: ' + (err.response?.data?.error || err.message));
+      const reason = err.response?.data?.error || err.message;
+      setMessage(tutorialMode ? t('tutorial.chapter_zero.deploy.error_api', { reason }) : 'Error: ' + reason);
       setDeploying(false);
+    }
+  };
+
+  const handleNext = async () => {
+    if (!canGoNext()) return;
+    try {
+      if (tutorialMode && currentStepKey === 'routes') {
+        await advanceTutorial('pickaxe_equip');
+      } else if (tutorialMode && currentStepKey === 'equipment') {
+        const pickaxeType = Object.values(equippedPerUnit[0] || {})[0];
+        if (!pickaxeType) throw new Error('pickaxe is required');
+        const selection = await axios.post('/api/tutorial/chapter-zero/stage', {
+          action: 'set-deploy-pickaxe',
+          pickaxeType,
+        });
+        publishTutorialSession(selection.data);
+        await advanceTutorial('deploy_confirm');
+      }
+      setStep(s => s + 1);
+    } catch (err: any) {
+      const reason = err?.response?.data?.error || err.message;
+      setMessage(tutorialMode ? t('tutorial.chapter_zero.deploy.error_api', { reason }) : 'Error: ' + reason);
     }
   };
 
@@ -802,7 +872,7 @@ export function DeployDialog({ nodeId, nodeName, onClose }: { nodeId: string; no
                 </button>
               ) : (
                 <button
-                  onClick={() => setStep(s => s + 1)}
+                  onClick={handleNext}
                   disabled={!canGoNext()}
                   aria-describedby={
                     currentStepKey === 'equipment' && !canGoNext() ? 'deploy-equipment-requirement' : undefined

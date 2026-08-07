@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Database, Cpu, Lock, AlertTriangle, MousePointer, Upload, Shield, Box, Server, Globe, Bug } from 'lucide-react';
 import { useGameStore, GameNode, Resources } from '../store/gameStore';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useAsyncAction } from '../hooks/useAsyncAction';
 import { ChipSlotManager } from './ChipSlotManager';
@@ -28,9 +28,16 @@ const NODE_TYPE_ICONS: Record<string, any> = {
 export function NodeDetailPanel() {
   const { selectedNodeId, nodes, edges, resources, selectNode } = useGameStore();
   const [deployOpen, setDeployOpen] = useState(false);
+  const [chapterZeroDeploy, setChapterZeroDeploy] = useState(false);
   const [activeDialog, setActiveDialog] = useState<NodeDialogConfig | null>(null);
   const t = useT();
   const tn = (label: string) => { const k = `n.${label}`; const v = t(k); return v === k ? label : v; };
+
+  useEffect(() => {
+    const onTutorialMode = (event: Event) => setChapterZeroDeploy(Boolean((event as CustomEvent).detail));
+    window.addEventListener('chapter-zero-deploy-mode', onTutorialMode);
+    return () => window.removeEventListener('chapter-zero-deploy-mode', onTutorialMode);
+  }, []);
 
   const node = nodes.find((n: any) => n.id === selectedNodeId);
 
@@ -338,7 +345,10 @@ if (n.type === 'cache') return '#a78bfa';
             {canDeploy && (
               <>
                 <Divider />
-                <ActionButton onClick={() => setDeployOpen(true)}>
+                <ActionButton
+                  className={chapterZeroDeploy && node.id === 'hub' ? 'chapter0-deploy-target' : undefined}
+                  onClick={() => setDeployOpen(true)}
+                >
                   <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                     <Upload size={12} />
                     {t('worker.deploy')}
@@ -372,6 +382,7 @@ if (n.type === 'cache') return '#a78bfa';
             nodeId={node.id}
             nodeName={tn(node.data.label)}
             onClose={() => setDeployOpen(false)}
+            tutorialMode={chapterZeroDeploy && node.id === 'hub'}
           />
         )}
       </AnimatePresence>
