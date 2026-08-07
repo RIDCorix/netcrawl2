@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Lock, Play } from 'lucide-react';
 import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter';
 import python from 'react-syntax-highlighter/dist/esm/languages/prism/python';
@@ -77,6 +77,13 @@ export function ChapterZeroCodeEditor({
   const t = useT();
   const [startup, setStartup] = useState('        # this runs once\n        pass');
   const [loop, setLoop] = useState('        # this runs forever\n        pass');
+
+  // The startup checkpoint is a one-time scaffold. Once on_loop is unlocked,
+  // clear the previous return/deposit instructions so the player writes the
+  // mining loop in the correct method instead of accidentally running both.
+  useEffect(() => {
+    if (loopUnlocked) setStartup('        pass');
+  }, [loopUnlocked]);
 
   const body = (value: string) =>
     value

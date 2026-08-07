@@ -91,4 +91,40 @@ assert.deepEqual(unlockedRuns, [
   ['pass', 'self.move(self.edge)\nself.collect()\nself.move(self.edge)\nself.deposit()'],
 ]);
 
+// Transitioning from the startup checkpoint into the mining-loop step clears
+// the old startup program in the same editor instance.
+let transitionedRuns: Array<[string, string]> = [];
+let transitioned: Renderer | undefined;
+act(() => {
+  transitioned = TestRenderer.create(
+    <ChapterZeroInstructionEditor
+      stage="code_editor"
+      step={0}
+      dialogueIndex={0}
+      dialogueDone={true}
+      running={false}
+      onDirectCommand={() => undefined}
+      onCodeRun={(startup, loop) => transitionedRuns.push([startup, loop])}
+    />,
+  );
+});
+const startupEditor = transitioned!;
+act(() => {
+  const startupTextarea = startupEditor.root.findAllByType('textarea')[0];
+  startupTextarea.props.onChange({ target: { value: '        self.move(self.edge)\n        self.deposit()' } });
+  startupEditor.update(
+    <ChapterZeroInstructionEditor
+      stage="code_editor"
+      step={1}
+      dialogueIndex={1}
+      dialogueDone={true}
+      running={false}
+      onDirectCommand={() => undefined}
+      onCodeRun={(startup, loop) => transitionedRuns.push([startup, loop])}
+    />,
+  );
+});
+await act(async () => Promise.resolve());
+assert.equal(startupEditor.root.findAllByType('textarea')[0].props.value, '        pass');
+
 console.log('Chapter Zero editor dialogue and interactions passed');
