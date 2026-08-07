@@ -1333,7 +1333,8 @@ body::after {
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 95;
+  /* Keep the narrator's instruction above the deploy dialog (z-index 100). */
+  z-index: 500;
   width: 100%;
   max-width: 560px;
   pointer-events: none;
