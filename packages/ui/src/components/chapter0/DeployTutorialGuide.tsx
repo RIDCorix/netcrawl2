@@ -219,8 +219,6 @@ export function DeployTutorialGuide({ stage, world, onSessionUpdate, onDismiss, 
 
   return (
     <div className="chapter0-deploy-guide" role="complementary" aria-label={t('tutorial.chapter_zero.deploy.guide_label')}>
-      {/* Dim overlay — pointer-events none so player can interact with map */}
-      <div className="chapter0-deploy-dim" aria-hidden="true" />
 
       <div className="chapter0-deploy-guide-inner">
         <StepIndicator stage={stage} t={t} />

@@ -1328,38 +1328,29 @@ body::after {
 
 /* ── Deploy Tutorial Guide ─────────────────────────────────────────────── */
 
-.chapter0-deploy-dim {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  pointer-events: none;
-  z-index: 90;
-}
-
 .chapter0-deploy-guide {
   position: fixed;
-  inset: 0;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 95;
+  width: 100%;
+  max-width: 560px;
   pointer-events: none;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding-bottom: 24px;
 }
 
 .chapter0-deploy-guide--success {
-  align-items: center;
+  bottom: 50%;
+  transform: translateX(-50%) translateY(50%);
 }
 
 .chapter0-deploy-guide-inner {
   pointer-events: all;
   background: var(--bg-secondary, #0f1117);
-  border: 1px solid var(--accent, #00d4aa);
+  border: 2px solid var(--accent, #00d4aa);
   border-radius: 8px;
   padding: 20px 24px;
-  width: 100%;
-  max-width: 560px;
-  box-shadow: 0 4px 32px rgba(0, 212, 170, 0.12);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(0, 212, 170, 0.2);
   font-family: var(--font-mono, monospace);
 }
 
