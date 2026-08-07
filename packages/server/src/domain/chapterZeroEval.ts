@@ -1,7 +1,7 @@
 import { mergeItemStacks } from '../types.js';
 import type { ChapterZeroWorld } from './chapterZero.js';
 
-export const MAX_LOOP_TICKS = 6;
+export const MAX_LOOP_TICKS = 12;
 
 export type StatementResult = {
   expression: string;
@@ -232,10 +232,6 @@ function runStatements(world: ChapterZeroWorld, stmts: Statement[]): StatementRe
   return out;
 }
 
-function completed(world: ChapterZeroWorld): boolean {
-  return world.worker.nodeId === 'hub' && world.worker.holding.length === 0 && world.resources.data >= 3;
-}
-
 export function runChapterZeroCode(
   startWorld: ChapterZeroWorld,
   onStartupSrc: string,
@@ -255,13 +251,18 @@ export function runChapterZeroCode(
 
   const world = structuredClone(startWorld);
   const ticks: TickTrace[] = [];
+  const targetData =
+    startWorld.resources.data +
+    startWorld.worker.holding.filter(i => i.type === 'data_fragment').reduce((sum, i) => sum + i.count, 0) +
+    startWorld.mine.drops.filter(i => i.type === 'data_fragment').reduce((sum, i) => sum + i.count, 0);
+  const completed = () =>
+    world.worker.nodeId === 'hub' && world.worker.holding.length === 0 && world.resources.data >= targetData;
 
   ticks.push({ phase: 'on_startup', tick: 1, statements: runStatements(world, startupStmts) });
-  if (completed(world)) return { world, ticks, fatalError: null };
-
+  if (completed()) return { world, ticks, fatalError: null };
   for (let t = 1; t <= MAX_LOOP_TICKS; t += 1) {
     ticks.push({ phase: 'on_loop', tick: t, statements: runStatements(world, loopStmts) });
-    if (completed(world)) break;
+    if (completed()) break;
   }
 
   return { world, ticks, fatalError: null };

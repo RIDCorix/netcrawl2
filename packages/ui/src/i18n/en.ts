@@ -863,7 +863,7 @@ export const en: Record<string, string> = {
   'tutorial.chapter_zero.voice_arrival.L4': 'Pick it up.',
   'tutorial.chapter_zero.voice_arrival.pickup_cta': 'PICK UP',
   'tutorial.chapter_zero.choice_intro.prompt': 'Let me see who you are. Say something back.',
-  'tutorial.chapter_zero.choice_intro.choice_cold': "Doesn't matter.",
+  'tutorial.chapter_zero.choice_intro.choice_cold': "I'm still here.",
   'tutorial.chapter_zero.choice_intro.choice_confused': "…I don't know.",
   'tutorial.chapter_zero.choice_intro.choice_curious': 'You first — who are you.',
   'tutorial.chapter_zero.choice_intro.ack_1': "…I see you. You're on the hub.",
@@ -871,19 +871,23 @@ export const en: Record<string, string> = {
   'tutorial.chapter_zero.choice_intro.ack_3': 'The node next door has something. Bring the fragments back.',
   'tutorial.chapter_zero.direct_commands.hint_move_L1':
     "You've got no chips or extensions yet — but you can move and carry.",
-  'tutorial.chapter_zero.direct_commands.hint_move_L2': 'Your class has an [edge]. Use self.edge to reach it.',
+  'tutorial.chapter_zero.direct_commands.hint_move_L2':
+    'Declare a route that tells you where to move next. Here, use [self.edge].',
   'tutorial.chapter_zero.direct_commands.hint_move_L3': 'Type: self.move(self.edge).',
   'tutorial.chapter_zero.direct_commands.ack_move': 'Good. You can move.',
   'tutorial.chapter_zero.direct_commands.hint_collect_L1': 'Fragments at your feet. self.collect() — pick them up.',
   'tutorial.chapter_zero.direct_commands.ack_collect_L1': 'Got them. But I need more.',
   'tutorial.chapter_zero.direct_commands.ack_collect_L2':
     "I see it — you don't have your worker's startup code yet. I'll teach you.",
-  'tutorial.chapter_zero.code_editor.intro_L1': 'Recognise this class? You *are* it.',
-  'tutorial.chapter_zero.code_editor.intro_L2': "I've filled in what I could — your name, your edge, your methods.",
-  'tutorial.chapter_zero.code_editor.intro_L3':
-    'Only you can write the two below. on_startup runs once; on_loop runs forever.',
+  'tutorial.chapter_zero.code_editor.intro_L1':
+    'You need more complete code before you can operate on your own. First, class MyWorker(WorkerClass): defines your behavior.',
+  'tutorial.chapter_zero.code_editor.intro_L2': 'Next, declare your name and identifier.',
+  'tutorial.chapter_zero.code_editor.intro_L3': 'Declare a route to specify where you will move next.',
   'tutorial.chapter_zero.code_editor.intro_L4':
-    "You're still holding the fragments. Get back to the hub and deposit them. Do it in on_loop.",
+    'on_startup runs once. Use two lines here to return to the hub and deposit the fragments.',
+  'tutorial.chapter_zero.code_editor.loop_intro_L1': 'Good. on_loop is now unlocked; this block repeats.',
+  'tutorial.chapter_zero.code_editor.loop_intro_L2':
+    'Write a mining loop that moves, collects, returns, and deposits until you bring back ten data fragments.',
   'tutorial.chapter_zero.code_editor.fail_stuck_at_mine':
     "…you're still at the mine. on_loop didn't send you back to hub.",
   'tutorial.chapter_zero.code_editor.fail_no_deposit': "…you got back, but you're still holding the fragments.",

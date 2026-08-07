@@ -36,6 +36,7 @@ export interface ChapterZeroSession {
 export const CHOICE_INTRO_EXPECTED = 'self.info()' as const;
 export const DIRECT_COMMAND_SEQUENCE = ['self.move(self.edge)', 'self.collect()'] as const;
 export const INITIAL_MINE_DROPS: Item[] = [{ type: 'data_fragment', count: 3 }];
+export const LOOP_MINE_DROPS: Item[] = [{ type: 'data_fragment', count: 10 }];
 
 export function createChapterZeroSession(completed = false): ChapterZeroSession {
   return {
@@ -181,7 +182,19 @@ export function runChapterZeroSandbox(current: ChapterZeroSession, onStartup: st
       failureReason: 'syntax',
     };
   }
-  const run = runChapterZeroCode(current.world, onStartup, onLoop);
+  // The first editor checkpoint deliberately has no on_loop method. It teaches
+  // returning and depositing in on_startup before the repeating lifecycle is
+  // introduced. The server owns this capability boundary so stale clients
+  // cannot skip it by submitting loop code early.
+  const startupCheckpoint = current.step === 0;
+  if (startupCheckpoint && onLoop.trim() && onLoop.trim() !== 'pass') {
+    return { ok: true, session: structuredClone(current), ticks: [], passed: false, failureReason: 'syntax' };
+  }
+  const run = runChapterZeroCode(
+    current.world,
+    startupCheckpoint ? onStartup : 'pass',
+    startupCheckpoint ? 'pass' : onLoop,
+  );
   const session = structuredClone(current);
   session.transition = null;
 
@@ -207,7 +220,15 @@ export function runChapterZeroSandbox(current: ChapterZeroSession, onStartup: st
 
   session.world = run.world;
   const w = session.world.worker;
-  const passed = w.nodeId === 'hub' && w.holding.length === 0 && session.world.resources.data >= 3;
+  const startupPassed = w.nodeId === 'hub' && w.holding.length === 0 && session.world.resources.data >= 3;
+  if (startupCheckpoint && startupPassed) {
+    session.step = 1;
+    session.world.mine.drops = mergeItemStacks(session.world.mine.drops, LOOP_MINE_DROPS);
+    session.transition = 'startup_complete';
+    return { ok: true, session, ticks: run.ticks, passed: false, failureReason: null };
+  }
+  const passed =
+    !startupCheckpoint && w.nodeId === 'hub' && w.holding.length === 0 && session.world.resources.data >= 13;
   let failureReason: CodeRunResult['failureReason'] = null;
   if (passed) {
     session.stage = 'complete';

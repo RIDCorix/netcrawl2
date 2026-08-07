@@ -633,6 +633,22 @@ body::after {
   padding: 20px;
   font-family: var(--font-mono);
 }
+.chapter0-stage-fade {
+  animation: chapter0-stage-in 260ms ease both;
+}
+@keyframes chapter0-stage-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chapter0-stage-fade {
+    animation-duration: 1ms;
+  }
+}
 @media (max-width: 1023px) {
   .chapter0-shell {
     grid-template-columns: minmax(0, 1fr);
@@ -1081,6 +1097,51 @@ body::after {
   border-radius: var(--radius-md);
   padding: 10px;
   min-height: 320px;
+}
+
+.chapter0-editor-document {
+  border: 1px solid var(--border);
+  background: rgba(3, 8, 14, 0.72);
+  overflow: hidden;
+}
+
+.chapter0-editor-document .chapter0-editor-locked,
+.chapter0-editor-document .chapter0-editor-block {
+  border: 0;
+  margin: 0;
+}
+
+.chapter0-editor-document.chapter0-highlight-class,
+.chapter0-editor-document.chapter0-highlight-identity,
+.chapter0-editor-document.chapter0-highlight-edge,
+.chapter0-editor-document.chapter0-highlight-startup {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.chapter0-unit-dot {
+  position: absolute;
+  z-index: 8;
+  top: 57%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #facc15;
+  border: 2px solid #fff7ae;
+  box-shadow: 0 0 12px #facc15;
+  pointer-events: none;
+  transition: left 400ms ease-in-out;
+}
+.chapter0-unit-dot-hub {
+  left: 22%;
+}
+.chapter0-unit-dot-mine {
+  left: 72%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chapter0-unit-dot {
+    transition: none;
+  }
 }
 .chapter0-editor-header {
   display: flex;

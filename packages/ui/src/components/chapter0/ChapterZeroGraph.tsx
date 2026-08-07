@@ -117,6 +117,7 @@ export function ChapterZeroGraph({
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={0.6} color="rgba(120, 220, 255, 0.08)" />
       </ReactFlow>
+      <div className={`chapter0-unit-dot chapter0-unit-dot-${workerAt}`} aria-label="worker position" />
     </div>
   );
 }

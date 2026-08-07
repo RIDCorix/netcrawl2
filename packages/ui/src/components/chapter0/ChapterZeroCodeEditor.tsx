@@ -8,7 +8,11 @@ SyntaxHighlighter.registerLanguage('python', python);
 
 const CODE_THEME: Record<string, React.CSSProperties> = {
   'code[class*="language-"]': { color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' },
-  'pre[class*="language-"]': { color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', background: 'transparent' },
+  'pre[class*="language-"]': {
+    color: 'var(--text-primary)',
+    fontFamily: 'var(--font-mono)',
+    background: 'transparent',
+  },
   comment: { color: 'var(--text-muted)' },
   string: { color: 'var(--color-positive, #4ade80)' },
   keyword: { color: 'var(--accent)' },
@@ -93,10 +97,14 @@ export function ChapterZeroCodeEditor({
   onRun,
   running,
   disabled,
+  loopUnlocked,
+  highlight,
 }: {
   onRun: (onStartup: string, onLoop: string) => void;
   running: boolean;
   disabled: boolean;
+  loopUnlocked: boolean;
+  highlight?: 'class' | 'identity' | 'edge' | 'startup';
 }) {
   const t = useT();
   const [startup, setStartup] = useState(DEFAULT_ON_STARTUP);
@@ -118,32 +126,39 @@ export function ChapterZeroCodeEditor({
           <span>{t('tutorial.chapter_zero.editor_run')}</span>
         </button>
       </div>
-      <div className="chapter0-editor-locked" aria-label={t('tutorial.chapter_zero.editor_locked_label')}>
-        <span className="chapter0-editor-locked-icon">
-          <Lock size={11} />
-        </span>
-        <SyntaxHighlighter language="python" style={CODE_THEME} PreTag="div" CodeTag="code">
-          {LOCKED_SHELL}
-        </SyntaxHighlighter>
+      <div
+        className={`chapter0-editor-document chapter0-highlight-${highlight ?? 'none'}`}
+        aria-label={t('tutorial.chapter_zero.editor_locked_label')}
+      >
+        <div className="chapter0-editor-locked">
+          <span className="chapter0-editor-locked-icon">
+            <Lock size={11} />
+          </span>
+          <SyntaxHighlighter language="python" style={CODE_THEME} PreTag="div" CodeTag="code">
+            {LOCKED_SHELL}
+          </SyntaxHighlighter>
+        </div>
+        <label className="chapter0-editor-block">
+          <HighlightedEditor
+            value={startup}
+            onChange={setStartup}
+            rows={5}
+            disabled={running || disabled}
+            label="on_startup"
+          />
+        </label>
+        {loopUnlocked && (
+          <label className="chapter0-editor-block chapter0-loop-block">
+            <HighlightedEditor
+              value={loop}
+              onChange={setLoop}
+              rows={7}
+              disabled={running || disabled}
+              label="on_loop"
+            />
+          </label>
+        )}
       </div>
-      <label className="chapter0-editor-block">
-        <HighlightedEditor
-          value={startup}
-          onChange={setStartup}
-          rows={5}
-          disabled={running || disabled}
-          label="on_startup"
-        />
-      </label>
-      <label className="chapter0-editor-block">
-        <HighlightedEditor
-          value={loop}
-          onChange={setLoop}
-          rows={7}
-          disabled={running || disabled}
-          label="on_loop"
-        />
-      </label>
     </div>
   );
 }

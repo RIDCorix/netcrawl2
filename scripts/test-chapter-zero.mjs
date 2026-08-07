@@ -81,13 +81,30 @@ const noDepositRun = runChapterZeroSandbox(session, 'self.move(self.edge)', 'pas
 assert.equal(noDepositRun.passed, false);
 assert.equal(noDepositRun.failureReason, 'no_deposit');
 
-// Winning sandbox — moves back to hub and deposits.
-const winRun = runChapterZeroSandbox(session, 'pass', 'self.move(self.edge)\nself.deposit()');
+// Loop code is rejected until the startup checkpoint is complete.
+const earlyLoop = runChapterZeroSandbox(session, 'pass', 'self.move(self.edge)');
+assert.equal(earlyLoop.passed, false);
+assert.equal(earlyLoop.failureReason, 'syntax');
+
+// First checkpoint: two startup statements return and deposit the first haul.
+const startupRun = runChapterZeroSandbox(session, 'self.move(self.edge)\nself.deposit()', 'pass');
+assert.equal(startupRun.passed, false);
+assert.equal(startupRun.failureReason, null);
+assert.equal(startupRun.session.step, 1);
+assert.equal(startupRun.session.world.resources.data, 3);
+assert.equal(startupRun.session.world.mine.drops[0].count, 10);
+
+// Second checkpoint: the newly unlocked loop collects and deposits ten fragments.
+const winRun = runChapterZeroSandbox(
+  startupRun.session,
+  'pass',
+  'self.move(self.edge)\nself.collect()\nself.move(self.edge)\nself.deposit()',
+);
 assert.equal(winRun.passed, true);
 assert.equal(winRun.session.stage, 'complete');
 assert.equal(winRun.session.world.worker.nodeId, 'hub');
 assert.equal(winRun.session.world.worker.holding.length, 0);
-assert.equal(winRun.session.world.resources.data, 3);
+assert.equal(winRun.session.world.resources.data, 13);
 assert.equal(isChapterZeroGateOpen(winRun.session), true);
 
 // Isolation — a different user's session was never touched.

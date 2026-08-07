@@ -319,12 +319,18 @@ function Shell({
         t('tutorial.chapter_zero.direct_commands.ack_collect_L2'),
       ];
     }
-    if (state.stage === 'code_editor' && !runResult) {
+    if (state.stage === 'code_editor' && state.step === 0 && !runResult) {
       return [
         t('tutorial.chapter_zero.code_editor.intro_L1'),
         t('tutorial.chapter_zero.code_editor.intro_L2'),
         t('tutorial.chapter_zero.code_editor.intro_L3'),
         t('tutorial.chapter_zero.code_editor.intro_L4'),
+      ];
+    }
+    if (state.stage === 'code_editor' && state.step >= 1 && (!runResult || !runResult.failureReason)) {
+      return [
+        t('tutorial.chapter_zero.code_editor.loop_intro_L1'),
+        t('tutorial.chapter_zero.code_editor.loop_intro_L2'),
       ];
     }
     if (state.stage === 'code_editor' && runResult && !runResult.passed) {
@@ -432,11 +438,11 @@ function Shell({
   };
 
   const showTerminalInput = state.stage === 'direct_commands';
-  const showEditor = state.stage === 'code_editor' || (state.stage === 'complete' && runResult?.passed);
+  const showEditor = state.stage === 'code_editor' || state.stage === 'complete';
 
   return (
     <div className="chapter0-overlay">
-      <div className="chapter0-shell">
+      <div key={state.stage} className="chapter0-shell chapter0-stage-fade">
         {/* LEFT: terminal or editor */}
         <section className="chapter0-repl">
           <header className="chapter0-repl-header">
@@ -447,7 +453,21 @@ function Shell({
           </header>
 
           {showEditor ? (
-            <ChapterZeroCodeEditor onRun={runCode} running={running} disabled={state.stage === 'complete'} />
+            <ChapterZeroCodeEditor
+              onRun={runCode}
+              running={running}
+              disabled={state.stage === 'complete'}
+              loopUnlocked={state.step >= 1 || state.stage === 'complete'}
+              highlight={
+                state.step === 0
+                  ? (['class', 'identity', 'edge', 'startup'][Math.min(dialogue.index, 3)] as
+                      | 'class'
+                      | 'identity'
+                      | 'edge'
+                      | 'startup')
+                  : undefined
+              }
+            />
           ) : (
             <>
               {commandExpected && showTerminalInput && (
@@ -501,13 +521,15 @@ function Shell({
 
         {/* RIGHT COLUMN */}
         <div className="chapter0-right">
-          <section className="chapter0-network" aria-label="network">
-            <ChapterZeroGraph
-              workerAt={state.world.worker.nodeId}
-              edgeFlashing={edgeFlashing}
-              reducedMotion={reducedMotion}
-            />
-          </section>
+          {state.stage !== 'choice_intro' && (
+            <section className="chapter0-network" aria-label="network">
+              <ChapterZeroGraph
+                workerAt={state.world.worker.nodeId}
+                edgeFlashing={edgeFlashing}
+                reducedMotion={reducedMotion}
+              />
+            </section>
+          )}
 
           <section className="chapter0-narrator" onClick={onPanelClick} role="button" tabIndex={0}>
             <NarratorAvatar reducedMotion={reducedMotion} glitchTick={glitchTick} />
