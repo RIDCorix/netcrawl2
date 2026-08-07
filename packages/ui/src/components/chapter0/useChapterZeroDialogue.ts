@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 export function useChapterZeroDialogue(messages: string[], reducedMotion: boolean) {
   const [index, setIndex] = useState(0);
   const [charsShown, setCharsShown] = useState(0);
+  const [fading, setFading] = useState(false);
 
   useEffect(() => {
     setIndex(0);
@@ -24,16 +25,25 @@ export function useChapterZeroDialogue(messages: string[], reducedMotion: boolea
   const done = index >= messages.length - 1 && lineFullyShown;
 
   const advance = useCallback(() => {
-    if (!current) return;
+    if (!current || fading) return;
     if (!lineFullyShown) {
       setCharsShown(current.length);
       return;
     }
     if (index < messages.length - 1) {
-      setIndex(i => i + 1);
-      setCharsShown(reducedMotion ? (messages[index + 1]?.length ?? 0) : 0);
+      if (reducedMotion) {
+        setIndex(i => i + 1);
+        setCharsShown(messages[index + 1]?.length ?? 0);
+        return;
+      }
+      setFading(true);
+      window.setTimeout(() => {
+        setIndex(i => i + 1);
+        setCharsShown(0);
+        setFading(false);
+      }, 180);
     }
-  }, [current, lineFullyShown, index, messages, reducedMotion]);
+  }, [current, fading, lineFullyShown, index, messages, reducedMotion]);
 
   // Typewriter tick — only progresses when NOT reduced motion and there's more to reveal.
   useEffect(() => {
@@ -52,8 +62,9 @@ export function useChapterZeroDialogue(messages: string[], reducedMotion: boolea
       done,
       index,
       totalLines: messages.length,
+      fading,
     }),
-    [current, charsShown, lineFullyShown, done, index, messages.length],
+    [current, charsShown, lineFullyShown, done, index, messages.length, fading],
   );
 
   return { ...state, advance };

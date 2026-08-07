@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Lock, Play } from 'lucide-react';
 import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter';
 import python from 'react-syntax-highlighter/dist/esm/languages/prism/python';
@@ -17,79 +17,47 @@ const CODE_THEME: Record<string, React.CSSProperties> = {
   string: { color: 'var(--color-positive, #4ade80)' },
   keyword: { color: 'var(--accent)' },
   function: { color: 'var(--color-warning, #fbbf24)' },
-  number: { color: 'var(--color-warning, #f59e0b)' },
   operator: { color: 'var(--text-secondary)' },
   'class-name': { color: 'var(--accent)' },
-  builtin: { color: 'var(--accent)' },
   punctuation: { color: 'var(--text-secondary)' },
 };
 
-const LOCKED_SHELL = `from netcrawl import WorkerClass, Edge
+type Highlight = 'class' | 'identity' | 'edge' | 'startup' | 'loop';
 
-class MyWorker(WorkerClass):
-    class_name = "Recovered"
-    class_id   = "recovered"
-
-    edge = Edge("hub ↔ mine")
-
-    # ── locked ────────────────────────────
-    def info(self):    ...  # read self state
-    def move(self, e): ...  # walk one step along edge e
-    def collect(self): ...  # pick up floor drops
-    def deposit(self): ...  # bank held resources at hub`;
-
-const DEFAULT_ON_STARTUP = `def on_startup(self):
-    # this runs once
-    pass`;
-
-const DEFAULT_ON_LOOP = `def on_loop(self):
-    # this runs forever
-    pass`;
-
-function stripHeader(text: string, header: string): string {
-  // If the player kept the def line, strip it so we only ship the body to the sandbox.
-  const trimmed = text.replace(/\r\n/g, '\n');
-  if (trimmed.startsWith(header)) return trimmed.slice(header.length).replace(/^\n/, '');
-  return trimmed;
+function LockedCode({ code, range, active }: { code: string; range?: Highlight; active?: Highlight }) {
+  return (
+    <div
+      className={`chapter0-code-range${range && range === active ? ' chapter0-code-range-active' : ''}`}
+      data-code-range={range}
+    >
+      <SyntaxHighlighter language="python" style={CODE_THEME} PreTag="div" CodeTag="code">
+        {code}
+      </SyntaxHighlighter>
+    </div>
+  );
 }
 
-function HighlightedEditor({
+function MethodBody({
   value,
   onChange,
-  rows,
   disabled,
   label,
 }: {
   value: string;
   onChange: (value: string) => void;
-  rows: number;
   disabled: boolean;
   label: string;
 }) {
-  const highlightRef = useRef<HTMLDivElement>(null);
-
   return (
-    <div className="chapter0-editor-highlight-wrap">
-      <div ref={highlightRef} className="chapter0-editor-highlight" aria-hidden="true">
-        <SyntaxHighlighter language="python" style={CODE_THEME} PreTag="div" CodeTag="code">
-          {`${value}\n`}
-        </SyntaxHighlighter>
-      </div>
-      <textarea
-        value={value}
-        onChange={event => onChange(event.target.value)}
-        onScroll={event => {
-          if (!highlightRef.current) return;
-          highlightRef.current.scrollTop = event.currentTarget.scrollTop;
-          highlightRef.current.scrollLeft = event.currentTarget.scrollLeft;
-        }}
-        rows={rows}
-        spellCheck={false}
-        disabled={disabled}
-        className="chapter0-editor-textarea"
-        aria-label={label}
-      />
-    </div>
+    <textarea
+      value={value}
+      onChange={event => onChange(event.target.value)}
+      rows={Math.max(2, value.split('\n').length)}
+      spellCheck={false}
+      disabled={disabled}
+      className="chapter0-method-body"
+      aria-label={label}
+    />
   );
 }
 
@@ -104,60 +72,63 @@ export function ChapterZeroCodeEditor({
   running: boolean;
   disabled: boolean;
   loopUnlocked: boolean;
-  highlight?: 'class' | 'identity' | 'edge' | 'startup';
+  highlight?: Highlight;
 }) {
   const t = useT();
-  const [startup, setStartup] = useState(DEFAULT_ON_STARTUP);
-  const [loop, setLoop] = useState(DEFAULT_ON_LOOP);
+  const [startup, setStartup] = useState('        # this runs once\n        pass');
+  const [loop, setLoop] = useState('        # this runs forever\n        pass');
 
-  const submit = () => {
-    if (running || disabled) return;
-    const startupBody = stripHeader(startup, 'def on_startup(self):');
-    const loopBody = stripHeader(loop, 'def on_loop(self):');
-    onRun(startupBody || 'pass', loopBody || 'pass');
-  };
+  const body = (value: string) =>
+    value
+      .split('\n')
+      .map(line => line.replace(/^ {8}/, ''))
+      .join('\n') || 'pass';
 
   return (
     <div className="chapter0-editor">
       <div className="chapter0-editor-header">
         <span>worker.py // draft</span>
-        <button type="button" className="chapter0-editor-run" onClick={submit} disabled={running || disabled}>
+        <button
+          type="button"
+          className="chapter0-editor-run"
+          onClick={() => onRun(body(startup), body(loop))}
+          disabled={running || disabled}
+        >
           <Play size={12} />
           <span>{t('tutorial.chapter_zero.editor_run')}</span>
         </button>
       </div>
-      <div
-        className={`chapter0-editor-document chapter0-highlight-${highlight ?? 'none'}`}
-        aria-label={t('tutorial.chapter_zero.editor_locked_label')}
-      >
-        <div className="chapter0-editor-locked">
-          <span className="chapter0-editor-locked-icon">
-            <Lock size={11} />
-          </span>
-          <SyntaxHighlighter language="python" style={CODE_THEME} PreTag="div" CodeTag="code">
-            {LOCKED_SHELL}
-          </SyntaxHighlighter>
+      <div className="chapter0-editor-document" aria-label={t('tutorial.chapter_zero.editor_locked_label')}>
+        <Lock className="chapter0-editor-locked-icon" size={11} aria-hidden="true" />
+        <LockedCode code={'from netcrawl import WorkerClass, Edge\n\n'} />
+        <LockedCode code={'class MyWorker(WorkerClass):\n'} range="class" active={highlight} />
+        <LockedCode
+          code={'    class_name = "Recovered"\n    class_id   = "recovered"\n\n'}
+          range="identity"
+          active={highlight}
+        />
+        <LockedCode code={'    edge = Edge("hub ↔ mine")\n\n'} range="edge" active={highlight} />
+        <div
+          className={`chapter0-code-range${highlight === 'startup' ? ' chapter0-code-range-active' : ''}`}
+          data-code-range="startup"
+        >
+          <LockedCode code={'    def on_startup(self):\n'} />
+          <MethodBody value={startup} onChange={setStartup} disabled={running || disabled} label="on_startup body" />
         </div>
-        <label className="chapter0-editor-block">
-          <HighlightedEditor
-            value={startup}
-            onChange={setStartup}
-            rows={5}
-            disabled={running || disabled}
-            label="on_startup"
-          />
-        </label>
         {loopUnlocked && (
-          <label className="chapter0-editor-block chapter0-loop-block">
-            <HighlightedEditor
-              value={loop}
-              onChange={setLoop}
-              rows={7}
-              disabled={running || disabled}
-              label="on_loop"
-            />
-          </label>
+          <div
+            className={`chapter0-code-range${highlight === 'loop' ? ' chapter0-code-range-active' : ''}`}
+            data-code-range="loop"
+          >
+            <LockedCode code={'\n    def on_loop(self):\n'} />
+            <MethodBody value={loop} onChange={setLoop} disabled={running || disabled} label="on_loop body" />
+          </div>
         )}
+        <LockedCode
+          code={
+            '\n    # provided WorkerClass API (locked)\n    def info(self):    ...\n    def move(self, edge): ...\n    def collect(self): ...\n    def deposit(self): ...'
+          }
+        />
       </div>
     </div>
   );

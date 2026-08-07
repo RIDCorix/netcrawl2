@@ -635,6 +635,17 @@ body::after {
 }
 .chapter0-stage-fade {
   animation: chapter0-stage-in 260ms ease both;
+  transition: opacity 220ms ease;
+}
+.chapter0-screen-fading {
+  opacity: 0;
+}
+.chapter0-dialogue-entering {
+  animation: chapter0-stage-in 180ms ease both;
+}
+.chapter0-dialogue-fading {
+  opacity: 0;
+  transition: opacity 180ms ease;
 }
 @keyframes chapter0-stage-in {
   from {
@@ -1105,17 +1116,56 @@ body::after {
   overflow: hidden;
 }
 
-.chapter0-editor-document .chapter0-editor-locked,
-.chapter0-editor-document .chapter0-editor-block {
-  border: 0;
-  margin: 0;
+.chapter0-editor-document {
+  position: relative;
+  padding: 12px 12px 12px 32px;
+  font: 12px/1.55 var(--font-mono);
 }
-
-.chapter0-editor-document.chapter0-highlight-class,
-.chapter0-editor-document.chapter0-highlight-identity,
-.chapter0-editor-document.chapter0-highlight-edge,
-.chapter0-editor-document.chapter0-highlight-startup {
-  box-shadow: inset 3px 0 0 var(--accent);
+.chapter0-editor-document .chapter0-editor-locked-icon {
+  position: absolute;
+  left: 10px;
+  top: 16px;
+  color: var(--text-muted);
+}
+.chapter0-code-range {
+  margin: 0 -8px;
+  padding: 0 8px;
+  border-left: 2px solid transparent;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease;
+}
+.chapter0-code-range-active {
+  background: rgba(120, 220, 255, 0.12);
+  border-left-color: var(--accent);
+}
+.chapter0-code-range > div,
+.chapter0-code-range > div > div {
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  font: inherit;
+  white-space: pre !important;
+}
+.chapter0-method-body {
+  display: block;
+  width: 100%;
+  min-height: 3.1em;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  resize: vertical;
+  overflow: hidden;
+  background: rgba(120, 220, 255, 0.05);
+  color: var(--text-primary);
+  caret-color: var(--accent);
+  font: inherit;
+  white-space: pre;
+}
+.chapter0-method-body:focus {
+  background: rgba(120, 220, 255, 0.1);
+  box-shadow: inset 2px 0 var(--accent);
 }
 
 .chapter0-unit-dot {

@@ -105,7 +105,6 @@ export function ChapterZeroRepl() {
         on_startup: onStartup,
         on_loop: onLoop,
       });
-      dispatchLoad({ type: 'loaded', session: response.data.session });
       return response.data;
     } catch {
       return null;
@@ -156,6 +155,7 @@ export function ChapterZeroRepl() {
       submitCommand={submitCommand}
       advanceStage={advanceStage}
       submitCodeRun={submitCodeRun}
+      commitSession={session => dispatchLoad({ type: 'loaded', session })}
       onDismiss={() => setDismissed(true)}
     />
   );
@@ -231,6 +231,13 @@ function VoiceArrival({ advance }: { advance: () => void }) {
   );
   const dialogue = useChapterZeroDialogue(lines, reducedMotion);
   const showPickup = dialogue.done;
+  const [fading, setFading] = useState(false);
+  const finish = () => {
+    if (fading) return;
+    if (reducedMotion) return advance();
+    setFading(true);
+    window.setTimeout(advance, 220);
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -244,7 +251,10 @@ function VoiceArrival({ advance }: { advance: () => void }) {
   }, [dialogue]);
 
   return (
-    <div className="chapter0-overlay chapter0-voicearrival" onClick={() => !dialogue.done && dialogue.advance()}>
+    <div
+      className={`chapter0-overlay chapter0-voicearrival${fading ? ' chapter0-screen-fading' : ''}`}
+      onClick={() => !dialogue.done && dialogue.advance()}
+    >
       <ChapterZeroParticles density={60} reducedMotion={reducedMotion} />
       <div className="chapter0-voicearrival-panel">
         <NarratorAvatar reducedMotion={reducedMotion} glitchTick={dialogue.index} />
@@ -254,7 +264,7 @@ function VoiceArrival({ advance }: { advance: () => void }) {
             {dialogue.currentLine ? renderNarratorLine(dialogue.currentLine.slice(0, dialogue.charsShown)) : ' '}
           </div>
           {showPickup ? (
-            <button className="chapter0-pickup-btn" onClick={advance}>
+            <button className="chapter0-pickup-btn" onClick={finish}>
               {t('tutorial.chapter_zero.voice_arrival.pickup_cta')}
             </button>
           ) : (
@@ -273,12 +283,14 @@ function Shell({
   submitCommand,
   advanceStage,
   submitCodeRun,
+  commitSession,
   onDismiss,
 }: {
   state: TutorialState;
   submitCommand: (command: string) => Promise<{ ok: boolean }>;
   advanceStage: (to: Stage) => void;
   submitCodeRun: (a: string, b: string) => Promise<CodeRunResponse | null>;
+  commitSession: (session: TutorialState) => void;
   onDismiss: () => void;
 }) {
   const t = useT();
@@ -287,6 +299,10 @@ function Shell({
   const [command, setCommand] = useState('');
   const [running, setRunning] = useState(false);
   const [runResult, setRunResult] = useState<CodeRunResponse | null>(null);
+  const [visualWorkerAt, setVisualWorkerAt] = useState(state.world.worker.nodeId);
+  const [screenFading, setScreenFading] = useState(false);
+
+  useEffect(() => setVisualWorkerAt(state.world.worker.nodeId), [state.world.worker.nodeId]);
 
   // Build the narrator queue for this stage.
   const narratorLines = useMemo(() => {
@@ -407,9 +423,19 @@ function Shell({
       return;
     }
     // Once dialogue is fully consumed for the ack sequences, auto-advance.
-    if (state.stage === 'choice_intro' && state.step >= 1) advanceStage('direct_commands');
-    else if (state.stage === 'direct_commands' && state.step >= 2) advanceStage('code_editor');
+    if (state.stage === 'choice_intro' && state.step >= 1) fadeToStage('direct_commands');
+    else if (state.stage === 'direct_commands' && state.step >= 2) fadeToStage('code_editor');
     else if (state.stage === 'complete') onDismiss();
+  };
+
+  const fadeToStage = (stage: Stage) => {
+    if (screenFading) return;
+    if (reducedMotion) return advanceStage(stage);
+    setScreenFading(true);
+    window.setTimeout(() => {
+      advanceStage(stage);
+      setScreenFading(false);
+    }, 220);
   };
 
   useEffect(() => {
@@ -433,8 +459,21 @@ function Shell({
     setRunning(true);
     setRunResult(null);
     const result = await submitCodeRun(a, b);
-    setRunning(false);
+    if (result) {
+      for (const tick of result.ticks) {
+        for (const statement of tick.statements) {
+          if (statement.transition === 'moved_to_mine' || statement.transition === 'returned_to_hub') {
+            setEdgeFlashing(true);
+            setVisualWorkerAt(statement.transition === 'moved_to_mine' ? 'mine' : 'hub');
+            if (!reducedMotion) await new Promise(resolve => window.setTimeout(resolve, 460));
+            setEdgeFlashing(false);
+          }
+        }
+      }
+      commitSession(result.session);
+    }
     setRunResult(result);
+    setRunning(false);
   };
 
   const showTerminalInput = state.stage === 'direct_commands';
@@ -442,7 +481,10 @@ function Shell({
 
   return (
     <div className="chapter0-overlay">
-      <div key={state.stage} className="chapter0-shell chapter0-stage-fade">
+      <div
+        key={state.stage}
+        className={`chapter0-shell chapter0-stage-fade${screenFading ? ' chapter0-screen-fading' : ''}`}
+      >
         {/* LEFT: terminal or editor */}
         <section className="chapter0-repl">
           <header className="chapter0-repl-header">
@@ -465,7 +507,9 @@ function Shell({
                       | 'identity'
                       | 'edge'
                       | 'startup')
-                  : undefined
+                  : state.step >= 1
+                    ? 'loop'
+                    : undefined
               }
             />
           ) : (
@@ -523,11 +567,7 @@ function Shell({
         <div className="chapter0-right">
           {state.stage !== 'choice_intro' && (
             <section className="chapter0-network" aria-label="network">
-              <ChapterZeroGraph
-                workerAt={state.world.worker.nodeId}
-                edgeFlashing={edgeFlashing}
-                reducedMotion={reducedMotion}
-              />
+              <ChapterZeroGraph workerAt={visualWorkerAt} edgeFlashing={edgeFlashing} reducedMotion={reducedMotion} />
             </section>
           )}
 
@@ -535,7 +575,11 @@ function Shell({
             <NarratorAvatar reducedMotion={reducedMotion} glitchTick={glitchTick} />
             <div className="chapter0-narrator-panel">
               <div className="chapter0-narrator-label">{t('tutorial.chapter_zero.narrator_name')}</div>
-              <div className="chapter0-narrator-text" aria-live="polite">
+              <div
+                className={`chapter0-narrator-text${dialogue.fading ? ' chapter0-dialogue-fading' : ' chapter0-dialogue-entering'}`}
+                key={`${state.stage}-${state.step}-${dialogue.index}`}
+                aria-live="polite"
+              >
                 {dialogue.currentLine ? renderNarratorLine(dialogue.currentLine.slice(0, dialogue.charsShown)) : ' '}
               </div>
               {state.stage === 'choice_intro' && state.step === 0 && dialogue.done && (
