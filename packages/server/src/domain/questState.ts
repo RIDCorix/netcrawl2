@@ -118,7 +118,7 @@ export function grantChapterZeroDeployItems(userId?: string) {
 
   // Mark items as granted
   state.chapterZero = setDeployTutorialField(session, 'grantedItems', true);
-  return { ok: true, alreadyGranted: false };
+  return { ok: true, alreadyGranted: false, ...getChapterZero(userId) };
 }
 
 /** Set selected edge or pickaxe in the deploy tutorial world state. */

@@ -59,7 +59,7 @@ export function DeployTutorialGuide({ stage, world, onSessionUpdate, onDismiss, 
     if (dt?.grantedItems) return;
     axios
       .post('/api/tutorial/chapter-zero/stage', { action: 'grant-deploy-items' })
-      .then(r => onSessionUpdate(r.data))
+      .then(r => { if (r.data?.stage) onSessionUpdate(r.data); })
       .catch(() => {});
   }, []);
 
