@@ -842,6 +842,7 @@ export const ja: Record<string, string> = {
     'コマンドの順番が違います。表示されたコマンドを正確に入力してください。確定済みの進行は保持されます。',
   'tutorial.chapter_zero.narrator_name': 'NARRATOR_幽霊',
   'tutorial.chapter_zero.step_indicator': '{current} / {total}',
+  'tutorial.chapter_zero.skip_to_game': 'チュートリアルをスキップ',
   'tutorial.chapter_zero.continue_hint': 'スペースかクリックで続ける',
   'tutorial.chapter_zero.cold_open.L1': '……ここはどこ。',
   'tutorial.chapter_zero.cold_open.L2': '頭が痛い。',

@@ -853,6 +853,7 @@ export const en: Record<string, string> = {
     'That command is out of order. Copy the expected command exactly; your confirmed progress is safe.',
   'tutorial.chapter_zero.narrator_name': 'NARRATOR_ghost',
   'tutorial.chapter_zero.step_indicator': '{current} / {total}',
+  'tutorial.chapter_zero.skip_to_game': 'Skip tutorial',
   'tutorial.chapter_zero.continue_hint': 'Press SPACE or click to continue',
   'tutorial.chapter_zero.cold_open.L1': '…where is this.',
   'tutorial.chapter_zero.cold_open.L2': 'My head hurts.',

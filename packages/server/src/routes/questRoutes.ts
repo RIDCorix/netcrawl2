@@ -6,6 +6,7 @@ import { Router, Request, Response } from 'express';
 import { getActivePassives, getQuestStatus, setQuestStatus } from '../domain/questState.js';
 import {
   advanceChapterZeroStageTo,
+  skipChapterZeroToHandoff,
   getChapterZero,
   runChapterZeroCodeEditor,
   submitChapterZeroCommand,
@@ -95,6 +96,13 @@ questRoutes.post('/tutorial/chapter-zero/stage', (req: Request, res: Response) =
     if (!workerId) return res.status(400).json({ ok: false, error: 'workerId required' });
     const result = verifyChapterZeroDeploy(workerId, uid);
     if (!result.ok) return res.status(400).json(result);
+    checkQuests(uid);
+    broadcastFullState(uid);
+    return res.json(result);
+  }
+
+  if (action === 'skip') {
+    const result = skipChapterZeroToHandoff(uid);
     checkQuests(uid);
     broadcastFullState(uid);
     return res.json(result);

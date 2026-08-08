@@ -87,6 +87,13 @@ export function advanceChapterZeroStageTo(stage: ChapterZeroStage, userId?: stri
   return { ...result, ...getChapterZero(userId) };
 }
 
+export function skipChapterZeroToHandoff(userId?: string) {
+  const state = resolveStore(userId).quest_state;
+  getChapterZero(userId);
+  state.chapterZero!.stage = 'handoff';
+  return { ok: true as const, ...getChapterZero(userId) };
+}
+
 export function runChapterZeroCodeEditor(onStartup: string, onLoop: string, userId?: string) {
   const state = resolveStore(userId).quest_state;
   getChapterZero(userId);

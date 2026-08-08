@@ -829,6 +829,7 @@ export const zhTW: Record<string, string> = {
   'tutorial.chapter_zero.error': '指令順序不對。請精確複製預期指令；已確認的進度不會遺失。',
   'tutorial.chapter_zero.narrator_name': 'NARRATOR_幽靈',
   'tutorial.chapter_zero.step_indicator': '{current} / {total}',
+  'tutorial.chapter_zero.skip_to_game': '跳過教學',
   'tutorial.chapter_zero.continue_hint': '按空白鍵或點擊繼續',
   'tutorial.chapter_zero.cold_open.L1': '……這裡是哪。',
   'tutorial.chapter_zero.cold_open.L2': '頭好痛。',

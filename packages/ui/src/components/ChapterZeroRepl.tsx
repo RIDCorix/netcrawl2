@@ -1,5 +1,6 @@
 import { ReactNode, useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import axios from 'axios';
+import { X } from 'lucide-react';
 import { useT } from '../hooks/useT';
 import { initialChapterZeroLoadState, reduceChapterZeroLoad } from '../lib/chapterZeroLoadState';
 import narratorGhostUrl from '../assets/chapter0/narrator-ghost.png';
@@ -125,6 +126,15 @@ export function ChapterZeroRepl() {
     [load],
   );
 
+  const skipChapterZero = useCallback(async () => {
+    try {
+      const response = await axios.post('/api/tutorial/chapter-zero/stage', { action: 'skip' });
+      dispatchLoad({ type: 'loaded', session: response.data });
+    } catch {
+      load();
+    }
+  }, [load]);
+
   const submitCommand = useCallback(async (command: string): Promise<{ ok: boolean }> => {
     try {
       const response = await axios.post('/api/tutorial/chapter-zero/command', { command });
@@ -195,9 +205,10 @@ export function ChapterZeroRepl() {
       state={state}
       submitCommand={submitCommand}
       advanceStage={advanceStage}
-    submitCodeRun={submitCodeRun}
-    commitSession={session => dispatchLoad({ type: 'loaded', session })}
-  />
+      submitCodeRun={submitCodeRun}
+      commitSession={session => dispatchLoad({ type: 'loaded', session })}
+      onSkip={skipChapterZero}
+    />
   );
 }
 
@@ -385,12 +396,14 @@ function Shell({
   advanceStage,
   submitCodeRun,
   commitSession,
+  onSkip,
 }: {
   state: TutorialState;
   submitCommand: (command: string) => Promise<{ ok: boolean }>;
   advanceStage: (to: Stage) => void;
   submitCodeRun: (a: string, b: string) => Promise<CodeRunResponse | null>;
   commitSession: (session: TutorialState) => void;
+  onSkip: () => void;
 }) {
   const t = useT();
   const reducedMotion = useMemo(() => prefersReducedMotion(), []);
@@ -577,9 +590,18 @@ function Shell({
         <section className="chapter0-repl">
           <header className="chapter0-repl-header">
             <span className="chapter0-title">{t('tutorial.chapter_zero.title')}</span>
-            <span className="chapter0-step" aria-live="polite">
-              {stepIndicator}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="chapter0-step" aria-live="polite">
+                {stepIndicator}
+              </span>
+              <button
+                onClick={onSkip}
+                title={t('tutorial.chapter_zero.skip_to_game')}
+                style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', borderRadius: 4, lineHeight: 1 }}
+              >
+                <X size={12} />
+              </button>
+            </div>
           </header>
 
           {showEditor ? (
