@@ -817,7 +817,7 @@ export function DeployDialog({
 
             {/* Navigation */}
             <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
-              {step > 0 && (
+              {step > 0 && !tutorialMode && (
                 <button
                   onClick={() => setStep(s => s - 1)}
                   style={{
