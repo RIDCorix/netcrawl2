@@ -6,6 +6,7 @@ const repl = readFileSync('packages/ui/src/components/ChapterZeroRepl.tsx', 'utf
 const styles = readFileSync('packages/ui/src/styles.css', 'utf8');
 const nodeWrapper = readFileSync('packages/ui/src/components/graph/NodeWrapper.tsx', 'utf8');
 const deployDialog = readFileSync('packages/ui/src/components/DeployDialog.tsx', 'utf8');
+const tutorialOverlay = readFileSync('packages/ui/src/components/TutorialOverlay.tsx', 'utf8');
 const zhTW = readFileSync('packages/ui/src/i18n/zh-TW.ts', 'utf8');
 
 assert.equal(
@@ -68,6 +69,8 @@ assert.match(
 );
 assert.match(deployDialog, /if \(advancing \|\| !canGoNext\(\)\) return;/, 'stage advance must ignore duplicate clicks');
 assert.match(deployDialog, /disabled=\{advancing \|\| !canGoNext\(\)\}/, 'stage advance control must lock while saving');
+assert.match(tutorialOverlay, /skipToConnection/, 'the first tutorial step must expose a connection-step skip action');
+assert.match(tutorialOverlay, /selectQuest\('q_setup'\)/, 'skipping the first tutorial step must open code server setup');
 const deployCopy = zhTW.slice(
   zhTW.indexOf("'tutorial.chapter_zero.deploy.hub_prompt'"),
   zhTW.indexOf("'tutorial.chapter_zero.deploy.edge_selecting'"),

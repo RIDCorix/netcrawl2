@@ -80,7 +80,7 @@ function saveTutorialState(state: { step: number; dismissed: boolean }) {
 
 export function TutorialOverlay() {
   const t = useT();
-  const { workers, questsOpen, selectedQuestId } = useGameStore();
+  const { workers, questsOpen, selectedQuestId, toggleQuests, selectQuest } = useGameStore();
   const [tutState, setTutState] = useState(loadTutorialState);
   const [highlightRect, setHighlightRect] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null);
@@ -105,6 +105,20 @@ export function TutorialOverlay() {
     saveTutorialState(next);
     setTutState(next);
   }, [step]);
+
+  // The welcome card's top-right skip goes directly to the actionable
+  // connection step instead of hiding the setup instructions altogether.
+  const skipToConnection = useCallback(() => {
+    if (step !== 0) {
+      dismiss();
+      return;
+    }
+    if (!questsOpen) toggleQuests();
+    selectQuest('q_setup');
+    const next = { step: TUTORIAL_STEPS.length - 1, dismissed: false };
+    saveTutorialState(next);
+    setTutState(next);
+  }, [dismiss, questsOpen, selectQuest, step, toggleQuests]);
 
   // Auto-advance on waitFor conditions
   useEffect(() => {
@@ -174,7 +188,7 @@ export function TutorialOverlay() {
             {t(currentStep.title) || currentStep.title}
           </span>
         </div>
-        <button onClick={dismiss} title="Skip tutorial" style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', borderRadius: 4 }}>
+        <button onClick={skipToConnection} title="Skip to code server setup" style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', borderRadius: 4 }}>
           <X size={12} />
         </button>
       </div>
@@ -194,7 +208,7 @@ export function TutorialOverlay() {
           ))}
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
-          <button onClick={dismiss} style={{ fontSize: 9, fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px' }}>
+          <button onClick={skipToConnection} style={{ fontSize: 9, fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px' }}>
             {t('tutorial.btn.skip')}
           </button>
           {hasNextButton && (
