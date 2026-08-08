@@ -56,6 +56,15 @@ function RewardBadge({ reward, color }: { reward: any; color: string }) {
   );
 }
 
+function resolveGuideConnectionContent(content: string, connection: { serverUrl: string; apiKey: string; requiresApiKey: boolean }) {
+  const apiKey = connection.apiKey || (connection.requiresApiKey ? 'API_KEY_NOT_AVAILABLE' : '本機模式不需要');
+  return content
+    .split('<貼上 API key>').join(apiKey)
+    .split('<貼上 Server URL>').join(connection.serverUrl)
+    .split('<paste API key>').join(apiKey)
+    .split('<paste Server URL>').join(connection.serverUrl);
+}
+
 export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () => void }) {
   const [page, setPage] = useState(0);
   const [claiming, setClaiming] = useState(false);
@@ -397,7 +406,7 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
               </div>
               <div style={{ fontSize: 13, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
                 <CodespaceSkeleton variant={guide[page].skeleton} connection={connection} />
-                <Markdown content={guide[page].content} />
+                <Markdown content={resolveGuideConnectionContent(guide[page].content, connection)} />
               </div>
               {DEMO_SCRIPTS[`${quest.id}:${page}`] && (
                 <div style={{ marginTop: 16 }}>
