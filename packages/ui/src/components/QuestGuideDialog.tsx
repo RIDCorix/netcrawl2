@@ -120,6 +120,7 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
         alignItems: 'center',
         justifyContent: 'center',
       }}
+      data-quest-guide="true"
       onClick={onClose}
     >
       <motion.div

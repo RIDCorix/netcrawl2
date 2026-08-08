@@ -56,7 +56,9 @@ export function DeployTutorialGuide({ stage, onDismiss }: Props) {
   // Chapter Zero's first deployment action is deliberately a real map click.
   // Capture and reject clicks elsewhere while the Hub target is active.
   useEffect(() => {
-    if (stage !== 'edge_select' || !codeReady || selectedNodeId === 'hub') return;
+    // The quest book is a modal layer above the map. Its close/step controls
+    // must not be treated as off-target map clicks by this capture guard.
+    if (questsOpen || stage !== 'edge_select' || !codeReady || selectedNodeId === 'hub') return;
     const blockOutsideHub = (event: MouseEvent) => {
       const target = event.target as Element | null;
       if (!target?.closest('[data-id="hub"]')) {
@@ -66,7 +68,7 @@ export function DeployTutorialGuide({ stage, onDismiss }: Props) {
     };
     document.addEventListener('click', blockOutsideHub, true);
     return () => document.removeEventListener('click', blockOutsideHub, true);
-  }, [stage, selectedNodeId, codeReady]);
+  }, [questsOpen, stage, selectedNodeId, codeReady]);
 
   useEffect(() => {
     const targetingHub = stage === 'edge_select' && codeReady && selectedNodeId !== 'hub';
@@ -97,7 +99,9 @@ export function DeployTutorialGuide({ stage, onDismiss }: Props) {
     );
   }
 
-  if (setupGate) return null;
+  // Do not leave the lower narrator panel above the quest guide. The quest
+  // guide owns interaction while the forced setup task is open.
+  if (questsOpen || setupGate) return null;
 
   const copy = {
     edge_select: selectedNodeId === 'hub'
