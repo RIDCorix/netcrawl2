@@ -60,8 +60,8 @@ assert.match(
 );
 assert.match(
   styles,
-  /\.chapter0-target-hub[\s\S]*\[data-tutorial-target='hub'\]/,
-  'deploy tutorial must style the stable Hub target marker',
+  /\.chapter0-target-hub \.react-flow__node\[data-id='hub'\]/,
+  'deploy tutorial must style the Hub map node',
 );
 assert.match(
   styles,

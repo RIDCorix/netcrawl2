@@ -1352,11 +1352,11 @@ body::after {
 /* React Flow's renderer is its own stacking context. Lift that context above
    the dimmer first; the Hub node then rises above the lifted map layer. */
 .chapter0-target-hub .react-flow__renderer {
+  position: relative;
   z-index: 91 !important;
 }
 
-.chapter0-target-hub .react-flow__node[data-id='hub'],
-.chapter0-target-hub [data-tutorial-target='hub'] {
+.chapter0-target-hub .react-flow__node[data-id='hub'] {
   position: relative;
   z-index: 92 !important;
   filter: brightness(1.35);
