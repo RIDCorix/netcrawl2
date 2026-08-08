@@ -58,7 +58,7 @@ assert.match(
   /data-tutorial-target=\{nodeId\}/,
   'map nodes must expose a stable tutorial target marker',
 );
-assert.doesNotMatch(repl, /DeployTutorialGuide/, 'the dimming deploy guide component must be removed');
+assert.match(repl, /DeployTutorialGuide/, 'the tutorial guide must remain visible');
 assert.doesNotMatch(styles, /chapter0-deploy-blocker|chapter0-target-hub/, 'the dimming guide styles must be removed');
 assert.match(
   readFileSync('packages/ui/src/components/graph/nodes/HubNode.tsx', 'utf8'),

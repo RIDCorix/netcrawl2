@@ -7,6 +7,7 @@ import { ChapterZeroParticles } from './chapter0/ChapterZeroParticles';
 import { ChapterZeroGraph } from './chapter0/ChapterZeroGraph';
 import { ChapterZeroCodeEditor } from './chapter0/ChapterZeroCodeEditor';
 import { useChapterZeroDialogue } from './chapter0/useChapterZeroDialogue';
+import { DeployTutorialGuide } from './chapter0/DeployTutorialGuide';
 
 type Item = { type: string; count: number };
 type Stage =
@@ -86,6 +87,7 @@ function renderNarratorLine(text: string): ReactNode {
 export function ChapterZeroRepl() {
   const t = useT();
   const [loadState, dispatchLoad] = useReducer(reduceChapterZeroLoad<TutorialState>, initialChapterZeroLoadState);
+  const [dismissed, setDismissed] = useState(false);
 
   const load = useCallback(() => {
     dispatchLoad({ type: 'retry' });
@@ -146,10 +148,10 @@ export function ChapterZeroRepl() {
     }
   }, []);
 
-  // Deployment continues through the real game map UI. The former overlay guide
-  // was removed because its dimming layer obscured the target node.
+  // Keep the tutorial guide, but let the real map remain fully visible.
   if (state && (DEPLOY_STAGES as Stage[]).includes(state.stage)) {
-    return null;
+    if (state.stage === 'handoff' && dismissed) return null;
+    return <DeployTutorialGuide stage={state.stage as any} onDismiss={() => setDismissed(true)} />;
   }
 
   if (loadState.status === 'failed') {
