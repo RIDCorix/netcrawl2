@@ -77,8 +77,8 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
   const translatedGuide = getTranslatedGuide(lang, quest.id);
   const guide = translatedGuide || quest.guide || [];
   const connection = {
-    serverUrl: SERVER_URL,
-    apiKey: localStorage.getItem('netcrawl-token') || '',
+    serverUrl: SERVER_URL.trim(),
+    apiKey: (localStorage.getItem('netcrawl-token') || '').trim(),
     requiresApiKey: Boolean(import.meta.env.VITE_API_URL),
   };
   const scrollRef = useRef<HTMLDivElement>(null);
