@@ -4,22 +4,18 @@ export const zhTW: Record<string, GuideStep[]> = {
   q_setup: [
     {
       title: '建立或恢復 Codespace',
+      skeleton: 'codespace-create',
       content: `開啟預先設定好的 [NetCrawl Codespace](https://codespaces.new/Starscribers/netcrawl-workspace/tree/main?quickstart=1)。
 
 如果 GitHub 顯示已有 Codespace，點擊 **Resume**；如果沒有，點擊 **Create codespace**。
 
-\`\`\`text
-GitHub Codespaces
-┌─────────────────────────────────────────────┐
-│ netcrawl-workspace   [Resume] / [Create]    │ ← 點擊其中一個
-└─────────────────────────────────────────────┘
-\`\`\`
 
 > Codespace 必須透過網路連到遊戲伺服器。如果 **Connect** 對話框顯示的是 \`localhost\` URL，請改用[本機 clone 流程](https://github.com/Starscribers/netcrawl-workspace#quick-start)；Codespace 無法連到只在你電腦上執行的伺服器。`,
     },
 
     {
       title: '設定連線值',
+      skeleton: 'codespace-editor',
       content: `Codespace 開啟並完成設定後，開啟 \`main.py\`。
 
 把遊戲 Connect 顯示的 **Server URL** 與 **API key** 貼到 \`app = NetCrawl(...)\`：
@@ -36,21 +32,13 @@ app = NetCrawl(
 
     {
       title: '開啟終端機並確認 main.py',
-      content: `點擊 Codespace 視窗下方的終端機區域。
-
-\`\`\`text
-┌─ Explorer ──────────────┐  ┌─ main.py ────────────────┐
-│ workers/                 │  │ app = NetCrawl(...)     │
-│ main.py                  │  └────────────────────────┘
-└─────────────────────────┘
-┌─ TERMINAL ──────────────────────────────────────────┐
-│ $                                           ← 點擊 │
-└─────────────────────────────────────────────────────┘
-\`\`\``,
+      skeleton: 'codespace-terminal',
+      content: `點擊 Codespace 視窗下方的終端機區域。`,
     },
 
     {
       title: '啟動程式碼伺服器',
+      skeleton: 'codespace-run',
       content: `在終端機輸入：
 
 \`\`\`bash
@@ -59,25 +47,12 @@ uv run main.py
 
 讓終端機保持執行；當已註冊的 worker classes 出現 \`HelloWorker\` 後，遊戲就會解鎖 Hub 步驟。
 
-請用這個簡化的點擊骨架對照畫面：
-
-\`\`\`text
-[VS Code] Explorer → main.py → Run and Debug → NetCrawl: Start Code Server → ▶ / F5
-[遊戲]   地圖 → Hub → 部署 Worker → HelloWorker → 部署
-\`\`\`
-
 **當 code server 連線且 HelloWorker 完成註冊時，此任務會自動完成！**`,
     },
     {
       title: '停止程式碼伺服器',
+      skeleton: 'codespace-stop',
       content: `需要停止程式時，點擊終端機並按 **Ctrl+C**。
-
-\`\`\`text
-┌─ TERMINAL ──────────────────────────────────────────┐
-│ [uv run main.py 執行中]                             │
-│ $  Ctrl+C                                  ← 按下  │
-└─────────────────────────────────────────────────────┘
-\`\`\`
 
 部署第一個 Worker 前，請保持程式執行。`,
     },

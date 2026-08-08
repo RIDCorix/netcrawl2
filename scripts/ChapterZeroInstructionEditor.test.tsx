@@ -2,8 +2,18 @@ import assert from 'node:assert/strict';
 import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
 import { ChapterZeroInstructionEditor, DIRECT_MOVE_NARRATOR_KEYS } from '../packages/ui/src/components/ChapterZeroRepl';
+import { CodespaceSkeleton } from '../packages/ui/src/components/guide/CodespaceSkeleton';
 
 type Renderer = TestRenderer.ReactTestRenderer;
+
+for (const variant of ['codespace-create', 'codespace-editor', 'codespace-terminal', 'codespace-run', 'codespace-stop'] as const) {
+  let skeleton: Renderer | undefined;
+  act(() => {
+    skeleton = TestRenderer.create(<CodespaceSkeleton variant={variant} />);
+  });
+  assert.equal(typeof skeleton!.root.findByProps({ className: 'codespace-skeleton' }).props['aria-label'], 'string');
+  assert.equal(skeleton!.root.findByProps({ className: 'codespace-skeleton-target-label' }).children.length > 0, true);
+}
 
 function renderEditor(
   stage: 'direct_commands' | 'code_editor',

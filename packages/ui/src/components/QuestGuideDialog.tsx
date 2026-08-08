@@ -12,6 +12,7 @@ import { CHAPTER_COLORS } from '../constants/colors';
 import { useT } from '../hooks/useT';
 import { useGameStore } from '../store/gameStore';
 import { DemoPlayer } from './guide/DemoPlayer';
+import { CodespaceSkeleton } from './guide/CodespaceSkeleton';
 import { DEMO_SCRIPTS } from './guide/demoScripts';
 import { getTranslatedGuide } from '../i18n/guides';
 import { translateWithFallback } from '../i18n/translateWithFallback';
@@ -389,6 +390,7 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
                 {guide[page].title}
               </div>
               <div style={{ fontSize: 13, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                <CodespaceSkeleton variant={guide[page].skeleton} />
                 <Markdown content={guide[page].content} />
               </div>
               {DEMO_SCRIPTS[`${quest.id}:${page}`] && (

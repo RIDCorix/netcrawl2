@@ -9,19 +9,14 @@ export const QUEST_GUIDES: Record<string, GuideStep[]> = {
   q_setup: [
     {
       title: 'Create or Resume Codespace',
+      skeleton: 'codespace-create',
       content: `Open the preconfigured [NetCrawl Codespace](https://codespaces.new/Starscribers/netcrawl-workspace/tree/main?quickstart=1).
 
-If GitHub shows an existing Codespace, click **Resume**. If there is no existing one, click **Create codespace**.
-
-\`\`\`text
-GitHub Codespaces
-┌─────────────────────────────────────────────┐
-│ netcrawl-workspace   [Resume] / [Create]    │ ← click one
-└─────────────────────────────────────────────┘
-\`\`\``,
+If GitHub shows an existing Codespace, click **Resume**. If there is no existing one, click **Create codespace**.`,
     },
     {
       title: 'Set the connection values',
+      skeleton: 'codespace-editor',
       content: `When the Codespace opens, wait for setup to finish, then open \`main.py\`.
 
 Replace the \`app = NetCrawl(...)\` values with the **Server URL** and **API key** shown by the game's Connect button:
@@ -37,20 +32,12 @@ Do not change the worker files. \`main.py\` already registers \`HelloWorker\`.`,
     },
     {
       title: 'Open the terminal',
-      content: `Click the terminal area at the bottom of the Codespace window.
-
-\`\`\`text
-┌─ Explorer ──────────────┐  ┌─ main.py ────────────────┐
-│ workers/                 │  │ app = NetCrawl(...)     │
-│ main.py                  │  └────────────────────────┘
-└─────────────────────────┘
-┌─ TERMINAL ──────────────────────────────────────────┐
-│ $                                           ← click │
-└─────────────────────────────────────────────────────┘
-\`\`\``,
+      skeleton: 'codespace-terminal',
+      content: `Click the terminal area at the bottom of the Codespace window.`,
     },
     {
       title: 'Start the code server',
+      skeleton: 'codespace-run',
       content: `In the terminal, run:
 
 \`\`\`bash
@@ -61,14 +48,8 @@ Keep this terminal running. The game unlocks the Hub step when \`HelloWorker\` a
     },
     {
       title: 'Stop the code server',
+      skeleton: 'codespace-stop',
       content: `When you need to stop the program, click the terminal and press **Ctrl+C**.
-
-\`\`\`text
-┌─ TERMINAL ──────────────────────────────────────────┐
-│ [running uv run main.py]                            │
-│ $  Ctrl+C                                  ← press  │
-└─────────────────────────────────────────────────────┘
-\`\`\`
 
 Leave it running while you deploy your first worker.`,
     },

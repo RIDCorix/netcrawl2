@@ -1565,6 +1565,48 @@ body::after {
   color: var(--accent, #00d4aa);
 }
 
+.codespace-skeleton {
+  margin: 0 0 16px;
+  color: #d6deeb;
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+}
+
+.codespace-skeleton-window {
+  overflow: hidden;
+  border: 1px solid #3a4658;
+  border-radius: 7px;
+  background: #1b2330;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+}
+
+.codespace-skeleton-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 9px;
+  background: #252f3f;
+  color: #91a0b5;
+  font-size: 9px;
+}
+
+.codespace-skeleton-dots { color: #718096; letter-spacing: 2px; }
+.codespace-skeleton-create { padding: 18px; background: #f6f8fa; color: #24292f; }
+.codespace-skeleton-brand { font-size: 14px; font-weight: 700; }
+.codespace-skeleton-repository { margin: 12px 0; color: #57606a; }
+.codespace-skeleton-actions { display: flex; gap: 8px; }
+.codespace-skeleton-button { border: 1px solid #8c959f; border-radius: 5px; padding: 7px 11px; background: #fff; color: #24292f; font: inherit; }
+.codespace-skeleton-editor-layout { display: grid; grid-template-columns: 35% 65%; min-height: 132px; }
+.codespace-skeleton-sidebar { display: flex; flex-direction: column; gap: 9px; padding: 12px 10px; background: #202938; color: #9eacc0; }
+.codespace-skeleton-sidebar b { color: #d6deeb; font-size: 9px; }
+.codespace-skeleton-editor-pane { display: flex; flex-direction: column; background: #151c27; }
+.codespace-skeleton-code { margin: 0; padding: 16px 12px; overflow: auto; background: #151c27; color: #b6c3d5; line-height: 1.8; }
+.codespace-skeleton-code-line { flex: 1; padding: 16px 12px; color: #b6c3d5; }
+.codespace-skeleton-terminal { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-top: 1px solid #3a4658; background: #0e141d; color: #a9b7c9; }
+.codespace-skeleton-highlight { position: relative; display: inline-block; border: 1px solid #00d4aa; border-radius: 4px; padding: 5px 7px; background: rgba(0, 212, 170, 0.14); color: #a8ffe9; box-shadow: 0 0 0 2px rgba(0, 212, 170, 0.12); }
+.codespace-skeleton-muted { color: #68778c; }
+.codespace-skeleton-target-label { padding: 5px 2px; color: #00d4aa; font-size: 10px; font-weight: 700; }
+
 @media (prefers-reduced-motion: reduce) {
   .chapter0-deploy-guide-btn,
   .chapter0-deploy-edge-item,
