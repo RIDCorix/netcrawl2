@@ -926,7 +926,7 @@ export const ja: Record<string, string> = {
   'tutorial.chapter_zero.deploy.edge_prompt': 'マップでHubを選択し、ノードパネルの「デプロイ」を開いて通常の手順に進みます。',
   'tutorial.chapter_zero.deploy.edge_selecting': '「ルート」ステップでHubのエッジを選択します。',
   'tutorial.chapter_zero.deploy.edge_cta': 'Hubパネルからデプロイを開く',
-  'tutorial.chapter_zero.deploy.edge_click_hint': '正しい状態はマップとデプロイダイアログに表示されます。',
+  'tutorial.chapter_zero.deploy.edge_click_hint': 'ルートを選択して、次のステップへ進みます。',
   'tutorial.chapter_zero.deploy.edge_selected': 'ルート：{edge}',
   'tutorial.chapter_zero.deploy.pickaxe_prompt': '「装備」を開き、ワーカーのピッケルスロットに配置します。',
   'tutorial.chapter_zero.deploy.equipment_hint': '装備が完了したら次へ進みます。',
