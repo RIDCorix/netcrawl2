@@ -38,7 +38,9 @@ export function NodeWrapper({ children, selected, glowColor, style = {}, nodeId,
       cursor: 'pointer',
       animation: fadeIn ? 'node-fade-in 0.5s ease-out' : undefined,
       ...style,
-    }}>
+    }}
+      data-tutorial-target={nodeId}
+    >
       {isOnRoute && (
         <div style={{ position: 'absolute', top: -10, right: -10, zIndex: 10, display: 'flex', gap: 2 }}>
           {routeIndices!.map(idx => (

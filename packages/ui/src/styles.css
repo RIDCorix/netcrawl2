@@ -1349,8 +1349,10 @@ body::after {
   background: rgba(0, 0, 0, 0.58);
 }
 
-.chapter0-target-hub .react-flow__node[data-id='hub'] {
-  z-index: 91 !important;
+.chapter0-target-hub .react-flow__node[data-id='hub'],
+.chapter0-target-hub [data-tutorial-target='hub'] {
+  position: relative;
+  z-index: 92 !important;
   filter: brightness(1.35);
   outline: 3px solid var(--accent);
   outline-offset: 8px;
