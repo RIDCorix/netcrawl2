@@ -21,7 +21,6 @@ import { XP_REWARDS } from './levelSystem.js';
 import { broadcast } from './websocket.js';
 import { QUESTS, QuestDef, QuestObjective } from './questDefinitions.js';
 import { CHIP_DEFS } from './upgradeDefinitions.js';
-import { isChapterZeroGateOpen } from './domain/chapterZero.js';
 
 // ── Objective evaluation ────────────────────────────────────────────────────
 
@@ -52,10 +51,11 @@ export function evaluateObjective(
 
 /** Initialize quests that have no status yet. First quest starts as 'available'. */
 function ensureQuestInit(userId?: string) {
-  const chapterZeroComplete = isChapterZeroGateOpen(getQuestState(userId).chapterZero);
+  const chapterZeroStage = getQuestState(userId).chapterZero?.stage;
+  const setupReady = chapterZeroStage === 'complete' || chapterZeroStage === 'edge_select' || chapterZeroStage === 'pickaxe_equip' || chapterZeroStage === 'deploy_confirm' || chapterZeroStage === 'deploy_execute' || chapterZeroStage === 'deploy_verified' || chapterZeroStage === 'handoff';
   for (const q of QUESTS) {
     if (!getQuestStatus(q.id, userId)) {
-      if (q.prerequisites.length === 0 && (q.id !== 'q_setup' || chapterZeroComplete)) {
+      if (q.prerequisites.length === 0 && (q.id !== 'q_setup' || setupReady)) {
         setQuestStatus(q.id, 'available', userId);
       } else {
         setQuestStatus(q.id, 'locked', userId);
@@ -69,7 +69,11 @@ function checkAvailability(userId?: string): QuestDef[] {
   const newlyAvailable: QuestDef[] = [];
   for (const q of QUESTS) {
     if (getQuestStatus(q.id, userId) !== 'locked') continue;
-    if (q.id === 'q_setup' && !isChapterZeroGateOpen(getQuestState(userId).chapterZero)) continue;
+    if (q.id === 'q_setup') {
+      const stage = getQuestState(userId).chapterZero?.stage;
+      const setupReady = stage === 'complete' || stage === 'edge_select' || stage === 'pickaxe_equip' || stage === 'deploy_confirm' || stage === 'deploy_execute' || stage === 'deploy_verified' || stage === 'handoff';
+      if (!setupReady) continue;
+    }
     const allPreqsClaimed = q.prerequisites.every(pid => getQuestStatus(pid, userId) === 'claimed');
     if (allPreqsClaimed) {
       setQuestStatus(q.id, 'available', userId);

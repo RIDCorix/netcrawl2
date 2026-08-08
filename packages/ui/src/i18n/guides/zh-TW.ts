@@ -3,63 +3,61 @@ import type { GuideStep } from './types';
 export const zhTW: Record<string, GuideStep[]> = {
   q_setup: [
     {
-      title: '開啟 Codespace',
+      title: '建立或恢復 Codespace',
       content: `開啟預先設定好的 [NetCrawl Codespace](https://codespaces.new/Starscribers/netcrawl-workspace/tree/main?quickstart=1)。
 
-依提示登入 GitHub、確認由誰支付 Codespace 費用，然後點擊 **Create codespace**。不需要在電腦安裝 VS Code 或 Python。
+如果 GitHub 顯示已有 Codespace，點擊 **Resume**；如果沒有，點擊 **Create codespace**。
+
+\`\`\`text
+GitHub Codespaces
+┌─────────────────────────────────────────────┐
+│ netcrawl-workspace   [Resume] / [Create]    │ ← 點擊其中一個
+└─────────────────────────────────────────────┘
+\`\`\`
 
 > Codespace 必須透過網路連到遊戲伺服器。如果 **Connect** 對話框顯示的是 \`localhost\` URL，請改用[本機 clone 流程](https://github.com/Starscribers/netcrawl-workspace#quick-start)；Codespace 無法連到只在你電腦上執行的伺服器。`,
     },
 
     {
-      title: '等待自動設定',
-      content: `GitHub 會在瀏覽器開啟工作區，並自動：
+      title: '設定連線值',
+      content: `Codespace 開啟並完成設定後，開啟 \`main.py\`。
 
-- 安裝 Python 3.12、Microsoft Python 擴充套件與 \`uv\`
-- 建立鎖定版本的 \`.venv\` 並選為 interpreter
-- 設定綠色 Run 按鈕與 F5 使用的 **NetCrawl: Start Code Server**
+把遊戲 Connect 顯示的 **Server URL** 與 **API key** 貼到 \`app = NetCrawl(...)\`：
 
-請等 post-create setup 完成後再編輯。如果設定失敗，先在 repository root 執行 \`uv sync --frozen\`；仍失敗時執行 **Codespaces: Rebuild Container**，不要在安裝不完整的環境中繼續。`,
+\`\`\`python
+app = NetCrawl(
+    api_key="<貼上 API key>",
+    server="<貼上 Server URL>",
+)
+\`\`\`
+
+不要修改 worker 檔案；\`main.py\` 已經註冊 \`HelloWorker\`。`,
     },
 
     {
-      title: '設定 main.py',
-      content: `在 Codespace 開啟 \`main.py\`，找到 \`NetCrawl(...)\` 的部分，更新 **伺服器 URL**。
+      title: '開啟終端機並確認 main.py',
+      content: `點擊 Codespace 視窗下方的終端機區域。
 
-點擊右上角工具列的 **Connect** 按鈕（終端機圖示）取得你的伺服器 URL，然後修改：
-
-\`\`\`diff
-  app = NetCrawl(
--     api_key="sk-local",
--     server="http://localhost:4800",
-+     api_key="sk-local",                        # 本地版保持不變
-+     server="http://localhost:4800",             # ← 從 Connect 對話框貼上 URL
-  )
-\`\`\`
-
-> **如何找到你的 URL：** 點擊工具列上閃爍的 **Connect** 按鈕 → 複製 **Server URL**。
-
-如果你使用的是 **雲端版**，也要替換 \`api_key\`：
-
-\`\`\`diff
-  app = NetCrawl(
--     api_key="sk-local",
--     server="http://localhost:4800",
-+     api_key="eyJhbG...",                       # ← 從 Connect 對話框取得
-+     server="https://netcrawl-server-....app",   # ← 從 Connect 對話框取得
-  )
+\`\`\`text
+┌─ Explorer ──────────────┐  ┌─ main.py ────────────────┐
+│ workers/                 │  │ app = NetCrawl(...)     │
+│ main.py                  │  └────────────────────────┘
+└─────────────────────────┘
+┌─ TERMINAL ──────────────────────────────────────────┐
+│ $                                           ← 點擊 │
+└─────────────────────────────────────────────────────┘
 \`\`\``,
     },
 
     {
-      title: '執行 Code Server',
-      content: `開啟 **Run and Debug**，選擇 **NetCrawl: Start Code Server**，然後點擊綠色播放鍵（或按 F5）。
+      title: '啟動程式碼伺服器',
+      content: `在終端機輸入：
 
-你應該會看到：
+\`\`\`bash
+uv run main.py
 \`\`\`
-[NetCrawl] Registered: Miner (id=miner)
-[NetCrawl] Code server connected ✓
-\`\`\`
+
+讓終端機保持執行；當已註冊的 worker classes 出現 \`HelloWorker\` 後，遊戲就會解鎖 Hub 步驟。
 
 請用這個簡化的點擊骨架對照畫面：
 
@@ -68,9 +66,20 @@ export const zhTW: Record<string, GuideStep[]> = {
 [遊戲]   地圖 → Hub → 部署 Worker → HelloWorker → 部署
 \`\`\`
 
-**當 code server 連線到遊戲伺服器時，此任務會自動完成！**
+**當 code server 連線且 HelloWorker 完成註冊時，此任務會自動完成！**`,
+    },
+    {
+      title: '停止程式碼伺服器',
+      content: `需要停止程式時，點擊終端機並按 **Ctrl+C**。
 
-🎉 連線成功後，部署 Worker 的按鈕就會啟用。前往下一個任務吧。`,
+\`\`\`text
+┌─ TERMINAL ──────────────────────────────────────────┐
+│ [uv run main.py 執行中]                             │
+│ $  Ctrl+C                                  ← 按下  │
+└─────────────────────────────────────────────────────┘
+\`\`\`
+
+部署第一個 Worker 前，請保持程式執行。`,
     },
   ],
 

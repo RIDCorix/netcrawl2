@@ -8,74 +8,69 @@ import type { GuideStep } from './questDefinitions.js';
 export const QUEST_GUIDES: Record<string, GuideStep[]> = {
   q_setup: [
     {
-      title: 'Open Your Codespace',
+      title: 'Create or Resume Codespace',
       content: `Open the preconfigured [NetCrawl Codespace](https://codespaces.new/Starscribers/netcrawl-workspace/tree/main?quickstart=1).
 
-Sign in to GitHub if prompted, review who will pay for the Codespace, then click **Create codespace**. No local VS Code or Python installation is required.
-
-> Codespaces must reach your game server over the internet. If the **Connect** dialog shows a \`localhost\` URL, use the [local clone setup](https://github.com/Starscribers/netcrawl-workspace#quick-start) instead; a Codespace cannot connect to a server running only on your computer.`,
-    },
-
-    {
-      title: 'Wait for Setup',
-      content: `GitHub opens the workspace in your browser and automatically:
-
-- installs Python 3.12, the Microsoft Python extension, and \`uv\`
-- creates the pinned \`.venv\` and selects its interpreter
-- configures **NetCrawl: Start Code Server** for the green Run button and F5
-
-Wait for the post-create setup to finish before editing. If setup fails, run \`uv sync --frozen\` in the repository root. If it still fails, run **Codespaces: Rebuild Container**; do not continue from a partially installed environment.`,
-    },
-
-    {
-      title: 'Configure main.py',
-      content: `Open \`main.py\` in the Codespace. Find the \`NetCrawl(...)\` section and update the **server URL**.
-
-Click the **Connect** button (terminal icon, top-right) to get your server URL, then edit:
-
-\`\`\`diff
-  app = NetCrawl(
--     api_key="sk-local",
--     server="http://localhost:4800",
-+     api_key="sk-local",                        # keep for local
-+     server="http://localhost:4800",             # ← paste URL from Connect dialog
-  )
-\`\`\`
-
-> **How to find your URL:** Click the pulsing **Connect** button in the toolbar → copy the **Server URL**.
-
-If you're on the **cloud version**, also replace the \`api_key\` with the API Key shown in the Connect dialog:
-
-\`\`\`diff
-  app = NetCrawl(
--     api_key="sk-local",
--     server="http://localhost:4800",
-+     api_key="eyJhbG...",                       # ← from Connect dialog
-+     server="https://netcrawl-server-....app",   # ← from Connect dialog
-  )
-\`\`\``,
-    },
-
-    {
-      title: 'Run Your Code Server',
-      content: `Open **Run and Debug**, select **NetCrawl: Start Code Server**, and click the green play button (or press F5).
-
-You should see:
-\`\`\`
-[NetCrawl] Registered: Miner (id=miner)
-[NetCrawl] Code server connected ✓
-\`\`\`
-
-Use this small click map while you work:
+If GitHub shows an existing Codespace, click **Resume**. If there is no existing one, click **Create codespace**.
 
 \`\`\`text
-[VS Code] Explorer → main.py → Run and Debug → NetCrawl: Start Code Server → ▶ / F5
-[Game]    map → Hub → Deploy Worker → HelloWorker → Deploy
+GitHub Codespaces
+┌─────────────────────────────────────────────┐
+│ netcrawl-workspace   [Resume] / [Create]    │ ← click one
+└─────────────────────────────────────────────┘
+\`\`\``,
+    },
+    {
+      title: 'Set the connection values',
+      content: `When the Codespace opens, wait for setup to finish, then open \`main.py\`.
+
+Replace the \`app = NetCrawl(...)\` values with the **Server URL** and **API key** shown by the game's Connect button:
+
+\`\`\`python
+app = NetCrawl(
+    api_key="<paste API key>",
+    server="<paste Server URL>",
+)
 \`\`\`
 
-**This quest completes automatically** when the code server connects to the game server!
+Do not change the worker files. \`main.py\` already registers \`HelloWorker\`.`,
+    },
+    {
+      title: 'Open the terminal',
+      content: `Click the terminal area at the bottom of the Codespace window.
 
-🎉 Once connected, the Deploy Worker button becomes active. Head to the next quest.`,
+\`\`\`text
+┌─ Explorer ──────────────┐  ┌─ main.py ────────────────┐
+│ workers/                 │  │ app = NetCrawl(...)     │
+│ main.py                  │  └────────────────────────┘
+└─────────────────────────┘
+┌─ TERMINAL ──────────────────────────────────────────┐
+│ $                                           ← click │
+└─────────────────────────────────────────────────────┘
+\`\`\``,
+    },
+    {
+      title: 'Start the code server',
+      content: `In the terminal, run:
+
+\`\`\`bash
+uv run main.py
+\`\`\`
+
+Keep this terminal running. The game unlocks the Hub step when \`HelloWorker\` appears in the registered worker classes.`,
+    },
+    {
+      title: 'Stop the code server',
+      content: `When you need to stop the program, click the terminal and press **Ctrl+C**.
+
+\`\`\`text
+┌─ TERMINAL ──────────────────────────────────────────┐
+│ [running uv run main.py]                            │
+│ $  Ctrl+C                                  ← press  │
+└─────────────────────────────────────────────────────┘
+\`\`\`
+
+Leave it running while you deploy your first worker.`,
     },
   ],
 

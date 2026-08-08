@@ -30,17 +30,17 @@ const checks = [
   [
     'English preset Codespaces onboarding',
     english,
-    /codespaces\.new\/Starscribers\/netcrawl-workspace\/tree\/main\?quickstart=1[\s\S]{0,4000}Run and Debug/,
+    /codespaces\.new\/Starscribers\/netcrawl-workspace\/tree\/main\?quickstart=1[\s\S]{0,4000}uv run main\.py/,
   ],
   [
     'Traditional Chinese preset Codespaces onboarding',
     traditionalChinese,
-    /codespaces\.new\/Starscribers\/netcrawl-workspace\/tree\/main\?quickstart=1[\s\S]{0,4000}Run and Debug/,
+    /codespaces\.new\/Starscribers\/netcrawl-workspace\/tree\/main\?quickstart=1[\s\S]{0,4000}uv run main\.py/,
   ],
   [
     'Japanese preset Codespaces onboarding',
     japanese,
-    /codespaces\.new\/Starscribers\/netcrawl-workspace\/tree\/main\?quickstart=1[\s\S]{0,4000}Run and Debug/,
+    /codespaces\.new\/Starscribers\/netcrawl-workspace\/tree\/main\?quickstart=1[\s\S]{0,4000}uv run main\.py/,
   ],
   ['Chapter 0 gate', definitions, /q_setup[\s\S]{0,400}prerequisites: \[\]/],
   ['First Craft exact recipe', definitions, /q_craft_first[\s\S]{0,500}stat_array_includes[\s\S]{0,100}pickaxe_basic/],
