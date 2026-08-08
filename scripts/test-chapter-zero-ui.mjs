@@ -63,6 +63,11 @@ assert.match(
   /\.chapter0-target-hub[\s\S]*\[data-tutorial-target='hub'\]/,
   'deploy tutorial must style the stable Hub target marker',
 );
+assert.match(
+  styles,
+  /\.chapter0-target-hub \.react-flow__renderer\s*\{[^}]*z-index:\s*91/s,
+  'deploy tutorial must lift the React Flow renderer above the dimmer',
+);
 const deployCopy = zhTW.slice(
   zhTW.indexOf("'tutorial.chapter_zero.deploy.hub_prompt'"),
   zhTW.indexOf("'tutorial.chapter_zero.deploy.edge_selecting'"),
