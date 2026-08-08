@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 const editor = readFileSync('packages/ui/src/components/chapter0/ChapterZeroCodeEditor.tsx', 'utf8');
 const repl = readFileSync('packages/ui/src/components/ChapterZeroRepl.tsx', 'utf8');
 const styles = readFileSync('packages/ui/src/styles.css', 'utf8');
+const nodeWrapper = readFileSync('packages/ui/src/components/graph/NodeWrapper.tsx', 'utf8');
+const zhTW = readFileSync('packages/ui/src/i18n/zh-TW.ts', 'utf8');
 
 assert.equal(
   (editor.match(/className="chapter0-editor-document"/g) ?? []).length,
@@ -51,5 +53,21 @@ assert.match(
   /\.chapter0-voicearrival\.chapter0-screen-fading\s*>\s*\*\s*\{[^}]*opacity:\s*0/s,
   'voice-arrival fade must target scene content only',
 );
+assert.match(
+  nodeWrapper,
+  /data-tutorial-target=\{nodeId\}/,
+  'map nodes must expose a stable tutorial target marker',
+);
+assert.match(
+  styles,
+  /\.chapter0-target-hub[\s\S]*\[data-tutorial-target='hub'\]/,
+  'deploy tutorial must style the stable Hub target marker',
+);
+const deployCopy = zhTW.slice(
+  zhTW.indexOf("'tutorial.chapter_zero.deploy.hub_prompt'"),
+  zhTW.indexOf("'tutorial.chapter_zero.deploy.edge_selecting'"),
+);
+assert.match(deployCopy, /高亮的基地/,'zh-TW deploy prompt must use the localized map term');
+assert.doesNotMatch(deployCopy, /Hub/, 'zh-TW deploy copy must not use the English Hub label');
 
 console.log('Chapter Zero UI structure, highlight, transition, and playback contracts passed');
