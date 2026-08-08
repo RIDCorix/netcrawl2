@@ -590,16 +590,25 @@ function Shell({
         <section className="chapter0-repl">
           <header className="chapter0-repl-header">
             <span className="chapter0-title">{t('tutorial.chapter_zero.title')}</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span className="chapter0-step" aria-live="polite">
                 {stepIndicator}
               </span>
               <button
                 onClick={onSkip}
-                title={t('tutorial.chapter_zero.skip_to_game')}
-                style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', borderRadius: 4, lineHeight: 1 }}
+                style={{
+                  fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 700,
+                  color: 'var(--text-secondary)',
+                  background: 'none',
+                  border: '1px solid var(--border-bright)',
+                  cursor: 'pointer',
+                  padding: '2px 8px',
+                  borderRadius: 4,
+                  letterSpacing: '0.05em',
+                  display: 'flex', alignItems: 'center', gap: 4,
+                }}
               >
-                <X size={12} />
+                {t('tutorial.chapter_zero.skip_to_game')} <X size={10} />
               </button>
             </div>
           </header>
