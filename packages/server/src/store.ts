@@ -8,7 +8,7 @@ import fs from 'fs';
 import { INITIAL_LEVEL_STATE, type LevelState } from './levelSystem.js';
 import { getUpgradeKey, getNodeXpThreshold, NODE_UPGRADE_DEFS } from './upgradeDefinitions.js';
 import { QUESTS } from './questDefinitions.js';
-import { createChapterZeroSession, shouldBypassChapterZero } from './domain/chapterZero.js';
+import { createChapterZeroSession, migrateChapterZeroSession, shouldBypassChapterZero } from './domain/chapterZero.js';
 import {
   type Store,
   type InventoryItem,
@@ -358,9 +358,11 @@ function _loadStore() {
       if (!store.achievement_state) store.achievement_state = { unlocked: {}, stats: {}, statArrays: {} };
       if (!store.quest_state)
         store.quest_state = { questStatus: {}, activePassives: {}, unlockedRecipes: [], claimedAt: {} };
-      if (!store.quest_state.chapterZero || store.quest_state.chapterZero.version !== 3) {
+      if (!store.quest_state.chapterZero) {
         const legacyProgress = shouldBypassChapterZero(store.quest_state.questStatus || {});
         store.quest_state.chapterZero = createChapterZeroSession(legacyProgress);
+      } else {
+        store.quest_state.chapterZero = migrateChapterZeroSession(store.quest_state.chapterZero);
       }
       if (!store.level_state) store.level_state = { ...INITIAL_LEVEL_STATE };
 

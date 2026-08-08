@@ -18,24 +18,36 @@ type Stage =
   | 'direct_commands'
   | 'code_editor'
   | 'complete'
-  | 'edge_select'
-  | 'pickaxe_equip'
-  | 'deploy_confirm'
-  | 'deploy_execute'
-  | 'deploy_verified'
+  | 'hello_preview'
+  | 'hello_deploy_open'
+  | 'hello_deploy_confirm'
+  | 'hello_deploy_execute'
+  | 'hello_log'
+  | 'miner_preview'
+  | 'miner_deploy_open'
+  | 'miner_edge_select'
+  | 'miner_pickaxe_equip'
+  | 'miner_deploy_confirm'
+  | 'miner_deploy_execute'
   | 'handoff';
 
 const DEPLOY_STAGES: Stage[] = [
-  'edge_select',
-  'pickaxe_equip',
-  'deploy_confirm',
-  'deploy_execute',
-  'deploy_verified',
+  'hello_preview',
+  'hello_deploy_open',
+  'hello_deploy_confirm',
+  'hello_deploy_execute',
+  'hello_log',
+  'miner_preview',
+  'miner_deploy_open',
+  'miner_edge_select',
+  'miner_pickaxe_equip',
+  'miner_deploy_confirm',
+  'miner_deploy_execute',
   'handoff',
 ];
 
 type TutorialState = {
-  version: 3;
+  version: 4;
   stage: Stage;
   step: number;
   expected: string | null;
@@ -49,7 +61,8 @@ type TutorialState = {
       grantedItems: boolean;
       selectedEdgeId: string | null;
       selectedPickaxeType: string | null;
-      workerId: string | null;
+      helloWorkerId: string | null;
+      minerWorkerId: string | null;
     };
   };
 };
@@ -127,7 +140,7 @@ export function ChapterZeroRepl() {
   );
 
   const skipChapterZero = useCallback(async () => {
-    // Skip to edge_select; DeployTutorialGuide's setupGate handles
+    // Skip to hello_preview; DeployTutorialGuide's setupGate handles
     // opening q_setup when code server isn't yet connected.
     try {
       const response = await axios.post('/api/tutorial/chapter-zero/stage', { action: 'skip' });
@@ -163,7 +176,7 @@ export function ChapterZeroRepl() {
   // Keep the tutorial guide, but let the real map remain fully visible.
   if (state && (DEPLOY_STAGES as Stage[]).includes(state.stage)) {
     if (state.stage === 'handoff' && dismissed) return null;
-    return <DeployTutorialGuide stage={state.stage as any} onDismiss={() => setDismissed(true)} />;
+    return <DeployTutorialGuide session={state as any} stage={state.stage as any} onDismiss={() => setDismissed(true)} />;
   }
 
   if (loadState.status === 'failed') {
@@ -514,7 +527,7 @@ function Shell({
     // Once dialogue is fully consumed for the ack sequences, auto-advance.
     if (state.stage === 'choice_intro' && state.step >= 1) fadeToStage('direct_commands');
     else if (state.stage === 'direct_commands' && state.step >= 2) fadeToStage('code_editor');
-    else if (state.stage === 'complete') fadeToStage('edge_select');
+    else if (state.stage === 'complete') fadeToStage('hello_preview');
   };
 
   const fadeToStage = (stage: Stage) => {
@@ -699,7 +712,7 @@ function Shell({
                   className="chapter0-continue-btn"
                   onClick={e => {
                     e.stopPropagation();
-                    fadeToStage('edge_select');
+                    fadeToStage('hello_preview');
                   }}
                 >
                   {t('tutorial.chapter_zero.deploy.continue_to_deploy')}

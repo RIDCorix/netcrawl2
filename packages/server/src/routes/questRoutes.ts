@@ -42,11 +42,17 @@ const VALID_STAGES: ChapterZeroStage[] = [
   'direct_commands',
   'code_editor',
   'complete',
-  'edge_select',
-  'pickaxe_equip',
-  'deploy_confirm',
-  'deploy_execute',
-  'deploy_verified',
+  'hello_preview',
+  'hello_deploy_open',
+  'hello_deploy_confirm',
+  'hello_deploy_execute',
+  'hello_log',
+  'miner_preview',
+  'miner_deploy_open',
+  'miner_edge_select',
+  'miner_pickaxe_equip',
+  'miner_deploy_confirm',
+  'miner_deploy_execute',
   'handoff',
 ];
 
@@ -75,6 +81,7 @@ questRoutes.post('/tutorial/chapter-zero/stage', (req: Request, res: Response) =
 
   if (action === 'grant-deploy-items') {
     const result = grantChapterZeroDeployItems(uid);
+    if (!result.ok) return res.status(400).json(result);
     broadcastFullState(uid);
     return res.json(result);
   }
@@ -82,12 +89,16 @@ questRoutes.post('/tutorial/chapter-zero/stage', (req: Request, res: Response) =
   if (action === 'set-deploy-edge') {
     const edgeId = req.body?.edgeId ? String(req.body.edgeId) : null;
     const result = setChapterZeroDeploySelection('selectedEdgeId', edgeId, uid);
+    if (!result.ok) return res.status(400).json(result);
+    broadcastFullState(uid);
     return res.json(result);
   }
 
   if (action === 'set-deploy-pickaxe') {
     const pickaxeType = req.body?.pickaxeType ? String(req.body.pickaxeType) : null;
     const result = setChapterZeroDeploySelection('selectedPickaxeType', pickaxeType, uid);
+    if (!result.ok) return res.status(400).json(result);
+    broadcastFullState(uid);
     return res.json(result);
   }
 

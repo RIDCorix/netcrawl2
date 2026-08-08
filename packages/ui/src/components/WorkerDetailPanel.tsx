@@ -10,17 +10,34 @@ import { getWorkerIcon } from '../constants/workerIcons';
 import { getStatusConfig } from '../constants/status';
 import { useT } from '../hooks/useT';
 
+type TutorialDescriptor = {
+  active: true;
+  phase: 'hello' | 'miner';
+  stage: string;
+} | null;
+
 export function WorkerDetailPanel() {
   const { selectedWorkerId, selectWorker, workers, nodes, workerLogs, setWorkerLogs } = useGameStore();
   const t = useT();
   const tn = (label: string) => { const k = `n.${label}`; const v = t(k); return v === k ? label : v; };
   const [busy, setBusy] = useState(false);
   const [logDialogOpen, setLogDialogOpen] = useState(false);
+  const [tutorial, setTutorial] = useState<TutorialDescriptor>(null);
 
   const worker = workers.find(w => w.id === selectedWorkerId);
   const workerNode = worker ? nodes.find(n => n.id === worker.current_node) : null;
   const status = worker ? getStatusConfig(worker.status) : getStatusConfig('idle');
   const classColor = worker ? (CLASS_COLORS[worker.class_name] || '#a78bfa') : '#a78bfa';
+  const helloLogLocked = tutorial?.stage === 'hello_log';
+
+  useEffect(() => {
+    const onTutorialMode = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      setTutorial(detail?.active ? detail : null);
+    };
+    window.addEventListener('chapter-zero-deploy-mode', onTutorialMode);
+    return () => window.removeEventListener('chapter-zero-deploy-mode', onTutorialMode);
+  }, []);
 
   // Logs come from the store — pushed via WebSocket WORKER_LOG messages.
   // We only hit /logs ONCE per worker selection to backfill history, then rely on WS.
@@ -93,6 +110,7 @@ export function WorkerDetailPanel() {
             flexDirection: 'column',
             gap: 14,
           }}
+          data-tutorial-worker-panel={helloLogLocked ? 'hello-log' : undefined}
         >
           {/* Accent bar */}
           <div style={{
@@ -113,7 +131,8 @@ export function WorkerDetailPanel() {
               </div>
             </div>
             <button
-              onClick={() => selectWorker(null)}
+              onClick={() => !helloLogLocked && selectWorker(null)}
+              disabled={helloLogLocked}
               style={{
                 color: 'var(--text-muted)', background: 'var(--bg-elevated)',
                 border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
@@ -296,7 +315,7 @@ export function WorkerDetailPanel() {
               background: 'var(--bg-primary)', border: '1px solid var(--border)',
               borderRadius: 'var(--radius-sm)', padding: 10,
               maxHeight: 120, overflowY: 'auto', minHeight: 40,
-            }}>
+            }} data-tutorial-worker-log={helloLogLocked ? 'true' : undefined}>
               {logs.length === 0 ? (
                 <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{t('ui.no_logs')}</div>
               ) : logs.slice(-20).slice().reverse().map((log, i) => (
@@ -374,7 +393,7 @@ export function WorkerDetailPanel() {
           })()}
 
           {/* Actions */}
-          <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
+          <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }} data-tutorial-locked={helloLogLocked ? 'true' : undefined}>
             {worker.status === 'running' && (
               <button onClick={handleSuspend} disabled={busy} style={{
                 flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -466,7 +485,7 @@ export function WorkerDetailPanel() {
             </button>
           </div>
           {/* Log content */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }} data-tutorial-worker-log={helloLogLocked ? 'true' : undefined}>
             {logs.length === 0 ? (
               <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{t('ui.no_logs')}</div>
             ) : logs.slice().reverse().map((log, i) => (

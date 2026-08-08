@@ -21,18 +21,38 @@ const RAM_CAPACITY_MULT = 50;
 const DIALOG_FOCUSABLE_SELECTOR =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])';
 
+export type TutorialDeployStage =
+  | 'hello_preview'
+  | 'hello_deploy_open'
+  | 'hello_deploy_confirm'
+  | 'hello_deploy_execute'
+  | 'hello_log'
+  | 'miner_preview'
+  | 'miner_deploy_open'
+  | 'miner_edge_select'
+  | 'miner_pickaxe_equip'
+  | 'miner_deploy_confirm'
+  | 'miner_deploy_execute'
+  | 'handoff';
+
+export type TutorialDeployDescriptor = {
+  active: true;
+  phase: 'hello' | 'miner';
+  stage: TutorialDeployStage;
+};
+
 // ── Deploy Dialog ───────────────────────────────────────────────────────────
 
 export function DeployDialog({
   nodeId,
   nodeName,
   onClose,
-  tutorialMode = false,
+  tutorial,
 }: {
   nodeId: string;
   nodeName: string;
   onClose: () => void;
-  tutorialMode?: boolean;
+  tutorial?: TutorialDeployDescriptor;
 }) {
   const {
     workers,
@@ -45,7 +65,12 @@ export function DeployDialog({
     workerClasses: storeWorkerClasses,
   } = useGameStore();
   const t = useT();
+  const tutorialMode = !!tutorial;
+  const expectedTutorialClass = tutorial?.phase === 'hello' ? 'helloworker' : 'tutorial_miner';
   const workerClasses = storeWorkerClasses as WorkerClassEntry[];
+  const tutorialWorkerClasses = tutorialMode
+    ? workerClasses.filter(c => c.class_id === expectedTutorialClass)
+    : workerClasses;
   const dialogRef = useRef<HTMLDivElement>(null);
   const routePickerRef = useRef<HTMLDivElement>(null);
   const selectingRouteRef = useRef<string | null>(null);
@@ -70,7 +95,7 @@ export function DeployDialog({
   const [selectingRoute, setSelectingRoute] = useState<string | null>(null);
 
   // ── Derived ────────────────────────────────────────────────────────────────
-  const selectedClassEntry = workerClasses.find(c => c.class_id === selectedClass);
+  const selectedClassEntry = tutorialWorkerClasses.find(c => c.class_id === selectedClass);
 
   const classItemSlots = selectedClassEntry
     ? Object.entries(selectedClassEntry.fields)
@@ -86,7 +111,7 @@ export function DeployDialog({
   const hasRoutes = routeSlots.length > 0;
   const steps: { label: string; key: string }[] = [{ label: 'Class', key: 'class' }];
   if (hasRoutes) steps.push({ label: 'Routes', key: 'routes' });
-  steps.push({ label: 'Equipment', key: 'equipment' });
+  if (classItemSlots.length > 0) steps.push({ label: 'Equipment', key: 'equipment' });
   steps.push({ label: 'Deploy', key: 'deploy' });
   const currentStepKey = steps[step]?.key || 'class';
   const isLastStep = step === steps.length - 1;
@@ -122,14 +147,14 @@ export function DeployDialog({
 
   // ── Effects ────────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!selectedClass && workerClasses.length > 0) setSelectedClass(workerClasses[0].class_id);
-  }, [workerClasses, selectedClass]);
+    if (!selectedClass && tutorialWorkerClasses.length > 0) setSelectedClass(tutorialWorkerClasses[0].class_id);
+  }, [selectedClass, tutorialWorkerClasses]);
 
   useEffect(() => {
-    if (tutorialMode && workerClasses.some(c => c.class_id === 'helloworker')) {
-      setSelectedClass('helloworker');
+    if (tutorialMode && workerClasses.some(c => c.class_id === expectedTutorialClass)) {
+      setSelectedClass(expectedTutorialClass);
     }
-  }, [tutorialMode, workerClasses]);
+  }, [expectedTutorialClass, tutorialMode, workerClasses]);
 
   useEffect(() => {
     setEquippedPerUnit([{}]);
@@ -288,7 +313,9 @@ export function DeployDialog({
     }
 
     try {
-      if (tutorialMode) await advanceTutorial('deploy_execute');
+      if (tutorialMode && tutorial?.stage !== (tutorial.phase === 'hello' ? 'hello_deploy_execute' : 'miner_deploy_execute')) {
+        await advanceTutorial(tutorial.phase === 'hello' ? 'hello_deploy_execute' : 'miner_deploy_execute');
+      }
       const ids: string[] = [];
       for (let i = 0; i < unitCount; i++) {
         const body: any = { nodeId, classId: selectedClass };
@@ -329,25 +356,26 @@ export function DeployDialog({
     if (advancing || !canGoNext()) return;
     setAdvancing(true);
     try {
-      if (tutorialMode && currentStepKey === 'class' && selectedClass === 'helloworker') {
-        // HelloWorker has no route field. Keep the server-owned tutorial
-        // machine monotonic while letting the real wizard advance to its
-        // normal Equipment step.
-        await axios.post('/api/tutorial/chapter-zero/stage', {
-          action: 'set-deploy-edge',
-          edgeId: '__hello_worker__',
-        });
-        await advanceTutorial('pickaxe_equip');
+      if (tutorialMode && currentStepKey === 'class' && tutorial?.phase === 'hello') {
+        // HelloWorker has no route or item slots. It goes directly from the
+        // class checkpoint to the deploy confirmation checkpoint.
+        await advanceTutorial('hello_deploy_confirm');
+      } else if (tutorialMode && currentStepKey === 'class' && tutorial?.phase === 'miner') {
+        await advanceTutorial('miner_edge_select');
       } else if (tutorialMode && currentStepKey === 'routes') {
-        await advanceTutorial('pickaxe_equip');
+        await advanceTutorial('miner_pickaxe_equip');
       } else if (tutorialMode && currentStepKey === 'equipment') {
-        const pickaxeType = Object.values(equippedPerUnit[0] || {})[0] || '__no_equipment__';
+        const pickaxeType = Object.values(equippedPerUnit[0] || {})[0] || null;
+        if (tutorial?.phase === 'miner' && pickaxeType !== 'pickaxe_basic') {
+          setMessage(t('tutorial.chapter_zero.deploy.error_missing'));
+          return;
+        }
         const selection = await axios.post('/api/tutorial/chapter-zero/stage', {
           action: 'set-deploy-pickaxe',
           pickaxeType,
         });
         publishTutorialSession(selection.data);
-        await advanceTutorial('deploy_confirm');
+        await advanceTutorial('miner_deploy_confirm');
       }
       setStep(s => s + 1);
     } catch (err: any) {
@@ -384,11 +412,19 @@ export function DeployDialog({
   };
 
   const handleClose = useCallback(() => {
+    if (tutorialMode) return;
     setEdgeSelectMode(null);
     onClose();
-  }, [onClose, setEdgeSelectMode]);
+  }, [onClose, setEdgeSelectMode, tutorialMode]);
 
   const handleDialogKeyDown = useCallback((event: KeyboardEvent) => {
+    if (tutorialMode) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      return;
+    }
     if (selectingRouteRef.current && event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
@@ -433,7 +469,7 @@ export function DeployDialog({
       event.preventDefault();
       first.focus();
     }
-  }, [cancelRouteSelect, handleClose]);
+  }, [cancelRouteSelect, handleClose, tutorialMode]);
 
   useEffect(() => {
     document.addEventListener('keydown', handleDialogKeyDown, true);
@@ -491,6 +527,7 @@ export function DeployDialog({
         aria-modal="true"
         aria-label={routeSlot?.fieldType === 'route' ? `Build route: ${routeSlot?.name}` : `Select an edge: ${routeSlot?.name}`}
         tabIndex={-1}
+        data-tutorial-dialog={tutorialMode ? 'true' : undefined}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -599,7 +636,7 @@ export function DeployDialog({
             Done
           </button>
         )}
-        <button
+        {!tutorialMode && <button
           autoFocus={(routeSlot?.fieldType === 'edge' ? compatibleEdges : compatibleNodes).length === 0}
           onClick={cancelRouteSelect}
           style={{
@@ -615,7 +652,7 @@ export function DeployDialog({
           }}
         >
           {t('common.cancel')}
-        </button>
+        </button>}
       </motion.div>
     );
   }
@@ -638,6 +675,7 @@ export function DeployDialog({
         padding: 16,
         boxSizing: 'border-box',
       }}
+      data-tutorial-dialog={tutorialMode ? 'true' : undefined}
       onClick={handleClose}
     >
       <motion.div
@@ -695,6 +733,7 @@ export function DeployDialog({
           </div>
           <button
             onClick={handleClose}
+            disabled={tutorialMode}
             style={{
               color: 'var(--text-muted)',
               background: 'var(--bg-elevated)',
@@ -727,7 +766,7 @@ export function DeployDialog({
           >
             {t('ui.loading')}
           </div>
-        ) : workerClasses.length === 0 ? (
+        ) : tutorialMode && tutorialWorkerClasses.length === 0 ? (
           <div
             style={{
               fontSize: 12,
@@ -750,7 +789,7 @@ export function DeployDialog({
             >
               {currentStepKey === 'class' && (
                 <ClassStep
-                  workerClasses={workerClasses}
+                  workerClasses={tutorialWorkerClasses}
                   selectedClass={selectedClass}
                   setSelectedClass={setSelectedClass}
                   selectedClassEntry={selectedClassEntry}
@@ -758,7 +797,7 @@ export function DeployDialog({
                   routeSlots={routeSlots}
                   playerInventory={playerInventory}
                   unitCount={unitCount}
-                  setUnitCount={setUnitCount}
+                  setUnitCount={tutorialMode ? () => {} : setUnitCount}
                   setEquippedPerUnit={setEquippedPerUnit}
                   setCpuPerUnit={setCpuPerUnit}
                   setRamPerUnit={setRamPerUnit}
@@ -836,7 +875,7 @@ export function DeployDialog({
                   {t('ui.back')}
                 </button>
               )}
-              {step === 0 && (
+              {step === 0 && !tutorialMode && (
                 <button
                   onClick={handleClose}
                   style={{

@@ -15,6 +15,17 @@ export function reduceChapterZeroLoad<T>(
 
 // Stages where the immersive full-screen overlay is NOT shown (deploy guide or done).
 const CHAPTER_ZERO_NON_BLOCKING_STAGES = new Set([
+  'hello_preview',
+  'hello_deploy_open',
+  'hello_deploy_confirm',
+  'hello_deploy_execute',
+  'hello_log',
+  'miner_preview',
+  'miner_deploy_open',
+  'miner_edge_select',
+  'miner_pickaxe_equip',
+  'miner_deploy_confirm',
+  'miner_deploy_execute',
   'edge_select',
   'pickaxe_equip',
   'deploy_confirm',

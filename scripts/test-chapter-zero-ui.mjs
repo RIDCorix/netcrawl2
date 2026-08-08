@@ -6,8 +6,14 @@ const repl = readFileSync('packages/ui/src/components/ChapterZeroRepl.tsx', 'utf
 const styles = readFileSync('packages/ui/src/styles.css', 'utf8');
 const nodeWrapper = readFileSync('packages/ui/src/components/graph/NodeWrapper.tsx', 'utf8');
 const deployDialog = readFileSync('packages/ui/src/components/DeployDialog.tsx', 'utf8');
+const deployGuide = readFileSync('packages/ui/src/components/chapter0/DeployTutorialGuide.tsx', 'utf8');
+const app = readFileSync('packages/ui/src/App.tsx', 'utf8');
+const nodePanel = readFileSync('packages/ui/src/components/NodeDetailPanel.tsx', 'utf8');
+const workerPanel = readFileSync('packages/ui/src/components/WorkerDetailPanel.tsx', 'utf8');
 const tutorialOverlay = readFileSync('packages/ui/src/components/TutorialOverlay.tsx', 'utf8');
 const zhTW = readFileSync('packages/ui/src/i18n/zh-TW.ts', 'utf8');
+const en = readFileSync('packages/ui/src/i18n/en.ts', 'utf8');
+const ja = readFileSync('packages/ui/src/i18n/ja.ts', 'utf8');
 
 assert.equal(
   (editor.match(/className="chapter0-editor-document"/g) ?? []).length,
@@ -61,6 +67,32 @@ assert.match(
   'map nodes must expose a stable tutorial target marker',
 );
 assert.match(repl, /DeployTutorialGuide/, 'the tutorial guide must remain visible');
+for (const stage of [
+  'hello_preview', 'hello_deploy_open', 'hello_deploy_confirm', 'hello_deploy_execute', 'hello_log',
+  'miner_preview', 'miner_deploy_open', 'miner_edge_select', 'miner_pickaxe_equip',
+  'miner_deploy_confirm', 'miner_deploy_execute',
+]) {
+  assert.match(repl, new RegExp(`'${stage}'`), `${stage} must be part of the v4 client stage order`);
+}
+assert.match(deployGuide, /helloworker\.py/, 'HelloWorker code preview must show its canonical filename');
+assert.match(deployGuide, /tutorial_miner/, 'TutorialMiner code preview must show its canonical class id');
+assert.match(deployGuide, /hello_log/, 'guide must own the HelloWorker log checkpoint');
+assert.match(deployGuide, /helloWorkerId/, 'guide must target the verified HelloWorker');
+assert.doesNotMatch(deployDialog, /__hello_worker__|__no_equipment__/, 'tutorial deployment must not use sentinel values');
+assert.match(deployDialog, /data-tutorial-dialog/, 'tutorial dialog must expose an allowlisted surface');
+assert.match(deployDialog, /tutorial\?: TutorialDeployDescriptor/, 'tutorial dialog must use an explicit descriptor');
+assert.doesNotMatch(deployDialog, /tutorialMode\?: boolean/, 'tutorial mode must not be a boolean contract');
+assert.match(app, /ChapterZeroInteractionGuard/, 'application shell must install the tutorial interaction guard');
+assert.match(app, /stopImmediatePropagation/, 'interaction guard must block unrelated state mutations');
+assert.match(app, /focusin/, 'interaction guard must retain focus within the allowed surface');
+assert.match(nodePanel, /data-tutorial-target=\{chapterZeroDeploy \? 'deploy'/, 'Hub deploy must be a stable tutorial target');
+assert.match(nodePanel, /!chapterZeroDeploy\.setupGate/, 'Hub deploy must stay locked during code-server setup');
+assert.match(workerPanel, /data-tutorial-worker-log/, 'HelloWorker logs must be a stable tutorial target');
+for (const locale of [en, zhTW, ja]) {
+  assert.match(locale, /tutorial\.chapter_zero\.deploy\.hello_preview_title/, 'all locales need the Hello preview copy');
+  assert.match(locale, /tutorial\.chapter_zero\.deploy\.miner_preview_title/, 'all locales need the miner preview copy');
+  assert.match(locale, /tutorial\.chapter_zero\.deploy\.continue_to_miner/, 'all locales need the log checkpoint CTA');
+}
 assert.doesNotMatch(styles, /chapter0-deploy-blocker|chapter0-target-hub/, 'the dimming guide styles must be removed');
 assert.match(
   readFileSync('packages/ui/src/components/graph/nodes/HubNode.tsx', 'utf8'),

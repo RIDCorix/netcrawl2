@@ -48,6 +48,74 @@ const _savedSettings = (() => {
 })();
 document.documentElement.setAttribute('data-theme', _savedSettings.theme || 'deep-space');
 
+type TutorialGuardState = {
+  active: true;
+  phase: 'hello' | 'miner';
+  stage: string;
+  setupGate?: boolean;
+} | null;
+
+/** Keep tutorial state mutations inside the current stage allowlist. */
+function ChapterZeroInteractionGuard() {
+  const [tutorial, setTutorial] = useState<TutorialGuardState>(null);
+
+  useEffect(() => {
+    const onMode = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      setTutorial(detail?.active ? detail : null);
+    };
+    window.addEventListener('chapter-zero-deploy-mode', onMode);
+    return () => window.removeEventListener('chapter-zero-deploy-mode', onMode);
+  }, []);
+
+  useEffect(() => {
+    if (!tutorial) {
+      delete document.documentElement.dataset.chapterZeroTutorial;
+      return;
+    }
+
+    document.documentElement.dataset.chapterZeroTutorial = tutorial.stage;
+    const isAllowed = (target: EventTarget | null): boolean => {
+      if (!(target instanceof Element)) return false;
+      if (target.closest('[data-tutorial-surface], [data-tutorial-dialog], [data-tutorial-allowed]')) return true;
+      if (tutorial.setupGate && target.closest('[data-tutorial-setup], [data-quest-guide], [data-tutorial="quests-btn"]')) return true;
+      if (target.closest('[data-tutorial-target="hub"], [data-tutorial="hub-node"], [data-tutorial-target="deploy"]')) {
+        return !tutorial.setupGate && (tutorial.stage === 'hello_preview' || tutorial.stage === 'miner_preview');
+      }
+      if (tutorial.stage === 'miner_edge_select' && target.closest('.edge-selectable')) return true;
+      if (tutorial.stage === 'hello_log' && target.closest('[data-tutorial-worker-log]')) return true;
+      return false;
+    };
+    const blockOutside = (event: Event) => {
+      if (isAllowed(event.target)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    };
+    const containFocus = (event: FocusEvent) => {
+      if (isAllowed(event.target)) return;
+      const next = document.querySelector<HTMLElement>(
+        '[data-tutorial-dialog] [data-deploy-initial-focus], [data-tutorial-dialog], [data-tutorial-surface] button:not([disabled]), [data-tutorial-surface]',
+      );
+      next?.focus();
+    };
+
+    document.addEventListener('pointerdown', blockOutside, true);
+    document.addEventListener('click', blockOutside, true);
+    document.addEventListener('keydown', blockOutside, true);
+    document.addEventListener('focusin', containFocus, true);
+    return () => {
+      document.removeEventListener('pointerdown', blockOutside, true);
+      document.removeEventListener('click', blockOutside, true);
+      document.removeEventListener('keydown', blockOutside, true);
+      document.removeEventListener('focusin', containFocus, true);
+      delete document.documentElement.dataset.chapterZeroTutorial;
+    };
+  }, [tutorial]);
+
+  return null;
+}
+
 function GameView() {
   useGameState();
   useAudioInit();
@@ -123,6 +191,7 @@ function GameView() {
         position: 'relative',
       }}
     >
+      <ChapterZeroInteractionGuard />
       <div
         style={{
           position: 'absolute',

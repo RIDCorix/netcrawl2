@@ -22,6 +22,22 @@ import { broadcast } from './websocket.js';
 import { QUESTS, QuestDef, QuestObjective } from './questDefinitions.js';
 import { CHIP_DEFS } from './upgradeDefinitions.js';
 
+const SETUP_READY_STAGES = new Set([
+  'complete',
+  'hello_preview',
+  'hello_deploy_open',
+  'hello_deploy_confirm',
+  'hello_deploy_execute',
+  'hello_log',
+  'miner_preview',
+  'miner_deploy_open',
+  'miner_edge_select',
+  'miner_pickaxe_equip',
+  'miner_deploy_confirm',
+  'miner_deploy_execute',
+  'handoff',
+]);
+
 // ── Objective evaluation ────────────────────────────────────────────────────
 
 export function evaluateObjective(
@@ -52,7 +68,7 @@ export function evaluateObjective(
 /** Initialize quests that have no status yet. First quest starts as 'available'. */
 function ensureQuestInit(userId?: string) {
   const chapterZeroStage = getQuestState(userId).chapterZero?.stage;
-  const setupReady = chapterZeroStage === 'complete' || chapterZeroStage === 'edge_select' || chapterZeroStage === 'pickaxe_equip' || chapterZeroStage === 'deploy_confirm' || chapterZeroStage === 'deploy_execute' || chapterZeroStage === 'deploy_verified' || chapterZeroStage === 'handoff';
+  const setupReady = SETUP_READY_STAGES.has(chapterZeroStage || '');
   for (const q of QUESTS) {
     if (!getQuestStatus(q.id, userId)) {
       if (q.prerequisites.length === 0 && (q.id !== 'q_setup' || setupReady)) {
@@ -71,7 +87,7 @@ function checkAvailability(userId?: string): QuestDef[] {
     if (getQuestStatus(q.id, userId) !== 'locked') continue;
     if (q.id === 'q_setup') {
       const stage = getQuestState(userId).chapterZero?.stage;
-      const setupReady = stage === 'complete' || stage === 'edge_select' || stage === 'pickaxe_equip' || stage === 'deploy_confirm' || stage === 'deploy_execute' || stage === 'deploy_verified' || stage === 'handoff';
+      const setupReady = SETUP_READY_STAGES.has(stage || '');
       if (!setupReady) continue;
     }
     const allPreqsClaimed = q.prerequisites.every(pid => getQuestStatus(pid, userId) === 'claimed');

@@ -121,6 +121,7 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
         justifyContent: 'center',
       }}
       data-quest-guide="true"
+      data-tutorial-setup={quest.id === 'q_setup' ? 'true' : undefined}
       onClick={onClose}
     >
       <motion.div

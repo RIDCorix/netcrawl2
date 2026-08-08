@@ -1388,6 +1388,71 @@ body::after {
   font-family: var(--font-mono, monospace);
 }
 
+/* The application-level guard owns interaction; this marker keeps locked
+   context visible while communicating the reduced surface to assistive tech. */
+[data-chapter-zero-tutorial] [data-tutorial-locked="true"] {
+  pointer-events: none;
+}
+
+.chapter0-deploy-guide-phase {
+  margin-bottom: 8px;
+  color: var(--accent, #00d4aa);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.chapter0-deploy-code-preview {
+  margin: 12px 0 16px;
+  padding: 12px;
+  border: 1px solid var(--border-bright, #334);
+  border-radius: var(--radius-sm, 4px);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.chapter0-deploy-code-preview-title,
+.chapter0-deploy-log-title {
+  color: var(--accent, #00d4aa);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.chapter0-deploy-code-file,
+.chapter0-deploy-log-worker {
+  margin: 8px 0 5px;
+  color: var(--text-muted, #888);
+  font-size: 0.68rem;
+}
+
+.chapter0-deploy-code-preview pre {
+  max-height: 190px;
+  margin: 0;
+  overflow: auto;
+  color: #c8fff3;
+  font: 0.68rem/1.55 var(--font-mono, monospace);
+  white-space: pre;
+}
+
+.chapter0-deploy-log-checkpoint {
+  margin: 12px 0 16px;
+  padding: 12px;
+  border: 1px solid var(--accent, #00d4aa);
+  border-radius: var(--radius-sm, 4px);
+  background: rgba(0, 212, 170, 0.07);
+}
+
+.chapter0-deploy-log-list {
+  max-height: 120px;
+  margin: 8px 0 12px;
+  padding: 8px;
+  overflow: auto;
+  border: 1px solid var(--border, #333);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-secondary, #aaa);
+  font: 0.68rem/1.5 var(--font-mono, monospace);
+}
+
 .chapter0-deploy-guide-title {
   font-size: 1rem;
   font-weight: 800;

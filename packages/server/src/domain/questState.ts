@@ -11,13 +11,24 @@ import {
   expectedCommand,
   migrateChapterZeroSession,
   runChapterZeroSandbox,
+  initialDeployState,
   setDeployTutorialField,
   shouldBypassChapterZero,
   type ChapterZeroStage,
 } from './chapterZero.js';
 import { addToPlayerInventory } from './inventory.js';
+import { getWorker, getWorkerLogs } from './workers.js';
 import { registerWorkerClass } from '../workerRegistry.js';
 import { TUTORIAL_MINER_CLASS } from '../tutorialWorkerClass.js';
+
+const MINER_STAGE_SET = new Set<ChapterZeroStage>([
+  'miner_preview',
+  'miner_deploy_open',
+  'miner_edge_select',
+  'miner_pickaxe_equip',
+  'miner_deploy_confirm',
+  'miner_deploy_execute',
+]);
 
 export function getQuestState(userId?: string): QuestState {
   return resolveStore(userId).quest_state;
@@ -62,7 +73,7 @@ export function getUnlockedRecipes(userId?: string): string[] {
 
 export function getChapterZero(userId?: string) {
   const state = resolveStore(userId).quest_state;
-  if (!state.chapterZero || state.chapterZero.version !== 3) {
+  if (!state.chapterZero) {
     const legacyProgress = shouldBypassChapterZero(state.questStatus || {});
     state.chapterZero = createChapterZeroSession(legacyProgress);
   } else {
@@ -82,25 +93,34 @@ export function submitChapterZeroCommand(command: string, userId?: string) {
 export function advanceChapterZeroStageTo(stage: ChapterZeroStage, userId?: string) {
   const state = resolveStore(userId).quest_state;
   getChapterZero(userId);
+
+  if (stage === 'miner_preview' && state.chapterZero?.stage === 'hello_log') {
+    const helloWorkerId = state.chapterZero.world.deployTutorial.helloWorkerId;
+    if (!helloWorkerId || getWorkerLogs(helloWorkerId, userId).length === 0) {
+      return {
+        ok: false as const,
+        error: 'hello_log_pending' as const,
+        ...getChapterZero(userId),
+      };
+    }
+  }
+
   const result = advanceChapterZeroStage(state.chapterZero!, stage);
-  if (result.ok) state.chapterZero = result.session;
+  if (result.ok) {
+    state.chapterZero = result.session;
+    if (stage === 'miner_preview') {
+      grantChapterZeroDeployItems(userId);
+    }
+  }
   return { ...result, ...getChapterZero(userId) };
 }
 
 export function skipChapterZeroToHandoff(userId?: string) {
   const state = resolveStore(userId).quest_state;
   getChapterZero(userId);
-  // Skip narrative + coding tutorial; land at edge_select so the deploy
-  // tutorial (and codespace setup gate) still runs normally.
-  state.chapterZero!.stage = 'edge_select';
-  if (!state.chapterZero!.world.deployTutorial) {
-    state.chapterZero!.world.deployTutorial = {
-      grantedItems: false,
-      selectedEdgeId: null,
-      selectedPickaxeType: null,
-      workerId: null,
-    };
-  }
+  // Skip narrative + coding tutorial, but keep both deployment phases gated.
+  state.chapterZero!.stage = 'hello_preview';
+  state.chapterZero!.world.deployTutorial = initialDeployState();
   state.chapterZero!.step = 0;
   state.chapterZero!.transition = null;
   return { ok: true as const, ...getChapterZero(userId) };
@@ -119,11 +139,15 @@ export function grantChapterZeroDeployItems(userId?: string) {
   const state = resolveStore(userId).quest_state;
   getChapterZero(userId);
   const session = state.chapterZero!;
-  if (session.world.deployTutorial?.grantedItems) {
-    return { ok: true, alreadyGranted: true };
+  if (!MINER_STAGE_SET.has(session.stage)) {
+    return { ok: false as const, error: 'out_of_order' as const, ...getChapterZero(userId) };
   }
 
-  // Grant a pickaxe if the player doesn't have one
+  const alreadyGranted = session.world.deployTutorial.grantedItems;
+
+  // Grant a pickaxe if the player doesn't have one. Both this and class
+  // registration are intentionally idempotent so refresh/retry cannot duplicate
+  // tutorial assets.
   const store = resolveStore(userId);
   const hasPickaxe = store.game_state.playerInventory.some(
     i => i.itemType === 'pickaxe_basic' && i.count > 0,
@@ -137,7 +161,7 @@ export function grantChapterZeroDeployItems(userId?: string) {
 
   // Mark items as granted
   state.chapterZero = setDeployTutorialField(session, 'grantedItems', true);
-  return { ok: true, alreadyGranted: false, ...getChapterZero(userId) };
+  return { ok: true as const, alreadyGranted, ...getChapterZero(userId) };
 }
 
 /** Set selected edge or pickaxe in the deploy tutorial world state. */
@@ -148,31 +172,87 @@ export function setChapterZeroDeploySelection(
 ) {
   const state = resolveStore(userId).quest_state;
   getChapterZero(userId);
-  state.chapterZero = setDeployTutorialField(state.chapterZero!, field, value);
+  const session = state.chapterZero!;
+  const expectedStage = field === 'selectedEdgeId' ? 'miner_edge_select' : 'miner_pickaxe_equip';
+  if (session.stage !== expectedStage) {
+    return { ok: false as const, error: 'out_of_order' as const, ...getChapterZero(userId) };
+  }
+  if (field === 'selectedEdgeId' && (!value || value.startsWith('__'))) {
+    return { ok: false as const, error: 'invalid_selection' as const, ...getChapterZero(userId) };
+  }
+  if (field === 'selectedPickaxeType' && value !== 'pickaxe_basic') {
+    return { ok: false as const, error: 'invalid_selection' as const, ...getChapterZero(userId) };
+  }
+  state.chapterZero = setDeployTutorialField(session, field, value);
   return { ok: true, ...getChapterZero(userId) };
 }
 
-/** Record the deploy workerId and advance to deploy_verified stage. */
+/** Verify the phase-specific worker and advance to the next authoritative checkpoint. */
 export function verifyChapterZeroDeploy(workerId: string, userId?: string) {
   const state = resolveStore(userId).quest_state;
   getChapterZero(userId);
   const session = state.chapterZero!;
 
-  if (session.stage !== 'deploy_execute') {
+  const isHello = session.stage === 'hello_deploy_execute';
+  const isMiner = session.stage === 'miner_deploy_execute';
+  if (!isHello && !isMiner) {
     return { ok: false as const, error: 'out_of_order' as const };
   }
 
-  // Verify the worker exists in the store
-  const store = resolveStore(userId);
-  if (!store.workers[workerId]) {
+  const worker = getWorker(workerId, userId);
+  if (!worker) {
     return { ok: false as const, error: 'worker_not_found' as const };
   }
 
-  // Set workerId, then advance to deploy_verified, then to handoff
-  let s = setDeployTutorialField(session, 'workerId', workerId);
-  s.stage = 'deploy_verified';
+  const expectedClassId = isHello ? 'helloworker' : 'tutorial_miner';
+  const expectedClassName = isHello ? 'HelloWorker' : 'TutorialMiner';
+  const deployConfig = worker.deployConfig;
+  if (
+    worker.class_name !== expectedClassName ||
+    (deployConfig && deployConfig.classId !== expectedClassId)
+  ) {
+    return { ok: false as const, error: 'invalid_worker_class' as const };
+  }
 
-  // Auto-advance to handoff immediately
+  const equippedItems = deployConfig?.equippedItems || {};
+  const injectedFields = deployConfig?.injectedFields || {};
+  const hasInjectedRoute = Object.entries(injectedFields).some(
+    ([key, value]) => !key.startsWith('__') && (key === 'route' || key === 'edge' || Array.isArray(value)),
+  );
+
+  if (isHello) {
+    if (worker.equippedPickaxe || Object.keys(equippedItems).length > 0 || hasInjectedRoute) {
+      return { ok: false as const, error: 'invalid_prerequisites' as const };
+    }
+    if (session.world.deployTutorial.helloWorkerId) {
+      return { ok: false as const, error: 'duplicate_worker' as const };
+    }
+    const s = setDeployTutorialField(session, 'helloWorkerId', workerId);
+    s.stage = 'hello_log';
+    s.transition = 'hello_worker_deployed';
+    state.chapterZero = s;
+    return { ok: true as const, ...getChapterZero(userId) };
+  }
+
+  const selectedEdgeId = session.world.deployTutorial.selectedEdgeId;
+  const selectedPickaxeType = session.world.deployTutorial.selectedPickaxeType;
+  const configuredRoute = injectedFields.route ?? injectedFields.edge;
+  const routeMatches = Array.isArray(configuredRoute)
+    ? configuredRoute.includes(selectedEdgeId)
+    : configuredRoute === selectedEdgeId;
+  if (
+    !selectedEdgeId ||
+    selectedPickaxeType !== 'pickaxe_basic' ||
+    worker.equippedPickaxe?.itemType !== 'pickaxe_basic' ||
+    !routeMatches
+  ) {
+    return { ok: false as const, error: 'invalid_prerequisites' as const };
+  }
+  if (session.world.deployTutorial.minerWorkerId) {
+    return { ok: false as const, error: 'duplicate_worker' as const };
+  }
+
+  const s = setDeployTutorialField(session, 'minerWorkerId', workerId);
   s.stage = 'handoff';
   s.transition = 'chapter_zero_handoff';
   state.chapterZero = s;

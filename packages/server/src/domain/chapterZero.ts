@@ -8,11 +8,17 @@ export type ChapterZeroStage =
   | 'direct_commands'
   | 'code_editor'
   | 'complete'
-  | 'edge_select'
-  | 'pickaxe_equip'
-  | 'deploy_confirm'
-  | 'deploy_execute'
-  | 'deploy_verified'
+  | 'hello_preview'
+  | 'hello_deploy_open'
+  | 'hello_deploy_confirm'
+  | 'hello_deploy_execute'
+  | 'hello_log'
+  | 'miner_preview'
+  | 'miner_deploy_open'
+  | 'miner_edge_select'
+  | 'miner_pickaxe_equip'
+  | 'miner_deploy_confirm'
+  | 'miner_deploy_execute'
   | 'handoff';
 
 const STAGE_ORDER: ChapterZeroStage[] = [
@@ -22,11 +28,17 @@ const STAGE_ORDER: ChapterZeroStage[] = [
   'direct_commands',
   'code_editor',
   'complete',
-  'edge_select',
-  'pickaxe_equip',
-  'deploy_confirm',
-  'deploy_execute',
-  'deploy_verified',
+  'hello_preview',
+  'hello_deploy_open',
+  'hello_deploy_confirm',
+  'hello_deploy_execute',
+  'hello_log',
+  'miner_preview',
+  'miner_deploy_open',
+  'miner_edge_select',
+  'miner_pickaxe_equip',
+  'miner_deploy_confirm',
+  'miner_deploy_execute',
   'handoff',
 ];
 
@@ -34,7 +46,8 @@ export interface ChapterZeroDeployState {
   grantedItems: boolean;
   selectedEdgeId: string | null;
   selectedPickaxeType: string | null;
-  workerId: string | null;
+  helloWorkerId: string | null;
+  minerWorkerId: string | null;
 }
 
 export interface ChapterZeroWorld {
@@ -45,7 +58,7 @@ export interface ChapterZeroWorld {
 }
 
 export interface ChapterZeroSession {
-  version: 3;
+  version: 4;
   stage: ChapterZeroStage;
   step: number;
   world: ChapterZeroWorld;
@@ -60,13 +73,19 @@ export const LOOP_MINE_DROPS: Item[] = [{ type: 'data_fragment', count: 10 }];
 
 export const TUTORIAL_WORKER_CLASS_ID = 'tutorial_miner';
 
-function initialDeployState(): ChapterZeroDeployState {
-  return { grantedItems: false, selectedEdgeId: null, selectedPickaxeType: null, workerId: null };
+export function initialDeployState(): ChapterZeroDeployState {
+  return {
+    grantedItems: false,
+    selectedEdgeId: null,
+    selectedPickaxeType: null,
+    helloWorkerId: null,
+    minerWorkerId: null,
+  };
 }
 
 export function createChapterZeroSession(completed = false): ChapterZeroSession {
   return {
-    version: 3,
+    version: 4,
     stage: completed ? 'handoff' : 'cold_open',
     step: 0,
     world: {
@@ -80,19 +99,73 @@ export function createChapterZeroSession(completed = false): ChapterZeroSession 
   };
 }
 
-export function migrateChapterZeroSession(session: ChapterZeroSession): ChapterZeroSession {
-  if (!session.world.deployTutorial) {
-    const s = structuredClone(session);
-    s.world.deployTutorial = initialDeployState();
-    // Legacy saves at 'complete' without deployment done → skip to 'handoff' so gate opens
-    if (s.stage === 'complete') {
-      s.stage = 'handoff';
-      s.world.deployTutorial.grantedItems = true;
-      s.world.deployTutorial.workerId = 'legacy';
-    }
-    return s;
+const NARRATIVE_STAGES = new Set<ChapterZeroStage>([
+  'cold_open',
+  'voice_arrival',
+  'choice_intro',
+  'direct_commands',
+  'code_editor',
+  'complete',
+]);
+
+const LEGACY_DEPLOY_STAGES = new Set([
+  'edge_select',
+  'pickaxe_equip',
+  'deploy_confirm',
+  'deploy_execute',
+  'deploy_verified',
+]);
+
+/** Migrate persisted v3 saves without reopening or prematurely completing the gate. */
+export function migrateChapterZeroSession(session: unknown): ChapterZeroSession {
+  const raw = structuredClone(session || {}) as any;
+  const isV4Stage = raw.version === 4 && STAGE_ORDER.includes(raw.stage);
+  if (isV4Stage) {
+    const migrated = structuredClone(raw) as ChapterZeroSession;
+    migrated.world = migrated.world || {};
+    migrated.world.deployTutorial = {
+      ...initialDeployState(),
+      ...(migrated.world.deployTutorial || {}),
+    };
+    delete (migrated.world.deployTutorial as any).workerId;
+    return migrated;
   }
-  return session;
+
+  const migrated = createChapterZeroSession(false);
+  const legacyStage = String(raw.stage || 'cold_open');
+  const legacyWorld = raw.world || {};
+  migrated.step = Number.isFinite(raw.step) ? raw.step : 0;
+  migrated.transition = raw.transition || null;
+  migrated.transcript = Array.isArray(raw.transcript) ? raw.transcript : [];
+  migrated.world = {
+    ...migrated.world,
+    ...legacyWorld,
+    worker: { ...migrated.world.worker, ...(legacyWorld.worker || {}) },
+    mine: { ...migrated.world.mine, ...(legacyWorld.mine || {}) },
+    resources: { ...migrated.world.resources, ...(legacyWorld.resources || {}) },
+    deployTutorial: initialDeployState(),
+  };
+
+  if (legacyStage === 'handoff') {
+    // A v3 handoff is already complete. Keep it complete and normalize the
+    // deployment state without inventing a worker id.
+    migrated.stage = 'handoff';
+    migrated.world.deployTutorial.grantedItems = true;
+  } else if (NARRATIVE_STAGES.has(legacyStage as ChapterZeroStage) && legacyStage !== 'complete') {
+    migrated.stage = legacyStage as ChapterZeroStage;
+  } else if (legacyStage === 'complete' || LEGACY_DEPLOY_STAGES.has(legacyStage)) {
+    // The old deployment tail mixed HelloWorker and miner prerequisites. Restart
+    // only that tail at the safe Hello preview while preserving narrative work.
+    migrated.stage = 'hello_preview';
+    migrated.step = 0;
+    migrated.transition = null;
+  } else {
+    migrated.stage = 'cold_open';
+    migrated.step = 0;
+    migrated.transition = null;
+  }
+
+  return migrated;
 }
 
 export function shouldBypassChapterZero(
@@ -102,7 +175,7 @@ export function shouldBypassChapterZero(
 }
 
 export function isChapterZeroGateOpen(session: ChapterZeroSession | undefined): boolean {
-  if (!session || session.version !== 3) return false;
+  if (!session || session.version !== 4) return false;
   return session.stage === 'handoff';
 }
 
@@ -197,20 +270,32 @@ export function advanceChapterZeroStage(current: ChapterZeroSession, to: Chapter
     }
   }
 
-  if (to === 'pickaxe_equip') {
+  if (to === 'hello_log') {
+    if (current.stage !== 'hello_deploy_execute' || !current.world.deployTutorial?.helloWorkerId) {
+      return { ok: false, error: 'out_of_order', session: structuredClone(current) };
+    }
+  }
+
+  if (to === 'miner_preview') {
+    if (current.stage !== 'hello_log' || !current.world.deployTutorial?.helloWorkerId) {
+      return { ok: false, error: 'out_of_order', session: structuredClone(current) };
+    }
+  }
+
+  if (to === 'miner_pickaxe_equip') {
     if (!current.world.deployTutorial?.selectedEdgeId) {
       return { ok: false, error: 'out_of_order', session: structuredClone(current) };
     }
   }
 
-  if (to === 'deploy_confirm') {
-    if (!current.world.deployTutorial?.selectedPickaxeType) {
+  if (to === 'miner_deploy_confirm') {
+    if (current.world.deployTutorial?.selectedPickaxeType !== 'pickaxe_basic') {
       return { ok: false, error: 'out_of_order', session: structuredClone(current) };
     }
   }
 
-  if (to === 'deploy_verified') {
-    if (!current.world.deployTutorial?.workerId) {
+  if (to === 'handoff') {
+    if (current.stage !== 'miner_deploy_execute' || !current.world.deployTutorial?.minerWorkerId) {
       return { ok: false, error: 'out_of_order', session: structuredClone(current) };
     }
   }
@@ -218,9 +303,6 @@ export function advanceChapterZeroStage(current: ChapterZeroSession, to: Chapter
   const session = structuredClone(current);
   if (to === 'direct_commands') {
     session.world.mine.drops = mergeItemStacks(session.world.mine.drops, INITIAL_MINE_DROPS);
-  }
-  if (to === 'edge_select' && !session.world.deployTutorial) {
-    session.world.deployTutorial = initialDeployState();
   }
   session.stage = to;
   session.step = 0;
@@ -231,7 +313,7 @@ export function advanceChapterZeroStage(current: ChapterZeroSession, to: Chapter
 /** Set a deploy tutorial field (edge or pickaxe) without stage change. */
 export function setDeployTutorialField(
   current: ChapterZeroSession,
-  field: 'selectedEdgeId' | 'selectedPickaxeType' | 'workerId' | 'grantedItems',
+  field: 'selectedEdgeId' | 'selectedPickaxeType' | 'helloWorkerId' | 'minerWorkerId' | 'grantedItems',
   value: string | boolean | null,
 ): ChapterZeroSession {
   const session = structuredClone(current);

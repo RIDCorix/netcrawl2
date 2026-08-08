@@ -13,6 +13,22 @@ import { ResourceNodeInfo, ComputeNodeInfo, CacheNodeInfo, ApiNodeInfo, GroundIt
 
 import { SectionLabel, Divider } from './ui/primitives';
 
+type TutorialStage =
+  | 'hello_preview'
+  | 'hello_deploy_open'
+  | 'hello_deploy_confirm'
+  | 'hello_deploy_execute'
+  | 'hello_log'
+  | 'miner_preview'
+  | 'miner_deploy_open'
+  | 'miner_edge_select'
+  | 'miner_pickaxe_equip'
+  | 'miner_deploy_confirm'
+  | 'miner_deploy_execute'
+  | 'handoff';
+
+type TutorialDescriptor = { active: true; phase: 'hello' | 'miner'; stage: TutorialStage; setupGate?: boolean } | null;
+
 const NODE_TYPE_ICONS: Record<string, any> = {
   hub: Shield,
   resource: Database,
@@ -28,13 +44,18 @@ const NODE_TYPE_ICONS: Record<string, any> = {
 export function NodeDetailPanel() {
   const { selectedNodeId, nodes, edges, resources, selectNode } = useGameStore();
   const [deployOpen, setDeployOpen] = useState(false);
-  const [chapterZeroDeploy, setChapterZeroDeploy] = useState(false);
+  const [chapterZeroDeploy, setChapterZeroDeploy] = useState<TutorialDescriptor>(null);
+  const [openingDeploy, setOpeningDeploy] = useState(false);
+  const [tutorialActionError, setTutorialActionError] = useState('');
   const [activeDialog, setActiveDialog] = useState<NodeDialogConfig | null>(null);
   const t = useT();
   const tn = (label: string) => { const k = `n.${label}`; const v = t(k); return v === k ? label : v; };
 
   useEffect(() => {
-    const onTutorialMode = (event: Event) => setChapterZeroDeploy(Boolean((event as CustomEvent).detail));
+    const onTutorialMode = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      setChapterZeroDeploy(detail?.active ? detail : null);
+    };
     window.addEventListener('chapter-zero-deploy-mode', onTutorialMode);
     return () => window.removeEventListener('chapter-zero-deploy-mode', onTutorialMode);
   }, []);
@@ -90,7 +111,33 @@ if (n.type === 'cache') return '#a78bfa';
     return 'var(--text-muted)';
   };
 
-  const canDeploy = node && (node.id === 'hub' || node.data.unlocked) && !node.data.infected;
+  const tutorialLocked = !!chapterZeroDeploy;
+  const canDeploy =
+    node &&
+    (node.id === 'hub' || node.data.unlocked) &&
+    !node.data.infected &&
+    (!chapterZeroDeploy || (node.id === 'hub' && !chapterZeroDeploy.setupGate));
+
+  const handleDeployOpen = async () => {
+    if (!chapterZeroDeploy || !['hello_preview', 'miner_preview'].includes(chapterZeroDeploy.stage)) {
+      setTutorialActionError('');
+      setDeployOpen(true);
+      return;
+    }
+    if (openingDeploy) return;
+    setTutorialActionError('');
+    setOpeningDeploy(true);
+    try {
+      const to = chapterZeroDeploy.phase === 'hello' ? 'hello_deploy_open' : 'miner_deploy_open';
+      const response = await axios.post('/api/tutorial/chapter-zero/stage', { action: 'advance', to });
+      window.dispatchEvent(new CustomEvent('chapter-zero-deploy-session', { detail: response.data }));
+      setDeployOpen(true);
+    } catch {
+      setTutorialActionError(t('tutorial.chapter_zero.deploy.error_open_dialog'));
+    } finally {
+      setOpeningDeploy(false);
+    }
+  };
 
   return (
     <>
@@ -119,6 +166,8 @@ if (n.type === 'cache') return '#a78bfa';
               flexDirection: 'column',
               gap: 14,
             }}
+            data-tutorial-panel="node"
+            data-tutorial-locked={tutorialLocked ? 'true' : undefined}
           >
             {/* Accent bar at top */}
             <div style={{
@@ -167,7 +216,8 @@ if (n.type === 'cache') return '#a78bfa';
                 </div>
               </div>
               <button
-                onClick={() => selectNode(null)}
+                onClick={() => !tutorialLocked && selectNode(null)}
+                disabled={tutorialLocked}
                 style={{
                   color: 'var(--text-muted)', background: 'var(--bg-elevated)',
                   border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
@@ -333,7 +383,7 @@ if (n.type === 'cache') return '#a78bfa';
                 </>
               )}
 
-              {msg && <StatusMessage msg={msg} />}
+              {(msg || tutorialActionError) && <StatusMessage msg={msg || tutorialActionError} />}
             </div>
 
             {/* Upgrade + Chip section (unlocked nodes only) */}
@@ -347,7 +397,9 @@ if (n.type === 'cache') return '#a78bfa';
                 <Divider />
                 <ActionButton
                   className={chapterZeroDeploy && node.id === 'hub' ? 'chapter0-deploy-target' : undefined}
-                  onClick={() => setDeployOpen(true)}
+                  onClick={handleDeployOpen}
+                  disabled={openingDeploy}
+                  data-tutorial-target={chapterZeroDeploy ? 'deploy' : undefined}
                 >
                   <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                     <Upload size={12} />
@@ -382,7 +434,7 @@ if (n.type === 'cache') return '#a78bfa';
             nodeId={node.id}
             nodeName={tn(node.data.label)}
             onClose={() => setDeployOpen(false)}
-            tutorialMode={chapterZeroDeploy && node.id === 'hub'}
+            tutorial={chapterZeroDeploy && node.id === 'hub' ? chapterZeroDeploy : undefined}
           />
         )}
       </AnimatePresence>

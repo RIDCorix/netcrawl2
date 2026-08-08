@@ -272,6 +272,7 @@ export function ActiveQuestsPanel() {
                       >
                         <button
                           onClick={() => !justClaimed && setSelectedQuest(q)}
+                          data-tutorial-setup={q.id === 'q_setup' ? 'true' : undefined}
                           style={{
                             flex: 1,
                             minWidth: 0,

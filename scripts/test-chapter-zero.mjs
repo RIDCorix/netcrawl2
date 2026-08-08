@@ -18,12 +18,18 @@ assert.equal(shouldBypassChapterZero({ q_setup: 'available' }), false, 'availabi
 assert.equal(shouldBypassChapterZero({ q_setup: 'claimed' }), true, 'claimed legacy saves bypass onboarding');
 assert.equal(shouldBypassChapterZero({ q_setup: 'completed' }), true, 'completed legacy saves bypass onboarding');
 assert.equal(session.stage, 'cold_open');
-assert.equal(session.version, 3);
+assert.equal(session.version, 4);
 assert.deepEqual(session.world, {
   worker: { nodeId: 'hub', holding: [], equippedPickaxe: 'pickaxe_basic', lastLog: null },
   mine: { drops: [] },
   resources: { data: 0 },
-  deployTutorial: { grantedItems: false, selectedEdgeId: null, selectedPickaxeType: null, workerId: null },
+  deployTutorial: {
+    grantedItems: false,
+    selectedEdgeId: null,
+    selectedPickaxeType: null,
+    helloWorkerId: null,
+    minerWorkerId: null,
+  },
 });
 assert.equal(expectedCommand(session), null, 'no command expected during cold_open');
 
@@ -112,59 +118,80 @@ assert.equal(winRun.session.world.resources.data, 13);
 assert.equal(winRun.session.stage, 'complete');
 assert.equal(isChapterZeroGateOpen(winRun.session), false, 'gate must stay closed at complete — deploy tutorial required');
 
-// Advance through deploy tutorial stages
+// Advance through the two-phase deploy tutorial stages.
 let deploySession = winRun.session;
 
-// complete → edge_select
-const esResult = advanceChapterZeroStage(deploySession, 'edge_select');
-assert.equal(esResult.ok, true);
-deploySession = esResult.session;
-assert.equal(deploySession.stage, 'edge_select');
+// complete → HelloWorker preview → open → confirm → execute
+const helloPreview = advanceChapterZeroStage(deploySession, 'hello_preview');
+assert.equal(helloPreview.ok, true);
+deploySession = helloPreview.session;
+assert.equal(deploySession.stage, 'hello_preview');
 
-// Cannot advance to pickaxe_equip without an edge selected
-const earlyPickaxe = advanceChapterZeroStage(deploySession, 'pickaxe_equip');
-assert.equal(earlyPickaxe.ok, false, 'must select edge before pickaxe_equip');
+const helloOpen = advanceChapterZeroStage(deploySession, 'hello_deploy_open');
+assert.equal(helloOpen.ok, true);
+deploySession = helloOpen.session;
+const helloConfirm = advanceChapterZeroStage(deploySession, 'hello_deploy_confirm');
+assert.equal(helloConfirm.ok, true);
+deploySession = helloConfirm.session;
+const helloExecute = advanceChapterZeroStage(deploySession, 'hello_deploy_execute');
+assert.equal(helloExecute.ok, true);
+deploySession = helloExecute.session;
+
+// HelloWorker has no route or equipment prerequisites.
+deploySession = setDeployTutorialField(deploySession, 'helloWorkerId', 'hello_worker_123');
+const helloLog = advanceChapterZeroStage(deploySession, 'hello_log');
+assert.equal(helloLog.ok, true);
+deploySession = helloLog.session;
+assert.equal(deploySession.stage, 'hello_log');
+
+// The miner phase starts only after the Hello log checkpoint.
+const minerPreview = advanceChapterZeroStage(deploySession, 'miner_preview');
+assert.equal(minerPreview.ok, true);
+deploySession = minerPreview.session;
+assert.equal(deploySession.stage, 'miner_preview');
+
+const minerOpen = advanceChapterZeroStage(deploySession, 'miner_deploy_open');
+assert.equal(minerOpen.ok, true);
+deploySession = minerOpen.session;
+const edgeSelect = advanceChapterZeroStage(deploySession, 'miner_edge_select');
+assert.equal(edgeSelect.ok, true);
+deploySession = edgeSelect.session;
+
+// Cannot advance to pickaxe_equip without a real edge selected.
+const earlyPickaxe = advanceChapterZeroStage(deploySession, 'miner_pickaxe_equip');
+assert.equal(earlyPickaxe.ok, false, 'must select edge before miner_pickaxe_equip');
 assert.equal(earlyPickaxe.error, 'out_of_order');
 
-// Set the edge, then advance
+// Set the edge, then advance to pickaxe_equip.
 deploySession = setDeployTutorialField(deploySession, 'selectedEdgeId', 'e1');
-const peResult = advanceChapterZeroStage(deploySession, 'pickaxe_equip');
-assert.equal(peResult.ok, true);
-deploySession = peResult.session;
-assert.equal(deploySession.stage, 'pickaxe_equip');
+const pickaxeEquip = advanceChapterZeroStage(deploySession, 'miner_pickaxe_equip');
+assert.equal(pickaxeEquip.ok, true);
+deploySession = pickaxeEquip.session;
+assert.equal(deploySession.stage, 'miner_pickaxe_equip');
 
-// Cannot advance to deploy_confirm without a pickaxe selected
-const earlyConfirm = advanceChapterZeroStage(deploySession, 'deploy_confirm');
-assert.equal(earlyConfirm.ok, false, 'must select pickaxe before deploy_confirm');
+// Cannot advance to deploy_confirm without the basic pickaxe.
+const earlyConfirm = advanceChapterZeroStage(deploySession, 'miner_deploy_confirm');
+assert.equal(earlyConfirm.ok, false, 'must select pickaxe before miner_deploy_confirm');
+assert.equal(earlyConfirm.error, 'out_of_order');
 
-// Set the pickaxe, then advance
 deploySession = setDeployTutorialField(deploySession, 'selectedPickaxeType', 'pickaxe_basic');
-const dcResult = advanceChapterZeroStage(deploySession, 'deploy_confirm');
-assert.equal(dcResult.ok, true);
-deploySession = dcResult.session;
+const minerConfirm = advanceChapterZeroStage(deploySession, 'miner_deploy_confirm');
+assert.equal(minerConfirm.ok, true);
+deploySession = minerConfirm.session;
+const minerExecute = advanceChapterZeroStage(deploySession, 'miner_deploy_execute');
+assert.equal(minerExecute.ok, true);
+deploySession = minerExecute.session;
 
-// deploy_confirm → deploy_execute
-const dxResult = advanceChapterZeroStage(deploySession, 'deploy_execute');
-assert.equal(dxResult.ok, true);
-deploySession = dxResult.session;
-
-// Cannot advance to deploy_verified without a workerId
-const earlyVerified = advanceChapterZeroStage(deploySession, 'deploy_verified');
-assert.equal(earlyVerified.ok, false, 'must have workerId before deploy_verified');
-
-// Set workerId, then advance to deploy_verified
-deploySession = setDeployTutorialField(deploySession, 'workerId', 'worker_test_123');
-const dvResult = advanceChapterZeroStage(deploySession, 'deploy_verified');
-assert.equal(dvResult.ok, true);
-deploySession = dvResult.session;
-
-// deploy_verified → handoff
-const hoResult = advanceChapterZeroStage(deploySession, 'handoff');
-assert.equal(hoResult.ok, true);
-deploySession = hoResult.session;
+// Handoff is gated until the server records the verified miner worker.
+const earlyHandoff = advanceChapterZeroStage(deploySession, 'handoff');
+assert.equal(earlyHandoff.ok, false, 'must verify the miner before handoff');
+deploySession = setDeployTutorialField(deploySession, 'minerWorkerId', 'miner_worker_123');
+const handoff = advanceChapterZeroStage(deploySession, 'handoff');
+assert.equal(handoff.ok, true);
+deploySession = handoff.session;
 assert.equal(deploySession.stage, 'handoff');
 
-// Gate is now open at handoff
+// Gate is now open at handoff.
 assert.equal(isChapterZeroGateOpen(deploySession), true, 'gate must open at handoff');
 
 // Isolation — a different user's session was never touched.
@@ -174,10 +201,21 @@ assert.deepEqual(otherUserSession, createChapterZeroSession(), 'another user ses
 const serialized = JSON.parse(JSON.stringify(deploySession));
 assert.equal(isChapterZeroGateOpen(serialized), true);
 
-// Migration: legacy save at 'complete' without deployTutorial → migrates to 'handoff'
-const legacySession = { version: 3, stage: 'complete', step: 0, world: { worker: { nodeId: 'hub', holding: [], equippedPickaxe: 'pickaxe_basic', lastLog: null }, mine: { drops: [] }, resources: { data: 13 } }, transition: null, transcript: [] };
-const migrated = migrateChapterZeroSession(legacySession);
-assert.equal(migrated.stage, 'handoff', 'legacy complete saves must migrate to handoff');
-assert.equal(isChapterZeroGateOpen(migrated), true, 'migrated legacy saves must have gate open');
+// v3 migration: handoff remains complete, while complete and partial deploy
+// saves restart only the mixed deployment tail at HelloWorker preview.
+const legacyWorld = {
+  worker: { nodeId: 'hub', holding: [], equippedPickaxe: 'pickaxe_basic', lastLog: null },
+  mine: { drops: [] },
+  resources: { data: 13 },
+};
+const legacyComplete = migrateChapterZeroSession({ version: 3, stage: 'complete', step: 0, world: legacyWorld, transition: null, transcript: [] });
+assert.equal(legacyComplete.version, 4);
+assert.equal(legacyComplete.stage, 'hello_preview', 'legacy complete saves must restart the deployment tail');
+assert.equal(isChapterZeroGateOpen(legacyComplete), false);
+const legacyPartial = migrateChapterZeroSession({ version: 3, stage: 'deploy_execute', step: 0, world: legacyWorld, transition: null, transcript: [] });
+assert.equal(legacyPartial.stage, 'hello_preview');
+const legacyHandoff = migrateChapterZeroSession({ version: 3, stage: 'handoff', step: 0, world: legacyWorld, transition: null, transcript: [] });
+assert.equal(legacyHandoff.stage, 'handoff', 'legacy handoff saves must remain complete');
+assert.equal(isChapterZeroGateOpen(legacyHandoff), true);
 
-console.log('Chapter Zero v3 stage/command/sandbox/deploy transitions passed');
+console.log('Chapter Zero v4 stage/migration/deploy transitions passed');
