@@ -1566,46 +1566,73 @@ body::after {
 }
 
 .codespace-skeleton {
-  margin: 0 0 16px;
+  margin: 0 0 18px;
   color: #d6deeb;
   font-family: var(--font-mono, monospace);
-  font-size: 10px;
+  font-size: 9px;
 }
 
 .codespace-skeleton-window {
   overflow: hidden;
-  border: 1px solid #3a4658;
-  border-radius: 7px;
-  background: #1b2330;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+  border: 1px solid #3b4656;
+  border-radius: 6px;
+  background: #151b25;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .28);
 }
 
 .codespace-skeleton-titlebar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 9px;
-  background: #252f3f;
+  gap: 8px;
+  height: 25px;
+  padding: 0 8px;
+  background: #202733;
   color: #91a0b5;
-  font-size: 9px;
+  font-size: 8px;
 }
 
-.codespace-skeleton-dots { color: #718096; letter-spacing: 2px; }
-.codespace-skeleton-create { padding: 18px; background: #f6f8fa; color: #24292f; }
-.codespace-skeleton-brand { font-size: 14px; font-weight: 700; }
-.codespace-skeleton-repository { margin: 12px 0; color: #57606a; }
-.codespace-skeleton-actions { display: flex; gap: 8px; }
-.codespace-skeleton-button { border: 1px solid #8c959f; border-radius: 5px; padding: 7px 11px; background: #fff; color: #24292f; font: inherit; }
-.codespace-skeleton-editor-layout { display: grid; grid-template-columns: 35% 65%; min-height: 132px; }
-.codespace-skeleton-sidebar { display: flex; flex-direction: column; gap: 9px; padding: 12px 10px; background: #202938; color: #9eacc0; }
-.codespace-skeleton-sidebar b { color: #d6deeb; font-size: 9px; }
-.codespace-skeleton-editor-pane { display: flex; flex-direction: column; background: #151c27; }
-.codespace-skeleton-code { margin: 0; padding: 16px 12px; overflow: auto; background: #151c27; color: #b6c3d5; line-height: 1.8; }
-.codespace-skeleton-code-line { flex: 1; padding: 16px 12px; color: #b6c3d5; }
-.codespace-skeleton-terminal { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-top: 1px solid #3a4658; background: #0e141d; color: #a9b7c9; }
-.codespace-skeleton-highlight { position: relative; display: inline-block; border: 1px solid #00d4aa; border-radius: 4px; padding: 5px 7px; background: rgba(0, 212, 170, 0.14); color: #a8ffe9; box-shadow: 0 0 0 2px rgba(0, 212, 170, 0.12); }
-.codespace-skeleton-muted { color: #68778c; }
-.codespace-skeleton-target-label { padding: 5px 2px; color: #00d4aa; font-size: 10px; font-weight: 700; }
+.codespace-skeleton-dots { color: #738096; letter-spacing: 2px; font-size: 7px; }
+.codespace-skeleton-window-title { flex: 1; text-align: center; }
+.codespace-skeleton-window-actions { color: #718096; letter-spacing: 3px; }
+.codespace-skeleton-ide { position: relative; display: grid; grid-template-columns: 24px 150px 1fr; min-height: 210px; padding-bottom: 16px; background: #171d27; }
+.codespace-skeleton-activity { display: flex; flex-direction: column; align-items: center; gap: 14px; padding-top: 12px; background: #202733; color: #8290a4; font-size: 13px; }
+.codespace-skeleton-activity-active { color: #e4eaf2; }
+.codespace-skeleton-sidebar { display: flex; flex-direction: column; gap: 7px; padding: 12px 9px; border-right: 1px solid #2e3948; background: #202733; color: #9caabd; }
+.codespace-skeleton-sidebar-title { display: flex; justify-content: space-between; color: #d4dce8; font-size: 8px; font-weight: 700; }
+.codespace-skeleton-tree-root { margin-top: 8px; color: #d4dce8; font-size: 8px; }
+.codespace-skeleton-tree-indent { padding-left: 9px; }
+.codespace-skeleton-tree-file { padding-left: 18px; }
+.codespace-skeleton-file-active { margin-left: -9px; padding-top: 4px; padding-bottom: 4px; border-left: 2px solid #00d4aa; background: rgba(0, 212, 170, .12); color: #e9f1fa; }
+.codespace-skeleton-workbench { display: flex; min-width: 0; flex-direction: column; }
+.codespace-skeleton-tabs { display: flex; align-items: center; gap: 8px; height: 27px; padding: 0 10px; border-bottom: 1px solid #2e3948; background: #202733; color: #8190a4; }
+.codespace-skeleton-tab-active { height: 27px; padding: 8px 10px 0; border-top: 1px solid #00d4aa; background: #171d27; color: #dfe8f2; }
+.codespace-skeleton-tab-muted { opacity: .65; }
+.codespace-skeleton-editor-pane { flex: 1; padding: 13px 10px; background: #171d27; color: #c1ccda; line-height: 1.9; }
+.codespace-skeleton-code-line { white-space: nowrap; }
+.codespace-skeleton-line-number { display: inline-block; width: 20px; margin-right: 10px; color: #68778c; text-align: right; }
+.codespace-skeleton-panel { min-height: 66px; border-top: 1px solid #3b4656; background: #111720; }
+.codespace-skeleton-panel-tabs { display: flex; align-items: center; gap: 13px; height: 24px; padding: 0 10px; color: #78879b; font-size: 8px; }
+.codespace-skeleton-panel-tab-active { height: 24px; padding-top: 7px; border-bottom: 1px solid #00d4aa; color: #e1e9f2; }
+.codespace-skeleton-panel-close { margin-left: auto; font-size: 13px; }
+.codespace-skeleton-terminal { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 10px; color: #c1cedd; }
+.codespace-skeleton-terminal-path { color: #78899d; }
+.codespace-skeleton-terminal-caret { color: #00d4aa; }
+.codespace-skeleton-statusbar { position: absolute; right: 0; bottom: 0; left: 24px; display: flex; justify-content: flex-end; gap: 14px; height: 16px; padding: 4px 8px 0; background: #006b61; color: #d8fff8; font-size: 7px; }
+.codespace-skeleton-highlight { position: relative; display: block; border: 1px solid #00d4aa; border-radius: 3px; padding: 3px 5px; background: rgba(0, 212, 170, .13); color: #b5fff0; box-shadow: 0 0 0 2px rgba(0, 212, 170, .13); }
+.codespace-skeleton-github { min-height: 208px; background: #f6f8fa; color: #24292f; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.codespace-skeleton-github-nav { display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 12px; background: #24292f; color: #fff; font-size: 8px; }
+.codespace-skeleton-github-mark { font-size: 12px; }
+.codespace-skeleton-search { margin-left: auto; padding: 4px 8px; border: 1px solid #57606a; border-radius: 4px; color: #8b949e; }
+.codespace-skeleton-breadcrumb { padding: 12px 18px 8px; color: #57606a; font-size: 8px; }
+.codespace-skeleton-create-body { width: min(480px, 90%); margin: 0 auto; }
+.codespace-skeleton-create-title { font-size: 17px; font-weight: 600; }
+.codespace-skeleton-create-subtitle { margin: 4px 0 10px; color: #57606a; font-size: 9px; }
+.codespace-skeleton-create-card { padding: 12px 14px; border: 1px solid #d0d7de; border-radius: 6px; background: #fff; box-shadow: 0 1px 2px rgba(27, 31, 36, .08); }
+.codespace-skeleton-create-card-title { margin-bottom: 4px; color: #57606a; font-size: 8px; font-weight: 600; }
+.codespace-skeleton-repo-select { display: flex; justify-content: space-between; margin-bottom: 9px; padding: 6px 8px; border: 1px solid #d0d7de; border-radius: 4px; background: #f6f8fa; font-size: 9px; }
+.codespace-skeleton-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 4px; }
+.codespace-skeleton-button { border: 1px solid #8c959f; border-radius: 5px; padding: 6px 10px; background: #fff; color: #24292f; font: inherit; }
+.codespace-skeleton-target-label { padding: 6px 2px; color: #00d4aa; font-size: 10px; font-weight: 700; }
 
 @media (prefers-reduced-motion: reduce) {
   .chapter0-deploy-guide-btn,
