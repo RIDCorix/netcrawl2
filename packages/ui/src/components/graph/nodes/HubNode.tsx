@@ -57,6 +57,7 @@ export function HubNode({ id, data, selected }: any) {
       animation: 'hub-pulse 3s ease-in-out infinite',
       padding: '14px 20px',
       borderRadius: 'var(--radius-lg)',
+      border: '2px solid var(--accent)',
     }}>
       {flashColor && (
         <motion.div

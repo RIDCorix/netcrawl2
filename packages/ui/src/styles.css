@@ -1340,38 +1340,7 @@ body::after {
   pointer-events: none;
 }
 
-/* During the first map action, only the highlighted Hub is clickable. */
-.chapter0-deploy-blocker {
-  position: fixed;
-  inset: 0;
-  z-index: 90;
-  pointer-events: none;
-  background: rgba(0, 0, 0, 0.58);
-}
-
-/* React Flow's renderer is its own stacking context. Lift that context above
-   the dimmer first; the Hub node then rises above the lifted map layer. */
-.chapter0-target-hub .react-flow__renderer {
-  position: relative;
-  z-index: 91 !important;
-}
-
-.chapter0-target-hub .react-flow__node[data-id='hub'] {
-  /* React Flow owns this node's absolute positioning. Changing it to
-     relative makes the node stretch across the renderer's available width. */
-  position: absolute !important;
-  z-index: 92 !important;
-  filter: brightness(1.35);
-  animation: chapter0-deploy-pulse 1.4s ease-in-out infinite;
-}
-
-.chapter0-target-hub .react-flow__node[data-id='hub'] [data-tutorial='hub-node'] {
-  outline: 3px solid var(--accent);
-  outline-offset: 8px;
-  border-radius: 12px;
-}
-
-/* The guide points at the real Hub deploy action; it does not replace it. */
+/* Retained for other tutorial pulse call sites. */
 .chapter0-deploy-target {
   position: relative;
   animation: chapter0-deploy-pulse 1.6s ease-in-out infinite;

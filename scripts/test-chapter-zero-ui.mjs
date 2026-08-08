@@ -58,25 +58,12 @@ assert.match(
   /data-tutorial-target=\{nodeId\}/,
   'map nodes must expose a stable tutorial target marker',
 );
+assert.doesNotMatch(repl, /DeployTutorialGuide/, 'the dimming deploy guide component must be removed');
+assert.doesNotMatch(styles, /chapter0-deploy-blocker|chapter0-target-hub/, 'the dimming guide styles must be removed');
 assert.match(
-  styles,
-  /\.chapter0-target-hub \.react-flow__node\[data-id='hub'\]/,
-  'deploy tutorial must style the Hub map node',
-);
-assert.match(
-  styles,
-  /\.chapter0-target-hub \.react-flow__node\[data-id='hub'\][^}]*position:\s*absolute\s*!important/s,
-  'deploy tutorial must preserve React Flow node positioning',
-);
-assert.match(
-  styles,
-  /\.chapter0-target-hub \.react-flow__node\[data-id='hub'\]\s+\[data-tutorial='hub-node'\]/,
-  'deploy tutorial highlight must follow the compact Hub content',
-);
-assert.match(
-  styles,
-  /\.chapter0-target-hub \.react-flow__renderer\s*\{[^}]*z-index:\s*91/s,
-  'deploy tutorial must lift the React Flow renderer above the dimmer',
+  readFileSync('packages/ui/src/components/graph/nodes/HubNode.tsx', 'utf8'),
+  /border:\s*['"]2px solid var\(--accent\)['"]/,
+  'the Hub node must retain a slightly larger accent border',
 );
 const deployCopy = zhTW.slice(
   zhTW.indexOf("'tutorial.chapter_zero.deploy.hub_prompt'"),

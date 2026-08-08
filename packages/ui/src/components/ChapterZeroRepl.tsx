@@ -7,7 +7,6 @@ import { ChapterZeroParticles } from './chapter0/ChapterZeroParticles';
 import { ChapterZeroGraph } from './chapter0/ChapterZeroGraph';
 import { ChapterZeroCodeEditor } from './chapter0/ChapterZeroCodeEditor';
 import { useChapterZeroDialogue } from './chapter0/useChapterZeroDialogue';
-import { DeployTutorialGuide } from './chapter0/DeployTutorialGuide';
 
 type Item = { type: string; count: number };
 type Stage =
@@ -87,7 +86,6 @@ function renderNarratorLine(text: string): ReactNode {
 export function ChapterZeroRepl() {
   const t = useT();
   const [loadState, dispatchLoad] = useReducer(reduceChapterZeroLoad<TutorialState>, initialChapterZeroLoadState);
-  const [dismissed, setDismissed] = useState(false);
 
   const load = useCallback(() => {
     dispatchLoad({ type: 'retry' });
@@ -148,15 +146,10 @@ export function ChapterZeroRepl() {
     }
   }, []);
 
-  // Deploy tutorial stages — shown as non-blocking guide over the real game map
+  // Deployment continues through the real game map UI. The former overlay guide
+  // was removed because its dimming layer obscured the target node.
   if (state && (DEPLOY_STAGES as Stage[]).includes(state.stage)) {
-    if (state.stage === 'handoff' && dismissed) return null;
-    return (
-      <DeployTutorialGuide
-        stage={state.stage as any}
-        onDismiss={() => setDismissed(true)}
-      />
-    );
+    return null;
   }
 
   if (loadState.status === 'failed') {
@@ -200,10 +193,9 @@ export function ChapterZeroRepl() {
       state={state}
       submitCommand={submitCommand}
       advanceStage={advanceStage}
-      submitCodeRun={submitCodeRun}
-      commitSession={session => dispatchLoad({ type: 'loaded', session })}
-      onDismiss={() => setDismissed(true)}
-    />
+    submitCodeRun={submitCodeRun}
+    commitSession={session => dispatchLoad({ type: 'loaded', session })}
+  />
   );
 }
 
@@ -391,14 +383,12 @@ function Shell({
   advanceStage,
   submitCodeRun,
   commitSession,
-  onDismiss,
 }: {
   state: TutorialState;
   submitCommand: (command: string) => Promise<{ ok: boolean }>;
   advanceStage: (to: Stage) => void;
   submitCodeRun: (a: string, b: string) => Promise<CodeRunResponse | null>;
   commitSession: (session: TutorialState) => void;
-  onDismiss: () => void;
 }) {
   const t = useT();
   const reducedMotion = useMemo(() => prefersReducedMotion(), []);
