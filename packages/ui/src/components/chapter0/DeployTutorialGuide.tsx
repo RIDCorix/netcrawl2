@@ -20,14 +20,15 @@ export function DeployTutorialGuide({ stage, onDismiss }: Props) {
   const t = useT();
   const selectedNodeId = useGameStore(s => s.selectedNodeId);
   const codeServerConnected = useGameStore(s => s.codeServerConnected);
-  const workerClasses = useGameStore(s => s.workerClasses);
   const questsOpen = useGameStore(s => s.questsOpen);
   const selectedQuestId = useGameStore(s => s.selectedQuestId);
   const toggleQuests = useGameStore(s => s.toggleQuests);
   const selectQuest = useGameStore(s => s.selectQuest);
-  const helloWorkerRegistered = workerClasses.some((entry: any) => entry.class_id === 'helloworker');
-  const codeReady = codeServerConnected && helloWorkerRegistered;
-  const setupGate = stage === 'edge_select' && !codeReady;
+  // q_setup's server-owned objective is code_server_connected. Do not keep
+  // reopening the task while waiting for a separate worker-class payload;
+  // the actual DeployDialog remains responsible for reporting missing classes.
+  const codeReady = codeServerConnected;
+  const setupGate = stage === 'edge_select' && !codeServerConnected;
 
   // q_setup is the first task in the quest tree. Keep it open until the code
   // server registers HelloWorker; the deployment map must not be reachable
