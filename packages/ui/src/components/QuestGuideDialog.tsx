@@ -17,6 +17,7 @@ import { DEMO_SCRIPTS } from './guide/demoScripts';
 import { getTranslatedGuide } from '../i18n/guides';
 import { translateWithFallback } from '../i18n/translateWithFallback';
 import { formatResource } from '../lib/format';
+import { SERVER_URL } from '../lib/api';
 
 function RewardBadge({ reward, color }: { reward: any; color: string }) {
   const text = (() => {
@@ -66,6 +67,11 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
   const lang = useGameStore(s => s.settings.language);
   const translatedGuide = getTranslatedGuide(lang, quest.id);
   const guide = translatedGuide || quest.guide || [];
+  const connection = {
+    serverUrl: SERVER_URL,
+    apiKey: localStorage.getItem('netcrawl-token') || '',
+    requiresApiKey: Boolean(import.meta.env.VITE_API_URL),
+  };
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Reset scroll on page change
@@ -390,7 +396,7 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
                 {guide[page].title}
               </div>
               <div style={{ fontSize: 13, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
-                <CodespaceSkeleton variant={guide[page].skeleton} />
+                <CodespaceSkeleton variant={guide[page].skeleton} connection={connection} />
                 <Markdown content={guide[page].content} />
               </div>
               {DEMO_SCRIPTS[`${quest.id}:${page}`] && (

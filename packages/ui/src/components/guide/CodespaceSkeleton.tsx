@@ -1,6 +1,9 @@
 import type { GuideSkeleton } from '../../i18n/guides/types';
 
-type Props = { variant?: GuideSkeleton };
+type Props = {
+  variant?: GuideSkeleton;
+  connection?: { serverUrl: string; apiKey: string; requiresApiKey: boolean };
+};
 
 const targetLabels: Record<GuideSkeleton, string> = {
   'codespace-create': 'Resume 或 Create codespace',
@@ -10,13 +13,14 @@ const targetLabels: Record<GuideSkeleton, string> = {
   'codespace-stop': '在 terminal 按 Ctrl+C',
 };
 
-function EditorChrome({ variant }: { variant: Exclude<GuideSkeleton, 'codespace-create'> }) {
+function EditorChrome({ variant, connection }: { variant: Exclude<GuideSkeleton, 'codespace-create'>; connection?: Props['connection'] }) {
   const highlightTerminal = variant === 'codespace-terminal';
   const terminalText = variant === 'codespace-run'
     ? 'uv run main.py'
     : variant === 'codespace-stop'
       ? 'uv run main.py  (running)  Ctrl+C'
       : 'click here to type';
+  const connectionLine = `app = NetCrawl(server="${connection?.serverUrl || 'SERVER_URL'}"${connection?.requiresApiKey ? `, api_key="${connection.apiKey || 'API_KEY'}"` : ''})`;
 
   return (
     <div className="codespace-skeleton-ide">
@@ -38,7 +42,7 @@ function EditorChrome({ variant }: { variant: Exclude<GuideSkeleton, 'codespace-
         <div className="codespace-skeleton-editor-pane">
           <div className="codespace-skeleton-code-line"><span className="codespace-skeleton-line-number">1</span> from netcrawl import NetCrawl</div>
           <div className="codespace-skeleton-code-line"><span className="codespace-skeleton-line-number">2</span> </div>
-          <div className={`codespace-skeleton-code-line ${variant === 'codespace-editor' ? 'codespace-skeleton-highlight' : ''}`}><span className="codespace-skeleton-line-number">3</span> app = NetCrawl(server=&quot;SERVER_URL&quot;, api_key=&quot;API_KEY&quot;)</div>
+          <div className={`codespace-skeleton-code-line ${variant === 'codespace-editor' ? 'codespace-skeleton-highlight' : ''}`}><span className="codespace-skeleton-line-number">3</span> {connectionLine}</div>
           <div className="codespace-skeleton-code-line"><span className="codespace-skeleton-line-number">4</span> app.register(HelloWorker)</div>
           <div className="codespace-skeleton-code-line"><span className="codespace-skeleton-line-number">5</span> app.run()</div>
         </div>
@@ -62,13 +66,13 @@ function CodespaceCreation() {
   );
 }
 
-export function CodespaceSkeleton({ variant }: Props) {
+export function CodespaceSkeleton({ variant, connection }: Props) {
   if (!variant) return null;
   return (
     <div className="codespace-skeleton" role="img" aria-label={targetLabels[variant]}>
       <div className="codespace-skeleton-window">
         <div className="codespace-skeleton-titlebar"><span className="codespace-skeleton-dots">● ● ●</span><span className="codespace-skeleton-window-title">github.com/codespaces</span><span className="codespace-skeleton-window-actions">— □ ×</span></div>
-        {variant === 'codespace-create' ? <CodespaceCreation /> : <EditorChrome variant={variant} />}
+        {variant === 'codespace-create' ? <CodespaceCreation /> : <EditorChrome variant={variant} connection={connection} />}
       </div>
       <div className="codespace-skeleton-target-label">↗ {targetLabels[variant]}</div>
     </div>
