@@ -90,7 +90,19 @@ export function advanceChapterZeroStageTo(stage: ChapterZeroStage, userId?: stri
 export function skipChapterZeroToHandoff(userId?: string) {
   const state = resolveStore(userId).quest_state;
   getChapterZero(userId);
-  state.chapterZero!.stage = 'handoff';
+  // Skip narrative + coding tutorial; land at edge_select so the deploy
+  // tutorial (and codespace setup gate) still runs normally.
+  state.chapterZero!.stage = 'edge_select';
+  if (!state.chapterZero!.world.deployTutorial) {
+    state.chapterZero!.world.deployTutorial = {
+      grantedItems: false,
+      selectedEdgeId: null,
+      selectedPickaxeType: null,
+      workerId: null,
+    };
+  }
+  state.chapterZero!.step = 0;
+  state.chapterZero!.transition = null;
   return { ok: true as const, ...getChapterZero(userId) };
 }
 

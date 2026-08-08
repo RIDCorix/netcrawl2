@@ -2,7 +2,6 @@ import { ReactNode, useCallback, useEffect, useMemo, useReducer, useState } from
 import axios from 'axios';
 import { X } from 'lucide-react';
 import { useT } from '../hooks/useT';
-import { useGameStore } from '../store/gameStore';
 import { initialChapterZeroLoadState, reduceChapterZeroLoad } from '../lib/chapterZeroLoadState';
 import narratorGhostUrl from '../assets/chapter0/narrator-ghost.png';
 import { ChapterZeroParticles } from './chapter0/ChapterZeroParticles';
@@ -88,7 +87,6 @@ function renderNarratorLine(text: string): ReactNode {
 
 export function ChapterZeroRepl() {
   const t = useT();
-  const { questsOpen, toggleQuests, selectQuest } = useGameStore();
   const [loadState, dispatchLoad] = useReducer(reduceChapterZeroLoad<TutorialState>, initialChapterZeroLoadState);
   const [dismissed, setDismissed] = useState(false);
 
@@ -129,18 +127,15 @@ export function ChapterZeroRepl() {
   );
 
   const skipChapterZero = useCallback(async () => {
-    // Land the user at the q_setup (create codespace) step, not past it.
-    // TutorialOverlay step 3 = follow_quest; it reads localStorage on mount.
-    if (!questsOpen) toggleQuests();
-    selectQuest('q_setup');
-    localStorage.setItem('netcrawl-tutorial', JSON.stringify({ step: 3, dismissed: false }));
+    // Skip to edge_select; DeployTutorialGuide's setupGate handles
+    // opening q_setup when code server isn't yet connected.
     try {
       const response = await axios.post('/api/tutorial/chapter-zero/stage', { action: 'skip' });
       dispatchLoad({ type: 'loaded', session: response.data });
     } catch {
       load();
     }
-  }, [load, questsOpen, toggleQuests, selectQuest]);
+  }, [load]);
 
   const submitCommand = useCallback(async (command: string): Promise<{ ok: boolean }> => {
     try {
