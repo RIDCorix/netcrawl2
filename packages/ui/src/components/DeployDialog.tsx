@@ -66,6 +66,7 @@ export function DeployDialog({
   const [routes, setRoutes] = useState<Record<string, { id: string; source: string; target: string }[]>>({});
   const [routeNodes, setRouteNodes] = useState<Record<string, string[]>>({});
   const [step, setStep] = useState(0);
+  const [advancing, setAdvancing] = useState(false);
   const [selectingRoute, setSelectingRoute] = useState<string | null>(null);
 
   // ── Derived ────────────────────────────────────────────────────────────────
@@ -325,7 +326,8 @@ export function DeployDialog({
   };
 
   const handleNext = async () => {
-    if (!canGoNext()) return;
+    if (advancing || !canGoNext()) return;
+    setAdvancing(true);
     try {
       if (tutorialMode && currentStepKey === 'class' && selectedClass === 'helloworker') {
         // HelloWorker has no route field. Keep the server-owned tutorial
@@ -351,6 +353,8 @@ export function DeployDialog({
     } catch (err: any) {
       const reason = err?.response?.data?.error || err.message;
       setMessage(tutorialMode ? t('tutorial.chapter_zero.deploy.error_api', { reason }) : 'Error: ' + reason);
+    } finally {
+      setAdvancing(false);
     }
   };
 
@@ -881,22 +885,22 @@ export function DeployDialog({
               ) : (
                 <button
                   onClick={handleNext}
-                  disabled={!canGoNext()}
+                  disabled={advancing || !canGoNext()}
                   aria-describedby={
                     currentStepKey === 'equipment' && !canGoNext() ? 'deploy-equipment-requirement' : undefined
                   }
                   style={{
                     flex: 2,
-                    background: canGoNext() ? 'var(--accent)' : 'var(--bg-elevated)',
-                    color: canGoNext() ? '#000' : 'var(--text-muted)',
-                    border: canGoNext() ? 'none' : '1px solid var(--border)',
+                    background: advancing || !canGoNext() ? 'var(--bg-elevated)' : 'var(--accent)',
+                    color: advancing || !canGoNext() ? 'var(--text-muted)' : '#000',
+                    border: advancing || !canGoNext() ? '1px solid var(--border)' : 'none',
                     borderRadius: 'var(--radius-sm)',
                     padding: '12px',
                     fontSize: 13,
                     fontWeight: 800,
                     fontFamily: 'var(--font-mono)',
-                    cursor: canGoNext() ? 'pointer' : 'not-allowed',
-                    opacity: canGoNext() ? 1 : 0.5,
+                    cursor: advancing || !canGoNext() ? 'not-allowed' : 'pointer',
+                    opacity: advancing || !canGoNext() ? 0.5 : 1,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',

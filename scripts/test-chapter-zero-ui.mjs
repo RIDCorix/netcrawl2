@@ -5,6 +5,7 @@ const editor = readFileSync('packages/ui/src/components/chapter0/ChapterZeroCode
 const repl = readFileSync('packages/ui/src/components/ChapterZeroRepl.tsx', 'utf8');
 const styles = readFileSync('packages/ui/src/styles.css', 'utf8');
 const nodeWrapper = readFileSync('packages/ui/src/components/graph/NodeWrapper.tsx', 'utf8');
+const deployDialog = readFileSync('packages/ui/src/components/DeployDialog.tsx', 'utf8');
 const zhTW = readFileSync('packages/ui/src/i18n/zh-TW.ts', 'utf8');
 
 assert.equal(
@@ -65,6 +66,8 @@ assert.match(
   /border:\s*['"]2px solid var\(--accent\)['"]/,
   'the Hub node must retain a slightly larger accent border',
 );
+assert.match(deployDialog, /if \(advancing \|\| !canGoNext\(\)\) return;/, 'stage advance must ignore duplicate clicks');
+assert.match(deployDialog, /disabled=\{advancing \|\| !canGoNext\(\)\}/, 'stage advance control must lock while saving');
 const deployCopy = zhTW.slice(
   zhTW.indexOf("'tutorial.chapter_zero.deploy.hub_prompt'"),
   zhTW.indexOf("'tutorial.chapter_zero.deploy.edge_selecting'"),
