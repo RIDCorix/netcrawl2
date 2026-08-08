@@ -65,6 +65,16 @@ assert.match(
 );
 assert.match(
   styles,
+  /\.chapter0-target-hub \.react-flow__node\[data-id='hub'\][^}]*position:\s*absolute\s*!important/s,
+  'deploy tutorial must preserve React Flow node positioning',
+);
+assert.match(
+  styles,
+  /\.chapter0-target-hub \.react-flow__node\[data-id='hub'\]\s+\[data-tutorial='hub-node'\]/,
+  'deploy tutorial highlight must follow the compact Hub content',
+);
+assert.match(
+  styles,
   /\.chapter0-target-hub \.react-flow__renderer\s*\{[^}]*z-index:\s*91/s,
   'deploy tutorial must lift the React Flow renderer above the dimmer',
 );

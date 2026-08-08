@@ -1357,13 +1357,18 @@ body::after {
 }
 
 .chapter0-target-hub .react-flow__node[data-id='hub'] {
-  position: relative;
+  /* React Flow owns this node's absolute positioning. Changing it to
+     relative makes the node stretch across the renderer's available width. */
+  position: absolute !important;
   z-index: 92 !important;
   filter: brightness(1.35);
+  animation: chapter0-deploy-pulse 1.4s ease-in-out infinite;
+}
+
+.chapter0-target-hub .react-flow__node[data-id='hub'] [data-tutorial='hub-node'] {
   outline: 3px solid var(--accent);
   outline-offset: 8px;
   border-radius: 12px;
-  animation: chapter0-deploy-pulse 1.4s ease-in-out infinite;
 }
 
 /* The guide points at the real Hub deploy action; it does not replace it. */
