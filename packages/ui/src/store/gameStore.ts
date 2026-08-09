@@ -441,7 +441,8 @@ export const useGameStore = create<GameState & GameActions>(set => ({
       }
       return { settings: newSettings };
     }),
-  toggleQuests: () => set(state => ({ questsOpen: !state.questsOpen })),
+  toggleQuests: () =>
+    set(state => (state.questsOpen ? { questsOpen: false, selectedQuestId: null } : { questsOpen: true })),
   selectQuest: questId => set({ selectedQuestId: questId }),
   addQuestToast: toast =>
     set(state => ({
