@@ -46,6 +46,14 @@ const DEPLOY_STAGES: Stage[] = [
   'handoff',
 ];
 
+// The server owns tutorial completion; this only records that the player has
+// acknowledged its one-time completion card on this device.
+const HANDOFF_DISMISSAL_KEY = 'netcrawl-chapter-zero-handoff-dismissed';
+
+function loadHandoffDismissal(): boolean {
+  return localStorage.getItem(HANDOFF_DISMISSAL_KEY) === 'true';
+}
+
 type TutorialState = {
   version: 4;
   stage: Stage;
@@ -101,7 +109,7 @@ function renderNarratorLine(text: string): ReactNode {
 export function ChapterZeroRepl() {
   const t = useT();
   const [loadState, dispatchLoad] = useReducer(reduceChapterZeroLoad<TutorialState>, initialChapterZeroLoadState);
-  const [dismissed, setDismissed] = useState(false);
+  const [handoffDismissed, setHandoffDismissed] = useState(loadHandoffDismissal);
 
   const load = useCallback(() => {
     dispatchLoad({ type: 'retry' });
@@ -175,8 +183,17 @@ export function ChapterZeroRepl() {
 
   // Keep the tutorial guide, but let the real map remain fully visible.
   if (state && (DEPLOY_STAGES as Stage[]).includes(state.stage)) {
-    if (state.stage === 'handoff' && dismissed) return null;
-    return <DeployTutorialGuide session={state as any} stage={state.stage as any} onDismiss={() => setDismissed(true)} />;
+    if (state.stage === 'handoff' && handoffDismissed) return null;
+    return (
+      <DeployTutorialGuide
+        session={state as any}
+        stage={state.stage as any}
+        onDismiss={() => {
+          localStorage.setItem(HANDOFF_DISMISSAL_KEY, 'true');
+          setHandoffDismissed(true);
+        }}
+      />
+    );
   }
 
   if (loadState.status === 'failed') {

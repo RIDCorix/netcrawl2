@@ -67,6 +67,10 @@ assert.match(
   'map nodes must expose a stable tutorial target marker',
 );
 assert.match(repl, /DeployTutorialGuide/, 'the tutorial guide must remain visible');
+assert.match(repl, /HANDOFF_DISMISSAL_KEY = 'netcrawl-chapter-zero-handoff-dismissed'/, 'handoff acknowledgement must have durable storage');
+assert.match(repl, /useState\(loadHandoffDismissal\)/, 'handoff acknowledgement must load when the game opens');
+assert.match(repl, /state\.stage === 'handoff' && handoffDismissed/, 'an acknowledged handoff must not render its completion card again');
+assert.match(repl, /localStorage\.setItem\(HANDOFF_DISMISSAL_KEY, 'true'\)/, 'continuing from the completion card must persist the acknowledgement');
 for (const stage of [
   'hello_preview', 'hello_deploy_open', 'hello_deploy_confirm', 'hello_deploy_execute', 'hello_log',
   'miner_preview', 'miner_deploy_open', 'miner_edge_select', 'miner_pickaxe_equip',
