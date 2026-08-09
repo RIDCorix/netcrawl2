@@ -26,6 +26,9 @@ interface TutorialSession {
       selectedPickaxeType: string | null;
       helloWorkerId: string | null;
       minerWorkerId: string | null;
+      minerCandidateWorkerId: string | null;
+      minerLoopStep: 'awaiting_deploy' | 'move_to_mine' | 'mine' | 'collect' | 'return_to_hub' | 'deposit';
+      minerCompletedLoops: number;
     };
   };
 }
@@ -46,12 +49,19 @@ const HELLO_WORKER_CODE = `class HelloWorker(WorkerClass):
     def on_loop(self):
         self.info("Still running...")`;
 
-const TUTORIAL_MINER_CODE = `class TutorialMiner(WorkerClass):
-    class_name = "TutorialMiner"
-    class_id = "tutorial_miner"
+const MINER_CODE = `class Miner(WorkerClass):
+    class_name = "Miner"
+    class_id = "miner"
 
-    route = self.edge          # movement path
-    pickaxe = self.pickaxe     # mining equipment`;
+    pickaxe = Pickaxe()
+    edge = Edge("hub ↔ mine")
+
+    def on_loop(self):
+        self.move(self.edge)
+        self.pickaxe.mine_and_collect()
+        self.move(self.edge)
+        if self.holding:
+            self.deposit()`;
 
 const HELLO_STEPS: DeployStage[] = [
   'hello_preview',
@@ -100,7 +110,7 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
   const logs = helloWorkerId ? workerLogs[helloWorkerId] || [] : [];
   const [grantError, setGrantError] = useState(false);
   const [logError, setLogError] = useState(false);
-  const [advanceError, setAdvanceError] = useState(false);
+  const [advanceError, setAdvanceError] = useState<'miner_not_registered' | 'miner_schema_incompatible' | 'hello_log_pending' | null>(null);
   const [advancing, setAdvancing] = useState(false);
 
   useEffect(() => {
@@ -165,7 +175,7 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
 
   const continueToMiner = useCallback(async () => {
     if (advancing || logs.length === 0) return;
-    setAdvanceError(false);
+    setAdvanceError(null);
     setAdvancing(true);
     try {
       const response = await axios.post('/api/tutorial/chapter-zero/stage', {
@@ -173,8 +183,13 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
         to: 'miner_preview',
       });
       publishSession(response.data);
-    } catch {
-      setAdvanceError(true);
+    } catch (error: any) {
+      const code = error?.response?.data?.error;
+      setAdvanceError(
+        code === 'miner_not_registered' || code === 'miner_schema_incompatible' || code === 'hello_log_pending'
+          ? code
+          : 'hello_log_pending',
+      );
       fetchHelloLogs();
     } finally {
       setAdvancing(false);
@@ -182,6 +197,16 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
   }, [advancing, fetchHelloLogs, logs.length, publishSession]);
 
   const isHandoff = stage === 'handoff';
+  const minerLoop = session.world.deployTutorial.minerLoopStep;
+  const completedLoops = session.world.deployTutorial.minerCompletedLoops;
+
+  useEffect(() => {
+    if (stage !== 'miner_deploy_execute' || !session.world.deployTutorial.minerCandidateWorkerId) return;
+    const refresh = () => axios.get('/api/tutorial/chapter-zero').then(response => publishSession(response.data)).catch(() => undefined);
+    refresh();
+    const interval = window.setInterval(refresh, 1500);
+    return () => window.clearInterval(interval);
+  }, [publishSession, session.world.deployTutorial.minerCandidateWorkerId, stage]);
   const copy = useMemo(() => {
     if (stage === 'hello_preview') {
       return selectedNodeId === 'hub'
@@ -236,8 +261,8 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
 
             {isPreviewStage(stage) && (
               <CodePreview
-                fileName={phase === 'hello' ? 'helloworker.py' : 'tutorial_miner'}
-                code={phase === 'hello' ? HELLO_WORKER_CODE : TUTORIAL_MINER_CODE}
+                fileName={phase === 'hello' ? 'helloworker.py' : 'workers/miner.py'}
+                code={phase === 'hello' ? HELLO_WORKER_CODE : MINER_CODE}
                 title={t(`tutorial.chapter_zero.deploy.${phase}_preview_title`)}
                 body={t(`tutorial.chapter_zero.deploy.${phase}_preview_body`)}
               />
@@ -261,7 +286,7 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
                 )}
                 {advanceError && (
                   <div className="chapter0-deploy-error" role="alert">
-                    <span>{t('tutorial.chapter_zero.deploy.error_stage_advance')}</span>
+                    <span>{t(`tutorial.chapter_zero.deploy.error_${advanceError}`)}</span>
                     <button onClick={continueToMiner} className="chapter0-deploy-error-retry" data-tutorial-allowed>
                       {t('tutorial.chapter_zero.deploy.retry')}
                     </button>
@@ -284,6 +309,20 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
                 <button onClick={grantItems} className="chapter0-deploy-error-retry" data-tutorial-allowed>
                   {t('tutorial.chapter_zero.deploy.retry')}
                 </button>
+              </div>
+            )}
+
+            {stage === 'miner_deploy_execute' && session.world.deployTutorial.minerCandidateWorkerId && (
+              <div className="chapter0-deploy-loop-progress" aria-live="polite" data-tutorial-worker-loop>
+                <div className="chapter0-deploy-log-title">{t('tutorial.chapter_zero.deploy.miner_loop_title')}</div>
+                <div className="chapter0-deploy-guide-hint">{t('tutorial.chapter_zero.deploy.miner_loop_count', { count: completedLoops, target: 2 })}</div>
+                <div className="chapter0-deploy-steps">
+                  {['move_to_mine', 'mine', 'collect', 'return_to_hub', 'deposit'].map(loopStep => (
+                    <div key={loopStep} className={`chapter0-deploy-step-dot${loopStep === minerLoop ? ' chapter0-deploy-step-dot--done' : ''}`}>
+                      <span className="chapter0-deploy-step-label">{t(`tutorial.chapter_zero.deploy.loop_${loopStep}`)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

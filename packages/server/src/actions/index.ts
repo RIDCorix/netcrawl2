@@ -12,6 +12,7 @@
  */
 
 import { getCurrentUserId } from '../store.js';
+import { recordChapterZeroMinerAction } from '../domain/questState.js';
 import { getGameState } from '../domain/gameState.js';
 import { getWorker } from '../domain/workers.js';
 import { acquireLock } from './actionLock.js';
@@ -96,5 +97,7 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
   const handler = ACTION_HANDLERS[action];
   if (!handler) return { ok: false, error: `Unknown action: ${action}` };
 
-  return handler(ctx, payload);
+  const result = await handler(ctx, payload);
+  recordChapterZeroMinerAction(workerId, action, payload, result, uid);
+  return result;
 }

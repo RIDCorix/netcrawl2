@@ -29,6 +29,9 @@ assert.deepEqual(session.world, {
     selectedPickaxeType: null,
     helloWorkerId: null,
     minerWorkerId: null,
+    minerCandidateWorkerId: null,
+    minerLoopStep: 'awaiting_deploy',
+    minerCompletedLoops: 0,
   },
 });
 assert.equal(expectedCommand(session), null, 'no command expected during cold_open');
@@ -182,7 +185,7 @@ const minerExecute = advanceChapterZeroStage(deploySession, 'miner_deploy_execut
 assert.equal(minerExecute.ok, true);
 deploySession = minerExecute.session;
 
-// Handoff is gated until the server records the verified miner worker.
+// Handoff is gated until the server records two verified miner loop cycles.
 const earlyHandoff = advanceChapterZeroStage(deploySession, 'handoff');
 assert.equal(earlyHandoff.ok, false, 'must verify the miner before handoff');
 deploySession = setDeployTutorialField(deploySession, 'minerWorkerId', 'miner_worker_123');
@@ -217,5 +220,15 @@ assert.equal(legacyPartial.stage, 'hello_preview');
 const legacyHandoff = migrateChapterZeroSession({ version: 3, stage: 'handoff', step: 0, world: legacyWorld, transition: null, transcript: [] });
 assert.equal(legacyHandoff.stage, 'handoff', 'legacy handoff saves must remain complete');
 assert.equal(isChapterZeroGateOpen(legacyHandoff), true);
+
+// A v4 save that only proved the old built-in tutorial worker must not become
+// evidence for the real code-server Miner. Completed handoffs remain untouched.
+const oldSyntheticCandidate = createChapterZeroSession();
+oldSyntheticCandidate.stage = 'miner_deploy_execute';
+oldSyntheticCandidate.world.deployTutorial.minerWorkerId = 'tutorial_miner_123';
+const migratedSyntheticCandidate = migrateChapterZeroSession(oldSyntheticCandidate);
+assert.equal(migratedSyntheticCandidate.stage, 'miner_preview');
+assert.equal(migratedSyntheticCandidate.world.deployTutorial.minerWorkerId, null);
+assert.equal(migratedSyntheticCandidate.world.deployTutorial.minerCandidateWorkerId, null);
 
 console.log('Chapter Zero v4 stage/migration/deploy transitions passed');

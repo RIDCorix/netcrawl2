@@ -48,7 +48,19 @@ export interface ChapterZeroDeployState {
   selectedPickaxeType: string | null;
   helloWorkerId: string | null;
   minerWorkerId: string | null;
+  /** The real code-server worker being observed before it earns the handoff. */
+  minerCandidateWorkerId: string | null;
+  minerLoopStep: MinerLoopStep;
+  minerCompletedLoops: number;
 }
+
+export type MinerLoopStep =
+  | 'awaiting_deploy'
+  | 'move_to_mine'
+  | 'mine'
+  | 'collect'
+  | 'return_to_hub'
+  | 'deposit';
 
 export interface ChapterZeroWorld {
   worker: { nodeId: 'hub' | 'mine'; holding: Item[]; equippedPickaxe: 'pickaxe_basic'; lastLog: string | null };
@@ -71,7 +83,7 @@ export const DIRECT_COMMAND_SEQUENCE = ['self.move(self.edge)', 'self.collect()'
 export const INITIAL_MINE_DROPS: Item[] = [{ type: 'data_fragment', count: 3 }];
 export const LOOP_MINE_DROPS: Item[] = [{ type: 'data_fragment', count: 10 }];
 
-export const TUTORIAL_WORKER_CLASS_ID = 'tutorial_miner';
+export const TUTORIAL_WORKER_CLASS_ID = 'miner';
 
 export function initialDeployState(): ChapterZeroDeployState {
   return {
@@ -80,6 +92,9 @@ export function initialDeployState(): ChapterZeroDeployState {
     selectedPickaxeType: null,
     helloWorkerId: null,
     minerWorkerId: null,
+    minerCandidateWorkerId: null,
+    minerLoopStep: 'awaiting_deploy',
+    minerCompletedLoops: 0,
   };
 }
 
@@ -128,6 +143,17 @@ export function migrateChapterZeroSession(session: unknown): ChapterZeroSession 
       ...(migrated.world.deployTutorial || {}),
     };
     delete (migrated.world.deployTutorial as any).workerId;
+    // v4 originally used a server-owned tutorial_miner. It is not evidence of
+    // a deployed code-server loop, so unfinished saves restart the miner tail.
+    if (migrated.stage !== 'handoff' && migrated.world.deployTutorial.minerWorkerId) {
+      migrated.stage = 'miner_preview';
+      migrated.world.deployTutorial.selectedEdgeId = null;
+      migrated.world.deployTutorial.selectedPickaxeType = null;
+      migrated.world.deployTutorial.minerWorkerId = null;
+      migrated.world.deployTutorial.minerCandidateWorkerId = null;
+      migrated.world.deployTutorial.minerLoopStep = 'awaiting_deploy';
+      migrated.world.deployTutorial.minerCompletedLoops = 0;
+    }
     return migrated;
   }
 
@@ -313,8 +339,8 @@ export function advanceChapterZeroStage(current: ChapterZeroSession, to: Chapter
 /** Set a deploy tutorial field (edge or pickaxe) without stage change. */
 export function setDeployTutorialField(
   current: ChapterZeroSession,
-  field: 'selectedEdgeId' | 'selectedPickaxeType' | 'helloWorkerId' | 'minerWorkerId' | 'grantedItems',
-  value: string | boolean | null,
+  field: 'selectedEdgeId' | 'selectedPickaxeType' | 'helloWorkerId' | 'minerWorkerId' | 'minerCandidateWorkerId' | 'minerLoopStep' | 'minerCompletedLoops' | 'grantedItems',
+  value: string | boolean | number | null,
 ): ChapterZeroSession {
   const session = structuredClone(current);
   if (!session.world.deployTutorial) session.world.deployTutorial = initialDeployState();

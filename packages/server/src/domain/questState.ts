@@ -18,8 +18,7 @@ import {
 } from './chapterZero.js';
 import { addToPlayerInventory } from './inventory.js';
 import { getWorker, getWorkerLogs } from './workers.js';
-import { registerWorkerClass } from '../workerRegistry.js';
-import { TUTORIAL_MINER_CLASS } from '../tutorialWorkerClass.js';
+import { getWorkerClass } from '../workerRegistry.js';
 
 const MINER_STAGE_SET = new Set<ChapterZeroStage>([
   'miner_preview',
@@ -105,6 +104,19 @@ export function advanceChapterZeroStageTo(stage: ChapterZeroStage, userId?: stri
     }
   }
 
+  if (stage === 'miner_preview' && state.chapterZero?.stage === 'hello_log') {
+    const miner = getWorkerClass('miner', userId);
+    const fields = miner ? Object.entries(miner.fields || {}) : [];
+    const edgeFields = fields.filter(([, field]) => field.type === 'edge');
+    const pickaxeFields = fields.filter(([name, field]) =>
+      field.type === 'item' && (name === 'pickaxe' || field.field === 'pickaxe' || /pickaxe/i.test((field as any).item_type || '')),
+    );
+    if (!miner) return { ok: false as const, error: 'miner_not_registered' as const, ...getChapterZero(userId) };
+    if (fields.length !== 2 || edgeFields.length !== 1 || pickaxeFields.length !== 1) {
+      return { ok: false as const, error: 'miner_schema_incompatible' as const, ...getChapterZero(userId) };
+    }
+  }
+
   const result = advanceChapterZeroStage(state.chapterZero!, stage);
   if (result.ok) {
     state.chapterZero = result.session;
@@ -134,7 +146,7 @@ export function runChapterZeroCodeEditor(onStartup: string, onLoop: string, user
   return { ...result, ...getChapterZero(userId) };
 }
 
-/** Grant tutorial deploy items (pickaxe) and register the tutorial worker class. Idempotent. */
+/** Grant the tutorial pickaxe. The Miner class is owned by the connected code server. */
 export function grantChapterZeroDeployItems(userId?: string) {
   const state = resolveStore(userId).quest_state;
   getChapterZero(userId);
@@ -145,9 +157,7 @@ export function grantChapterZeroDeployItems(userId?: string) {
 
   const alreadyGranted = session.world.deployTutorial.grantedItems;
 
-  // Grant a pickaxe if the player doesn't have one. Both this and class
-  // registration are intentionally idempotent so refresh/retry cannot duplicate
-  // tutorial assets.
+  // Granting is idempotent so refresh/retry cannot duplicate tutorial assets.
   const store = resolveStore(userId);
   const hasPickaxe = store.game_state.playerInventory.some(
     i => i.itemType === 'pickaxe_basic' && i.count > 0,
@@ -155,9 +165,6 @@ export function grantChapterZeroDeployItems(userId?: string) {
   if (!hasPickaxe) {
     addToPlayerInventory('pickaxe_basic', 1, undefined, userId);
   }
-
-  // Register the tutorial worker class for this user
-  registerWorkerClass(TUTORIAL_MINER_CLASS, userId);
 
   // Mark items as granted
   state.chapterZero = setDeployTutorialField(session, 'grantedItems', true);
@@ -204,13 +211,9 @@ export function verifyChapterZeroDeploy(workerId: string, userId?: string) {
     return { ok: false as const, error: 'worker_not_found' as const };
   }
 
-  const expectedClassId = isHello ? 'helloworker' : 'tutorial_miner';
-  const expectedClassName = isHello ? 'HelloWorker' : 'TutorialMiner';
+  const expectedClassId = isHello ? 'helloworker' : 'miner';
   const deployConfig = worker.deployConfig;
-  if (
-    worker.class_name !== expectedClassName ||
-    (deployConfig && deployConfig.classId !== expectedClassId)
-  ) {
+  if (deployConfig?.classId !== expectedClassId) {
     return { ok: false as const, error: 'invalid_worker_class' as const };
   }
 
@@ -248,14 +251,59 @@ export function verifyChapterZeroDeploy(workerId: string, userId?: string) {
   ) {
     return { ok: false as const, error: 'invalid_prerequisites' as const };
   }
-  if (session.world.deployTutorial.minerWorkerId) {
+  const candidate = session.world.deployTutorial.minerCandidateWorkerId;
+  if (candidate && candidate !== workerId) {
     return { ok: false as const, error: 'duplicate_worker' as const };
   }
 
-  const s = setDeployTutorialField(session, 'minerWorkerId', workerId);
-  s.stage = 'handoff';
-  s.transition = 'chapter_zero_handoff';
+  const s = setDeployTutorialField(session, 'minerCandidateWorkerId', workerId);
+  s.world.deployTutorial.minerLoopStep = 'move_to_mine';
+  s.world.deployTutorial.minerCompletedLoops = 0;
+  s.transition = 'miner_loop_pending';
   state.chapterZero = s;
 
   return { ok: true as const, ...getChapterZero(userId) };
+}
+
+/** Record only successful actions from the verified candidate's real on_loop. */
+export function recordChapterZeroMinerAction(
+  workerId: string,
+  action: string,
+  payload: any,
+  result: any,
+  userId?: string,
+) {
+  if (!result?.ok) return null;
+  const state = resolveStore(userId).quest_state;
+  getChapterZero(userId);
+  const session = state.chapterZero!;
+  const deploy = session.world.deployTutorial;
+  if (session.stage !== 'miner_deploy_execute' || deploy.minerCandidateWorkerId !== workerId) return null;
+
+  const expected: Record<string, string> = {
+    move_to_mine: 'move_edge', mine: 'mine', collect: 'collect', return_to_hub: 'move_edge', deposit: 'deposit',
+  };
+  if (expected[deploy.minerLoopStep] !== action) return null;
+  if ((deploy.minerLoopStep === 'move_to_mine' || deploy.minerLoopStep === 'return_to_hub') && payload?.edgeId !== deploy.selectedEdgeId) return null;
+  if (deploy.minerLoopStep === 'deposit' && !(result.totalData > 0)) return null;
+
+  const next: Record<string, any> = {
+    move_to_mine: 'mine', mine: 'collect', collect: 'return_to_hub', return_to_hub: 'deposit',
+  };
+  const updated = structuredClone(session);
+  if (deploy.minerLoopStep === 'deposit') {
+    const loops = deploy.minerCompletedLoops + 1;
+    updated.world.deployTutorial.minerCompletedLoops = loops;
+    updated.world.deployTutorial.minerLoopStep = 'move_to_mine';
+    updated.transition = `miner_loop_${loops}_complete`;
+    if (loops >= 2) {
+      updated.world.deployTutorial.minerWorkerId = workerId;
+      updated.stage = 'handoff';
+      updated.transition = 'chapter_zero_handoff';
+    }
+  } else {
+    updated.world.deployTutorial.minerLoopStep = next[deploy.minerLoopStep];
+  }
+  state.chapterZero = updated;
+  return getChapterZero(userId);
 }

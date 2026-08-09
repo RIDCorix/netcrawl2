@@ -66,7 +66,7 @@ export function DeployDialog({
   } = useGameStore();
   const t = useT();
   const tutorialMode = !!tutorial;
-  const expectedTutorialClass = tutorial?.phase === 'hello' ? 'helloworker' : 'tutorial_miner';
+  const expectedTutorialClass = tutorial?.phase === 'hello' ? 'helloworker' : 'miner';
   const workerClasses = storeWorkerClasses as WorkerClassEntry[];
   const tutorialWorkerClasses = tutorialMode
     ? workerClasses.filter(c => c.class_id === expectedTutorialClass)
