@@ -190,20 +190,35 @@ export const QUESTS: QuestDef[] = [
     manualEntryId: 'bad_data',
   },
   {
+    id: 'q_unlock_node',
+    chapter: 1,
+    name: 'Unlock a Node',
+    codeConcept: 'Network Expansion',
+    description: 'Spend data to unlock a neighboring node and expand the network you can reach.',
+    mainline: true,
+    prerequisites: ['q_conditions'],
+    objectives: [
+      { id: 'o1', description: 'Unlock 1 node', statKey: 'total_nodes_unlocked', target: 1, type: 'stat_gte' },
+    ],
+    rewards: [{ kind: 'resources', resources: { data: 30000 } }],
+    position: { x: 400, y: 1200 },
+    manualEntryId: 'spec-node',
+  },
+  {
     id: 'q_operators',
     chapter: 1,
     name: 'Operators',
     codeConcept: 'Operators',
     description: 'a + b, a - b, a * b — head east to the Operator Academy and solve a compute puzzle.',
     mainline: true,
-    prerequisites: ['q_conditions'],
+    prerequisites: ['q_unlock_node'],
     objectives: [
       { id: 'o1', description: 'Solve 1 compute puzzle', statKey: 'total_puzzles_solved', target: 1, type: 'stat_gte' },
     ],
     rewards: [
       { kind: 'passive', effectId: 'defense_1', description: '+1 global defense', effect: { global_defense_bonus: 1 } },
     ],
-    position: { x: 400, y: 1200 },
+    position: { x: 400, y: 1500 },
     manualEntryId: 'spec-node',
   },
   {
@@ -228,7 +243,7 @@ export const QUESTS: QuestDef[] = [
       { kind: 'recipe_unlock', recipeId: 'pickaxe_iron', name: 'Iron Pickaxe' },
       { kind: 'items', items: [{ itemType: 'pickaxe_iron', count: 1, metadata: { efficiency: 1.5 } }] },
     ],
-    position: { x: 400, y: 1500 },
+    position: { x: 400, y: 1800 },
     manualEntryId: 'resource',
   },
   {
@@ -245,7 +260,7 @@ export const QUESTS: QuestDef[] = [
       { kind: 'items', items: [{ itemType: 'pickaxe_iron', count: 1, metadata: { efficiency: 2.0 } }] },
       { kind: 'resources', resources: { data: 50000 } },
     ],
-    position: { x: 400, y: 1800 },
+    position: { x: 400, y: 2100 },
     manualEntryId: 'spec-route',
   },
 
@@ -328,7 +343,7 @@ export const QUESTS: QuestDef[] = [
       },
     ],
     rewards: [{ kind: 'items', items: [{ itemType: 'shield', count: 1 }] }],
-    position: { x: 700, y: 1650 },
+    position: { x: 700, y: 1950 },
     manualEntryId: 'bad_data',
   },
   {
@@ -344,7 +359,7 @@ export const QUESTS: QuestDef[] = [
       { kind: 'items', items: [{ itemType: 'beacon', count: 1 }] },
       { kind: 'resources', resources: { data: 100000 } },
     ],
-    position: { x: 700, y: 1950 },
+    position: { x: 700, y: 2250 },
     manualEntryId: 'spec-route',
   },
 

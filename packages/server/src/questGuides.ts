@@ -323,6 +323,17 @@ Without filtering, bad data will eat into your resources!`,
     },
   ],
 
+  q_unlock_node: [
+    {
+      title: 'Expand the Network',
+      content: `Locked nodes are shown in grey. Select one that is connected to an unlocked node to inspect its type and unlock cost.
+
+If you have enough data, click **Unlock** in the node detail panel. Start with a nearby node, such as **Data Mine Alpha** north of the Hub, so you can see how each unlock expands the network.
+
+**Goal:** Unlock **1 node**. Your reward gives you enough data to keep opening the route toward the compute nodes.`,
+    },
+  ],
+
   q_operators: [
     {
       title: 'Comparison Operators',
