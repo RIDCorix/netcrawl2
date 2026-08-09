@@ -85,6 +85,41 @@ assert.doesNotMatch(deployDialog, /tutorialMode\?: boolean/, 'tutorial mode must
 assert.match(app, /ChapterZeroInteractionGuard/, 'application shell must install the tutorial interaction guard');
 assert.match(app, /stopImmediatePropagation/, 'interaction guard must block unrelated state mutations');
 assert.match(app, /focusin/, 'interaction guard must retain focus within the allowed surface');
+assert.match(
+  deployGuide,
+  /wasSetupGate = useRef\(setupGate\)/,
+  'setup gate transitions must remember the previous connection state',
+);
+assert.match(
+  deployGuide,
+  /const setupGateTransition = !setupGate && wasSetupGate\.current && \(questsOpen \|\| selectedQuestId === 'q_setup'\)/,
+  'false-to-true connection transitions must identify the still-open setup surface',
+);
+assert.match(
+  deployGuide,
+  /setGameState\(\{ questsOpen: true, selectedQuestId: 'q_setup' \}\)/,
+  'the disconnected refresh path must open q_setup atomically',
+);
+assert.match(
+  deployGuide,
+  /setGameState\(\{ questsOpen: false, selectedQuestId: null \}\)/,
+  'connection must close the setup quest and quest panel together',
+);
+assert.match(
+  deployGuide,
+  /setupGate: setupGate \|\| setupGateTransition, setupGateTransition/,
+  'setup cleanup must keep the guard on the transition allowlist until it finishes',
+);
+assert.match(
+  app,
+  /const setupSurfaceAllowed = tutorial\.setupGate \|\| tutorial\.setupGateTransition/,
+  'guard must preserve setup-surface access during connection cleanup',
+);
+assert.match(
+  app,
+  /return !setupSurfaceAllowed && \(tutorial\.stage === 'hello_preview' \|\| tutorial\.stage === 'miner_preview'\)/,
+  'hub and deploy targets must remain locked until setup cleanup completes',
+);
 assert.ok(
   app.includes("target.matches('.react-flow__pane')") &&
     app.includes("eventType === 'pointerdown'") &&

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { useT } from '../../hooks/useT';
 import { useGameStore } from '../../store/gameStore';
@@ -88,13 +88,14 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
   const codeServerConnected = useGameStore(s => s.codeServerConnected);
   const questsOpen = useGameStore(s => s.questsOpen);
   const selectedQuestId = useGameStore(s => s.selectedQuestId);
-  const toggleQuests = useGameStore(s => s.toggleQuests);
-  const selectQuest = useGameStore(s => s.selectQuest);
+  const setGameState = useGameStore(s => s.setState);
   const selectWorker = useGameStore(s => s.selectWorker);
   const workerLogs = useGameStore(s => s.workerLogs);
   const setWorkerLogs = useGameStore(s => s.setWorkerLogs);
   const phase = phaseForStage(stage);
   const setupGate = stage === 'hello_preview' && !codeServerConnected;
+  const wasSetupGate = useRef(setupGate);
+  const setupGateTransition = !setupGate && wasSetupGate.current && (questsOpen || selectedQuestId === 'q_setup');
   const helloWorkerId = session.world.deployTutorial.helloWorkerId;
   const logs = helloWorkerId ? workerLogs[helloWorkerId] || [] : [];
   const [grantError, setGrantError] = useState(false);
@@ -103,22 +104,32 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
   const [advancing, setAdvancing] = useState(false);
 
   useEffect(() => {
-    if (!setupGate) return;
-    if (!questsOpen) toggleQuests();
-    if (selectedQuestId !== 'q_setup') selectQuest('q_setup');
-  }, [setupGate, questsOpen, selectedQuestId, toggleQuests, selectQuest]);
+    if (setupGate) {
+      // Set both fields together so a refresh cannot reopen the panel with a
+      // stale quest selection, and repeated effects remain idempotent.
+      if (!questsOpen || selectedQuestId !== 'q_setup') {
+        setGameState({ questsOpen: true, selectedQuestId: 'q_setup' });
+      }
+    } else if (wasSetupGate.current && (questsOpen || selectedQuestId === 'q_setup')) {
+      // The setup modal is allowed to finish closing while the guard is still
+      // in its transition state. Clear both fields in one update so the modal
+      // cannot remain visible after code-server connection.
+      setGameState({ questsOpen: false, selectedQuestId: null });
+    }
+    wasSetupGate.current = setupGate;
+  }, [setupGate, questsOpen, selectedQuestId, setGameState]);
 
   // The shell guard consumes an authoritative descriptor, never a boolean.
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('chapter-zero-deploy-mode', {
-      detail: { active: true, phase, stage, setupGate },
+      detail: { active: true, phase, stage, setupGate: setupGate || setupGateTransition, setupGateTransition },
     }));
     return () => {
       window.dispatchEvent(new CustomEvent('chapter-zero-deploy-mode', {
-        detail: { active: false, phase, stage, setupGate },
+        detail: { active: false, phase, stage, setupGate: setupGate || setupGateTransition, setupGateTransition },
       }));
     };
-  }, [phase, setupGate, stage]);
+  }, [phase, setupGate, setupGateTransition, stage]);
 
   const publishSession = useCallback((nextSession: TutorialSession) => {
     window.dispatchEvent(new CustomEvent('chapter-zero-deploy-session', { detail: nextSession }));

@@ -53,6 +53,7 @@ type TutorialGuardState = {
   phase: 'hello' | 'miner';
   stage: string;
   setupGate?: boolean;
+  setupGateTransition?: boolean;
 } | null;
 
 /** Keep tutorial state mutations inside the current stage allowlist. */
@@ -84,9 +85,10 @@ function ChapterZeroInteractionGuard() {
         return true;
       }
       if (target.closest('[data-tutorial-surface], [data-tutorial-dialog], [data-tutorial-allowed]')) return true;
-      if (tutorial.setupGate && target.closest('[data-tutorial-setup], [data-quest-guide], [data-tutorial="quests-btn"]')) return true;
+      const setupSurfaceAllowed = tutorial.setupGate || tutorial.setupGateTransition;
+      if (setupSurfaceAllowed && target.closest('[data-tutorial-setup], [data-quest-guide], [data-tutorial="quests-btn"]')) return true;
       if (target.closest('[data-tutorial-target="hub"], [data-tutorial="hub-node"], [data-tutorial-target="deploy"]')) {
-        return !tutorial.setupGate && (tutorial.stage === 'hello_preview' || tutorial.stage === 'miner_preview');
+        return !setupSurfaceAllowed && (tutorial.stage === 'hello_preview' || tutorial.stage === 'miner_preview');
       }
       if (tutorial.stage === 'miner_edge_select' && target.closest('.edge-selectable')) return true;
       if (tutorial.stage === 'hello_log' && target.closest('[data-tutorial-worker-log]')) return true;
