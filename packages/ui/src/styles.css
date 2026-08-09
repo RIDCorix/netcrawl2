@@ -1388,11 +1388,9 @@ body::after {
   font-family: var(--font-mono, monospace);
 }
 
-/* The application-level guard owns interaction; this marker keeps locked
-   context visible while communicating the reduced surface to assistive tech. */
-[data-chapter-zero-tutorial] [data-tutorial-locked="true"] {
-  pointer-events: none;
-}
+/* The application-level guard owns interaction. Keep the marker for
+   diagnostics, but leave pointer delivery intact for stage allowlists such as
+   the deploy action inside an otherwise locked panel. */
 
 .chapter0-deploy-guide-phase {
   margin-bottom: 8px;

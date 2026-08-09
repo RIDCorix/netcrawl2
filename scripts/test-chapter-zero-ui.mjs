@@ -101,6 +101,11 @@ for (const locale of [en, zhTW, ja]) {
   assert.match(locale, /tutorial\.chapter_zero\.deploy\.continue_to_miner/, 'all locales need the log checkpoint CTA');
 }
 assert.doesNotMatch(styles, /chapter0-deploy-blocker|chapter0-target-hub/, 'the dimming guide styles must be removed');
+assert.doesNotMatch(
+  styles,
+  /\[data-chapter-zero-tutorial\]\s+\[data-tutorial-locked="true"\][^{]*\{[^}]*pointer-events:\s*none/s,
+  'tutorial locked panels must not disable pointer events for their allowlisted controls',
+);
 assert.match(
   readFileSync('packages/ui/src/components/graph/nodes/HubNode.tsx', 'utf8'),
   /border:\s*['"]2px solid var\(--accent\)['"]/,
