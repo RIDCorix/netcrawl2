@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   createChapterZeroSession,
   advanceChapterZeroStage,
@@ -231,4 +234,54 @@ assert.equal(migratedSyntheticCandidate.stage, 'miner_preview');
 assert.equal(migratedSyntheticCandidate.world.deployTutorial.minerWorkerId, null);
 assert.equal(migratedSyntheticCandidate.world.deployTutorial.minerCandidateWorkerId, null);
 
+// Miner retry owns only the tracked candidate. It returns its pickaxe/FLOP
+// once, can be called again safely, and accepts a later candidate.
+const retryDataDir = mkdtempSync(join(tmpdir(), 'netcrawl-chapter-zero-'));
+const { setDataDir, initDb, resolveStore } = await import('../packages/server/.test-dist/store.js');
+const { retryChapterZeroMiner } = await import('../packages/server/.test-dist/domain/questState.js');
+setDataDir(retryDataDir);
+initDb();
+const retryStore = resolveStore();
+const initialPickaxeCount = retryStore.game_state.playerInventory.find(item => item.itemType === 'pickaxe_basic')?.count || 0;
+retryStore.quest_state.chapterZero = createChapterZeroSession();
+retryStore.quest_state.chapterZero.stage = 'miner_deploy_execute';
+retryStore.quest_state.chapterZero.world.deployTutorial.minerCandidateWorkerId = 'retry-candidate-1';
+retryStore.quest_state.chapterZero.world.deployTutorial.minerLoopStep = 'collect';
+retryStore.quest_state.chapterZero.world.deployTutorial.minerCompletedLoops = 1;
+retryStore.game_state.flop.used = 8;
+retryStore.workers['retry-candidate-1'] = {
+  id: 'retry-candidate-1', node_id: 'hub', current_node: 'mine', class_name: 'Miner', class_icon: 'Pickaxe',
+  commit_hash: 'test', status: 'crashed', pid: null, carrying: {}, holding: [], flopAllocated: true,
+  equippedPickaxe: { itemType: 'pickaxe_basic', efficiency: 1 }, equippedCpu: null, equippedRam: null,
+  deployed_at: new Date().toISOString(), deployConfig: { classId: 'miner', equippedItems: {}, injectedFields: {} },
+};
+const retried = retryChapterZeroMiner();
+assert.equal(retried.ok, true);
+assert.equal(retryStore.quest_state.chapterZero.stage, 'miner_preview');
+assert.equal(retryStore.quest_state.chapterZero.world.deployTutorial.minerCandidateWorkerId, null);
+assert.equal(retryStore.quest_state.chapterZero.world.deployTutorial.minerCompletedLoops, 0);
+assert.equal(retryStore.workers['retry-candidate-1'], undefined);
+assert.equal(retryStore.game_state.flop.used, 0);
+assert.equal(retryStore.game_state.playerInventory.find(item => item.itemType === 'pickaxe_basic')?.count, initialPickaxeCount + 1);
+const idempotentRetry = retryChapterZeroMiner();
+assert.equal(idempotentRetry.ok, true);
+assert.equal(idempotentRetry.alreadyReset, true);
+assert.equal(retryStore.game_state.playerInventory.find(item => item.itemType === 'pickaxe_basic')?.count, initialPickaxeCount + 1);
+retryStore.quest_state.chapterZero.stage = 'miner_deploy_execute';
+retryStore.quest_state.chapterZero.world.deployTutorial.minerCandidateWorkerId = 'retry-candidate-2';
+retryStore.game_state.flop.used = 8;
+retryStore.workers['retry-candidate-2'] = {
+  id: 'retry-candidate-2', node_id: 'hub', current_node: 'mine', class_name: 'Miner', class_icon: 'Pickaxe',
+  commit_hash: 'test', status: 'error', pid: null, carrying: {}, holding: [], flopAllocated: true,
+  equippedPickaxe: { itemType: 'pickaxe_basic', efficiency: 1 }, equippedCpu: null, equippedRam: null,
+  deployed_at: new Date().toISOString(), deployConfig: { classId: 'miner', equippedItems: {}, injectedFields: {} },
+};
+const secondCandidateRetry = retryChapterZeroMiner();
+assert.equal(secondCandidateRetry.ok, true);
+assert.equal(retryStore.workers['retry-candidate-2'], undefined);
+assert.equal(retryStore.game_state.flop.used, 0);
+assert.equal(retryStore.game_state.playerInventory.find(item => item.itemType === 'pickaxe_basic')?.count, initialPickaxeCount + 2);
+rmSync(retryDataDir, { recursive: true, force: true });
+
 console.log('Chapter Zero v4 stage/migration/deploy transitions passed');
+process.exit(0);

@@ -13,6 +13,7 @@ import {
   grantChapterZeroDeployItems,
   setChapterZeroDeploySelection,
   verifyChapterZeroDeploy,
+  retryChapterZeroMiner,
 } from '../domain/questState.js';
 import type { ChapterZeroStage } from '../domain/chapterZero.js';
 import { getPlayerLevelSummary } from '../domain/level.js';
@@ -108,6 +109,13 @@ questRoutes.post('/tutorial/chapter-zero/stage', (req: Request, res: Response) =
     const result = verifyChapterZeroDeploy(workerId, uid);
     if (!result.ok) return res.status(400).json(result);
     checkQuests(uid);
+    broadcastFullState(uid);
+    return res.json(result);
+  }
+
+  if (action === 'miner-retry') {
+    const result = retryChapterZeroMiner(uid);
+    if (!result.ok) return res.status(400).json(result);
     broadcastFullState(uid);
     return res.json(result);
   }

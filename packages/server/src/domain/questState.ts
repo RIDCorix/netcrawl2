@@ -17,8 +17,11 @@ import {
   type ChapterZeroStage,
 } from './chapterZero.js';
 import { addToPlayerInventory } from './inventory.js';
-import { getWorker, getWorkerLogs } from './workers.js';
-import { getWorkerClass } from '../workerRegistry.js';
+import { deleteWorker, getWorker, getWorkerLogs, releaseWorkerFlop } from './workers.js';
+import { getWorkerClass, removeFromDeployQueue } from '../workerRegistry.js';
+import { killWorker } from '../workerSpawner.js';
+import { returnWorkerItems } from '../routes/helpers.js';
+import { FLOP_COSTS } from '../types.js';
 
 const MINER_STAGE_SET = new Set<ChapterZeroStage>([
   'miner_preview',
@@ -263,6 +266,52 @@ export function verifyChapterZeroDeploy(workerId: string, userId?: string) {
   state.chapterZero = s;
 
   return { ok: true as const, ...getChapterZero(userId) };
+}
+
+/**
+ * Clear a failed tutorial candidate without touching other workers. Recalling a
+ * worker is idempotent: the row is removed after its assets/FLOP are returned,
+ * making subsequent retries a no-op.
+ */
+export function retryChapterZeroMiner(userId?: string) {
+  const state = resolveStore(userId).quest_state;
+  getChapterZero(userId);
+  const session = state.chapterZero!;
+  const deploy = session.world.deployTutorial;
+
+  if (session.stage === 'miner_preview' && !deploy.minerCandidateWorkerId) {
+    return { ok: true as const, alreadyReset: true as const, ...getChapterZero(userId) };
+  }
+  if (session.stage !== 'miner_deploy_execute') {
+    return { ok: false as const, error: 'out_of_order' as const, ...getChapterZero(userId) };
+  }
+
+  const candidateId = deploy.minerCandidateWorkerId;
+  if (candidateId) {
+    const candidate = getWorker(candidateId, userId);
+    if (candidate) {
+      returnWorkerItems(candidate, userId);
+      releaseWorkerFlop(candidateId, FLOP_COSTS.worker, userId);
+      removeFromDeployQueue(candidateId, userId);
+      if (!['deploying', 'suspended', 'crashed', 'error', 'dead'].includes(candidate.status)) {
+        killWorker(candidateId, userId);
+      }
+      // killWorker only knows the active process map; explicitly remove the
+      // current user's row too for terminal, disconnected, and queue-only cases.
+      deleteWorker(candidateId, userId);
+    }
+  }
+
+  const reset = structuredClone(session);
+  reset.stage = 'miner_preview';
+  reset.transition = 'miner_retry';
+  reset.world.deployTutorial.selectedEdgeId = null;
+  reset.world.deployTutorial.selectedPickaxeType = null;
+  reset.world.deployTutorial.minerCandidateWorkerId = null;
+  reset.world.deployTutorial.minerLoopStep = 'awaiting_deploy';
+  reset.world.deployTutorial.minerCompletedLoops = 0;
+  state.chapterZero = reset;
+  return { ok: true as const, alreadyReset: false as const, ...getChapterZero(userId) };
 }
 
 /** Record only successful actions from the verified candidate's real on_loop. */

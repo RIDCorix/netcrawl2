@@ -177,14 +177,14 @@ export async function spawnWorker(options: {
   return { ok: true, pid: child.pid };
 }
 
-export function killWorker(workerId: string): { ok: boolean; error?: string } {
+export function killWorker(workerId: string, userId?: string): { ok: boolean; error?: string } {
   const child = activeProcesses.get(workerId);
   if (!child) {
     return { ok: false, error: 'Worker process not found' };
   }
   child.kill('SIGTERM');
   activeProcesses.delete(workerId);
-  deleteWorker(workerId);
+  deleteWorker(workerId, userId);
   return { ok: true };
 }
 

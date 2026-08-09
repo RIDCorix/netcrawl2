@@ -78,6 +78,7 @@ assert.match(deployGuide, /helloworker\.py/, 'HelloWorker code preview must show
 assert.match(deployGuide, /class_id = "miner"/, 'Miner code preview must show the code-server class id');
 assert.match(deployGuide, /minerCandidateWorkerId/, 'guide must poll the verified Miner candidate');
 assert.match(deployGuide, /minerCompletedLoops/, 'guide must show completed on_loop cycles');
+assert.match(deployGuide, /miner-retry/, 'guide must offer terminal Miner recovery');
 assert.match(deployGuide, /hello_log/, 'guide must own the HelloWorker log checkpoint');
 assert.match(deployGuide, /helloWorkerId/, 'guide must target the verified HelloWorker');
 assert.doesNotMatch(deployDialog, /__hello_worker__|__no_equipment__/, 'tutorial deployment must not use sentinel values');

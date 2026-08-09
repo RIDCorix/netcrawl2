@@ -98,6 +98,7 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
   const codeServerConnected = useGameStore(s => s.codeServerConnected);
   const questsOpen = useGameStore(s => s.questsOpen);
   const selectedQuestId = useGameStore(s => s.selectedQuestId);
+  const workers = useGameStore(s => s.workers);
   const setGameState = useGameStore(s => s.setState);
   const selectWorker = useGameStore(s => s.selectWorker);
   const workerLogs = useGameStore(s => s.workerLogs);
@@ -199,6 +200,25 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
   const isHandoff = stage === 'handoff';
   const minerLoop = session.world.deployTutorial.minerLoopStep;
   const completedLoops = session.world.deployTutorial.minerCompletedLoops;
+  const minerCandidateWorkerId = session.world.deployTutorial.minerCandidateWorkerId;
+  const minerCandidate = workers.find(worker => worker.id === minerCandidateWorkerId);
+  const minerCanRetry = !!minerCandidateWorkerId && (!codeServerConnected || !minerCandidate || ['suspended', 'crashed', 'error', 'dead'].includes(minerCandidate.status));
+  const [retryingMiner, setRetryingMiner] = useState(false);
+  const [minerRetryError, setMinerRetryError] = useState(false);
+
+  const retryMiner = useCallback(async () => {
+    if (!minerCanRetry || retryingMiner) return;
+    setRetryingMiner(true);
+    setMinerRetryError(false);
+    try {
+      const response = await axios.post('/api/tutorial/chapter-zero/stage', { action: 'miner-retry' });
+      publishSession(response.data);
+    } catch {
+      setMinerRetryError(true);
+    } finally {
+      setRetryingMiner(false);
+    }
+  }, [minerCanRetry, publishSession, retryingMiner]);
 
   useEffect(() => {
     if (stage !== 'miner_deploy_execute' || !session.world.deployTutorial.minerCandidateWorkerId) return;
@@ -323,6 +343,15 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
                     </div>
                   ))}
                 </div>
+                {minerCanRetry && (
+                  <div className="chapter0-deploy-error" role="alert">
+                    <span>{t('tutorial.chapter_zero.deploy.miner_retry_prompt')}</span>
+                    <button onClick={retryMiner} disabled={retryingMiner} className="chapter0-deploy-error-retry" data-tutorial-allowed>
+                      {retryingMiner ? t('tutorial.chapter_zero.deploy.retrying') : t('tutorial.chapter_zero.deploy.miner_retry')}
+                    </button>
+                  </div>
+                )}
+                {minerRetryError && <div className="chapter0-deploy-error" role="alert">{t('tutorial.chapter_zero.deploy.miner_retry_error')}</div>}
               </div>
             )}
 
