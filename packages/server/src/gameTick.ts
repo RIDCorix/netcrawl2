@@ -71,7 +71,23 @@ function tickUser(userId?: string) {
     }
   }
 
-  // Check depleted nodes and recover them
+  // Refill mine supply, never exceeding each node's maximum buffer.
+  nodes = nodes.map((n: any) => {
+    if (n.data.mineable && n.data.maxDataBuffer !== undefined) {
+      const maxDataBuffer = Math.max(1, Number(n.data.maxDataBuffer));
+      const currentData = Math.min(maxDataBuffer, Math.max(0, Number(n.data.data ?? maxDataBuffer)));
+      const refillRate = Math.max(0, Number(n.data.dataRefillRate ?? n.data.rate ?? 0));
+      const nextData = Math.min(maxDataBuffer, currentData + refillRate);
+      if (nextData !== currentData) {
+        changed = true;
+        return { ...n, data: { ...n.data, data: nextData, maxDataBuffer } };
+      }
+    }
+    return n;
+  });
+
+  // Recover legacy depletion state left by older saves. New mines use their
+  // replenishing data buffer rather than entering a depleted state.
   const now = Date.now();
   nodes = nodes.map((n: any) => {
     if (n.data.depleted && n.data.depletedUntil && now >= n.data.depletedUntil) {
@@ -125,7 +141,9 @@ function tickUser(userId?: string) {
   // the player dies in the first 30 seconds after a reset.
   const nextTick = tick + 1;
   if (nextTick === 1 || nextTick % 30 === 0) {
-    try { takeAutosave(userId); } catch (err) {
+    try {
+      takeAutosave(userId);
+    } catch (err) {
       console.error('[Tick] Autosave failed:', err);
     }
   }

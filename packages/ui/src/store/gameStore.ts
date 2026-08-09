@@ -72,6 +72,11 @@ export interface NodeData {
   items?: Item[];
   drops?: Item[];
   mineCount?: number;
+  /** Current replenishing supply in a resource node. */
+  data?: number;
+  /** Maximum replenishing supply in a resource node (not the floor-item buffer). */
+  maxDataBuffer?: number;
+  dataRefillRate?: number;
   depleted?: boolean;
   depletedUntil?: number;
   upgradeLevel?: number;

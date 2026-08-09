@@ -13,6 +13,39 @@ const DROP_COLOR: Record<string, string> = {
   bad_data: '#ef4444',
 };
 
+/** Vertical mine-supply meter, deliberately separate from the floor-drop buffer. */
+export function ResourceDataIndicator({ data, maxDataBuffer }: { data?: number; maxDataBuffer?: number }) {
+  if (maxDataBuffer === undefined || maxDataBuffer <= 0) return null;
+
+  const max = Math.max(1, Math.floor(maxDataBuffer));
+  const current = Math.min(max, Math.max(0, Math.floor(data ?? max)));
+  const percent = (current / max) * 100;
+  const color = percent <= 20 ? '#f59e0b' : '#45aaf2';
+
+  return (
+    <div aria-label={`Mine data: ${current}/${max}`} role="meter" aria-valuemin={0} aria-valuemax={max} aria-valuenow={current} style={{
+      position: 'absolute', left: -31, top: '50%', transform: 'translateY(-50%)', height: 54,
+      display: 'flex', alignItems: 'center', gap: 3, pointerEvents: 'none', zIndex: 3, fontFamily: 'var(--font-mono)',
+    }}>
+      <div style={{
+        position: 'relative', width: 7, height: '100%', overflow: 'hidden', borderRadius: 999,
+        background: 'color-mix(in srgb, var(--bg-primary) 82%, transparent)', border: '1px solid var(--border-bright)', boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+      }}>
+        <div style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0, height: `${percent}%`, background: color,
+          boxShadow: `0 0 7px ${color}`, transition: 'height 180ms ease-out, background 180ms ease-out',
+        }} />
+      </div>
+      <span style={{
+        color: percent <= 20 ? '#fbbf24' : 'var(--text-muted)', fontSize: 8, fontWeight: 800,
+        lineHeight: 1, writingMode: 'vertical-rl', transform: 'rotate(180deg)',
+      }}>
+        {current}/{max}
+      </span>
+    </div>
+  );
+}
+
 export function DropsIndicator({ items, maxBuffer }: { items: any[]; maxBuffer?: number }) {
   if (!items || items.length === 0) return null;
 
@@ -37,33 +70,62 @@ export function DropsIndicator({ items, maxBuffer }: { items: any[]; maxBuffer?:
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -2 }}
       style={{
-        position: 'absolute', bottom: -18, left: '50%', transform: 'translateX(-50%)',
-        display: 'flex', alignItems: 'center', gap: 3,
-        padding: '2px 5px', borderRadius: 999,
+        position: 'absolute',
+        bottom: -18,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 3,
+        padding: '2px 5px',
+        borderRadius: 999,
         background: 'color-mix(in srgb, var(--bg-primary) 85%, transparent)',
         backdropFilter: 'blur(10px)',
         border: `1px solid ${full ? '#ef4444' : 'color-mix(in srgb, var(--accent) 35%, var(--border))'}`,
         boxShadow: full ? '0 0 8px rgba(239,68,68,0.5), 0 1px 4px rgba(0,0,0,0.4)' : '0 1px 4px rgba(0,0,0,0.4)',
-        zIndex: 3, pointerEvents: 'none', fontFamily: 'var(--font-mono)',
+        zIndex: 3,
+        pointerEvents: 'none',
+        fontFamily: 'var(--font-mono)',
       }}
     >
       {visible.map(([type, count]) => {
         const Icon = DROP_ICON[type] || Package;
         const color = DROP_COLOR[type] || '#facc15';
         return (
-          <div key={type} style={{
-            display: 'flex', alignItems: 'center', gap: 2,
-            padding: '1px 4px 1px 2px', borderRadius: 999,
-            background: `color-mix(in srgb, ${color} 20%, transparent)`, color,
-          }}>
+          <div
+            key={type}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              padding: '1px 4px 1px 2px',
+              borderRadius: 999,
+              background: `color-mix(in srgb, ${color} 20%, transparent)`,
+              color,
+            }}
+          >
             <Icon size={9} style={{ color }} />
             <span style={{ fontSize: 9, fontWeight: 800, lineHeight: 1 }}>{count > 999 ? '999+' : count}</span>
           </div>
         );
       })}
-      {hidden > 0 && <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-muted)', padding: '0 2px', lineHeight: 1 }}>+{hidden}</div>}
+      {hidden > 0 && (
+        <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-muted)', padding: '0 2px', lineHeight: 1 }}>
+          +{hidden}
+        </div>
+      )}
       {cap > 0 && (
-        <div style={{ marginLeft: 2, paddingLeft: 4, borderLeft: '1px solid var(--border)', fontSize: 8, fontWeight: 700, color: full ? '#ef4444' : 'var(--text-muted)', lineHeight: 1 }}>
+        <div
+          style={{
+            marginLeft: 2,
+            paddingLeft: 4,
+            borderLeft: '1px solid var(--border)',
+            fontSize: 8,
+            fontWeight: 700,
+            color: full ? '#ef4444' : 'var(--text-muted)',
+            lineHeight: 1,
+          }}
+        >
           {stacks}/{cap}
         </div>
       )}
@@ -74,10 +136,18 @@ export function DropsIndicator({ items, maxBuffer }: { items: any[]; maxBuffer?:
 export function DepletedOverlay({ depletedUntil }: { depletedUntil?: number }) {
   const remaining = depletedUntil ? Math.max(0, Math.ceil((depletedUntil - Date.now()) / 1000)) : 0;
   return (
-    <div style={{
-      position: 'absolute', inset: 0, borderRadius: 'var(--radius-lg)',
-      background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1,
-    }}>
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        borderRadius: 'var(--radius-lg)',
+        background: 'rgba(0,0,0,0.55)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1,
+      }}
+    >
       <span style={{ color: 'var(--danger)', fontSize: '11px', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
         {remaining > 0 ? `${remaining}s` : 'depleted'}
       </span>

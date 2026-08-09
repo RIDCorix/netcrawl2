@@ -18,6 +18,7 @@ import {
   INITIAL_PLAYER_INVENTORY,
   INITIAL_FLOP,
 } from './types.js';
+import { RESOURCE_BUFFER_SECONDS } from './constants.js';
 
 // ── Module state ────────────────────────────────────────────────────────────
 
@@ -259,13 +260,27 @@ function _loadStore() {
         store.game_state.playerInventory = JSON.parse(JSON.stringify(INITIAL_PLAYER_INVENTORY));
       }
 
-      // Migrate existing nodes to add mineable/items
+      // Migrate existing resource nodes to the replenishing mine-supply model.
       store.game_state.nodes = store.game_state.nodes.map((n: any) => {
         const init = INITIAL_NODES.find(in_ => in_.id === n.id);
-        if (init && (init.data as any).mineable && !n.data.mineable) {
+        const mineable = n.data.mineable || (init?.data as any)?.mineable;
+        if (mineable) {
+          const rate = Math.max(1, Number(n.data.rate ?? (init?.data as any)?.rate ?? 1));
+          const maxDataBuffer = Math.max(1, Number(n.data.maxDataBuffer ?? rate * RESOURCE_BUFFER_SECONDS));
+          const data = Math.min(maxDataBuffer, Math.max(0, Number(n.data.data ?? maxDataBuffer)));
           return {
             ...n,
-            data: { ...n.data, mineable: true, items: n.data.items || [], mineCount: n.data.mineCount || 0 },
+            data: {
+              ...n.data,
+              mineable: true,
+              items: n.data.items || [],
+              mineCount: 0,
+              data,
+              maxDataBuffer,
+              dataRefillRate: Math.max(1, Number(n.data.dataRefillRate ?? rate)),
+              depleted: false,
+              depletedUntil: undefined,
+            },
           };
         }
         return n;

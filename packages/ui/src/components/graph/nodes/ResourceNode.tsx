@@ -2,11 +2,11 @@ import React from 'react';
 import { Database } from 'lucide-react';
 import { NodeWrapper } from '../NodeWrapper';
 import { NodeLabel } from '../NodeLabel';
-import { DropsIndicator, DepletedOverlay } from '../DropsIndicator';
+import { DropsIndicator, DepletedOverlay, ResourceDataIndicator } from '../DropsIndicator';
 
 export function ResourceNode({ id, data, selected }: any) {
   const color = 'var(--data-color)';
-  const floorItems = Array.isArray(data.items) ? data.items : (Array.isArray(data.drops) ? data.drops : []);
+  const floorItems = Array.isArray(data.items) ? data.items : Array.isArray(data.drops) ? data.drops : [];
   const isDepleted = !!data.depleted;
 
   return (
@@ -16,13 +16,15 @@ export function ResourceNode({ id, data, selected }: any) {
       nodeId={id}
       showWorkerDots={data.showWorkerDots}
       edgeStyle={data.edgeStyle}
-      fadeIn={data.fadeIn} routeIndices={data.routeIndices}
+      fadeIn={data.fadeIn}
+      routeIndices={data.routeIndices}
       style={{
         opacity: data.unlocked ? (isDepleted ? 0.7 : 1) : 0.5,
         filter: isDepleted ? 'grayscale(60%)' : undefined,
       }}
     >
       {isDepleted && <DepletedOverlay depletedUntil={data.depletedUntil} />}
+      <ResourceDataIndicator data={data.data} maxDataBuffer={data.maxDataBuffer} />
       <DropsIndicator items={floorItems} maxBuffer={data.maxBuffer} />
       <NodeLabel
         label={data.label}

@@ -5,11 +5,8 @@
 
 // ── Mining ──────────────────────────────────────────────────────────────────
 
-/** Mine count before a node becomes depleted (fallback for nodes without capacity). */
-export const MINE_DEPLETION_THRESHOLD = 999;
-
-/** Cooldown (ms) after hard depletion at MINE_DEPLETION_THRESHOLD. */
-export const MINE_DEPLETION_COOLDOWN_MS = 60_000;
+/** A full resource node holds ten seconds of its normal output. */
+export const RESOURCE_BUFFER_SECONDS = 10;
 
 // ── Repair ──────────────────────────────────────────────────────────────────
 
@@ -31,7 +28,7 @@ export const WORKER_STATUS = {
   DEAD: 'dead',
 } as const;
 
-export type WorkerStatus = typeof WORKER_STATUS[keyof typeof WORKER_STATUS];
+export type WorkerStatus = (typeof WORKER_STATUS)[keyof typeof WORKER_STATUS];
 
 // ── UI Timing ───────────────────────────────────────────────────────────────
 

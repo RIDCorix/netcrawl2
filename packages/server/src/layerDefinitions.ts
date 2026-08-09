@@ -5,6 +5,7 @@
  */
 
 import type { FlopState } from './types.js';
+import { RESOURCE_BUFFER_SECONDS } from './constants.js';
 
 // ── Layer metadata ────────────────────────────────────────────────────────────
 
@@ -17,8 +18,8 @@ export interface LayerDef {
   emoji: string;
   unlockThresholds: {
     total_data_deposited?: number;
-    rp?: number;        // current resource balance
-    credits?: number;   // current resource balance
+    rp?: number; // current resource balance
+    credits?: number; // current resource balance
     /**
      * Map of stat_key -> minimum value. Any achievement_state stat counts:
      *  - `puzzle_solved_<nodeId>` for per-node puzzle completions
@@ -87,87 +88,176 @@ export const LAYER_DEFS: LayerDef[] = [
 // ── Layer initial node/edge layouts ─────────────────────────────────────────
 
 // Node data helpers (same pattern as db.ts)
-const R1 = (label: string, rate: number, cost: Record<string, number>) =>
-  ({ label, resource: 'data' as const, rate, unlocked: false, unlockCost: cost, mineable: true, items: [] as any[], mineCount: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] });
-const C1 = (label: string, diff: 'easy' | 'medium' | 'hard', cost: Record<string, number>) =>
-  ({ label, unlocked: false, unlockCost: cost, difficulty: diff, rewardResource: 'rp' as const, solveCount: 0, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] });
-const Y1 = (label: string, cost: Record<string, number>) =>
-  ({ label, unlocked: false, unlockCost: cost, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] });
-const P1 = (label: string, tier: number, cost: Record<string, number>) =>
-  ({ label, unlocked: false, unlockCost: cost, tier, infectionValue: 0, pendingRequests: 0, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] });
-const A1 = (label: string, cost: Record<string, number>) =>
-  ({ label, unlocked: false, unlockCost: cost, upgradeLevel: 0, chipSlots: 1, installedChips: [] as string[] });
-const E1 = (label: string, cost: Record<string, number>) =>
-  ({ label, unlocked: false, unlockCost: cost, upgradeLevel: 0, chipSlots: 0, installedChips: [] as string[] });
+const R1 = (label: string, rate: number, cost: Record<string, number>) => ({
+  label,
+  resource: 'data' as const,
+  rate,
+  unlocked: false,
+  unlockCost: cost,
+  mineable: true,
+  items: [] as any[],
+  mineCount: 0,
+  data: rate * RESOURCE_BUFFER_SECONDS,
+  maxDataBuffer: rate * RESOURCE_BUFFER_SECONDS,
+  dataRefillRate: rate,
+  upgradeLevel: 0,
+  chipSlots: 1,
+  installedChips: [] as string[],
+});
+const C1 = (label: string, diff: 'easy' | 'medium' | 'hard', cost: Record<string, number>) => ({
+  label,
+  unlocked: false,
+  unlockCost: cost,
+  difficulty: diff,
+  rewardResource: 'rp' as const,
+  solveCount: 0,
+  upgradeLevel: 0,
+  chipSlots: 0,
+  installedChips: [] as string[],
+});
+const Y1 = (label: string, cost: Record<string, number>) => ({
+  label,
+  unlocked: false,
+  unlockCost: cost,
+  upgradeLevel: 0,
+  chipSlots: 0,
+  installedChips: [] as string[],
+});
+const P1 = (label: string, tier: number, cost: Record<string, number>) => ({
+  label,
+  unlocked: false,
+  unlockCost: cost,
+  tier,
+  infectionValue: 0,
+  pendingRequests: 0,
+  upgradeLevel: 0,
+  chipSlots: 1,
+  installedChips: [] as string[],
+});
+const A1 = (label: string, cost: Record<string, number>) => ({
+  label,
+  unlocked: false,
+  unlockCost: cost,
+  upgradeLevel: 0,
+  chipSlots: 1,
+  installedChips: [] as string[],
+});
+const E1 = (label: string, cost: Record<string, number>) => ({
+  label,
+  unlocked: false,
+  unlockCost: cost,
+  upgradeLevel: 0,
+  chipSlots: 0,
+  installedChips: [] as string[],
+});
 
 export const LAYER_1_INITIAL_NODES = [
   // Hub
-  { id: 'l1_hub', type: 'hub', position: { x: -45, y: -36 },
-    data: { label: 'HQ Terminal', unlocked: true, upgradeLevel: 0, chipSlots: 2, installedChips: [] as string[] } },
+  {
+    id: 'l1_hub',
+    type: 'hub',
+    position: { x: -45, y: -36 },
+    data: { label: 'HQ Terminal', unlocked: true, upgradeLevel: 0, chipSlots: 2, installedChips: [] as string[] },
+  },
 
   // Entry Zone — lightly defended lobby
-  { id: 'l1_n_relay1', type: 'empty',    position: { x: 0,    y: -240 }, data: Y1('Internal DNS',   { data: 10000 }) },
-  { id: 'l1_n_api1',   type: 'api',      position: { x: -200, y: -400 }, data: P1('REST Gateway',   1, { data: 20000 }) },
-  { id: 'l1_n_api2',   type: 'api',      position: { x: 200,  y: -400 }, data: P1('Auth Service',   1, { data: 20000, rp: 2 }) },
-  { id: 'l1_n_auth1',  type: 'auth',     position: { x: 0,    y: -560 }, data: A1('LDAP Auth',          { data: 40000, rp: 5 }) },
+  { id: 'l1_n_relay1', type: 'empty', position: { x: 0, y: -240 }, data: Y1('Internal DNS', { data: 10000 }) },
+  { id: 'l1_n_api1', type: 'api', position: { x: -200, y: -400 }, data: P1('REST Gateway', 1, { data: 20000 }) },
+  { id: 'l1_n_api2', type: 'api', position: { x: 200, y: -400 }, data: P1('Auth Service', 1, { data: 20000, rp: 2 }) },
+  { id: 'l1_n_auth1', type: 'auth', position: { x: 0, y: -560 }, data: A1('LDAP Auth', { data: 40000, rp: 5 }) },
 
   // East Wing — Dev / CI
-  { id: 'l1_e_relay1', type: 'empty',    position: { x: 380,  y: -120 }, data: Y1('Dev VLAN',       { data: 30000 }) },
-  { id: 'l1_e_comp1',  type: 'compute',  position: { x: 600,  y: -280 }, data: C1('CI Runner',      'easy',   { data: 50000 }) },
-  { id: 'l1_e_api3',   type: 'api',      position: { x: 600,  y: 40   }, data: P1('Build API',      1, { data: 40000 }) },
-  { id: 'l1_e_relay2', type: 'empty',    position: { x: 860,  y: -120 }, data: Y1('QA VLAN',        { data: 80000 }) },
-  { id: 'l1_e_comp2',  type: 'compute',  position: { x: 1060, y: -280 }, data: C1('Test Cluster',   'medium', { data: 100000, rp: 8 }) },
-  { id: 'l1_e_api4',   type: 'api',      position: { x: 1060, y: 40   }, data: P1('Deploy API',     2, { data: 120000, rp: 5 }) },
-  { id: 'l1_e_auth2',  type: 'auth',     position: { x: 1300, y: -120 }, data: A1('DevOps IAM',         { data: 150000, rp: 10 }) },
+  { id: 'l1_e_relay1', type: 'empty', position: { x: 380, y: -120 }, data: Y1('Dev VLAN', { data: 30000 }) },
+  { id: 'l1_e_comp1', type: 'compute', position: { x: 600, y: -280 }, data: C1('CI Runner', 'easy', { data: 50000 }) },
+  { id: 'l1_e_api3', type: 'api', position: { x: 600, y: 40 }, data: P1('Build API', 1, { data: 40000 }) },
+  { id: 'l1_e_relay2', type: 'empty', position: { x: 860, y: -120 }, data: Y1('QA VLAN', { data: 80000 }) },
+  {
+    id: 'l1_e_comp2',
+    type: 'compute',
+    position: { x: 1060, y: -280 },
+    data: C1('Test Cluster', 'medium', { data: 100000, rp: 8 }),
+  },
+  { id: 'l1_e_api4', type: 'api', position: { x: 1060, y: 40 }, data: P1('Deploy API', 2, { data: 120000, rp: 5 }) },
+  { id: 'l1_e_auth2', type: 'auth', position: { x: 1300, y: -120 }, data: A1('DevOps IAM', { data: 150000, rp: 10 }) },
 
   // North Wing — Finance
-  { id: 'l1_nn_relay1',type: 'empty',    position: { x: -200, y: -760 }, data: Y1('Finance VLAN',   { data: 60000, rp: 3 }) },
-  { id: 'l1_nn_comp1', type: 'compute',  position: { x: -450, y: -960 }, data: C1('ERP Node',       'medium', { data: 90000, rp: 6 }) },
-  { id: 'l1_nn_api5',  type: 'api',      position: { x: 80,   y: -960 }, data: P1('Billing API',    2, { data: 110000, rp: 8 }) },
-  { id: 'l1_nn_locked',type: 'empty',    position: { x: -200, y: -1180},  data: E1('Finance Vault',      { data: 400000, rp: 30 }) },
+  {
+    id: 'l1_nn_relay1',
+    type: 'empty',
+    position: { x: -200, y: -760 },
+    data: Y1('Finance VLAN', { data: 60000, rp: 3 }),
+  },
+  {
+    id: 'l1_nn_comp1',
+    type: 'compute',
+    position: { x: -450, y: -960 },
+    data: C1('ERP Node', 'medium', { data: 90000, rp: 6 }),
+  },
+  { id: 'l1_nn_api5', type: 'api', position: { x: 80, y: -960 }, data: P1('Billing API', 2, { data: 110000, rp: 8 }) },
+  {
+    id: 'l1_nn_locked',
+    type: 'empty',
+    position: { x: -200, y: -1180 },
+    data: E1('Finance Vault', { data: 400000, rp: 30 }),
+  },
 
   // South Wing — HR / CRM (data-rich)
-  { id: 'l1_s_relay1', type: 'empty',    position: { x: 0,    y: 320  }, data: Y1('HR VLAN',        { data: 40000 }) },
-  { id: 'l1_s_mine1',  type: 'resource', position: { x: 200,  y: 480  }, data: R1('Employee DB',    40, { data: 60000 }) },
-  { id: 'l1_s_api7',   type: 'api',      position: { x: -200, y: 480  }, data: P1('HR Portal API',  1, { data: 50000, rp: 3 }) },
-  { id: 'l1_s_mine2',  type: 'resource', position: { x: 200,  y: 700  }, data: R1('Customer DB',    60, { data: 130000, rp: 6 }) },
-  { id: 'l1_s_comp1',  type: 'compute',  position: { x: -200, y: 700  }, data: C1('Analytics',      'hard',   { data: 200000, rp: 12 }) },
+  { id: 'l1_s_relay1', type: 'empty', position: { x: 0, y: 320 }, data: Y1('HR VLAN', { data: 40000 }) },
+  { id: 'l1_s_mine1', type: 'resource', position: { x: 200, y: 480 }, data: R1('Employee DB', 40, { data: 60000 }) },
+  { id: 'l1_s_api7', type: 'api', position: { x: -200, y: 480 }, data: P1('HR Portal API', 1, { data: 50000, rp: 3 }) },
+  {
+    id: 'l1_s_mine2',
+    type: 'resource',
+    position: { x: 200, y: 700 },
+    data: R1('Customer DB', 60, { data: 130000, rp: 6 }),
+  },
+  {
+    id: 'l1_s_comp1',
+    type: 'compute',
+    position: { x: -200, y: 700 },
+    data: C1('Analytics', 'hard', { data: 200000, rp: 12 }),
+  },
 
   // West Wing — NOC / Infra
-  { id: 'l1_w_relay1', type: 'empty',    position: { x: -400, y: 40   }, data: Y1('NOC VLAN',       { data: 35000 }) },
-  { id: 'l1_w_api8',   type: 'api',      position: { x: -640, y: -140 }, data: P1('Monitor API',    1, { data: 50000 }) },
-  { id: 'l1_w_comp2',  type: 'compute',  position: { x: -640, y: 220  }, data: C1('Log Collector',  'easy',   { data: 70000, rp: 4 }) },
-  { id: 'l1_w_auth3',  type: 'auth',     position: { x: -900, y: 40   }, data: A1('SOC Gateway',        { data: 120000, rp: 10 }) },
+  { id: 'l1_w_relay1', type: 'empty', position: { x: -400, y: 40 }, data: Y1('NOC VLAN', { data: 35000 }) },
+  { id: 'l1_w_api8', type: 'api', position: { x: -640, y: -140 }, data: P1('Monitor API', 1, { data: 50000 }) },
+  {
+    id: 'l1_w_comp2',
+    type: 'compute',
+    position: { x: -640, y: 220 },
+    data: C1('Log Collector', 'easy', { data: 70000, rp: 4 }),
+  },
+  { id: 'l1_w_auth3', type: 'auth', position: { x: -900, y: 40 }, data: A1('SOC Gateway', { data: 120000, rp: 10 }) },
 ];
 
 export const LAYER_1_INITIAL_EDGES = [
   // Hub spokes
-  { id: 'l1e1',  source: 'l1_hub',      target: 'l1_n_relay1' },
-  { id: 'l1e2',  source: 'l1_hub',      target: 'l1_e_relay1' },
-  { id: 'l1e3',  source: 'l1_hub',      target: 'l1_s_relay1' },
-  { id: 'l1e4',  source: 'l1_hub',      target: 'l1_w_relay1' },
+  { id: 'l1e1', source: 'l1_hub', target: 'l1_n_relay1' },
+  { id: 'l1e2', source: 'l1_hub', target: 'l1_e_relay1' },
+  { id: 'l1e3', source: 'l1_hub', target: 'l1_s_relay1' },
+  { id: 'l1e4', source: 'l1_hub', target: 'l1_w_relay1' },
   // Entry zone
-  { id: 'l1e5',  source: 'l1_n_relay1', target: 'l1_n_api1' },
-  { id: 'l1e6',  source: 'l1_n_relay1', target: 'l1_n_api2' },
-  { id: 'l1e7',  source: 'l1_n_api1',   target: 'l1_n_auth1' },
-  { id: 'l1e8',  source: 'l1_n_api2',   target: 'l1_n_auth1' },
+  { id: 'l1e5', source: 'l1_n_relay1', target: 'l1_n_api1' },
+  { id: 'l1e6', source: 'l1_n_relay1', target: 'l1_n_api2' },
+  { id: 'l1e7', source: 'l1_n_api1', target: 'l1_n_auth1' },
+  { id: 'l1e8', source: 'l1_n_api2', target: 'l1_n_auth1' },
   // East wing
-  { id: 'l1e9',  source: 'l1_e_relay1', target: 'l1_e_comp1' },
+  { id: 'l1e9', source: 'l1_e_relay1', target: 'l1_e_comp1' },
   { id: 'l1e10', source: 'l1_e_relay1', target: 'l1_e_api3' },
   { id: 'l1e11', source: 'l1_e_relay1', target: 'l1_e_relay2' },
   { id: 'l1e12', source: 'l1_e_relay2', target: 'l1_e_comp2' },
   { id: 'l1e13', source: 'l1_e_relay2', target: 'l1_e_api4' },
   { id: 'l1e14', source: 'l1_e_relay2', target: 'l1_e_auth2' },
   // North wing
-  { id: 'l1e15', source: 'l1_n_auth1',  target: 'l1_nn_relay1' },
-  { id: 'l1e16', source: 'l1_nn_relay1',target: 'l1_nn_comp1' },
-  { id: 'l1e17', source: 'l1_nn_relay1',target: 'l1_nn_api5' },
-  { id: 'l1e18', source: 'l1_nn_relay1',target: 'l1_nn_locked' },
+  { id: 'l1e15', source: 'l1_n_auth1', target: 'l1_nn_relay1' },
+  { id: 'l1e16', source: 'l1_nn_relay1', target: 'l1_nn_comp1' },
+  { id: 'l1e17', source: 'l1_nn_relay1', target: 'l1_nn_api5' },
+  { id: 'l1e18', source: 'l1_nn_relay1', target: 'l1_nn_locked' },
   // South wing
   { id: 'l1e19', source: 'l1_s_relay1', target: 'l1_s_mine1' },
   { id: 'l1e20', source: 'l1_s_relay1', target: 'l1_s_api7' },
-  { id: 'l1e21', source: 'l1_s_mine1',  target: 'l1_s_mine2' },
-  { id: 'l1e22', source: 'l1_s_api7',   target: 'l1_s_comp1' },
+  { id: 'l1e21', source: 'l1_s_mine1', target: 'l1_s_mine2' },
+  { id: 'l1e22', source: 'l1_s_api7', target: 'l1_s_comp1' },
   // West wing
   { id: 'l1e23', source: 'l1_w_relay1', target: 'l1_w_api8' },
   { id: 'l1e24', source: 'l1_w_relay1', target: 'l1_w_comp2' },
