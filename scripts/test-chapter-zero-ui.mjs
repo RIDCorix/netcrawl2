@@ -85,6 +85,13 @@ assert.doesNotMatch(deployDialog, /tutorialMode\?: boolean/, 'tutorial mode must
 assert.match(app, /ChapterZeroInteractionGuard/, 'application shell must install the tutorial interaction guard');
 assert.match(app, /stopImmediatePropagation/, 'interaction guard must block unrelated state mutations');
 assert.match(app, /focusin/, 'interaction guard must retain focus within the allowed surface');
+assert.ok(
+  app.includes("target.matches('.react-flow__pane')") &&
+    app.includes("eventType === 'pointerdown'") &&
+    app.includes("eventType === 'click'") &&
+    app.includes('isAllowed(event.target, event.type)'),
+  'tutorial interaction guard must allow map-pane panning events without allowlisting node descendants',
+);
 assert.match(nodePanel, /data-tutorial-target=\{chapterZeroDeploy \? 'deploy'/, 'Hub deploy must be a stable tutorial target');
 assert.match(nodePanel, /!chapterZeroDeploy\.setupGate/, 'Hub deploy must stay locked during code-server setup');
 assert.match(workerPanel, /data-tutorial-worker-log/, 'HelloWorker logs must be a stable tutorial target');

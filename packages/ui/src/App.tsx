@@ -75,8 +75,14 @@ function ChapterZeroInteractionGuard() {
     }
 
     document.documentElement.dataset.chapterZeroTutorial = tutorial.stage;
-    const isAllowed = (target: EventTarget | null): boolean => {
+    const isAllowed = (target: EventTarget | null, eventType?: string): boolean => {
       if (!(target instanceof Element)) return false;
+      if (
+        (eventType === 'pointerdown' || eventType === 'click') &&
+        target.matches('.react-flow__pane')
+      ) {
+        return true;
+      }
       if (target.closest('[data-tutorial-surface], [data-tutorial-dialog], [data-tutorial-allowed]')) return true;
       if (tutorial.setupGate && target.closest('[data-tutorial-setup], [data-quest-guide], [data-tutorial="quests-btn"]')) return true;
       if (target.closest('[data-tutorial-target="hub"], [data-tutorial="hub-node"], [data-tutorial-target="deploy"]')) {
@@ -87,7 +93,7 @@ function ChapterZeroInteractionGuard() {
       return false;
     };
     const blockOutside = (event: Event) => {
-      if (isAllowed(event.target)) return;
+      if (isAllowed(event.target, event.type)) return;
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
