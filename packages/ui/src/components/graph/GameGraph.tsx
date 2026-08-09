@@ -16,6 +16,7 @@ import { InfectedNode, LockedNode, EmptyNode, CacheNode, AuthNodeComponent, APIN
 import { WorkerEdge } from './edges/WorkerEdge';
 import { ErrorOffscreenIndicators } from './ErrorOffscreenIndicators';
 import { toRFNodes, toRFEdges } from './graphUtils';
+import { isNodeUnlockable } from '../../lib/unlockability';
 
 const NODE_TYPES: NodeTypes = {
   hub: HubNode,
@@ -40,6 +41,7 @@ export function GameGraph() {
   // updates that cannot change the canvas.
   const gameNodes = useGameStore(s => s.nodes);
   const gameEdges = useGameStore(s => s.edges);
+  const resources = useGameStore(s => s.resources);
   const selectedNodeId = useGameStore(s => s.selectedNodeId);
   const selectNode = useGameStore(s => s.selectNode);
   const edgeSelectMode = useGameStore(s => s.edgeSelectMode);
@@ -68,8 +70,14 @@ export function GameGraph() {
     knownNodeIdsRef.current = currentIds;
     for (const id of newIds) fadeInIdsRef.current.add(id);
 
-    return toRFNodes(gameNodes, selectedNodeId, showWorkerDots, edgeStyle, fadeInIdsRef.current, tn, routePath);
-  }, [gameNodes, selectedNodeId, showWorkerDots, edgeStyle, tn, routePath]);
+    const unlockableNodeIds = new Set(
+      gameNodes
+        .filter(node => isNodeUnlockable(node, gameNodes, gameEdges, resources))
+        .map(node => node.id),
+    );
+
+    return toRFNodes(gameNodes, selectedNodeId, showWorkerDots, edgeStyle, fadeInIdsRef.current, tn, routePath, unlockableNodeIds);
+  }, [gameNodes, gameEdges, resources, selectedNodeId, showWorkerDots, edgeStyle, tn, routePath]);
 
   const rfEdges = useMemo(
     () => toRFEdges(gameEdges, isEdgeSelecting, gameNodes, edgeStyle, routePath),

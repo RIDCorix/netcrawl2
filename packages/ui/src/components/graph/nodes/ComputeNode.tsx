@@ -19,6 +19,7 @@ export function ComputeNode({ id, data, selected }: any) {
       edgeStyle={data.edgeStyle}
       fadeIn={data.fadeIn}
       routeIndices={data.routeIndices}
+      unlockable={data.unlockable}
       style={{
         opacity: data.unlocked ? 1 : 0.7,
         padding: '18px 22px',

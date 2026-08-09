@@ -5,7 +5,7 @@ import { WorkerDotsRow } from './WorkerDotsRow';
 const HANDLE_STYLE_HIDDEN = { opacity: 0 } as const;
 const HANDLE_STYLE_CENTER = { opacity: 0, top: '50%', left: '50%', transform: 'translate(-50%, -50%)' } as const;
 
-export function NodeWrapper({ children, selected, glowColor, style = {}, nodeId, showWorkerDots, edgeStyle: currentEdgeStyle, fadeIn, routeIndices }: {
+export function NodeWrapper({ children, selected, glowColor, style = {}, nodeId, showWorkerDots, edgeStyle: currentEdgeStyle, fadeIn, routeIndices, unlockable }: {
   children: React.ReactNode;
   selected?: boolean;
   glowColor?: string;
@@ -15,6 +15,7 @@ export function NodeWrapper({ children, selected, glowColor, style = {}, nodeId,
   edgeStyle?: string;
   fadeIn?: boolean;
   routeIndices?: number[];
+  unlockable?: boolean;
 }) {
   const isOnRoute = routeIndices && routeIndices.length > 0;
   const borderColor = isOnRoute ? '#f59e0b' : selected ? 'var(--accent)' : glowColor || 'var(--border-bright)';
@@ -40,7 +41,14 @@ export function NodeWrapper({ children, selected, glowColor, style = {}, nodeId,
       ...style,
     }}
       data-tutorial-target={nodeId}
+      data-unlockable={unlockable || undefined}
     >
+      {unlockable && (
+        <div
+          aria-hidden
+          className="unlockable-node-highlight"
+        />
+      )}
       {isOnRoute && (
         <div style={{ position: 'absolute', top: -10, right: -10, zIndex: 10, display: 'flex', gap: 2 }}>
           {routeIndices!.map(idx => (

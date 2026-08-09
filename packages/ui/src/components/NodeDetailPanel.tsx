@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Database, Cpu, Lock, AlertTriangle, MousePointer, Upload, Shield, Box, Server, Globe, Bug } from 'lucide-react';
-import { useGameStore, GameNode, Resources } from '../store/gameStore';
+import { useGameStore, GameNode } from '../store/gameStore';
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useAsyncAction } from '../hooks/useAsyncAction';
@@ -10,6 +10,7 @@ import { DeployDialog } from './DeployDialog';
 import { useT } from '../hooks/useT';
 import { CostBadge, ActionButton, StatusMessage, NodeEnhanceSection } from './nodeDetail/NodeDetailWidgets';
 import { ResourceNodeInfo, ComputeNodeInfo, CacheNodeInfo, ApiNodeInfo, GroundItems } from './nodeDetail/NodeTypeInfo';
+import { canAffordUnlock, hasUnlockedNeighbor } from '../lib/unlockability';
 
 import { SectionLabel, Divider } from './ui/primitives';
 
@@ -78,22 +79,9 @@ export function NodeDetailPanel() {
   // Combined message from whichever action last fired
   const msg = gather.msg || unlock.msg || build.msg;
 
-  const canAffordUnlock = (cost: Partial<Resources>) =>
-    Object.entries(cost).every(([k, v]) => (resources as any)[k] >= v);
-
   // A node can only be unlocked if at least one directly-adjacent node is
   // already unlocked (or the node itself is the hub). This prevents the
   // player from unlocking stranded nodes in the middle of nowhere.
-  const hasUnlockedNeighbor = (targetNodeId: string): boolean => {
-    const neighborIds = new Set<string>();
-    for (const e of edges) {
-      if (e.source === targetNodeId) neighborIds.add(e.target);
-      else if (e.target === targetNodeId) neighborIds.add(e.source);
-    }
-    if (neighborIds.size === 0) return false;
-    return nodes.some(n => neighborIds.has(n.id) && n.data?.unlocked);
-  };
-
   const BUILD_COSTS: Record<string, Record<string, number>> = {
     cache: { data: 1500, rp: 5 },
     api: { data: 2000, rp: 8 },
@@ -334,8 +322,8 @@ if (n.type === 'cache') return '#a78bfa';
               )}
 
               {!node.data.unlocked && node.data.unlockCost && (() => {
-                const affordable = canAffordUnlock(node.data.unlockCost);
-                const reachable = hasUnlockedNeighbor(node.id);
+                const affordable = canAffordUnlock(node.data.unlockCost, resources);
+                const reachable = hasUnlockedNeighbor(node, nodes, edges);
                 const label = unlock.loading
                   ? 'UNLOCKING...'
                   : !reachable
@@ -372,10 +360,10 @@ if (n.type === 'cache') return '#a78bfa';
                       <CostBadge cost={cost} />
                       <ActionButton
                         onClick={() => build.run(type)}
-                        disabled={build.loading || !canAffordUnlock(cost)}
+                      disabled={build.loading || !canAffordUnlock(cost, resources)}
                       >
                         <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                          {build.loading ? 'BUILDING...' : canAffordUnlock(cost) ? `BUILD ${type.toUpperCase()}` : t('ui.insufficient')}
+                          {build.loading ? 'BUILDING...' : canAffordUnlock(cost, resources) ? `BUILD ${type.toUpperCase()}` : t('ui.insufficient')}
                         </span>
                       </ActionButton>
                     </div>

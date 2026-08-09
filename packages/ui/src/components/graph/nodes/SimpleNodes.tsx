@@ -6,7 +6,7 @@ import { NodeLabel } from '../NodeLabel';
 
 export function InfectedNode({ id, data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} glowColor="var(--danger)" nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{
+    <NodeWrapper selected={selected} glowColor="var(--danger)" nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} unlockable={data.unlockable} style={{
       animation: 'infected-pulse 1.5s ease-in-out infinite',
       borderColor: 'var(--danger)',
     }}>
@@ -17,7 +17,7 @@ export function InfectedNode({ id, data, selected }: any) {
 
 export function LockedNode({ id, data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{
+    <NodeWrapper selected={selected} nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} unlockable={data.unlockable} style={{
       opacity: 0.4,
       border: '1px dashed var(--border-bright)',
     }}>
@@ -28,7 +28,7 @@ export function LockedNode({ id, data, selected }: any) {
 
 export function EmptyNode({ id, data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{
+    <NodeWrapper selected={selected} nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} unlockable={data.unlockable} style={{
       opacity: data.unlocked ? 0.8 : 0.4,
       border: '1px dashed var(--border-bright)',
     }}>
@@ -39,7 +39,7 @@ export function EmptyNode({ id, data, selected }: any) {
 
 export function CacheNode({ id, data, selected }: any) {
   return (
-    <NodeWrapper selected={selected} glowColor={data.unlocked ? '#a78bfa' : undefined} nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
+    <NodeWrapper selected={selected} glowColor={data.unlocked ? '#a78bfa' : undefined} nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} unlockable={data.unlockable} style={{ opacity: data.unlocked ? 1 : 0.5 }}>
       <NodeLabel label={data.label} icon={HardDrive} iconColor={data.unlocked ? '#a78bfa' : 'var(--text-muted)'} subtitle={data.unlocked ? `LV.${data.upgradeLevel || 1} \u00b7 RANGE ${data.cacheRange || 1}` : 'LOCKED'} />
     </NodeWrapper>
   );
@@ -50,7 +50,7 @@ export function AuthNodeComponent({ id, data, selected }: any) {
   const unlocked = data.data?.unlocked || false;
 
   return (
-    <NodeWrapper selected={selected} glowColor="#a78bfa" nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{ opacity: unlocked ? 1 : 0.5 }}>
+    <NodeWrapper selected={selected} glowColor="#a78bfa" nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} unlockable={data.unlockable} style={{ opacity: unlocked ? 1 : 0.5 }}>
       <RFHandle type="target" position={RFPosition.Left} style={{ opacity: 0 }} />
       <RFHandle type="source" position={RFPosition.Right} style={{ opacity: 0 }} />
       <RFHandle type="target" position={RFPosition.Top} style={{ opacity: 0 }} />
@@ -78,7 +78,7 @@ export function APINodeComponent({ id, data, selected }: any) {
   const infectionBarColor = infectionValue >= 60 ? '#ef4444' : infectionValue >= 30 ? '#f97316' : '#4ade80';
 
   return (
-    <NodeWrapper selected={selected} glowColor={slaColor} nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} style={{ opacity: unlocked ? 1 : 0.5 }}>
+    <NodeWrapper selected={selected} glowColor={slaColor} nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} unlockable={data.unlockable} style={{ opacity: unlocked ? 1 : 0.5 }}>
       <RFHandle type="target" position={RFPosition.Left} style={{ opacity: 0 }} />
       <RFHandle type="source" position={RFPosition.Right} style={{ opacity: 0 }} />
       <RFHandle type="target" position={RFPosition.Top} style={{ opacity: 0 }} />

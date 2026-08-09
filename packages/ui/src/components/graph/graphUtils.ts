@@ -1,13 +1,13 @@
 import { Node, Edge } from 'reactflow';
 import { GameNode, GameEdge } from '../../store/gameStore';
 
-export function toRFNodes(gameNodes: GameNode[], selectedId: string | null, showWorkerDots: boolean, edgeStyle: string, fadeInIds: Set<string>, tn: (label: string) => string, routePath: string[] = []): Node[] {
+export function toRFNodes(gameNodes: GameNode[], selectedId: string | null, showWorkerDots: boolean, edgeStyle: string, fadeInIds: Set<string>, tn: (label: string) => string, routePath: string[] = [], unlockableNodeIds: Set<string> = new Set()): Node[] {
   return gameNodes.map(n => ({
     id: n.id,
     type: n.type,
     position: n.position,
     data: {
-      ...n.data, label: tn(n.data.label), selected: n.id === selectedId, showWorkerDots, edgeStyle, fadeIn: fadeInIds.has(n.id),
+      ...n.data, label: tn(n.data.label), selected: n.id === selectedId, showWorkerDots, edgeStyle, fadeIn: fadeInIds.has(n.id), unlockable: unlockableNodeIds.has(n.id),
       routeIndices: routePath.reduce<number[]>((acc, id, i) => { if (id === n.id) acc.push(i); return acc; }, []),
     },
     selected: n.id === selectedId,
