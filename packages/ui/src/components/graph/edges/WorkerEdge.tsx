@@ -3,6 +3,23 @@ import { EdgeProps, BaseEdge, getSmoothStepPath, getBezierPath } from 'reactflow
 import { useGameStore } from '../../../store/gameStore';
 import { CLASS_COLORS } from '../../../constants/colors';
 
+type TrafficDotSnapshot = {
+  color: string;
+  reverse: boolean;
+  workerId: string;
+  moveId: string;
+};
+
+function sameTrafficSnapshot(a: TrafficDotSnapshot[], b: TrafficDotSnapshot[]) {
+  return a.length === b.length && a.every((dot, index) => {
+    const other = b[index];
+    return dot.color === other.color
+      && dot.reverse === other.reverse
+      && dot.workerId === other.workerId
+      && dot.moveId === other.moveId;
+  });
+}
+
 function TrafficDot({
   color,
   reverse,
@@ -72,41 +89,35 @@ export function WorkerEdge(props: EdgeProps) {
     [edgePath] = getSmoothStepPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
   }
 
-  const [snapshot, setSnapshot] = React.useState('');
+  const [snapshot, setSnapshot] = React.useState<TrafficDotSnapshot[]>([]);
 
   React.useEffect(() => {
-    const sample = () => {
-      const workers = useGameStore.getState().workers;
-      const lines: string[] = [];
-      const seen = new Set<string>();
+    const sample = (workers: ReturnType<typeof useGameStore.getState>['workers']) => {
+      const next: TrafficDotSnapshot[] = [];
       for (const w of workers) {
         if (w.status !== 'moving' || !w.previous_node) continue;
         const isFwd = w.previous_node === source && w.current_node === target;
         const isRev = w.previous_node === target && w.current_node === source;
         if (!isFwd && !isRev) continue;
-        const key = `${w.class_name}-${isFwd ? 'f' : 'r'}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        lines.push(`${CLASS_COLORS[w.class_name] || '#a78bfa'}:${isFwd ? 'f' : 'r'}:${w.move_id ?? w.id}:${w.id}`);
+        next.push({
+          color: CLASS_COLORS[w.class_name] || '#a78bfa',
+          reverse: isRev,
+          workerId: w.id,
+          moveId: String(w.move_id ?? w.id),
+        });
       }
-      const next = lines.sort().join('|');
-      setSnapshot(prev => prev === next ? prev : next);
+      next.sort((a, b) => a.workerId.localeCompare(b.workerId) || a.moveId.localeCompare(b.moveId));
+      setSnapshot(prev => sameTrafficSnapshot(prev, next) ? prev : next);
     };
-    sample();
-    const iv = setInterval(sample, 1000);
-    return () => clearInterval(iv);
+
+    sample(useGameStore.getState().workers);
+    return useGameStore.subscribe((state, previousState) => {
+      if (state.workers !== previousState.workers) sample(state.workers);
+    });
   }, [source, target]);
 
-  const dots = React.useMemo(() => {
-    if (!snapshot) return [];
-    return snapshot.split('|').map(s => {
-      const [color, dir, moveId, workerId] = s.split(':');
-      return { color, reverse: dir === 'r', moveId, workerId };
-    });
-  }, [snapshot]);
-
   const showTraffic = useGameStore(s => s.settings.showTrafficDots);
-  const hasTraffic = showTraffic && dots.length > 0;
+  const hasTraffic = showTraffic && snapshot.length > 0;
 
   return (
     <>
@@ -120,9 +131,9 @@ export function WorkerEdge(props: EdgeProps) {
         }}
         id={id}
       />
-      {hasTraffic && dots.map(dot => (
+      {hasTraffic && snapshot.map(dot => (
         <MemoTrafficDot
-          key={`${dot.color}-${dot.reverse}-${dot.moveId}`}
+          key={`${dot.workerId}-${dot.moveId}`}
           color={dot.color}
           reverse={dot.reverse}
           pathData={edgePath}
