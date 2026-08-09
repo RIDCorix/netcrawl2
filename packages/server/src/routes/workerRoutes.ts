@@ -3,12 +3,13 @@
  */
 
 import { Router, Request, Response } from 'express';
+import { randomUUID } from 'crypto';
 import path from 'path';
 import fs from 'fs';
 import { simpleGit } from 'simple-git';
 import { FLOP_COSTS } from '../types.js';
 import { getGameState, resetGameState } from '../domain/gameState.js';
-import { getWorkers, getWorker, upsertWorker, deleteWorker, resetAllWorkers, getWorkerLogs, allocateWorkerFlop, releaseWorkerFlop } from '../domain/workers.js';
+import { getWorkers, getWorker, upsertWorker, deleteWorker, resetAllWorkers, getWorkerLogs, allocateWorkerFlop, releaseWorkerFlop, releaseFlop } from '../domain/workers.js';
 import { addToPlayerInventory } from '../domain/inventory.js';
 import { getAutosave, restoreAutosave } from '../domain/autosave.js';
 import { incrementStat } from '../domain/achievements.js';
@@ -19,7 +20,7 @@ import {
   enqueueDeploy, removeFromDeployQueue,
 } from '../workerRegistry.js';
 import { killWorker, suspendWorker, getActiveProcesses } from '../workerSpawner.js';
-import { markCodeServerSeen } from '../codeServerTracker.js';
+import { markCodeServerSeen, invalidateCodeServerLease } from '../codeServerTracker.js';
 import { broadcastFullState } from '../broadcastHelper.js';
 import { checkQuests } from '../quests.js';
 import { getUserId, returnWorkerItems, getWorkspacePath } from './helpers.js';
@@ -36,22 +37,13 @@ workerRoutes.post('/recall', (req: Request, res: Response) => {
   const worker = getWorker(workerId, uid);
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
 
+  // Delete the authority record before signaling the disposable process; its
+  // exit callback can then never return the same equipment a second time.
+  deleteWorker(workerId, uid);
+  removeFromDeployQueue(workerId, uid);
   returnWorkerItems(worker, uid);
-  releaseWorkerFlop(workerId, FLOP_COSTS.worker, uid);
-
-  if (['deploying', 'suspended', 'crashed', 'error'].includes(worker.status)) {
-    removeFromDeployQueue(workerId, uid);
-    deleteWorker(workerId, uid);
-    broadcastFullState(uid);
-    return res.json({ ok: true });
-  }
-
-  const result = killWorker(workerId);
-  if (!result.ok) {
-    deleteWorker(workerId, uid);
-    broadcastFullState(uid);
-    return res.json({ ok: true });
-  }
+  if (worker.flopAllocated) releaseFlop(FLOP_COSTS.worker, uid);
+  killWorker(workerId, uid);
 
   broadcastFullState(uid);
   res.json({ ok: true });
@@ -69,12 +61,6 @@ workerRoutes.post('/worker/reset', (req: Request, res: Response) => {
     killWorker(workerId);
   }
 
-  for (const item of (worker.holding || [])) {
-    if (item.type !== 'bad_data') {
-      addToPlayerInventory(item.type, item.count, undefined, uid);
-    }
-  }
-
   const config = worker.deployConfig || {
     classId: (() => {
       const allClasses = getAllWorkerClasses(uid);
@@ -90,19 +76,22 @@ workerRoutes.post('/worker/reset', (req: Request, res: Response) => {
     : config.injectedFields;
   const refreshedConfig = { ...config, injectedFields };
   const recoveryNode = worker.current_node || worker.node_id;
+  const generation = (worker.generation || 0) + 1;
+  const executionToken = randomUUID();
 
   upsertWorker({
     ...worker,
     current_node: recoveryNode,
     status: 'deploying',
     pid: null,
-    holding: [],
-    carrying: {},
     deployConfig: refreshedConfig,
+    desiredState: 'running',
+    generation,
+    executionToken,
   }, uid);
 
   if (!allocateWorkerFlop(workerId, FLOP_COSTS.worker, uid)) {
-    upsertWorker({ ...worker, current_node: recoveryNode, status: 'suspended', pid: null, holding: [], carrying: {}, flopAllocated: false }, uid);
+    upsertWorker({ ...worker, current_node: recoveryNode, status: 'suspended', pid: null, desiredState: 'suspended', flopAllocated: false }, uid);
     broadcastFullState(uid);
     return res.status(400).json({ error: 'Not enough FLOP' });
   }
@@ -115,6 +104,9 @@ workerRoutes.post('/worker/reset', (req: Request, res: Response) => {
     equippedItems: refreshedConfig.equippedItems,
     injectedFields: refreshedConfig.injectedFields,
     createdAt: new Date().toISOString(),
+    generation,
+    executionToken,
+    initialHolding: worker.holding || [],
   }, uid);
   broadcastFullState(uid);
   res.json({ ok: true });
@@ -128,15 +120,14 @@ workerRoutes.post('/worker/suspend', (req: Request, res: Response) => {
 
   const worker = getWorker(workerId, uid);
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
-  if (worker.status !== 'running') {
+  if (!['running', 'moving', 'harvesting', 'idle', 'deploying'].includes(worker.status)) {
     return res.status(400).json({ error: `Worker is not running (status: ${worker.status})` });
   }
 
-  upsertWorker({ ...worker, status: 'suspending' }, uid);
+  upsertWorker({ ...worker, status: 'suspending', desiredState: 'suspended' }, uid);
   const result = suspendWorker(workerId);
   if (!result.ok) {
-    returnWorkerItems(worker, uid);
-    upsertWorker({ ...worker, status: 'suspended', pid: null, equippedPickaxe: null, equippedCpu: null, equippedRam: null, holding: [] }, uid);
+    upsertWorker({ ...worker, status: 'suspended', desiredState: 'suspended', pid: null }, uid);
   }
 
   broadcastFullState(uid);
@@ -150,11 +141,10 @@ workerRoutes.post('/worker/suspend-all', (req: Request, res: Response) => {
   const running = workers.filter(w => w.status === 'running');
 
   for (const worker of running) {
-    upsertWorker({ ...worker, status: 'suspending' }, uid);
+    upsertWorker({ ...worker, status: 'suspending', desiredState: 'suspended' }, uid);
     const result = suspendWorker(worker.id);
     if (!result.ok) {
-      returnWorkerItems(worker, uid);
-      upsertWorker({ ...worker, status: 'suspended', pid: null, equippedPickaxe: null, equippedCpu: null, equippedRam: null, holding: [] }, uid);
+      upsertWorker({ ...worker, status: 'suspended', desiredState: 'suspended', pid: null }, uid);
     }
   }
 
@@ -234,6 +224,8 @@ workerRoutes.post('/autosave/restore', (req: Request, res: Response) => {
 
   const ok = restoreAutosave(uid);
   if (!ok) return res.status(404).json({ error: 'no_autosave' });
+  invalidateCodeServerLease(uid);
+  resetAllWorkers(uid);
   broadcastFullState(uid);
   res.json({ ok: true });
 });
@@ -248,6 +240,7 @@ workerRoutes.post('/reset', (req: Request, res: Response) => {
   activeProcesses.clear();
 
   resetGameState(uid);
+  invalidateCodeServerLease(uid);
   broadcastFullState(uid);
   res.json({ ok: true });
 });
@@ -269,12 +262,13 @@ workerRoutes.post('/worker-classes/register', (req: Request, res: Response) => {
   incrementStat('code_server_connected', 1, uid);
   checkQuests(uid);
 
-  // Auto-resume suspended workers
+  // Reconcile desired executions; asset ownership remains with the durable
+  // worker record through Code Server restarts and hot reloads.
   const allWorkers = getWorkers(uid);
   const allClasses = getAllWorkerClasses(uid);
   let resumed = 0;
   for (const w of allWorkers) {
-    if (w.status !== 'suspended') continue;
+    if (w.desiredState !== 'running' || ['running', 'moving', 'harvesting', 'idle', 'suspending'].includes(w.status)) continue;
 
     const config = w.deployConfig || {
       classId: allClasses.find(c => c.class_name === w.class_name)?.class_id || w.class_name.toLowerCase(),
@@ -285,12 +279,15 @@ workerRoutes.post('/worker-classes/register', (req: Request, res: Response) => {
     const wc = getWorkerClass(config.classId, uid);
     if (!wc) continue;
 
-    if (!allocateWorkerFlop(w.id, FLOP_COSTS.worker, uid)) {
+    if (!w.flopAllocated && !allocateWorkerFlop(w.id, FLOP_COSTS.worker, uid)) {
       console.log(`[NetCrawl] Cannot resume worker ${w.id}: not enough FLOP`);
       continue;
     }
 
-    upsertWorker({ ...getWorker(w.id, uid)!, status: 'deploying', deployConfig: config }, uid);
+    const existing = getWorker(w.id, uid)!;
+    const generation = (existing.generation || 0) + 1;
+    const executionToken = randomUUID();
+    upsertWorker({ ...existing, status: 'deploying', pid: null, deployConfig: config, desiredState: 'running', generation, executionToken }, uid);
 
     enqueueDeploy({
       id: w.id,
@@ -300,6 +297,9 @@ workerRoutes.post('/worker-classes/register', (req: Request, res: Response) => {
       equippedItems: config.equippedItems,
       injectedFields: config.injectedFields,
       createdAt: new Date().toISOString(),
+      generation,
+      executionToken,
+      initialHolding: existing.holding || [],
     }, uid);
     resumed++;
   }

@@ -1,6 +1,7 @@
 /* global console, fetch, process */
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -199,12 +200,12 @@ try {
   assert.equal((await request('/api/worker/reset', tokenA, { workerId: failedWorkerId })).body.ok, true);
   assert.equal(getGameState(userA).flop.used, usedBeforeErrorReset);
 
-  // Disconnect explicitly clears all ownership. Auto-resume then allocates
-  // only suspended workers, once each.
+  // A Code Server disconnect is not a recall: all durable equipment, holding
+  // and FLOP ownership stays on the worker while execution is reconciled.
   assert.equal((await request('/api/code-server/disconnect', tokenA, {})).body.ok, true);
-  assert.equal(getGameState(userA).flop.used, 0);
-  assert.equal(getWorker(workerId, userA)?.flopAllocated, false);
-  assert.equal(getWorker(uniqueDeploy.body.workerId, userA)?.flopAllocated, false);
+  assert.equal(getGameState(userA).flop.used, FLOP_COSTS.worker * 3);
+  assert.equal(getWorker(workerId, userA)?.flopAllocated, true);
+  assert.equal(getWorker(uniqueDeploy.body.workerId, userA)?.flopAllocated, true);
   const resumed = await request('/api/worker-classes/register', tokenA, { classes: [reloadedWorkerClass] });
   assert.equal(resumed.status, 200);
   assert.equal(resumed.body.resumed, 3);
@@ -223,15 +224,52 @@ try {
   assert.equal((await request('/api/worker/reset', tokenA, { workerId })).body.ok, true);
   assert.equal(getGameState(userA).flop.used, usedBeforeSuspendedReset);
 
-  // Allocation failure rolls back only the requesting worker and never
-  // consumes or releases capacity owned by a second worker.
+  // Reconciliation remains idempotent even if capacity was already claimed by
+  // the durable worker records before a second Code Server restart.
   assert.equal((await request('/api/code-server/disconnect', tokenA, {})).body.ok, true);
-  getGameState(userA).flop.total = FLOP_COSTS.worker;
+  const usedBeforeReconcile = getGameState(userA).flop.used;
   assert.equal((await request('/api/worker/reset', tokenA, { workerId })).body.ok, true);
-  assert.equal((await request('/api/worker/reset', tokenA, { workerId: uniqueDeploy.body.workerId })).status, 400);
-  assert.equal(getGameState(userA).flop.used, FLOP_COSTS.worker);
+  assert.equal((await request('/api/worker/reset', tokenA, { workerId: uniqueDeploy.body.workerId })).body.ok, true);
+  assert.equal(getGameState(userA).flop.used, usedBeforeReconcile);
   assert.equal(getWorker(workerId, userA)?.flopAllocated, true);
-  assert.equal(getWorker(uniqueDeploy.body.workerId, userA)?.flopAllocated, false);
+  assert.equal(getWorker(uniqueDeploy.body.workerId, userA)?.flopAllocated, true);
+
+  // Protocol v2 leases commands without draining them. A lost poll response,
+  // stale ACK, duplicate ACK, and stale process action cannot mutate state.
+  const runtimeSession = 'runtime-v2-test-session';
+  const registeredV2 = await request('/api/runtime/register', tokenA, {
+    protocolVersion: 2, sessionId: runtimeSession, classes: [reloadedWorkerClass], activeExecutions: [],
+  });
+  assert.equal(registeredV2.status, 200);
+  const v2Commands = await request(`/api/runtime/commands?sessionId=${runtimeSession}`, tokenA);
+  const command = v2Commands.body.commands.find(candidate => candidate.workerId === workerId);
+  assert.ok(command, 'recovered worker command must remain available until ACK');
+  const repeatedPoll = await request(`/api/runtime/commands?sessionId=${runtimeSession}`, tokenA);
+  assert.equal(repeatedPoll.body.commands.find(candidate => candidate.id === command.id)?.id, command.id);
+  const staleAck = await request(`/api/runtime/commands/${command.id}/ack`, tokenA, {
+    sessionId: runtimeSession, workerId, generation: command.generation - 1, pid: 5050,
+  });
+  assert.equal(staleAck.status, 409);
+  assert.equal((await request(`/api/runtime/commands/${command.id}/ack`, tokenA, {
+    sessionId: runtimeSession, workerId, generation: command.generation, pid: 5051,
+  })).body.ok, true);
+  assert.equal((await request(`/api/runtime/commands/${command.id}/ack`, tokenA, {
+    sessionId: runtimeSession, workerId, generation: command.generation, pid: 5051,
+  })).body.duplicate, true);
+  const staleAction = await request('/api/worker/action', tokenA, {
+    workerId, action: 'get_node_info', payload: {}, generation: command.generation - 1,
+    executionToken: command.executionToken, actionId: 'old-process-action',
+  });
+  assert.equal(staleAction.body.reason, 'stale_execution');
+  const liveAction = await request('/api/worker/action', tokenA, {
+    workerId, action: 'get_node_info', payload: {}, generation: command.generation,
+    executionToken: command.executionToken, actionId: 'dedupe-action',
+  });
+  const duplicateAction = await request('/api/worker/action', tokenA, {
+    workerId, action: 'get_node_info', payload: {}, generation: command.generation,
+    executionToken: command.executionToken, actionId: 'dedupe-action',
+  });
+  assert.deepEqual(duplicateAction.body, liveAction.body);
 
   // Claiming Operators must persist the reward and unlock While rather than
   // leaving the player with no active mainline quest.
@@ -243,7 +281,19 @@ try {
   assert.equal(questsAfterOperators.find(q => q.id === 'q_operators').status, 'claimed');
   assert.equal(questsAfterOperators.find(q => q.id === 'q_while_loop').status, 'available');
 
-  console.log('Deploy route integration: 93 assertions passed');
+  // A fresh Game Server process reloads the authoritative worker state. The
+  // recovered row keeps assets/position and fences the old process token.
+  await new Promise(resolve => server.close(resolve));
+  const restarted = JSON.parse(execFileSync(process.execPath, ['scripts/verify-lifecycle-restart.mjs'], {
+    cwd: process.cwd(),
+    env: { ...process.env, NETCRAWL_LIFECYCLE_DATA_DIR: testDir },
+  }).toString().trim().split('\n').at(-1));
+  const recovered = restarted.workers.find(candidate => candidate.id === workerId);
+  assert.equal(recovered.equippedPickaxe.itemType, 'pickaxe_basic');
+  assert.equal(recovered.current_node, getWorker(workerId, userA)?.current_node);
+  assert.equal(recovered.executionToken, '');
+
+  console.log('Deploy/lifecycle integration: 101 assertions passed');
 } catch (error) {
   console.error(error);
   process.exitCode = 1;

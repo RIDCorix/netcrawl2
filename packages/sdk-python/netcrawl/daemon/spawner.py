@@ -11,6 +11,7 @@ import subprocess
 
 
 _active_processes: dict[str, subprocess.Popen] = {}
+_active_generations: dict[str, int] = {}
 
 
 def spawn_worker(
@@ -21,11 +22,19 @@ def spawn_worker(
     injected_fields: dict,
     api_key: str = "",
     node_id: str = "hub",
+    generation: int = 0,
+    execution_token: str = "",
+    initial_holding: list | None = None,
 ) -> int:
     """
     Spawn a Python worker subprocess.
     Returns the PID.
     """
+    existing = _active_processes.get(worker_id)
+    if existing is not None and existing.poll() is None and _active_generations.get(worker_id) == generation:
+        return existing.pid
+    if existing is not None and existing.poll() is None:
+        existing.terminate()
     env = os.environ.copy()
     env.update({
         "NETCRAWL_WORKER_ID": worker_id,
@@ -35,6 +44,9 @@ def spawn_worker(
         "NETCRAWL_INJECTED": json.dumps(injected_fields),
         "NETCRAWL_API_KEY": api_key,
         "NETCRAWL_INITIAL_NODE": node_id,
+        "NETCRAWL_GENERATION": str(generation),
+        "NETCRAWL_EXECUTION_TOKEN": execution_token,
+        "NETCRAWL_INITIAL_HOLDING": json.dumps(initial_holding or []),
     })
 
     process = subprocess.Popen(
@@ -48,6 +60,7 @@ def spawn_worker(
     )
 
     _active_processes[worker_id] = process
+    _active_generations[worker_id] = generation
     print(f"[spawner] Spawned worker {worker_id} (PID {process.pid})")
     return process.pid
 
@@ -65,6 +78,7 @@ def kill_worker(worker_id: str) -> bool:
         proc.kill()
 
     del _active_processes[worker_id]
+    _active_generations.pop(worker_id, None)
     print(f"[spawner] Killed worker {worker_id}")
     return True
 

@@ -61,6 +61,8 @@ const INITIAL_STORE: Store = {
     unlockedLayers: [0],
     snapshots: {},
   },
+  runtime_commands: [],
+  worker_action_results: {},
 };
 
 // ── Public API ──────────────────────────────────────────────────────────────
@@ -131,12 +133,30 @@ export function initDb() {
 
 // ── Persistence ─────────────────────────────────────────────────────────────
 
-function persist() {
+function persistStore(targetPath: string, targetStore: Store) {
   try {
-    fs.writeFileSync(DATA_PATH, JSON.stringify(store, null, 2));
+    const data = JSON.stringify(targetStore, null, 2);
+    const dir = path.dirname(targetPath);
+    fs.mkdirSync(dir, { recursive: true });
+    const backupPath = `${targetPath}.bak`;
+    if (fs.existsSync(targetPath)) fs.copyFileSync(targetPath, backupPath);
+    const tempPath = `${targetPath}.${process.pid}.${Date.now()}.tmp`;
+    const fd = fs.openSync(tempPath, 'w');
+    try {
+      fs.writeFileSync(fd, data);
+      fs.fsyncSync(fd);
+    } finally {
+      fs.closeSync(fd);
+    }
+    fs.renameSync(tempPath, targetPath);
   } catch (err) {
-    console.error('[DB] Persist failed:', err);
+    console.error(`[DB] Persist failed for ${targetPath}:`, err);
+    throw err;
   }
+}
+
+function persist() {
+  persistStore(DATA_PATH, store);
 }
 
 /** Persist all stores — default store + all per-user stores. */
@@ -145,11 +165,7 @@ function persistAll() {
   for (const [userId, userStore] of userStores.entries()) {
     const userPath = userDataPaths.get(userId);
     if (!userPath) continue;
-    try {
-      fs.writeFileSync(userPath, JSON.stringify(userStore, null, 2));
-    } catch (err) {
-      console.error(`[DB] Persist failed for user ${userId}:`, err);
-    }
+    persistStore(userPath, userStore);
   }
 }
 
@@ -162,9 +178,7 @@ export function forcePersist(userId?: string) {
     const userPath = userDataPaths.get(userId);
     const userStore = userStores.get(userId);
     if (userPath && userStore) {
-      try {
-        fs.writeFileSync(userPath, JSON.stringify(userStore, null, 2));
-      } catch {}
+      persistStore(userPath, userStore);
     }
   } else {
     persist();
@@ -256,6 +270,8 @@ function _loadStore() {
       if (!store.workers) store.workers = {};
       if (!store.worker_logs) store.worker_logs = [];
       if (!store.next_log_id) store.next_log_id = 1;
+      if (!store.runtime_commands) store.runtime_commands = [];
+      if (!store.worker_action_results) store.worker_action_results = {};
       if (!store.game_state.playerInventory) {
         store.game_state.playerInventory = JSON.parse(JSON.stringify(INITIAL_PLAYER_INVENTORY));
       }
@@ -314,49 +330,27 @@ function _loadStore() {
         n.type === 'relay' ? { ...n, type: 'empty' } : n,
       );
 
-      // A fresh server process owns no worker capacity. Reconcile persisted
-      // operational ownership before any worker can be resumed.
-      store.game_state.flop.used = 0;
-
-      // Migrate workers to add holding/equipment/operational ownership fields.
+      // Migrate workers to add durable lifecycle/ownership fields. A server
+      // reboot must never infer asset ownership from an in-memory PID/status.
       for (const w of Object.values(store.workers)) {
         if (w.holding === undefined || w.holding === null) (w as any).holding = [];
         if (w.equippedPickaxe === undefined) (w as any).equippedPickaxe = null;
         if (w.equippedCpu === undefined) (w as any).equippedCpu = null;
         if (w.equippedRam === undefined) (w as any).equippedRam = null;
-        w.flopAllocated = false;
+        w.flopAllocated = w.flopAllocated ?? ['deploying', 'running', 'moving', 'harvesting', 'suspending', 'suspended', 'error', 'crashed'].includes(w.status);
+        w.desiredState = w.desiredState || (['error', 'crashed', 'suspended'].includes(w.status) ? 'suspended' : 'running');
+        // A Game Server process owns no prior execution lease. Rotate the
+        // fence before any recovered Code Server can poll or act.
+        w.generation = Math.max(0, Number(w.generation || 0)) + 1;
+        w.executionToken = '';
+        w.pid = null;
+        if (w.desiredState === 'running') w.status = 'deploying';
+        else if (w.status !== 'error' && w.status !== 'crashed') w.status = 'suspended';
       }
 
-      // Clean up stale workers from previous session
-      const inv = store.game_state.playerInventory || [];
-      for (const w of Object.values(store.workers)) {
-        if (['running', 'moving', 'harvesting', 'deploying', 'suspending'].includes(w.status)) {
-          if (w.equippedPickaxe) {
-            const existing = inv.find((i: any) => i.itemType === w.equippedPickaxe!.itemType);
-            if (existing) existing.count += 1;
-            else
-              inv.push({
-                id: `item_${Date.now()}`,
-                itemType: w.equippedPickaxe.itemType as any,
-                count: 1,
-                metadata: { efficiency: w.equippedPickaxe.efficiency },
-              });
-          }
-          if (w.equippedCpu) _addToPlayerInventoryDirect(inv, w.equippedCpu.itemType, w.equippedCpu.count || 1);
-          if (w.equippedRam) _addToPlayerInventoryDirect(inv, w.equippedRam.itemType, w.equippedRam.count || 1);
-          for (const heldItem of w.holding || []) {
-            const existing = inv.find((i: any) => i.itemType === heldItem.type);
-            if (existing) existing.count += heldItem.count || 1;
-          }
-          w.status = 'suspended';
-          w.pid = null;
-          (w as any).equippedPickaxe = null;
-          (w as any).equippedCpu = null;
-          (w as any).equippedRam = null;
-          (w as any).holding = [];
-          console.log(`[initDb] Cleaned up stale worker ${w.id} (was ${w.status})`);
-        }
-      }
+      store.game_state.flop.used = Object.values(store.workers)
+        .filter(w => w.flopAllocated)
+        .reduce((total) => total + 8, 0);
 
       // Migrate: add chip/upgrade fields to nodes
       store.game_state.nodes = store.game_state.nodes.map((n: any) => ({
@@ -535,9 +529,18 @@ function _loadStore() {
       if (_sweepNodeAutoUpgrades()) {
         console.log('[initDb] Auto-upgraded nodes with full XP');
       }
-    } catch {
-      console.warn('[DB] Could not parse state file, starting fresh');
-      store = JSON.parse(JSON.stringify(INITIAL_STORE));
+    } catch (primaryError) {
+      const backupPath = `${DATA_PATH}.bak`;
+      if (fs.existsSync(backupPath)) {
+        try {
+          store = JSON.parse(fs.readFileSync(backupPath, 'utf-8')) as Store;
+          console.warn('[DB] Primary state file invalid; recovered last-known-good backup');
+          persist();
+          return;
+        } catch {}
+      }
+      console.error('[DB] State load failure:', primaryError);
+      throw new Error(`[DB] Cannot load durable state (${DATA_PATH}); primary and backup are unusable`);
     }
   } else {
     store = JSON.parse(JSON.stringify(INITIAL_STORE));

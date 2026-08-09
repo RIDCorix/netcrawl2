@@ -11,7 +11,7 @@
  *   logActions      — log, report_error
  */
 
-import { getCurrentUserId } from '../store.js';
+import { getCurrentUserId, forcePersist, resolveStore } from '../store.js';
 import { recordChapterZeroMinerAction } from '../domain/questState.js';
 import { getGameState } from '../domain/gameState.js';
 import { getWorker } from '../domain/workers.js';
@@ -76,28 +76,54 @@ const ACTION_HANDLERS: Record<string, ActionHandler> = {
 
 // ── Main handler ────────────────────────────────────────────────────────────
 
-export async function handleWorkerAction(workerId: string, action: string, payload: any, userId?: string): Promise<any> {
+export interface ExecutionFence {
+  generation?: number;
+  executionToken?: string;
+  actionId?: string;
+}
+
+export async function handleWorkerAction(workerId: string, action: string, payload: any, userId?: string, fence: ExecutionFence = {}): Promise<any> {
   const uid = userId || getCurrentUserId() || undefined;
-
-  // Log actions don't need a lock
-  if (action === 'log') return handleLog(workerId, payload, uid);
-  if (action === 'report_error') return handleReportError(workerId, payload, uid);
-
-  // Acquire per-worker lock (serializes actions)
-  await acquireLock(workerId);
 
   const worker = getWorker(workerId, uid);
   if (!worker) return { ok: false, error: 'Worker not found' };
+  if (fence.generation !== undefined || fence.executionToken !== undefined) {
+    if (worker.generation !== Number(fence.generation) || !fence.executionToken || worker.executionToken !== fence.executionToken) {
+      return { ok: false, reason: 'stale_execution', error: 'Worker execution is no longer current' };
+    }
+  }
+  const actionKey = fence.actionId ? `${workerId}:${worker.generation || 0}:${fence.actionId}` : '';
+  if (actionKey) {
+    const previous = resolveStore(uid).worker_action_results?.[actionKey];
+    if (previous) return previous.result;
+  }
 
-  const state = getGameState(uid);
-  const { nodes, edges, resources } = state;
+  let result: any;
+  if (action === 'log') result = handleLog(workerId, payload, uid);
+  else if (action === 'report_error') result = handleReportError(workerId, payload, uid);
+  else {
+    await acquireLock(workerId);
+    const currentWorker = getWorker(workerId, uid);
+    if (!currentWorker) return { ok: false, error: 'Worker not found' };
 
-  const ctx: ActionContext = { workerId, uid, worker, state, nodes, edges, resources };
+    const state = getGameState(uid);
+    const { nodes, edges, resources } = state;
+    const ctx: ActionContext = { workerId, uid, worker: currentWorker, state, nodes, edges, resources };
 
-  const handler = ACTION_HANDLERS[action];
-  if (!handler) return { ok: false, error: `Unknown action: ${action}` };
+    const handler = ACTION_HANDLERS[action];
+    if (!handler) return { ok: false, error: `Unknown action: ${action}` };
 
-  const result = await handler(ctx, payload);
-  recordChapterZeroMinerAction(workerId, action, payload, result, uid);
+    result = await handler(ctx, payload);
+    recordChapterZeroMinerAction(workerId, action, payload, result, uid);
+  }
+
+  if (actionKey) {
+    const s = resolveStore(uid);
+    s.worker_action_results ||= {};
+    s.worker_action_results[actionKey] = { workerId, generation: worker.generation || 0, result, committedAt: new Date().toISOString() };
+    const keys = Object.keys(s.worker_action_results);
+    if (keys.length > 2000) for (const key of keys.slice(0, keys.length - 2000)) delete s.worker_action_results[key];
+  }
+  forcePersist(uid);
   return result;
 }

@@ -64,6 +64,9 @@ def main():
     api_url = os.environ.get("NETCRAWL_API_URL", "http://localhost:4800")
     api_key = os.environ.get("NETCRAWL_API_KEY", "")
     initial_node = os.environ.get("NETCRAWL_INITIAL_NODE", "hub")
+    generation = int(os.environ.get("NETCRAWL_GENERATION", "0"))
+    execution_token = os.environ.get("NETCRAWL_EXECUTION_TOKEN", "")
+    initial_holding = json.loads(os.environ.get("NETCRAWL_INITIAL_HOLDING", "[]"))
     script_path = os.environ["NETCRAWL_SCRIPT_PATH"]
     class_name = os.environ["NETCRAWL_CLASS_NAME"]
     injected_raw = os.environ.get("NETCRAWL_INJECTED", "{}")
@@ -101,6 +104,9 @@ def main():
         injected_fields=injected_fields,
         api_key=api_key,
         initial_node=initial_node,
+        initial_holding=initial_holding,
+        generation=generation,
+        execution_token=execution_token,
     )
 
     print(f"[{worker_id}] Starting {class_name}...")
@@ -118,6 +124,9 @@ def main():
     while not _shutdown:
         try:
             worker.on_loop()
+            if worker._client.stale_execution:
+                print(f"[{worker_id}] Stopped stale execution.")
+                sys.exit(0)
             loop_count += 1
         except KeyboardInterrupt:
             break

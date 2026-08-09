@@ -8,6 +8,7 @@ polls for deploy requests, and spawns worker subprocesses.
 import os
 import time
 import importlib.util
+import uuid
 from typing import Type
 
 from netcrawl.base import WorkerClass
@@ -33,6 +34,7 @@ class NetCrawl:
         self._class_files: dict[str, str] = {}
         self._file_mtimes: dict[str, float] = {}
         self._worker_class_map: dict[str, str] = {}  # worker_id -> class_id
+        self._session_id = str(uuid.uuid4())
 
     def register(self, cls: Type[WorkerClass]) -> None:
         """Register a worker class for deployment. Raises on duplicate class_id."""
@@ -67,8 +69,9 @@ class NetCrawl:
             schema["language"] = "python"
             classes.append(schema)
 
-        result = self._post("/api/worker-classes/register", {"classes": classes})
+        result = self._post("/api/runtime/register", {"protocolVersion": 2, "sessionId": self._session_id, "classes": classes, "activeExecutions": list_active()})
         if result.get("ok"):
+            self._session_id = result.get("sessionId", self._session_id)
             print(f"[NetCrawl] Registered {result.get('registered', 0)} worker classes")
         else:
             print(f"[NetCrawl] Registration failed: {result.get('error')}")
@@ -76,9 +79,8 @@ class NetCrawl:
     def _poll_deploy_queue(self) -> None:
         """Poll the game server for pending deploy requests and spawn workers."""
         try:
-            result = self._get("/api/deploy-queue")
-            requests = result.get("requests", [])
-            for req in requests:
+            result = self._get(f"/api/runtime/commands?sessionId={self._session_id}")
+            for req in result.get("commands", []):
                 self._handle_deploy(req)
         except Exception as e:
             pass  # Server might be temporarily unreachable
@@ -89,14 +91,22 @@ class NetCrawl:
         class_id = deploy_req["classId"]
         node_id = deploy_req["nodeId"]
         injected_fields = deploy_req.get("injectedFields", {})
+        command_id = deploy_req["id"]
+        generation = deploy_req["generation"]
+        execution_token = deploy_req["executionToken"]
+
+        def ack(pid=None, error=None):
+            body = {"sessionId": self._session_id, "workerId": worker_id, "generation": generation}
+            if pid is not None:
+                body["pid"] = pid
+            if error is not None:
+                body["error"] = error
+            return self._post(f"/api/runtime/commands/{command_id}/ack", body)
 
         cls = self._classes.get(class_id)
         if not cls:
             print(f"[NetCrawl] Unknown class_id: {class_id}")
-            self._post("/api/deploy-ack", {
-                "workerId": worker_id,
-                "error": f"Unknown worker class_id: {class_id}",
-            })
+            ack(error=f"Unknown worker class_id: {class_id}")
             return
 
         script_path = self._class_files.get(class_id, "")
@@ -112,18 +122,15 @@ class NetCrawl:
                 injected_fields=injected_fields,
                 api_key=self.api_key,
                 node_id=node_id,
+                generation=generation,
+                execution_token=execution_token,
+                initial_holding=deploy_req.get("initialHolding", []),
             )
             print(f"[NetCrawl] Spawned {cls.class_name} — PID {pid}")
-            self._post("/api/deploy-ack", {
-                "workerId": worker_id,
-                "pid": pid,
-            })
+            ack(pid=pid)
         except Exception as e:
             print(f"[NetCrawl] Spawn failed: {e}")
-            self._post("/api/deploy-ack", {
-                "workerId": worker_id,
-                "error": str(e),
-            })
+            ack(error=str(e))
 
     def _init_file_mtimes(self) -> None:
         """Record initial mtimes for all registered worker source files."""
@@ -202,6 +209,7 @@ class NetCrawl:
 
         # Tell server to reset all workers to suspended
         try:
+            self._post("/api/runtime/disconnect", {"sessionId": self._session_id})
             self._post("/api/code-server/disconnect", {})
             print("[NetCrawl] Server notified — workers reset to suspended")
         except Exception:

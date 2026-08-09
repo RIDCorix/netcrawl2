@@ -1,11 +1,11 @@
 import { fork, ChildProcess } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import { upsertWorker, deleteWorker, getWorker } from './domain/workers.js';
-import { addToPlayerInventory } from './domain/inventory.js';
+import { upsertWorker, getWorker } from './domain/workers.js';
 import { broadcastFullState } from './broadcastHelper.js';
 
 const activeProcesses = new Map<string, ChildProcess>();
+const intentionallyStopped = new Set<string>();
 
 export function getActiveProcesses() {
   return activeProcesses;
@@ -60,8 +60,10 @@ export async function spawnWorker(options: {
 
   const isPython = scriptPath.endsWith('.py');
 
-  // Store initial worker record with 'deploying' status
-  upsertWorker({
+  // Keep any durable authority record intact. This local spawner is only an
+  // execution host and must never replace equipment/holding ownership.
+  const existing = getWorker(workerId);
+  upsertWorker(existing || {
     id: workerId,
     node_id: nodeId,
     class_name: className,
@@ -76,6 +78,9 @@ export async function spawnWorker(options: {
     equippedPickaxe: equippedPickaxe || null,
     equippedCpu: equippedCpu || null,
     equippedRam: equippedRam || null,
+    desiredState: 'running',
+    generation: 1,
+    executionToken: '',
   });
 
   let child: ChildProcess;
@@ -129,27 +134,14 @@ export async function spawnWorker(options: {
 
   // Update PID in DB and set to 'running'
   if (child.pid) {
-    upsertWorker({
-      id: workerId,
-      node_id: nodeId,
-      class_name: className,
-      class_icon: 'Bot',
-      commit_hash: commitHash,
-      status: 'running',
-      current_node: nodeId,
-      carrying: {},
-      pid: child.pid,
-      deployed_at: new Date().toISOString(),
-      holding: [],
-      equippedPickaxe: equippedPickaxe || null,
-      equippedCpu: equippedCpu || null,
-      equippedRam: equippedRam || null,
-    });
+    const current = getWorker(workerId);
+    if (current) upsertWorker({ ...current, status: 'running', pid: child.pid, desiredState: 'running' });
   }
 
   child.on('exit', (code) => {
     console.log(`[Spawner] Worker ${workerId} exited with code ${code}`);
     activeProcesses.delete(workerId);
+    if (intentionallyStopped.delete(workerId)) return;
     const w = getWorker(workerId);
     if (w) {
       // If already in 'error' status (reported by worker before exit), don't overwrite
@@ -157,15 +149,8 @@ export async function spawnWorker(options: {
         broadcastFullState();
         return;
       }
-      // Return equipped items to player inventory on exit
-      if (w.equippedPickaxe) addToPlayerInventory(w.equippedPickaxe.itemType, 1);
-      if (w.equippedCpu) addToPlayerInventory(w.equippedCpu.itemType, w.equippedCpu.count);
-      if (w.equippedRam) addToPlayerInventory(w.equippedRam.itemType, w.equippedRam.count);
-      for (const item of (w.holding || [])) {
-        addToPlayerInventory(item.type, item.count);
-      }
-      const status = code === 0 ? 'suspended' : 'crashed';
-      upsertWorker({ ...w, status, pid: null, equippedPickaxe: null, equippedCpu: null, equippedRam: null, holding: [] });
+      const status = w.desiredState === 'suspended' || code === 0 ? 'suspended' : 'crashed';
+      upsertWorker({ ...w, status, desiredState: 'suspended', pid: null });
       broadcastFullState();
     }
   });
@@ -182,9 +167,9 @@ export function killWorker(workerId: string, userId?: string): { ok: boolean; er
   if (!child) {
     return { ok: false, error: 'Worker process not found' };
   }
+  intentionallyStopped.add(workerId);
   child.kill('SIGTERM');
   activeProcesses.delete(workerId);
-  deleteWorker(workerId, userId);
   return { ok: true };
 }
 

@@ -215,6 +215,34 @@ export interface WorkerRow {
   move_id?: number;
   /** Original deploy configuration — used for auto-resume after disconnect */
   deployConfig?: { classId: string; equippedItems: Record<string, any>; injectedFields: Record<string, any> } | null;
+  /** Desired durable lifecycle state. Runtime processes are disposable observations. */
+  desiredState?: 'running' | 'suspended';
+  /** Monotonically increasing execution fence. Only this generation may mutate state. */
+  generation?: number;
+  /** Opaque per-generation credential supplied only to the spawned runtime. */
+  executionToken?: string;
+}
+
+export interface RuntimeCommand {
+  id: string;
+  type: 'start' | 'stop';
+  workerId: string;
+  generation: number;
+  executionToken: string;
+  nodeId: string;
+  classId: string;
+  injectedFields: Record<string, any>;
+  initialHolding: Item[];
+  createdAt: string;
+  ackedAt?: string;
+  lease?: { sessionId: string; expiresAt: number };
+}
+
+export interface WorkerActionResult {
+  workerId: string;
+  generation: number;
+  result: any;
+  committedAt: string;
 }
 
 export interface WorkerLogRow {
@@ -359,6 +387,10 @@ export interface Store {
   layer_manager: LayerManagerState;
   /** Latest healthy snapshot — refreshed periodically by gameTick while game is alive. */
   autosave?: AutosaveSnapshot;
+  /** Durable at-least-once commands for the disposable Code Server runtime. */
+  runtime_commands?: RuntimeCommand[];
+  /** Durable action-id de-duplication for retried worker mutations. */
+  worker_action_results?: Record<string, WorkerActionResult>;
 }
 
 // ── Initial Data ────────────────────────────────────────────────────────────

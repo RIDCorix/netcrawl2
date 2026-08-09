@@ -17,6 +17,7 @@ import { chipPackRoutes } from './chipPackRoutes.js';
 import { questRoutes } from './questRoutes.js';
 import { layerRoutes } from './layerRoutes.js';
 import { devRoutes } from './devRoutes.js';
+import { runtimeRoutes } from './runtimeRoutes.js';
 import { getUserId } from './helpers.js';
 
 export const router: Router = Router();
@@ -48,14 +49,15 @@ router.use('/', chipPackRoutes);
 router.use('/', questRoutes);
 router.use('/', layerRoutes);
 router.use('/', devRoutes);
+router.use('/', runtimeRoutes);
 
 // Worker action dispatcher (POST /api/worker/action)
 router.post('/worker/action', async (req: Request, res: Response) => {
   const uid = getUserId(req);
-  const { workerId, action, payload } = req.body;
+  const { workerId, action, payload, generation, executionToken, actionId } = req.body;
   if (!workerId || !action) {
     return res.status(400).json({ error: 'workerId and action required' });
   }
-  const result = await handleWorkerAction(workerId, action, payload || {}, uid);
+  const result = await handleWorkerAction(workerId, action, payload || {}, uid, { generation, executionToken, actionId });
   res.json(result);
 });

@@ -3,6 +3,7 @@
  */
 
 import { Router, Request, Response } from 'express';
+import { randomUUID } from 'crypto';
 import { FLOP_COSTS } from '../types.js';
 import { getGameState } from '../domain/gameState.js';
 import { getWorker, upsertWorker, addWorkerLog, allocateFlop, releaseFlop, releaseWorkerFlop } from '../domain/workers.js';
@@ -10,7 +11,7 @@ import { addToPlayerInventory, removeFromPlayerInventory, getItemEfficiency, get
 import { incrementStat, addToStatArray, setStatMax, getStatArray } from '../domain/achievements.js';
 import { awardXp } from '../domain/level.js';
 import {
-  getWorkerClass, enqueueDeploy, drainDeployQueue,
+  getWorkerClass, enqueueDeploy, leaseDeployQueue, acknowledgeDeployCommand, acknowledgeLegacyDeploy,
 } from '../workerRegistry.js';
 import { broadcastFullState } from '../broadcastHelper.js';
 import { markCodeServerSeen } from '../codeServerTracker.js';
@@ -144,6 +145,9 @@ deployRoutes.post('/deploy', async (req: Request, res: Response) => {
     equippedCpu,
     equippedRam,
     deployConfig: { classId, equippedItems: equippedItems || {}, injectedFields },
+    desiredState: 'running',
+    generation: 1,
+    executionToken: randomUUID(),
   }, uid);
 
   enqueueDeploy({
@@ -154,6 +158,9 @@ deployRoutes.post('/deploy', async (req: Request, res: Response) => {
     equippedItems: equippedItems || {},
     injectedFields,
     createdAt: new Date().toISOString(),
+    generation: 1,
+    executionToken: getWorker(workerId, uid)!.executionToken,
+    initialHolding: [],
   }, uid);
 
   broadcastFullState(uid);
@@ -169,17 +176,27 @@ deployRoutes.post('/deploy', async (req: Request, res: Response) => {
 deployRoutes.get('/deploy-queue', (req: Request, res: Response) => {
   const uid = getUserId(req);
   markCodeServerSeen(uid);
-  const pending = drainDeployQueue(uid);
+  const pending = leaseDeployQueue(`legacy:${uid || '__default__'}`, uid);
   res.json({ requests: pending });
 });
 
 deployRoutes.post('/deploy-ack', (req: Request, res: Response) => {
   const uid = getUserId(req);
-  const { workerId, pid, error: spawnError } = req.body;
+  const { workerId, pid, error: spawnError, commandId, sessionId, generation } = req.body;
   if (!workerId) return res.status(400).json({ error: 'workerId required' });
 
   const worker = getWorker(workerId, uid);
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
+
+  if (commandId) {
+    const commandAck = acknowledgeDeployCommand(commandId, sessionId, Number(generation), uid);
+    if (commandAck === 'stale' || worker.generation !== Number(generation)) {
+      return res.status(409).json({ ok: false, reason: 'stale_execution' });
+    }
+    if (commandAck === 'duplicate') return res.json({ ok: true, duplicate: true });
+  } else {
+    acknowledgeLegacyDeploy(workerId, worker.generation || 0, uid);
+  }
 
   // ACKs can be retried or arrive out of order. Only the first ACK may change
   // a worker that is still awaiting spawn confirmation.
@@ -194,6 +211,7 @@ deployRoutes.post('/deploy-ack', (req: Request, res: Response) => {
     upsertWorker({
       ...worker,
       status: 'crashed',
+      desiredState: 'suspended',
       pid: null,
       equippedPickaxe: null,
       equippedCpu: null,
@@ -203,7 +221,7 @@ deployRoutes.post('/deploy-ack', (req: Request, res: Response) => {
     }, uid);
     addWorkerLog(workerId, `[ERROR] Spawn failed: ${spawnError}`, uid);
   } else {
-    upsertWorker({ ...worker, status: 'running', pid: pid || null }, uid);
+    upsertWorker({ ...worker, status: 'running', pid: pid || null, desiredState: 'running' }, uid);
     addWorkerLog(workerId, `[INFO] Worker spawned (PID ${pid})`, uid);
   }
 

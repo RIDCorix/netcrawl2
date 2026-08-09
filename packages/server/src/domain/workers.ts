@@ -26,8 +26,9 @@ export function deleteWorker(id: string, userId?: string) {
 }
 
 /**
- * Reset all workers on server startup.
- * Moves workers back to their original deploy node and sets status to 'suspended'.
+ * Drop transient runtime observations without touching durable gameplay state.
+ * A Code Server or Game Server restart is not a recall: equipment, holding,
+ * current_node and FLOP allocation remain owned by the worker.
  */
 export function resetAllWorkers(userId?: string): void {
   const s = resolveStore(userId);
@@ -37,17 +38,26 @@ export function resetAllWorkers(userId?: string): void {
   for (const w of workers) {
     s.workers[w.id] = {
       ...w,
-      current_node: w.node_id,
-      status: 'suspended',
+      status: w.desiredState === 'running' ? 'deploying' : 'suspended',
       pid: null,
-      holding: [],
-      carrying: {},
-      flopAllocated: false,
     };
   }
+  console.log(`[NetCrawl] Reconciled ${workers.length} worker runtime observations`);
+}
 
-  s.game_state.flop.used = 0;
-  console.log(`[NetCrawl] Reset ${workers.length} workers to suspended state`);
+/** Fence an old process and request a fresh execution without moving assets. */
+export function rotateWorkerGeneration(workerId: string, userId?: string): WorkerRow | null {
+  const worker = getWorker(workerId, userId);
+  if (!worker) return null;
+  const next = {
+    ...worker,
+    generation: (worker.generation || 0) + 1,
+    executionToken: '',
+    pid: null,
+    status: worker.desiredState === 'running' ? 'deploying' as const : 'suspended' as const,
+  };
+  upsertWorker(next, userId);
+  return next;
 }
 
 /** Try to allocate FLOP capacity. Returns false if not enough room. */

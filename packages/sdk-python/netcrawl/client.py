@@ -6,6 +6,7 @@ Uses only stdlib (no requests dependency) for portability.
 """
 
 import json
+import uuid
 import urllib.request
 import urllib.error
 
@@ -53,15 +54,28 @@ class ApiClient:
     HTTP client for worker subprocess → game server communication.
     """
 
-    def __init__(self, api_url: str, worker_id: str, api_key: str = ""):
+    def __init__(self, api_url: str, worker_id: str, api_key: str = "", generation: int | None = None, execution_token: str = ""):
         self.api_url = api_url.rstrip("/")
         self.worker_id = worker_id
         self.api_key = api_key
+        self.generation = generation
+        self.execution_token = execution_token
+        self.stale_execution = False
 
     def action(self, action: str, payload: dict) -> dict:
         """POST /api/worker/action — returns server response as dict."""
-        return http_post(f"{self.api_url}/api/worker/action", {
+        body = {
             "workerId": self.worker_id,
             "action": action,
             "payload": payload,
-        }, api_key=self.api_key)
+        }
+        if self.generation is not None:
+            body.update({
+                "generation": self.generation,
+                "executionToken": self.execution_token,
+                "actionId": str(uuid.uuid4()),
+            })
+        result = http_post(f"{self.api_url}/api/worker/action", body, api_key=self.api_key)
+        if result.get("reason") == "stale_execution":
+            self.stale_execution = True
+        return result
