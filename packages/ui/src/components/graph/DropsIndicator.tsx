@@ -24,11 +24,11 @@ export function ResourceDataIndicator({ data, maxDataBuffer, visible = true }: {
 
   return (
     <div aria-label={`Mine data: ${current}/${max}`} role="meter" aria-valuemin={0} aria-valuemax={max} aria-valuenow={current} style={{
-      position: 'absolute', left: -41, top: 6, height: 67, width: 34,
+      position: 'absolute', left: -41, top: 0, height: 43, width: 34,
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, pointerEvents: 'none', zIndex: 3, fontFamily: 'var(--font-mono)',
     }}>
       <div style={{
-        position: 'relative', width: 7, height: 54, overflow: 'hidden', borderRadius: 999,
+        position: 'relative', width: 7, height: 30, overflow: 'hidden', borderRadius: 999,
         background: 'color-mix(in srgb, var(--bg-primary) 82%, transparent)', border: '1px solid var(--border-bright)', boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
       }}>
         <div style={{

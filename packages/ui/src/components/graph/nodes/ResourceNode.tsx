@@ -28,7 +28,7 @@ export function ResourceNode({ id, data, selected }: any) {
       }}
     >
       {isDepleted && <DepletedOverlay depletedUntil={data.depletedUntil} />}
-      <ResourceDataIndicator data={data.data} maxDataBuffer={data.maxDataBuffer} visible={zoom >= 0.5} />
+      <ResourceDataIndicator data={data.data} maxDataBuffer={data.maxDataBuffer} visible={data.unlocked && zoom >= 0.5} />
       <DropsIndicator items={floorItems} maxBuffer={data.maxBuffer} />
       <NodeLabel
         label={data.label}
