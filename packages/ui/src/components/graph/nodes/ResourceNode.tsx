@@ -21,6 +21,7 @@ export function ResourceNode({ id, data, selected }: any) {
       fadeIn={data.fadeIn}
       routeIndices={data.routeIndices}
       unlockable={data.unlockable}
+      unlocked={data.unlocked}
       style={{
         opacity: data.unlocked ? (isDepleted ? 0.7 : 1) : 0.5,
         filter: isDepleted ? 'grayscale(60%)' : undefined,

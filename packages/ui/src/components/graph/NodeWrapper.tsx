@@ -5,7 +5,7 @@ import { WorkerDotsRow } from './WorkerDotsRow';
 const HANDLE_STYLE_HIDDEN = { opacity: 0 } as const;
 const HANDLE_STYLE_CENTER = { opacity: 0, top: '50%', left: '50%', transform: 'translate(-50%, -50%)' } as const;
 
-export function NodeWrapper({ children, selected, glowColor, style = {}, nodeId, showWorkerDots, edgeStyle: currentEdgeStyle, fadeIn, routeIndices, unlockable }: {
+export function NodeWrapper({ children, selected, glowColor, style = {}, nodeId, showWorkerDots, edgeStyle: currentEdgeStyle, fadeIn, routeIndices, unlockable, unlocked }: {
   children: React.ReactNode;
   selected?: boolean;
   glowColor?: string;
@@ -16,9 +16,15 @@ export function NodeWrapper({ children, selected, glowColor, style = {}, nodeId,
   fadeIn?: boolean;
   routeIndices?: number[];
   unlockable?: boolean;
+  unlocked?: boolean;
 }) {
   const isOnRoute = routeIndices && routeIndices.length > 0;
-  const borderColor = isOnRoute ? '#f59e0b' : selected ? 'var(--accent)' : glowColor || 'var(--border-bright)';
+  const borderColor = unlockable ? '#facc15' : isOnRoute ? '#f59e0b' : selected ? 'var(--accent)' : glowColor || 'var(--border-bright)';
+  const border = unlockable
+    ? `2px solid ${borderColor}`
+    : unlocked
+      ? `${isOnRoute ? '2px' : '1px'} solid ${borderColor}`
+      : style.border || `${isOnRoute ? '2px' : '1px'} solid ${borderColor}`;
 
   return (
     <div style={{
@@ -26,7 +32,6 @@ export function NodeWrapper({ children, selected, glowColor, style = {}, nodeId,
       padding: '6px',
       borderRadius: '10px',
       background: 'var(--bg-glass-heavy)',
-      border: `${isOnRoute ? '2px' : '1px'} solid ${borderColor}`,
       boxShadow: isOnRoute
         ? `0 0 0 2px rgba(245,158,11,0.2), 0 0 16px rgba(245,158,11,0.3)`
         : selected
@@ -39,6 +44,7 @@ export function NodeWrapper({ children, selected, glowColor, style = {}, nodeId,
       cursor: 'pointer',
       animation: fadeIn ? 'node-fade-in 0.5s ease-out' : undefined,
       ...style,
+      border,
     }}
       data-tutorial-target={nodeId}
       data-unlockable={unlockable || undefined}

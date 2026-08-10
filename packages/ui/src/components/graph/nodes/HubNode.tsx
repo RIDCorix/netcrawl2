@@ -53,7 +53,7 @@ export function HubNode({ id, data, selected }: any) {
   const flashColor = flashKind === 'bad' ? '#ef4444' : flashKind === 'good' ? '#facc15' : null;
 
   return (
-    <NodeWrapper selected={selected} glowColor="var(--accent)" nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} unlockable={data.unlockable} style={{
+    <NodeWrapper selected={selected} glowColor="var(--accent)" nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} unlockable={data.unlockable} unlocked={data.unlocked} style={{
       animation: 'hub-pulse 3s ease-in-out infinite',
       padding: '14px 20px',
       borderRadius: 'var(--radius-lg)',

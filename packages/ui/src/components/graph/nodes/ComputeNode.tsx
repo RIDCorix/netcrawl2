@@ -20,6 +20,7 @@ export function ComputeNode({ id, data, selected }: any) {
       fadeIn={data.fadeIn}
       routeIndices={data.routeIndices}
       unlockable={data.unlockable}
+      unlocked={data.unlocked}
       style={{
         opacity: data.unlocked ? 1 : 0.7,
         padding: '18px 22px',
