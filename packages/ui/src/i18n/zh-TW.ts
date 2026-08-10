@@ -565,6 +565,7 @@ export const zhTW: Record<string, string> = {
   'ui.enhance': '強化',
   'ui.ep_available': '{n} 點可分配',
   'stat.rate.name': '生產速率',
+  'stat.refillRate.name': '補充速率',
   'stat.defense.name': '防禦力',
   'stat.chipSlots.name': '晶片槽',
 

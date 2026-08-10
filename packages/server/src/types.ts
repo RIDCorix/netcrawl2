@@ -119,6 +119,8 @@ export interface NodeData {
   maxDataBuffer?: number;
   /** Resource supply regenerated per game tick. */
   dataRefillRate?: number;
+  /** Tracks the current, independently balanced mine-supply refill model. */
+  refillBalanceVersion?: 2;
   depleted?: boolean;
   depletedUntil?: number;
   capacity?: number;
@@ -408,7 +410,8 @@ const R = (label: string, rate: number, cost: Record<string, number>, badDataCha
   mineCount: 0,
   data: rate * RESOURCE_BUFFER_SECONDS,
   maxDataBuffer: rate * RESOURCE_BUFFER_SECONDS,
-  dataRefillRate: rate,
+  dataRefillRate: Math.max(1, Math.round(rate / 3)),
+  refillBalanceVersion: 2 as const,
   upgradeLevel: 0,
   chipSlots: 1,
   baseChipSlots: 1,
@@ -496,7 +499,8 @@ const MC = (label: string, rate: number, cost: Record<string, number>, badDataCh
   mineCount: 0,
   data: rate * RESOURCE_BUFFER_SECONDS,
   maxDataBuffer: rate * RESOURCE_BUFFER_SECONDS,
-  dataRefillRate: rate,
+  dataRefillRate: Math.max(1, Math.round(rate / 3)),
+  refillBalanceVersion: 2 as const,
   upgradeLevel: 0,
   chipSlots: 0,
   baseChipSlots: 0,

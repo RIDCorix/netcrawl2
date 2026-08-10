@@ -570,6 +570,7 @@ export const en: Record<string, string> = {
   'ui.enhance': 'ENHANCE',
   'ui.ep_available': '{n} points available to allocate',
   'stat.rate.name': 'Production Rate',
+  'stat.refillRate.name': 'Refill Rate',
   'stat.defense.name': 'Defense',
   'stat.chipSlots.name': 'Chip Slots',
 

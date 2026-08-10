@@ -14,8 +14,8 @@ const DROP_COLOR: Record<string, string> = {
 };
 
 /** Vertical mine-supply meter, deliberately separate from the floor-drop buffer. */
-export function ResourceDataIndicator({ data, maxDataBuffer }: { data?: number; maxDataBuffer?: number }) {
-  if (maxDataBuffer === undefined || maxDataBuffer <= 0) return null;
+export function ResourceDataIndicator({ data, maxDataBuffer, visible = true }: { data?: number; maxDataBuffer?: number; visible?: boolean }) {
+  if (!visible || maxDataBuffer === undefined || maxDataBuffer <= 0) return null;
 
   const max = Math.max(1, Math.floor(maxDataBuffer));
   const current = Math.min(max, Math.max(0, Math.floor(data ?? max)));
@@ -24,11 +24,11 @@ export function ResourceDataIndicator({ data, maxDataBuffer }: { data?: number; 
 
   return (
     <div aria-label={`Mine data: ${current}/${max}`} role="meter" aria-valuemin={0} aria-valuemax={max} aria-valuenow={current} style={{
-      position: 'absolute', left: -31, top: '50%', transform: 'translateY(-50%)', height: 54,
-      display: 'flex', alignItems: 'center', gap: 3, pointerEvents: 'none', zIndex: 3, fontFamily: 'var(--font-mono)',
+      position: 'absolute', left: -13, top: '50%', transform: 'translateY(-50%)', height: 67, width: 34,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, pointerEvents: 'none', zIndex: 3, fontFamily: 'var(--font-mono)',
     }}>
       <div style={{
-        position: 'relative', width: 7, height: '100%', overflow: 'hidden', borderRadius: 999,
+        position: 'relative', width: 7, height: 54, overflow: 'hidden', borderRadius: 999,
         background: 'color-mix(in srgb, var(--bg-primary) 82%, transparent)', border: '1px solid var(--border-bright)', boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
       }}>
         <div style={{
@@ -38,7 +38,7 @@ export function ResourceDataIndicator({ data, maxDataBuffer }: { data?: number; 
       </div>
       <span style={{
         color: percent <= 20 ? '#fbbf24' : 'var(--text-muted)', fontSize: 8, fontWeight: 800,
-        lineHeight: 1, writingMode: 'vertical-rl', transform: 'rotate(180deg)',
+        lineHeight: 1, whiteSpace: 'nowrap',
       }}>
         {current}/{max}
       </span>

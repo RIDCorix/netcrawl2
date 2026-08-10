@@ -18,7 +18,7 @@ import {
   INITIAL_PLAYER_INVENTORY,
   INITIAL_FLOP,
 } from './types.js';
-import { RESOURCE_BUFFER_SECONDS } from './constants.js';
+import { getBaseResourceRefillRate, RESOURCE_BUFFER_SECONDS } from './constants.js';
 
 // ── Module state ────────────────────────────────────────────────────────────
 
@@ -282,18 +282,25 @@ function _loadStore() {
         const mineable = n.data.mineable || (init?.data as any)?.mineable;
         if (mineable) {
           const rate = Math.max(1, Number(n.data.rate ?? (init?.data as any)?.rate ?? 1));
+          const baseRate = Math.max(1, Number(n.data.baseRate ?? (init?.data as any)?.baseRate ?? rate));
           const maxDataBuffer = Math.max(1, Number(n.data.maxDataBuffer ?? rate * RESOURCE_BUFFER_SECONDS));
           const data = Math.min(maxDataBuffer, Math.max(0, Number(n.data.data ?? maxDataBuffer)));
+          const refillPoints = Math.max(0, Number(n.data.statAlloc?.refillRate ?? 0));
+          const dataRefillRate = n.data.refillBalanceVersion === 2
+            ? Math.max(1, Number(n.data.dataRefillRate ?? getBaseResourceRefillRate(baseRate)))
+            : getBaseResourceRefillRate(baseRate) + refillPoints;
           return {
             ...n,
             data: {
               ...n.data,
+              baseRate,
               mineable: true,
               items: n.data.items || [],
               mineCount: 0,
               data,
               maxDataBuffer,
-              dataRefillRate: Math.max(1, Number(n.data.dataRefillRate ?? rate)),
+              dataRefillRate,
+              refillBalanceVersion: 2,
               depleted: false,
               depletedUntil: undefined,
             },

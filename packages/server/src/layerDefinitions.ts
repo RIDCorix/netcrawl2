@@ -5,7 +5,7 @@
  */
 
 import type { FlopState } from './types.js';
-import { RESOURCE_BUFFER_SECONDS } from './constants.js';
+import { getBaseResourceRefillRate, RESOURCE_BUFFER_SECONDS } from './constants.js';
 
 // ── Layer metadata ────────────────────────────────────────────────────────────
 
@@ -92,6 +92,7 @@ const R1 = (label: string, rate: number, cost: Record<string, number>) => ({
   label,
   resource: 'data' as const,
   rate,
+  baseRate: rate,
   unlocked: false,
   unlockCost: cost,
   mineable: true,
@@ -99,7 +100,8 @@ const R1 = (label: string, rate: number, cost: Record<string, number>) => ({
   mineCount: 0,
   data: rate * RESOURCE_BUFFER_SECONDS,
   maxDataBuffer: rate * RESOURCE_BUFFER_SECONDS,
-  dataRefillRate: rate,
+  dataRefillRate: getBaseResourceRefillRate(rate),
+  refillBalanceVersion: 2 as const,
   upgradeLevel: 0,
   chipSlots: 1,
   installedChips: [] as string[],

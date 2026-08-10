@@ -572,6 +572,7 @@ export const ja: Record<string, string> = {
   'ui.enhance': '強化',
   'ui.ep_available': '{n} ポイント割り当て可能',
   'stat.rate.name': '生産速度',
+  'stat.refillRate.name': '補充速度',
   'stat.defense.name': '防御力',
   'stat.chipSlots.name': 'チップスロット',
 

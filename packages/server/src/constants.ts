@@ -8,6 +8,14 @@
 /** A full resource node holds ten seconds of its normal output. */
 export const RESOURCE_BUFFER_SECONDS = 10;
 
+/** A mine's baseline supply refill is one third of its base harvest yield. */
+export const RESOURCE_REFILL_DIVISOR = 3;
+
+/** Round to a whole unit so the supply model remains deterministic per tick. */
+export function getBaseResourceRefillRate(baseRate: number): number {
+  return Math.max(1, Math.round(baseRate / RESOURCE_REFILL_DIVISOR));
+}
+
 // ── Repair ──────────────────────────────────────────────────────────────────
 
 /** Data cost to repair an infected node. */

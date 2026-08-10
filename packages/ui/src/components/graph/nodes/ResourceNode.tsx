@@ -1,10 +1,12 @@
 import React from 'react';
+import { useViewport } from 'reactflow';
 import { Database } from 'lucide-react';
 import { NodeWrapper } from '../NodeWrapper';
 import { NodeLabel } from '../NodeLabel';
 import { DropsIndicator, DepletedOverlay, ResourceDataIndicator } from '../DropsIndicator';
 
 export function ResourceNode({ id, data, selected }: any) {
+  const { zoom } = useViewport();
   const color = 'var(--data-color)';
   const floorItems = Array.isArray(data.items) ? data.items : Array.isArray(data.drops) ? data.drops : [];
   const isDepleted = !!data.depleted;
@@ -25,7 +27,7 @@ export function ResourceNode({ id, data, selected }: any) {
       }}
     >
       {isDepleted && <DepletedOverlay depletedUntil={data.depletedUntil} />}
-      <ResourceDataIndicator data={data.data} maxDataBuffer={data.maxDataBuffer} />
+      <ResourceDataIndicator data={data.data} maxDataBuffer={data.maxDataBuffer} visible={zoom >= 0.5} />
       <DropsIndicator items={floorItems} maxBuffer={data.maxBuffer} />
       <NodeLabel
         label={data.label}

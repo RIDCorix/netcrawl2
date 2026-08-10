@@ -13,7 +13,7 @@ const testDir = mkdtempSync(join(tmpdir(), 'netcrawl-deploy-route-'));
 const { startServer } = await import('../packages/server/.test-dist/index.js');
 const { getWorker, upsertWorker } = await import('../packages/server/.test-dist/domain/workers.js');
 const { addToPlayerInventory, getPlayerInventory } = await import('../packages/server/.test-dist/domain/inventory.js');
-const { getGameState } = await import('../packages/server/.test-dist/domain/gameState.js');
+const { getGameState, saveGameState } = await import('../packages/server/.test-dist/domain/gameState.js');
 const { getQuestSummary } = await import('../packages/server/.test-dist/quests.js');
 const { incrementStat } = await import('../packages/server/.test-dist/domain/achievements.js');
 const { setQuestStatus } = await import('../packages/server/.test-dist/domain/questState.js');
@@ -44,6 +44,34 @@ try {
   const tokenB = registrationB.body.token;
   const userA = registrationA.body.user.id;
   const userB = registrationB.body.user.id;
+  assert.equal((await request('/api/state', tokenA)).status, 200);
+
+  // Harvest yield and mine-supply refill are independently upgraded: a Data
+  // Nano at harvest rate 31 still refills at its 10/s baseline until its
+  // refill-specific enhancement is allocated.
+  const initialState = getGameState(userA);
+  const dataNano = initialState.nodes.find(node => node.id === 'n_relay1');
+  assert.equal(dataNano.data.dataRefillRate, 10);
+  dataNano.data.unlocked = true;
+  dataNano.data.enhancementPoints = 2;
+  saveGameState(initialState, userA);
+  assert.equal(getGameState(userA).nodes.find(node => node.id === 'n_relay1').data.enhancementPoints, 2);
+  assert.equal((await request('/api/node/upgrades?nodeId=n_relay1', tokenA)).body.availablePoints, 2);
+  const rateAllocation = await request('/api/node/stat/allocate', tokenA, { nodeId: 'n_relay1', statKey: 'rate', delta: 1 });
+  assert.equal(rateAllocation.status, 200, JSON.stringify(rateAllocation.body));
+  assert.equal(getGameState(userA).nodes.find(node => node.id === 'n_relay1').data.rate, 31);
+  assert.equal(getGameState(userA).nodes.find(node => node.id === 'n_relay1').data.dataRefillRate, 10);
+  const refillAllocation = await request('/api/node/stat/allocate', tokenA, { nodeId: 'n_relay1', statKey: 'refillRate', delta: 1 });
+  assert.equal(refillAllocation.status, 200, JSON.stringify(refillAllocation.body));
+  assert.equal(getGameState(userA).nodes.find(node => node.id === 'n_relay1').data.dataRefillRate, 11);
+  const supplyState = getGameState(userA);
+  supplyState.nodes.find(node => node.id === 'n_relay1').data.data = 0;
+  supplyState.nodes.find(node => node.id === 'n_relay1').data.dataRefillRate = 10;
+  saveGameState(supplyState, userA);
+  for (let i = 0; i < 12 && getGameState(userA).nodes.find(node => node.id === 'n_relay1').data.data === 0; i += 1) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  assert.equal(getGameState(userA).nodes.find(node => node.id === 'n_relay1').data.data, 10);
 
   const workerClass = {
     class_id: 'miner_test', class_name: 'MinerTest', class_icon: 'Pickaxe', file: 'miner.py', language: 'python',
@@ -293,7 +321,7 @@ try {
   assert.equal(recovered.current_node, getWorker(workerId, userA)?.current_node);
   assert.equal(recovered.executionToken, '');
 
-  console.log('Deploy/lifecycle integration: 101 assertions passed');
+  console.log('Deploy/lifecycle integration: 111 assertions passed');
 } catch (error) {
   console.error(error);
   process.exitCode = 1;

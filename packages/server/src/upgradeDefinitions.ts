@@ -51,6 +51,7 @@ export interface NodeStatDef {
 export const NODE_STAT_DEFS: Record<string, NodeStatDef[]> = {
   'resource:data': [
     { key: 'rate',      name: 'Production Rate', maxPoints: 5, perPoint: 1 },
+    { key: 'refillRate', name: 'Refill Rate',     maxPoints: 5, perPoint: 1 },
     { key: 'defense',   name: 'Defense',         maxPoints: 3, perPoint: 1 },
     { key: 'chipSlots', name: 'Chip Slots',      maxPoints: 2, perPoint: 1 },
   ],

@@ -19,6 +19,7 @@ import { checkAchievements } from '../achievements.js';
 import { checkQuests } from '../quests.js';
 import { XP_REWARDS } from '../levelSystem.js';
 import { getUserId } from './helpers.js';
+import { getBaseResourceRefillRate } from '../constants.js';
 
 export const nodeRoutes = Router();
 
@@ -156,6 +157,11 @@ nodeRoutes.post('/node/stat/allocate', (req: Request, res: Response) => {
 
   const data = { ...node.data, statAlloc };
   if (statKey === 'rate') data.rate = (data.baseRate || data.rate || 0) + (statAlloc.rate || 0) * statDef.perPoint;
+  if (statKey === 'refillRate') {
+    data.dataRefillRate = getBaseResourceRefillRate(data.baseRate || data.rate || 1)
+      + (statAlloc.refillRate || 0) * statDef.perPoint;
+    data.refillBalanceVersion = 2;
+  }
   if (statKey === 'defense') data.defense = (data.baseDefense || 0) + (statAlloc.defense || 0) * statDef.perPoint;
   if (statKey === 'chipSlots') {
     data.chipSlots = Math.min(MAX_CHIP_SLOTS, (data.baseChipSlots || 1) + (statAlloc.chipSlots || 0) * statDef.perPoint);
