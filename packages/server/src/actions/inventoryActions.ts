@@ -3,7 +3,7 @@
  */
 
 import type { Item, Resources } from '../types.js';
-import { mergeItemStacks, MAX_STACK_SIZE } from '../types.js';
+import { itemStacksFitBuffer, mergeItemStacks, MAX_STACK_SIZE } from '../types.js';
 import type { ActionContext } from './helpers.js';
 import { ACTION_DELAY } from './helpers.js';
 import { getGameState, saveGameState } from '../domain/gameState.js';
@@ -233,21 +233,20 @@ export async function handleDrop(ctx: ActionContext, payload: any): Promise<any>
   // Non-hub drop: check buffer
   const dropBufMax = computeNodeBuffer(dropNode.type, getNodeChipEffects(dropNodeId, uid));
   const existingItemsPre: Item[] = Array.isArray(dropNode.data.items) ? [...dropNode.data.items] : [];
-  const existingTypes = new Set(existingItemsPre.map(i => i.type));
-  let projectedStacks = existingItemsPre.length;
   const acceptedDrops: Item[] = [];
   const rejectedDrops: Item[] = [];
   for (const d of dropped) {
-    if (existingTypes.has(d.type)) { acceptedDrops.push(d); continue; }
-    if (dropBufMax === 0 || projectedStacks < dropBufMax) { acceptedDrops.push(d); existingTypes.add(d.type); projectedStacks += 1; }
+    if (itemStacksFitBuffer(existingItemsPre, [...acceptedDrops, d], dropBufMax)) acceptedDrops.push(d);
     else rejectedDrops.push(d);
   }
   if (acceptedDrops.length === 0) return { ok: false, error: 'Node buffer full', reason: 'node_buffer_full', maxBuffer: dropBufMax };
   for (const r of rejectedDrops) holding.push(r);
   upsertWorker({ ...w7, holding }, uid);
 
+  const finalItems = mergeItemStacks(existingItemsPre, acceptedDrops);
+
   const newNodes = freshState.nodes.map(n => {
-    if (n.id === dropNodeId) return { ...n, data: { ...n.data, items: mergeItemStacks(existingItemsPre, acceptedDrops) } };
+    if (n.id === dropNodeId) return { ...n, data: { ...n.data, items: finalItems } };
     return n;
   });
   saveGameState({ ...freshState, nodes: newNodes }, uid);

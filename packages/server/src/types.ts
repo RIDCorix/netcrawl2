@@ -57,6 +57,11 @@ export function mergeItemStacks(a: Item[], b: Item[]): Item[] {
   return result;
 }
 
+/** Whether adding item stacks fits within a node floor buffer. A zero limit is unlimited. */
+export function itemStacksFitBuffer(existing: Item[], additions: Item[], maxStacks: number): boolean {
+  return maxStacks === 0 || mergeItemStacks(existing, additions).length <= maxStacks;
+}
+
 // ── Player Inventory ────────────────────────────────────────────────────────
 
 export interface InventoryItem {

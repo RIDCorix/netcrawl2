@@ -1,4 +1,4 @@
-/* global console, fetch, process */
+/* global console, fetch, process, setTimeout */
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -11,7 +11,7 @@ process.env.NETCRAWL_BUNDLED = 'true';
 const testDir = mkdtempSync(join(tmpdir(), 'netcrawl-mine-contention-'));
 const { startServer } = await import('../packages/server/.test-dist/index.js');
 const { getGameState, saveGameState } = await import('../packages/server/.test-dist/domain/gameState.js');
-const { upsertWorker } = await import('../packages/server/.test-dist/domain/workers.js');
+const { getWorker, upsertWorker } = await import('../packages/server/.test-dist/domain/workers.js');
 const { server, port } = await startServer({ port: 0, dataDir: testDir });
 const base = `http://127.0.0.1:${port}`;
 
@@ -46,6 +46,23 @@ function addMiner(workerId, userId) {
     node_id: 'n_relay1',
     equippedPickaxe: { itemType: 'pickaxe_basic', efficiency: 1 },
   }, userId);
+}
+
+function setFloorItems(userId, items) {
+  const state = getGameState(userId);
+  const mine = state.nodes.find(node => node.id === 'n_relay1');
+  mine.data = { ...mine.data, items };
+  saveGameState(state, userId);
+}
+
+async function withLowestRoll(action) {
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  try {
+    return await action();
+  } finally {
+    Math.random = originalRandom;
+  }
 }
 
 try {
@@ -108,7 +125,77 @@ try {
   assert.equal((await interrupted).body.error, 'Mining interrupted');
   assert.equal((await successor).body.ok, true, 'a removed queue entry cannot pin its successor');
 
-  console.log('Mine contention regression: 17 assertions passed');
+  // A full set of floor stack slots is still mineable when this result merges
+  // into a partially filled stack; the old pre-mine length check rejected it.
+  configureMine(userA, 3, 1);
+  setFloorItems(userA, [
+    { type: 'data_fragment', count: 64 }, { type: 'data_fragment', count: 64 },
+    { type: 'bad_data', count: 64 }, { type: 'bad_data', count: 10 },
+  ]);
+  addMiner('buffer-fit', userA);
+  const bufferFit = await withLowestRoll(() => request('/api/worker/action', tokenA, {
+    workerId: 'buffer-fit', action: 'mine', payload: {},
+  }));
+  assert.equal(bufferFit.body.ok, true, JSON.stringify(bufferFit.body));
+  const partialFloor = getGameState(userA).nodes.find(node => node.id === 'n_relay1').data.items;
+  assert.equal(partialFloor.length, 4);
+  assert.equal(partialFloor.filter(item => item.type === 'bad_data').reduce((total, item) => total + item.count, 0), 76);
+
+  // Concurrent miners each re-evaluate the completed mine against fresh floor
+  // state, so both can merge into the same partial stack without overflowing.
+  configureMine(userA, 3, 1);
+  setFloorItems(userA, [
+    { type: 'data_fragment', count: 64 }, { type: 'data_fragment', count: 64 },
+    { type: 'bad_data', count: 64 }, { type: 'bad_data', count: 10 },
+  ]);
+  addMiner('buffer-concurrent-a', userA);
+  addMiner('buffer-concurrent-b', userA);
+  const concurrentFits = await withLowestRoll(() => Promise.all([
+    request('/api/worker/action', tokenA, { workerId: 'buffer-concurrent-a', action: 'mine', payload: {} }),
+    request('/api/worker/action', tokenA, { workerId: 'buffer-concurrent-b', action: 'mine', payload: {} }),
+  ]));
+  assert.ok(concurrentFits.every(result => result.body.ok), JSON.stringify(concurrentFits));
+  assert.equal(getGameState(userA).nodes.find(node => node.id === 'n_relay1').data.items.length, 4);
+
+  // A mine that would create a fifth stack fails and restores the supply it
+  // reserved before its mining delay.
+  configureMine(userA, 3, 1);
+  setFloorItems(userA, [
+    { type: 'data_fragment', count: 64 }, { type: 'data_fragment', count: 64 },
+    { type: 'bad_data', count: 64 }, { type: 'bad_data', count: 64 },
+  ]);
+  addMiner('buffer-overflow', userA);
+  const bufferOverflow = await withLowestRoll(() => request('/api/worker/action', tokenA, {
+    workerId: 'buffer-overflow', action: 'mine', payload: {},
+  }));
+  assert.equal(bufferOverflow.body.error, 'Node buffer full');
+  const overflowMine = getGameState(userA).nodes.find(node => node.id === 'n_relay1');
+  assert.equal(overflowMine.data.items.length, 4);
+  assert.equal(overflowMine.data.data, 3);
+
+  // Drop uses the same stack projection: a partial matching stack accepts a
+  // drop, while a full matching stack rejects it without losing the payload.
+  configureMine(userA, 3, 1);
+  setFloorItems(userA, [
+    { type: 'data_fragment', count: 64 }, { type: 'data_fragment', count: 64 },
+    { type: 'bad_data', count: 64 }, { type: 'bad_data', count: 10 },
+  ]);
+  addMiner('drop-fit', userA);
+  upsertWorker({ ...getWorker('drop-fit', userA), holding: [{ type: 'bad_data', count: 2 }] }, userA);
+  const dropFit = await request('/api/worker/action', tokenA, { workerId: 'drop-fit', action: 'drop', payload: {} });
+  assert.equal(dropFit.body.ok, true, JSON.stringify(dropFit.body));
+  assert.equal(getGameState(userA).nodes.find(node => node.id === 'n_relay1').data.items.length, 4);
+
+  setFloorItems(userA, [
+    { type: 'data_fragment', count: 64 }, { type: 'data_fragment', count: 64 },
+    { type: 'bad_data', count: 64 }, { type: 'bad_data', count: 64 },
+  ]);
+  upsertWorker({ ...getWorker('drop-fit', userA), holding: [{ type: 'bad_data', count: 2 }] }, userA);
+  const dropOverflow = await request('/api/worker/action', tokenA, { workerId: 'drop-fit', action: 'drop', payload: {} });
+  assert.equal(dropOverflow.body.error, 'Node buffer full');
+  assert.deepEqual(getWorker('drop-fit', userA).holding, [{ type: 'bad_data', count: 2 }]);
+
+  console.log('Mine contention regression: 31 assertions passed');
 } catch (error) {
   console.error(error);
   process.exitCode = 1;

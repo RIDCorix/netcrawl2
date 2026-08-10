@@ -3,7 +3,7 @@
  */
 
 import type { Item } from '../types.js';
-import { mergeItemStacks } from '../types.js';
+import { itemStacksFitBuffer, mergeItemStacks } from '../types.js';
 import type { ActionContext } from './helpers.js';
 import { MINE_DELAY, getPassiveEffects, getItemTypeForNode, calcItemCount } from './helpers.js';
 import { getNodeChipEffects } from '../domain/chips.js';
@@ -39,6 +39,21 @@ function isMiningInterrupted(workerId: string, nodeId: string, uid?: string): bo
 
 function waitForData(): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, WAIT_FOR_DATA_MS));
+}
+
+function restoreNodeData(nodeId: string, amount: number, uid?: string): void {
+  const freshState = getGameState(uid);
+  const node = freshState.nodes.find(n => n.id === nodeId);
+  if (!node) return;
+
+  const maxDataBuffer = Math.max(1, Number(node.data.maxDataBuffer ?? 1));
+  const availableData = Math.min(maxDataBuffer, Math.max(0, Number(node.data.data ?? maxDataBuffer)));
+  saveGameState({
+    ...freshState,
+    nodes: freshState.nodes.map(n =>
+      n.id === nodeId ? { ...n, data: { ...n.data, data: Math.min(maxDataBuffer, availableData + amount), maxDataBuffer } } : n,
+    ),
+  }, uid);
 }
 
 /**
@@ -108,13 +123,6 @@ export async function handleMine(ctx: ActionContext): Promise<any> {
 
   if (!node.data.mineable) return { ok: false, error: 'Node is not mineable' };
 
-  // Check node buffer capacity
-  const mineBufMax = computeNodeBuffer(node.type, getNodeChipEffects(currentNode, uid));
-  const floorStacks = Array.isArray(node.data.items) ? node.data.items.length : 0;
-  if (mineBufMax > 0 && floorStacks >= mineBufMax) {
-    return { ok: false, error: 'Node buffer full', reason: 'node_buffer_full', maxBuffer: mineBufMax };
-  }
-
   if (!worker.equippedPickaxe) return { ok: false, error: 'No pickaxe equipped' };
 
   // Determine the exact supply required before waiting, so a mine either
@@ -147,13 +155,33 @@ export async function handleMine(ctx: ActionContext): Promise<any> {
   const minedItem: Item = { type: itemType, count };
 
   const freshState = getGameState(uid);
+  const freshNode = freshState.nodes.find(n => n.id === node.id);
+  if (!freshNode) {
+    restoreNodeData(node.id, count, uid);
+    const currentWorker = getWorker(workerId, uid);
+    if (currentWorker?.status === 'harvesting') upsertWorker({ ...currentWorker, status: 'running' }, uid);
+    broadcastFullState(uid);
+    return { ok: false, error: 'Node not found' };
+  }
+
+  const floorItems: Item[] = Array.isArray(freshNode.data.items) ? freshNode.data.items : [];
+  const mineBufMax = computeNodeBuffer(freshNode.type, getNodeChipEffects(currentNode, uid));
+  const projectedItems = mergeItemStacks(floorItems, [minedItem]);
+  if (!itemStacksFitBuffer(floorItems, [minedItem], mineBufMax)) {
+    restoreNodeData(node.id, count, uid);
+    const currentWorker = getWorker(workerId, uid);
+    if (currentWorker?.status === 'harvesting') upsertWorker({ ...currentWorker, status: 'running' }, uid);
+    broadcastFullState(uid);
+    return { ok: false, error: 'Node buffer full', reason: 'node_buffer_full', maxBuffer: mineBufMax };
+  }
+
   const newNodes = freshState.nodes.map(n => {
     if (n.id === node.id) {
       return {
         ...n,
         data: {
           ...n.data,
-          items: mergeItemStacks(Array.isArray(n.data.items) ? n.data.items : [], [minedItem]),
+          items: projectedItems,
           mineCount: (n.data.mineCount || 0) + 1,
         },
       };
