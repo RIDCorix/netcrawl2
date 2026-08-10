@@ -18,6 +18,7 @@ import { checkAchievements } from '../achievements.js';
 import { checkQuests } from '../quests.js';
 import { XP_REWARDS } from '../levelSystem.js';
 import { getUserId } from './helpers.js';
+import { publicComputeLabState } from '../domain/computeLab.js';
 
 export const stateRoutes = Router();
 
@@ -29,7 +30,15 @@ stateRoutes.get('/state', (req: Request, res: Response) => {
   const workers = getWorkers(uid);
   const workerClasses = getAllWorkerClasses(uid);
   const codeServerConnected = isCodeServerConnected(uid);
-  res.json({ ...state, nodes, edges, workers, workerClasses, codeServerConnected });
+  res.json({
+    ...state,
+    nodes,
+    edges,
+    workers,
+    workerClasses,
+    codeServerConnected,
+    computeLab: publicComputeLabState(uid),
+  });
 });
 
 // POST /api/gather
@@ -66,9 +75,7 @@ stateRoutes.post('/unlock', (req: Request, res: Response) => {
     if (e.source === nodeId) neighborIds.add(e.target);
     else if (e.target === nodeId) neighborIds.add(e.source);
   }
-  const hasUnlockedNeighbor = state.nodes.some(
-    n => neighborIds.has(n.id) && n.data?.unlocked,
-  );
+  const hasUnlockedNeighbor = state.nodes.some(n => neighborIds.has(n.id) && n.data?.unlocked);
   if (!hasUnlockedNeighbor) {
     return res.status(400).json({ error: 'No unlocked adjacent node — explore outward first' });
   }

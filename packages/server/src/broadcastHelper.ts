@@ -19,6 +19,7 @@ import { LAYER_DEFS } from './layerDefinitions.js';
 import { broadcast } from './websocket.js';
 import { getAchievementSummary } from './achievements.js';
 import { getQuestSummary } from './quests.js';
+import { publicComputeLabState } from './domain/computeLab.js';
 
 export function broadcastFullState(userId?: string) {
   // Resolve userId: explicit param > global fallback
@@ -33,7 +34,10 @@ export function broadcastFullState(userId?: string) {
   for (const layerId of newlyUnlocked) {
     const def = LAYER_DEFS.find(d => d.id === layerId);
     if (def) {
-      broadcast({ type: 'LAYER_UNLOCKED', payload: { id: layerId, name: def.name, emoji: def.emoji } }, effectiveUserId);
+      broadcast(
+        { type: 'LAYER_UNLOCKED', payload: { id: layerId, name: def.name, emoji: def.emoji } },
+        effectiveUserId,
+      );
     }
   }
 
@@ -62,21 +66,25 @@ export function broadcastFullState(userId?: string) {
     };
   });
 
-  broadcast({
-    type: 'STATE_UPDATE',
-    payload: {
-      ...state,
-      nodes,
-      edges,
-      workers: getWorkers(effectiveUserId),
-      achievements: getAchievementSummary(effectiveUserId),
-      questSummary: getQuestSummary(effectiveUserId),
-      levelSummary: getPlayerLevelSummary(effectiveUserId),
-      activeLayer: getActiveLayerId(effectiveUserId),
-      layerMeta,
-      codeServerConnected: isCodeServerConnected(effectiveUserId),
-      workerClasses: getAllWorkerClasses(effectiveUserId),
-      unlockedRecipes: getUnlockedRecipes(effectiveUserId),
+  broadcast(
+    {
+      type: 'STATE_UPDATE',
+      payload: {
+        ...state,
+        nodes,
+        edges,
+        workers: getWorkers(effectiveUserId),
+        achievements: getAchievementSummary(effectiveUserId),
+        questSummary: getQuestSummary(effectiveUserId),
+        levelSummary: getPlayerLevelSummary(effectiveUserId),
+        activeLayer: getActiveLayerId(effectiveUserId),
+        layerMeta,
+        codeServerConnected: isCodeServerConnected(effectiveUserId),
+        workerClasses: getAllWorkerClasses(effectiveUserId),
+        unlockedRecipes: getUnlockedRecipes(effectiveUserId),
+        computeLab: publicComputeLabState(effectiveUserId),
+      },
     },
-  }, effectiveUserId);
+    effectiveUserId,
+  );
 }

@@ -1,4 +1,19 @@
 export const en: Record<string, string> = {
+  'compute_lab.title': 'COMPUTE LAB · ADD',
+  'compute_lab.subtitle': 'A durable operator chain. Your worker supplies every value.',
+  'compute_lab.request': 'worker task',
+  'compute_lab.mastered': 'MASTERED',
+  'compute_lab.retry': 'RETRY',
+  'compute_lab.waiting': 'WAITING',
+  'compute_lab.empty': 'No Compute Lab session is available. Return to the main map and request a task.',
+  'compute_lab.worker_hint': 'The worker continues this chain with get_task() and submit().',
+  'compute_lab.return_hint': 'Exit returns to the same main-map node. API requests and workers keep running.',
+  'compute_lab.exit': 'EXIT',
+  'compute_lab.zoom_in': 'Zoom in',
+  'compute_lab.zoom_out': 'Zoom out',
+  'compute_lab.enter': 'ENTER COMPUTE LAB',
+  'compute_lab.resume': 'RESUME COMPUTE LAB',
+  'compute_lab.open_mastered': 'OPEN MASTERED LAB',
   // === HUD / ResourceBar ===
   'hud.inventory': 'Inventory',
   'hud.achievements': 'Achievements',
@@ -951,27 +966,33 @@ export const en: Record<string, string> = {
   'tutorial.chapter_zero.deploy.step_miner_deploy_confirm': 'Review',
   'tutorial.chapter_zero.deploy.step_miner_deploy_execute': 'Deploy',
   'tutorial.chapter_zero.deploy.hello_preview_title': 'Read the HelloWorker code',
-  'tutorial.chapter_zero.deploy.hello_preview_body': 'This worker only starts and writes logs. It needs no route and no equipment.',
+  'tutorial.chapter_zero.deploy.hello_preview_body':
+    'This worker only starts and writes logs. It needs no route and no equipment.',
   'tutorial.chapter_zero.deploy.miner_preview_title': 'Read the real Miner code',
-  'tutorial.chapter_zero.deploy.miner_preview_body': 'This is the Miner registered by your code server. Its on_loop repeatedly moves, mines, collects, returns, and deposits.',
+  'tutorial.chapter_zero.deploy.miner_preview_body':
+    'This is the Miner registered by your code server. Its on_loop repeatedly moves, mines, collects, returns, and deposits.',
   'tutorial.chapter_zero.deploy.hello_hub_prompt': 'Select the highlighted Hub.',
   'tutorial.chapter_zero.deploy.hello_hub_hint': 'The Hub is the only target during the HelloWorker phase.',
   'tutorial.chapter_zero.deploy.hello_hub_selected_prompt': 'Hub selected. Open Deploy to continue.',
-  'tutorial.chapter_zero.deploy.hello_hub_selected_hint': 'HelloWorker is locked in; its wizard has Class and Deploy only.',
+  'tutorial.chapter_zero.deploy.hello_hub_selected_hint':
+    'HelloWorker is locked in; its wizard has Class and Deploy only.',
   'tutorial.chapter_zero.deploy.miner_hub_prompt': 'Select the highlighted Hub to start the miner deployment.',
   'tutorial.chapter_zero.deploy.miner_hub_hint': 'The edge and pickaxe are chosen inside the deployment dialog.',
   'tutorial.chapter_zero.deploy.miner_hub_selected_prompt': 'Hub selected. Open Deploy to continue.',
-  'tutorial.chapter_zero.deploy.miner_hub_selected_hint': 'Miner is locked in; this phase adds the edge and pickaxe steps.',
+  'tutorial.chapter_zero.deploy.miner_hub_selected_hint':
+    'Miner is locked in; this phase adds the edge and pickaxe steps.',
   'tutorial.chapter_zero.deploy.hello_class_prompt': 'Confirm the HelloWorker class.',
   'tutorial.chapter_zero.deploy.hello_class_hint': 'No route or equipment step is shown for this zero-slot worker.',
   'tutorial.chapter_zero.deploy.hello_confirm_prompt': 'Review the HelloWorker deployment.',
   'tutorial.chapter_zero.deploy.hello_confirm_hint': 'The route and equipment payloads remain absent.',
   'tutorial.chapter_zero.deploy.hello_execute_prompt': 'Deploy HelloWorker.',
-  'tutorial.chapter_zero.deploy.hello_execute_hint': 'The next checkpoint opens only after this exact worker is created.',
+  'tutorial.chapter_zero.deploy.hello_execute_hint':
+    'The next checkpoint opens only after this exact worker is created.',
   'tutorial.chapter_zero.deploy.hello_log_title': 'HELLO WORKER LOG CHECKPOINT',
   'tutorial.chapter_zero.deploy.hello_log_waiting': 'Waiting for the first log from this worker…',
   'tutorial.chapter_zero.deploy.hello_log_prompt': 'Inspect the HelloWorker log checkpoint.',
-  'tutorial.chapter_zero.deploy.hello_log_hint': 'The mining lesson stays locked until the server records the first log.',
+  'tutorial.chapter_zero.deploy.hello_log_hint':
+    'The mining lesson stays locked until the server records the first log.',
   'tutorial.chapter_zero.deploy.continue_to_miner': 'CONTINUE TO MINER',
   'tutorial.chapter_zero.deploy.miner_class_prompt': 'Confirm the registered Miner class.',
   'tutorial.chapter_zero.deploy.miner_class_hint': 'This real code-server class has one edge and one pickaxe slot.',
@@ -982,7 +1003,8 @@ export const en: Record<string, string> = {
   'tutorial.chapter_zero.deploy.miner_confirm_prompt': 'Review the miner, edge, and pickaxe.',
   'tutorial.chapter_zero.deploy.miner_confirm_hint': 'The server will reject an incomplete or mismatched loadout.',
   'tutorial.chapter_zero.deploy.miner_execute_prompt': 'Deploy Miner and watch its on_loop.',
-  'tutorial.chapter_zero.deploy.miner_execute_hint': 'Complete two real move, mine, collect, return, deposit cycles to finish Chapter Zero.',
+  'tutorial.chapter_zero.deploy.miner_execute_hint':
+    'Complete two real move, mine, collect, return, deposit cycles to finish Chapter Zero.',
   'tutorial.chapter_zero.deploy.miner_loop_title': 'LIVE MINER LOOP',
   'tutorial.chapter_zero.deploy.miner_loop_count': 'Completed cycles: {count}/{target}',
   'tutorial.chapter_zero.deploy.loop_move_to_mine': 'Move to mine',
@@ -990,44 +1012,58 @@ export const en: Record<string, string> = {
   'tutorial.chapter_zero.deploy.loop_collect': 'Collect',
   'tutorial.chapter_zero.deploy.loop_return_to_hub': 'Return to hub',
   'tutorial.chapter_zero.deploy.loop_deposit': 'Deposit',
-  'tutorial.chapter_zero.deploy.miner_retry_prompt': 'Miner stopped or disconnected. Recall this tutorial worker and try again.',
+  'tutorial.chapter_zero.deploy.miner_retry_prompt':
+    'Miner stopped or disconnected. Recall this tutorial worker and try again.',
   'tutorial.chapter_zero.deploy.miner_retry': 'Recall and retry Miner',
   'tutorial.chapter_zero.deploy.retrying': 'Recalling…',
-  'tutorial.chapter_zero.deploy.miner_retry_error': 'The tutorial Miner could not be recalled. Reconnect the code server and try again.',
+  'tutorial.chapter_zero.deploy.miner_retry_error':
+    'The tutorial Miner could not be recalled. Reconnect the code server and try again.',
   'tutorial.chapter_zero.deploy.setup_title': 'CONNECT YOUR CODE SERVER',
-  'tutorial.chapter_zero.deploy.setup_body': 'Create the NetCrawl Codespace, then open main.py, add the URL and API key from Connect, and press F5 in Run and Debug.',
-  'tutorial.chapter_zero.deploy.setup_skeleton': '[Codespace] Create → main.py → paste URL + key\n[VS Code] Run and Debug → NetCrawl: Start Code Server → F5\n[Game]    wait for HelloWorker to appear',
+  'tutorial.chapter_zero.deploy.setup_body':
+    'Create the NetCrawl Codespace, then open main.py, add the URL and API key from Connect, and press F5 in Run and Debug.',
+  'tutorial.chapter_zero.deploy.setup_skeleton':
+    '[Codespace] Create → main.py → paste URL + key\n[VS Code] Run and Debug → NetCrawl: Start Code Server → F5\n[Game]    wait for HelloWorker to appear',
   'tutorial.chapter_zero.deploy.setup_cta': 'CREATE NETCRAWL CODESPACE',
   'tutorial.chapter_zero.deploy.hub_prompt': 'Click the highlighted Hub on the map.',
   'tutorial.chapter_zero.deploy.hub_hint': 'Click Hub to open its node details.',
-  'tutorial.chapter_zero.deploy.hub_selected_prompt': 'Hub selected. Click Deploy Worker in the node panel, then keep following the normal dialog.',
-  'tutorial.chapter_zero.deploy.hub_selected_hint': 'The worker class will be preselected as HelloWorker; no equipment is required.',
+  'tutorial.chapter_zero.deploy.hub_selected_prompt':
+    'Hub selected. Click Deploy Worker in the node panel, then keep following the normal dialog.',
+  'tutorial.chapter_zero.deploy.hub_selected_hint':
+    'The worker class will be preselected as HelloWorker; no equipment is required.',
   'tutorial.chapter_zero.deploy.edge_prompt': 'Open Deploy from the Hub panel.',
   'tutorial.chapter_zero.deploy.edge_selecting': 'Choose the route shown in the deployment dialog.',
   'tutorial.chapter_zero.deploy.edge_cta': 'Open Deploy from the Hub panel',
   'tutorial.chapter_zero.deploy.edge_click_hint': 'Choose a route, then continue to the next step.',
   'tutorial.chapter_zero.deploy.edge_selected': 'Route: {edge}',
-  'tutorial.chapter_zero.deploy.pickaxe_prompt': 'Open Equipment and place a pickaxe in the worker\'s pickaxe slot.',
+  'tutorial.chapter_zero.deploy.pickaxe_prompt': "Open Equipment and place a pickaxe in the worker's pickaxe slot.",
   'tutorial.chapter_zero.deploy.equipment_hint': 'Continue when the equipment step is complete.',
-  'tutorial.chapter_zero.deploy.confirm_prompt': 'Use the deployment dialog\'s Review step to check the worker, edge, and pickaxe before deploying.',
+  'tutorial.chapter_zero.deploy.confirm_prompt':
+    "Use the deployment dialog's Review step to check the worker, edge, and pickaxe before deploying.",
   'tutorial.chapter_zero.deploy.summary_class': 'Worker',
   'tutorial.chapter_zero.deploy.summary_node': 'Deploy node',
   'tutorial.chapter_zero.deploy.summary_edge': 'Route',
   'tutorial.chapter_zero.deploy.summary_pickaxe': 'Pickaxe',
   'tutorial.chapter_zero.deploy.confirm_cta': 'Looks good — Deploy',
-  'tutorial.chapter_zero.deploy.execute_prompt': 'Press Deploy. Your worker will appear on the map after deployment completes.',
+  'tutorial.chapter_zero.deploy.execute_prompt':
+    'Press Deploy. Your worker will appear on the map after deployment completes.',
   'tutorial.chapter_zero.deploy.execute_cta': 'DEPLOY WORKER',
   'tutorial.chapter_zero.deploy.executing': 'Deploying…',
   'tutorial.chapter_zero.deploy.complete_title': 'WORKER DEPLOYED',
-  'tutorial.chapter_zero.deploy.complete_body': 'Your first worker is live on the network. Chapter 1 is now unlocked — connect your code server to start writing real workers.',
+  'tutorial.chapter_zero.deploy.complete_body':
+    'Your first worker is live on the network. Chapter 1 is now unlocked — connect your code server to start writing real workers.',
   'tutorial.chapter_zero.deploy.retry': 'Try Again',
   'tutorial.chapter_zero.deploy.error_generic': 'Something went wrong. Check the server connection and try again.',
   'tutorial.chapter_zero.deploy.error_missing': 'Missing edge or pickaxe selection.',
-  'tutorial.chapter_zero.deploy.error_no_pickaxe': 'No pickaxe in inventory. A Basic Pickaxe will be granted — refresh to retry.',
+  'tutorial.chapter_zero.deploy.error_no_pickaxe':
+    'No pickaxe in inventory. A Basic Pickaxe will be granted — refresh to retry.',
   'tutorial.chapter_zero.deploy.error_api': 'Deploy failed: {reason}',
-  'tutorial.chapter_zero.deploy.error_open_dialog': 'The deployment dialog could not be opened. Check the connection and try again.',
-  'tutorial.chapter_zero.deploy.error_stage_advance': 'The tutorial checkpoint could not advance. Confirm the HelloWorker log is visible, then retry.',
+  'tutorial.chapter_zero.deploy.error_open_dialog':
+    'The deployment dialog could not be opened. Check the connection and try again.',
+  'tutorial.chapter_zero.deploy.error_stage_advance':
+    'The tutorial checkpoint could not advance. Confirm the HelloWorker log is visible, then retry.',
   'tutorial.chapter_zero.deploy.error_hello_log_pending': 'Wait for the HelloWorker log, then retry.',
-  'tutorial.chapter_zero.deploy.error_miner_not_registered': 'Your code server has not registered the Miner class. Start it with workers/miner.py, then retry.',
-  'tutorial.chapter_zero.deploy.error_miner_schema_incompatible': 'The registered Miner must expose exactly one edge and one pickaxe slot. Update workers/miner.py, then retry.',
+  'tutorial.chapter_zero.deploy.error_miner_not_registered':
+    'Your code server has not registered the Miner class. Start it with workers/miner.py, then retry.',
+  'tutorial.chapter_zero.deploy.error_miner_schema_incompatible':
+    'The registered Miner must expose exactly one edge and one pickaxe slot. Update workers/miner.py, then retry.',
 };

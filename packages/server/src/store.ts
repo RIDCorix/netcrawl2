@@ -61,6 +61,7 @@ const INITIAL_STORE: Store = {
     unlockedLayers: [0],
     snapshots: {},
   },
+  compute_lab: { sessions: {} },
   runtime_commands: [],
   worker_action_results: {},
 };
@@ -272,6 +273,7 @@ function _loadStore() {
       if (!store.next_log_id) store.next_log_id = 1;
       if (!store.runtime_commands) store.runtime_commands = [];
       if (!store.worker_action_results) store.worker_action_results = {};
+      if (!store.compute_lab) store.compute_lab = { sessions: {} };
       if (!store.game_state.playerInventory) {
         store.game_state.playerInventory = JSON.parse(JSON.stringify(INITIAL_PLAYER_INVENTORY));
       }
@@ -286,9 +288,10 @@ function _loadStore() {
           const maxDataBuffer = Math.max(1, Number(n.data.maxDataBuffer ?? rate * RESOURCE_BUFFER_SECONDS));
           const data = Math.min(maxDataBuffer, Math.max(0, Number(n.data.data ?? maxDataBuffer)));
           const refillPoints = Math.max(0, Number(n.data.statAlloc?.refillRate ?? 0));
-          const dataRefillRate = n.data.refillBalanceVersion === 2
-            ? Math.max(1, Number(n.data.dataRefillRate ?? getBaseResourceRefillRate(baseRate)))
-            : getBaseResourceRefillRate(baseRate) + refillPoints;
+          const dataRefillRate =
+            n.data.refillBalanceVersion === 2
+              ? Math.max(1, Number(n.data.dataRefillRate ?? getBaseResourceRefillRate(baseRate)))
+              : getBaseResourceRefillRate(baseRate) + refillPoints;
           return {
             ...n,
             data: {
@@ -344,8 +347,13 @@ function _loadStore() {
         if (w.equippedPickaxe === undefined) (w as any).equippedPickaxe = null;
         if (w.equippedCpu === undefined) (w as any).equippedCpu = null;
         if (w.equippedRam === undefined) (w as any).equippedRam = null;
-        w.flopAllocated = w.flopAllocated ?? ['deploying', 'running', 'moving', 'harvesting', 'suspending', 'suspended', 'error', 'crashed'].includes(w.status);
-        w.desiredState = w.desiredState || (['error', 'crashed', 'suspended'].includes(w.status) ? 'suspended' : 'running');
+        w.flopAllocated =
+          w.flopAllocated ??
+          ['deploying', 'running', 'moving', 'harvesting', 'suspending', 'suspended', 'error', 'crashed'].includes(
+            w.status,
+          );
+        w.desiredState =
+          w.desiredState || (['error', 'crashed', 'suspended'].includes(w.status) ? 'suspended' : 'running');
         // A Game Server process owns no prior execution lease. Rotate the
         // fence before any recovered Code Server can poll or act.
         w.generation = Math.max(0, Number(w.generation || 0)) + 1;
@@ -357,7 +365,7 @@ function _loadStore() {
 
       store.game_state.flop.used = Object.values(store.workers)
         .filter(w => w.flopAllocated)
-        .reduce((total) => total + 8, 0);
+        .reduce(total => total + 8, 0);
 
       // Migrate: add chip/upgrade fields to nodes
       store.game_state.nodes = store.game_state.nodes.map((n: any) => ({

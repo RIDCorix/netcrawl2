@@ -26,6 +26,7 @@ import { LayerSelectScreen } from './components/LayerSelectScreen';
 import { LayerUnlockToast } from './components/LayerUnlockToast';
 import { GameOverDialog } from './components/GameOverDialog';
 import { DevConsole } from './components/DevConsole';
+import { ComputeLabScreen } from './components/ComputeLabScreen';
 import { useAudioInit } from './hooks/useAudio';
 import { apiFetch } from './lib/api';
 
@@ -78,15 +79,16 @@ function ChapterZeroInteractionGuard() {
     document.documentElement.dataset.chapterZeroTutorial = tutorial.stage;
     const isAllowed = (target: EventTarget | null, eventType?: string): boolean => {
       if (!(target instanceof Element)) return false;
-      if (
-        (eventType === 'pointerdown' || eventType === 'click') &&
-        target.matches('.react-flow__pane')
-      ) {
+      if ((eventType === 'pointerdown' || eventType === 'click') && target.matches('.react-flow__pane')) {
         return true;
       }
       if (target.closest('[data-tutorial-surface], [data-tutorial-dialog], [data-tutorial-allowed]')) return true;
       const setupSurfaceAllowed = tutorial.setupGate || tutorial.setupGateTransition;
-      if (setupSurfaceAllowed && target.closest('[data-tutorial-setup], [data-quest-guide], [data-tutorial="quests-btn"]')) return true;
+      if (
+        setupSurfaceAllowed &&
+        target.closest('[data-tutorial-setup], [data-quest-guide], [data-tutorial="quests-btn"]')
+      )
+        return true;
       if (target.closest('[data-tutorial-target="hub"], [data-tutorial="hub-node"], [data-tutorial-target="deploy"]')) {
         return !setupSurfaceAllowed && (tutorial.stage === 'hello_preview' || tutorial.stage === 'miner_preview');
       }
@@ -232,6 +234,7 @@ function GameView() {
       <LayerUnlockToast />
       <GameOverDialog />
       <DevConsole />
+      <ComputeLabScreen />
     </div>
   );
 }

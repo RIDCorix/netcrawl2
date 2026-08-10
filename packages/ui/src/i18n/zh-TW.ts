@@ -1,4 +1,19 @@
 export const zhTW: Record<string, string> = {
+  'compute_lab.title': '運算實驗室 · ADD',
+  'compute_lab.subtitle': '持久化的運算子鏈；所有數值都由 Worker 提供。',
+  'compute_lab.request': 'Worker 任務',
+  'compute_lab.mastered': '已精通',
+  'compute_lab.retry': '可重試',
+  'compute_lab.waiting': '等待中',
+  'compute_lab.empty': '沒有可用的運算實驗室工作階段。請回到主地圖取得任務。',
+  'compute_lab.worker_hint': 'Worker 會透過 get_task() 與 submit() 繼續此鏈。',
+  'compute_lab.return_hint': '離開會回到相同主地圖節點；API 請求與 Worker 會持續運作。',
+  'compute_lab.exit': '離開',
+  'compute_lab.zoom_in': '放大',
+  'compute_lab.zoom_out': '縮小',
+  'compute_lab.enter': '進入運算實驗室',
+  'compute_lab.resume': '繼續運算實驗室',
+  'compute_lab.open_mastered': '開啟已精通實驗室',
   // === HUD / ResourceBar ===
   'hud.inventory': '背包',
   'hud.achievements': '成就',
@@ -925,7 +940,8 @@ export const zhTW: Record<string, string> = {
   'tutorial.chapter_zero.deploy.hello_preview_title': '先看看 HelloWorker 程式碼',
   'tutorial.chapter_zero.deploy.hello_preview_body': '這個 Worker 只會啟動並寫入 log，不需要路徑或裝備。',
   'tutorial.chapter_zero.deploy.miner_preview_title': '先看看真實 Miner 程式碼',
-  'tutorial.chapter_zero.deploy.miner_preview_body': '這是 code server 註冊的 Miner；它的 on_loop 會重複移動、挖礦、收集、返回與存放。',
+  'tutorial.chapter_zero.deploy.miner_preview_body':
+    '這是 code server 註冊的 Miner；它的 on_loop 會重複移動、挖礦、收集、返回與存放。',
   'tutorial.chapter_zero.deploy.hello_hub_prompt': '選取高亮的基地。',
   'tutorial.chapter_zero.deploy.hello_hub_hint': 'HelloWorker 階段只有基地是操作目標。',
   'tutorial.chapter_zero.deploy.hello_hub_selected_prompt': '基地已選取。開啟部署以繼續。',
@@ -954,7 +970,8 @@ export const zhTW: Record<string, string> = {
   'tutorial.chapter_zero.deploy.miner_confirm_prompt': '檢查 Miner、邊與十字鎬。',
   'tutorial.chapter_zero.deploy.miner_confirm_hint': '伺服器會拒絕不完整或不相符的裝備。',
   'tutorial.chapter_zero.deploy.miner_execute_prompt': '部署 Miner，並觀察它的 on_loop。',
-  'tutorial.chapter_zero.deploy.miner_execute_hint': '完成兩輪真實的移動、挖礦、收集、返回、存放循環後，Chapter Zero 才會完成。',
+  'tutorial.chapter_zero.deploy.miner_execute_hint':
+    '完成兩輪真實的移動、挖礦、收集、返回、存放循環後，Chapter Zero 才會完成。',
   'tutorial.chapter_zero.deploy.miner_loop_title': '即時 MINER 循環',
   'tutorial.chapter_zero.deploy.miner_loop_count': '完成循環：{count}/{target}',
   'tutorial.chapter_zero.deploy.loop_move_to_mine': '移動到礦場',
@@ -967,12 +984,15 @@ export const zhTW: Record<string, string> = {
   'tutorial.chapter_zero.deploy.retrying': '收回中…',
   'tutorial.chapter_zero.deploy.miner_retry_error': '無法收回教學 Miner。重新連線 code server 後再試一次。',
   'tutorial.chapter_zero.deploy.setup_title': '連接程式碼伺服器',
-  'tutorial.chapter_zero.deploy.setup_body': '建立 NetCrawl Codespace，開啟 main.py，貼上 Connect 顯示的 URL 與 API key，接著在 Run and Debug 按 F5。',
-  'tutorial.chapter_zero.deploy.setup_skeleton': '[Codespace] 建立 → main.py → 貼上 URL + key\n[VS Code] Run and Debug → NetCrawl: Start Code Server → F5\n[遊戲]    等待 HelloWorker 出現',
+  'tutorial.chapter_zero.deploy.setup_body':
+    '建立 NetCrawl Codespace，開啟 main.py，貼上 Connect 顯示的 URL 與 API key，接著在 Run and Debug 按 F5。',
+  'tutorial.chapter_zero.deploy.setup_skeleton':
+    '[Codespace] 建立 → main.py → 貼上 URL + key\n[VS Code] Run and Debug → NetCrawl: Start Code Server → F5\n[遊戲]    等待 HelloWorker 出現',
   'tutorial.chapter_zero.deploy.setup_cta': '建立 NETCRAWL CODESPACE',
   'tutorial.chapter_zero.deploy.hub_prompt': '點擊地圖上高亮的基地。',
   'tutorial.chapter_zero.deploy.hub_hint': '點擊基地開啟節點資訊。',
-  'tutorial.chapter_zero.deploy.hub_selected_prompt': '基地已選取。點擊節點面板的「部署 Worker」，再依照正常對話框流程操作。',
+  'tutorial.chapter_zero.deploy.hub_selected_prompt':
+    '基地已選取。點擊節點面板的「部署 Worker」，再依照正常對話框流程操作。',
   'tutorial.chapter_zero.deploy.hub_selected_hint': 'Worker class 會預先選為 HelloWorker；不需要裝備。',
   'tutorial.chapter_zero.deploy.edge_prompt': '從基地面板開啟部署。',
   'tutorial.chapter_zero.deploy.edge_selecting': '在部署對話框中選擇顯示的路線。',
@@ -991,7 +1011,8 @@ export const zhTW: Record<string, string> = {
   'tutorial.chapter_zero.deploy.execute_cta': '部署 WORKER',
   'tutorial.chapter_zero.deploy.executing': '部署中…',
   'tutorial.chapter_zero.deploy.complete_title': 'WORKER 已部署',
-  'tutorial.chapter_zero.deploy.complete_body': '你的第一個 Worker 已上線！第一章已解鎖——連接程式碼伺服器即可開始撰寫真正的 Worker。',
+  'tutorial.chapter_zero.deploy.complete_body':
+    '你的第一個 Worker 已上線！第一章已解鎖——連接程式碼伺服器即可開始撰寫真正的 Worker。',
   'tutorial.chapter_zero.deploy.retry': '再試一次',
   'tutorial.chapter_zero.deploy.error_generic': '發生錯誤，請確認伺服器連線後重試。',
   'tutorial.chapter_zero.deploy.error_missing': '缺少邊或鎬子的選擇。',
@@ -1000,6 +1021,8 @@ export const zhTW: Record<string, string> = {
   'tutorial.chapter_zero.deploy.error_open_dialog': '無法開啟部署對話框。請確認連線後重試。',
   'tutorial.chapter_zero.deploy.error_stage_advance': '教學檢查點無法前進。確認看得到 HelloWorker log 後再試一次。',
   'tutorial.chapter_zero.deploy.error_hello_log_pending': '等待 HelloWorker log 出現後再試一次。',
-  'tutorial.chapter_zero.deploy.error_miner_not_registered': '你的 code server 尚未註冊 Miner 類別。以 workers/miner.py 啟動後再試一次。',
-  'tutorial.chapter_zero.deploy.error_miner_schema_incompatible': '已註冊的 Miner 必須剛好有一個邊欄位與一個十字鎬欄位。更新 workers/miner.py 後再試一次。',
+  'tutorial.chapter_zero.deploy.error_miner_not_registered':
+    '你的 code server 尚未註冊 Miner 類別。以 workers/miner.py 啟動後再試一次。',
+  'tutorial.chapter_zero.deploy.error_miner_schema_incompatible':
+    '已註冊的 Miner 必須剛好有一個邊欄位與一個十字鎬欄位。更新 workers/miner.py 後再試一次。',
 };

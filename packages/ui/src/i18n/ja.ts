@@ -1,4 +1,19 @@
 export const ja: Record<string, string> = {
+  'compute_lab.title': 'コンピュート・ラボ · ADD',
+  'compute_lab.subtitle': '永続する演算子チェーン。値はすべてワーカーが提供します。',
+  'compute_lab.request': 'ワーカータスク',
+  'compute_lab.mastered': '習得済み',
+  'compute_lab.retry': '再試行',
+  'compute_lab.waiting': '待機中',
+  'compute_lab.empty': '利用可能なラボセッションがありません。メインマップでタスクを取得してください。',
+  'compute_lab.worker_hint': 'ワーカーが get_task() と submit() でこのチェーンを進めます。',
+  'compute_lab.return_hint': '終了すると同じメインマップノードへ戻ります。API要求とワーカーは継続します。',
+  'compute_lab.exit': '終了',
+  'compute_lab.zoom_in': '拡大',
+  'compute_lab.zoom_out': '縮小',
+  'compute_lab.enter': 'コンピュート・ラボに入る',
+  'compute_lab.resume': 'コンピュート・ラボを再開',
+  'compute_lab.open_mastered': '習得済みラボを開く',
   // === HUD / ResourceBar ===
   'hud.inventory': 'インベントリ',
   'hud.achievements': '実績',
@@ -940,7 +955,8 @@ export const ja: Record<string, string> = {
   'tutorial.chapter_zero.deploy.hello_preview_title': 'HelloWorkerのコードを見る',
   'tutorial.chapter_zero.deploy.hello_preview_body': '起動してログを書くワーカーです。ルートも装備も必要ありません。',
   'tutorial.chapter_zero.deploy.miner_preview_title': '実際のMinerコードを見る',
-  'tutorial.chapter_zero.deploy.miner_preview_body': 'これはコードサーバーが登録したMinerです。on_loopが移動、採掘、収集、帰還、預け入れを繰り返します。',
+  'tutorial.chapter_zero.deploy.miner_preview_body':
+    'これはコードサーバーが登録したMinerです。on_loopが移動、採掘、収集、帰還、預け入れを繰り返します。',
   'tutorial.chapter_zero.deploy.hello_hub_prompt': 'ハイライトされたHubを選択します。',
   'tutorial.chapter_zero.deploy.hello_hub_hint': 'HelloWorkerフェーズの操作対象はHubだけです。',
   'tutorial.chapter_zero.deploy.hello_hub_selected_prompt': 'Hubを選択しました。デプロイを開きます。',
@@ -961,7 +977,8 @@ export const ja: Record<string, string> = {
   'tutorial.chapter_zero.deploy.hello_log_hint': 'サーバーが最初のログを記録するまで、採掘レッスンはロックされます。',
   'tutorial.chapter_zero.deploy.continue_to_miner': 'MINERへ進む',
   'tutorial.chapter_zero.deploy.miner_class_prompt': '登録済みのMinerクラスを確認します。',
-  'tutorial.chapter_zero.deploy.miner_class_hint': 'この実際のコードサーバークラスには、エッジとピッケルのスロットが1つずつあります。',
+  'tutorial.chapter_zero.deploy.miner_class_hint':
+    'この実際のコードサーバークラスには、エッジとピッケルのスロットが1つずつあります。',
   'tutorial.chapter_zero.deploy.miner_edge_prompt': 'Minerが移動するエッジを選びます。',
   'tutorial.chapter_zero.deploy.miner_edge_hint': 'ルートはノード間の移動に使います。',
   'tutorial.chapter_zero.deploy.miner_pickaxe_prompt': 'Basic Pickaxeを装備します。',
@@ -969,7 +986,8 @@ export const ja: Record<string, string> = {
   'tutorial.chapter_zero.deploy.miner_confirm_prompt': 'Miner、エッジ、ピッケルを確認します。',
   'tutorial.chapter_zero.deploy.miner_confirm_hint': '不完全または不一致のloadoutはサーバーが拒否します。',
   'tutorial.chapter_zero.deploy.miner_execute_prompt': 'Minerをデプロイし、on_loopを確認します。',
-  'tutorial.chapter_zero.deploy.miner_execute_hint': '実際の移動、採掘、収集、帰還、預け入れを2周完了するとChapter Zeroが完了します。',
+  'tutorial.chapter_zero.deploy.miner_execute_hint':
+    '実際の移動、採掘、収集、帰還、預け入れを2周完了するとChapter Zeroが完了します。',
   'tutorial.chapter_zero.deploy.miner_loop_title': 'LIVE MINER LOOP',
   'tutorial.chapter_zero.deploy.miner_loop_count': '完了した周回：{count}/{target}',
   'tutorial.chapter_zero.deploy.loop_move_to_mine': '採掘地点へ移動',
@@ -977,22 +995,28 @@ export const ja: Record<string, string> = {
   'tutorial.chapter_zero.deploy.loop_collect': '収集',
   'tutorial.chapter_zero.deploy.loop_return_to_hub': 'Hubへ戻る',
   'tutorial.chapter_zero.deploy.loop_deposit': '預け入れ',
-  'tutorial.chapter_zero.deploy.miner_retry_prompt': 'Minerが停止または切断されました。このチュートリアルワーカーを回収して再試行してください。',
+  'tutorial.chapter_zero.deploy.miner_retry_prompt':
+    'Minerが停止または切断されました。このチュートリアルワーカーを回収して再試行してください。',
   'tutorial.chapter_zero.deploy.miner_retry': 'Minerを回収して再試行',
   'tutorial.chapter_zero.deploy.retrying': '回収中…',
-  'tutorial.chapter_zero.deploy.miner_retry_error': 'チュートリアルMinerを回収できませんでした。コードサーバーを再接続してから再試行してください。',
+  'tutorial.chapter_zero.deploy.miner_retry_error':
+    'チュートリアルMinerを回収できませんでした。コードサーバーを再接続してから再試行してください。',
   'tutorial.chapter_zero.deploy.setup_title': 'コードサーバーを接続',
-  'tutorial.chapter_zero.deploy.setup_body': 'NetCrawl Codespaceを作成し、main.pyにConnectのURLとAPIキーを貼り付け、Run and DebugでF5を押します。',
-  'tutorial.chapter_zero.deploy.setup_skeleton': '[Codespace] 作成 → main.py → URL + keyを貼り付け\n[VS Code] Run and Debug → NetCrawl: Start Code Server → F5\n[ゲーム]    HelloWorkerの表示を待つ',
+  'tutorial.chapter_zero.deploy.setup_body':
+    'NetCrawl Codespaceを作成し、main.pyにConnectのURLとAPIキーを貼り付け、Run and DebugでF5を押します。',
+  'tutorial.chapter_zero.deploy.setup_skeleton':
+    '[Codespace] 作成 → main.py → URL + keyを貼り付け\n[VS Code] Run and Debug → NetCrawl: Start Code Server → F5\n[ゲーム]    HelloWorkerの表示を待つ',
   'tutorial.chapter_zero.deploy.setup_cta': 'NETCRAWL CODESPACEを作成',
-  'tutorial.chapter_zero.deploy.edge_prompt': 'マップでHubを選択し、ノードパネルの「デプロイ」を開いて通常の手順に進みます。',
+  'tutorial.chapter_zero.deploy.edge_prompt':
+    'マップでHubを選択し、ノードパネルの「デプロイ」を開いて通常の手順に進みます。',
   'tutorial.chapter_zero.deploy.edge_selecting': '「ルート」ステップでHubのエッジを選択します。',
   'tutorial.chapter_zero.deploy.edge_cta': 'Hubパネルからデプロイを開く',
   'tutorial.chapter_zero.deploy.edge_click_hint': 'ルートを選択して、次のステップへ進みます。',
   'tutorial.chapter_zero.deploy.edge_selected': 'ルート：{edge}',
   'tutorial.chapter_zero.deploy.pickaxe_prompt': '「装備」を開き、ワーカーのピッケルスロットに配置します。',
   'tutorial.chapter_zero.deploy.equipment_hint': '装備が完了したら次へ進みます。',
-  'tutorial.chapter_zero.deploy.confirm_prompt': 'デプロイダイアログの確認画面で、ワーカー・エッジ・ピッケルを確認してから進みます。',
+  'tutorial.chapter_zero.deploy.confirm_prompt':
+    'デプロイダイアログの確認画面で、ワーカー・エッジ・ピッケルを確認してから進みます。',
   'tutorial.chapter_zero.deploy.summary_class': 'ワーカー',
   'tutorial.chapter_zero.deploy.summary_node': 'デプロイノード',
   'tutorial.chapter_zero.deploy.summary_edge': 'ルート',
@@ -1002,15 +1026,21 @@ export const ja: Record<string, string> = {
   'tutorial.chapter_zero.deploy.execute_cta': 'ワーカーをデプロイ',
   'tutorial.chapter_zero.deploy.executing': 'デプロイ中…',
   'tutorial.chapter_zero.deploy.complete_title': 'ワーカーデプロイ完了',
-  'tutorial.chapter_zero.deploy.complete_body': '最初のワーカーがネットワーク上で稼働しています！チャプター1が解放されました。コードサーバーを接続して本格的なワーカーを書き始めましょう。',
+  'tutorial.chapter_zero.deploy.complete_body':
+    '最初のワーカーがネットワーク上で稼働しています！チャプター1が解放されました。コードサーバーを接続して本格的なワーカーを書き始めましょう。',
   'tutorial.chapter_zero.deploy.retry': '再試行',
   'tutorial.chapter_zero.deploy.error_generic': 'エラーが発生しました。サーバー接続を確認して再試行してください。',
   'tutorial.chapter_zero.deploy.error_missing': 'エッジまたはピッケルが選択されていません。',
-  'tutorial.chapter_zero.deploy.error_no_pickaxe': 'インベントリにピッケルがありません。Basic Pickaxeが付与されます — 更新して再試行してください。',
+  'tutorial.chapter_zero.deploy.error_no_pickaxe':
+    'インベントリにピッケルがありません。Basic Pickaxeが付与されます — 更新して再試行してください。',
   'tutorial.chapter_zero.deploy.error_api': 'デプロイ失敗：{reason}',
-  'tutorial.chapter_zero.deploy.error_open_dialog': 'デプロイダイアログを開けませんでした。接続を確認して再試行してください。',
-  'tutorial.chapter_zero.deploy.error_stage_advance': 'チュートリアルのチェックポイントを進められません。HelloWorkerのログを確認して再試行してください。',
+  'tutorial.chapter_zero.deploy.error_open_dialog':
+    'デプロイダイアログを開けませんでした。接続を確認して再試行してください。',
+  'tutorial.chapter_zero.deploy.error_stage_advance':
+    'チュートリアルのチェックポイントを進められません。HelloWorkerのログを確認して再試行してください。',
   'tutorial.chapter_zero.deploy.error_hello_log_pending': 'HelloWorkerのログが出てから再試行してください。',
-  'tutorial.chapter_zero.deploy.error_miner_not_registered': 'コードサーバーがMinerクラスを登録していません。workers/miner.pyで起動してから再試行してください。',
-  'tutorial.chapter_zero.deploy.error_miner_schema_incompatible': '登録済みMinerにはエッジとピッケルのスロットが1つずつ必要です。workers/miner.pyを更新してから再試行してください。',
+  'tutorial.chapter_zero.deploy.error_miner_not_registered':
+    'コードサーバーがMinerクラスを登録していません。workers/miner.pyで起動してから再試行してください。',
+  'tutorial.chapter_zero.deploy.error_miner_schema_incompatible':
+    '登録済みMinerにはエッジとピッケルのスロットが1つずつ必要です。workers/miner.pyを更新してから再試行してください。',
 };

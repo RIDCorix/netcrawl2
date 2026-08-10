@@ -9,6 +9,7 @@ import { SectionLabel } from '../ui/primitives';
 import { getDialogsForNode, type NodeDialogConfig } from '../NodeInfoDialog';
 import { useT } from '../../hooks/useT';
 import { InvCell } from '../ui/InvCell';
+import { useGameStore } from '../../store/gameStore';
 
 // ── Resource Node ───────────────────────────────────────────────────────────
 
@@ -20,17 +21,31 @@ export function ResourceNodeInfo({ node }: { node: GameNode }) {
       <div style={{ display: 'flex', gap: 16 }}>
         <div>
           <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Type</div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', textTransform: 'capitalize' }}>{node.data.resource}</div>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              fontFamily: 'var(--font-mono)',
+              textTransform: 'capitalize',
+            }}
+          >
+            {node.data.resource}
+          </div>
         </div>
         <div>
           <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Rate</div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--success)', fontFamily: 'var(--font-mono)' }}>+{node.data.rate}/harvest</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--success)', fontFamily: 'var(--font-mono)' }}>
+            +{node.data.rate}/harvest
+          </div>
         </div>
       </div>
       {node.data.mineable && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
           <Pickaxe size={11} style={{ color: 'var(--text-muted)' }} />
-          <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{t('ui.mineable')}</span>
+          <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+            {t('ui.mineable')}
+          </span>
         </div>
       )}
     </div>
@@ -39,9 +54,22 @@ export function ResourceNodeInfo({ node }: { node: GameNode }) {
 
 // ── Compute Node ────────────────────────────────────────────────────────────
 
-export function ComputeNodeInfo({ node, onOpenDialog }: { node: GameNode; onOpenDialog: (cfg: NodeDialogConfig) => void }) {
-  const difficultyColor = node.data.difficulty === 'easy' ? '#4ade80' : node.data.difficulty === 'medium' ? '#60a5fa' : '#f59e0b';
+export function ComputeNodeInfo({
+  node,
+  onOpenDialog,
+  onOpenLab,
+}: {
+  node: GameNode;
+  onOpenDialog: (cfg: NodeDialogConfig) => void;
+  onOpenLab: (sourceNodeId: string) => void;
+}) {
+  const t = useT();
+  const difficultyColor =
+    node.data.difficulty === 'easy' ? '#4ade80' : node.data.difficulty === 'medium' ? '#60a5fa' : '#f59e0b';
   const dialogs = getDialogsForNode(node.type, node.data);
+  const labStatus = useGameStore(
+    state => state.computeLab.sessions.find(s => s.sourceNodeId === node.id && s.operatorId === 'add')?.status,
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -49,7 +77,15 @@ export function ComputeNodeInfo({ node, onOpenDialog }: { node: GameNode; onOpen
       <div style={{ display: 'flex', gap: 16 }}>
         <div>
           <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Difficulty</div>
-          <div style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)', textTransform: 'capitalize', color: difficultyColor }}>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              fontFamily: 'var(--font-mono)',
+              textTransform: 'capitalize',
+              color: difficultyColor,
+            }}
+          >
             {node.data.difficulty || 'easy'}
           </div>
         </div>
@@ -66,19 +102,63 @@ export function ComputeNodeInfo({ node, onOpenDialog }: { node: GameNode; onOpen
           </div>
         </div>
       </div>
-      <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.5, marginTop: 4 }}>
-        Send a worker here, then <span style={{ color: 'var(--accent)' }}>node = self.get_current_node()</span> to get a ComputeNode. Call <span style={{ color: 'var(--accent)' }}>node.get_task()</span> and <span style={{ color: 'var(--accent)' }}>node.submit(task_id, answer)</span>.
+      <div
+        style={{
+          fontSize: 10,
+          color: 'var(--text-muted)',
+          fontFamily: 'var(--font-mono)',
+          lineHeight: 1.5,
+          marginTop: 4,
+        }}
+      >
+        Send a worker here, then <span style={{ color: 'var(--accent)' }}>node = self.get_current_node()</span> to get a
+        ComputeNode. Call <span style={{ color: 'var(--accent)' }}>node.get_task()</span> and{' '}
+        <span style={{ color: 'var(--accent)' }}>node.submit(task_id, answer)</span>.
       </div>
+      {node.id === 'e_op_add' && (
+        <button
+          onClick={() => onOpenLab(node.id)}
+          style={{
+            minHeight: 44,
+            padding: '8px 12px',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--accent)',
+            border: 0,
+            color: '#061016',
+            fontWeight: 800,
+            cursor: 'pointer',
+            fontFamily: 'var(--font-mono)',
+          }}
+        >
+          {labStatus === 'mastered'
+            ? t('compute_lab.open_mastered')
+            : labStatus === 'active'
+              ? t('compute_lab.resume')
+              : t('compute_lab.enter')}
+        </button>
+      )}
       {dialogs.length > 0 && (
         <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
           {dialogs.map(({ key, config }) => (
-            <button key={key} onClick={() => onOpenDialog(config)} style={{
-              display: 'flex', alignItems: 'center', gap: 4,
-              padding: '5px 10px', borderRadius: 'var(--radius-sm)',
-              background: 'var(--bg-elevated)', border: '1px solid var(--border-bright)',
-              color: 'var(--text-secondary)', fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 600,
-              cursor: 'pointer', transition: 'all 0.1s',
-            }}>
+            <button
+              key={key}
+              onClick={() => onOpenDialog(config)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '5px 10px',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border-bright)',
+                color: 'var(--text-secondary)',
+                fontSize: 10,
+                fontFamily: 'var(--font-mono)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.1s',
+              }}
+            >
               <Info size={10} /> {config.buttonLabel}
             </button>
           ))}
@@ -114,9 +194,19 @@ export function CacheNodeInfo({ node }: { node: GameNode }) {
           </div>
         </div>
       </div>
-      <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.5, marginTop: 4 }}>
-        <span style={{ color: 'var(--accent)' }}>cache = self.get_service("{node.id}")</span><br />
-        <span style={{ color: 'var(--accent)' }}>cache.set(key, val)</span> / <span style={{ color: 'var(--accent)' }}>cache.get(key)</span>
+      <div
+        style={{
+          fontSize: 10,
+          color: 'var(--text-muted)',
+          fontFamily: 'var(--font-mono)',
+          lineHeight: 1.5,
+          marginTop: 4,
+        }}
+      >
+        <span style={{ color: 'var(--accent)' }}>cache = self.get_service("{node.id}")</span>
+        <br />
+        <span style={{ color: 'var(--accent)' }}>cache.set(key, val)</span> /{' '}
+        <span style={{ color: 'var(--accent)' }}>cache.get(key)</span>
       </div>
     </div>
   );
@@ -145,40 +235,88 @@ export function ApiNodeInfo({ node }: { node: GameNode }) {
       </div>
 
       {/* Endpoints */}
-      <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 8 }}>
-        <div style={{ fontSize: 9, fontWeight: 700, color: '#f59e0b', fontFamily: 'var(--font-mono)', marginBottom: 6 }}>POST /compute</div>
+      <div
+        style={{
+          background: 'var(--bg-primary)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-sm)',
+          padding: 8,
+        }}
+      >
+        <div
+          style={{ fontSize: 9, fontWeight: 700, color: '#f59e0b', fontFamily: 'var(--font-mono)', marginBottom: 6 }}
+        >
+          POST /compute
+        </div>
         <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.6 }}>
-          <span style={{ color: 'var(--text-secondary)' }}>Body:</span>{' '}{'{ op: "add"|"sub"|"mul"|"max"|"mod", a, b }'}<br />
-          <span style={{ color: 'var(--text-secondary)' }}>Response:</span>{' '}{'{ result: number }'}<br />
-          <span style={{ color: 'var(--text-secondary)' }}>Example:</span>{' '}{'{ op:"add", a:12, b:8 } → { result: 20 }'}
+          <span style={{ color: 'var(--text-secondary)' }}>Body:</span> {'{ op: "add"|"sub"|"mul"|"max"|"mod", a, b }'}
+          <br />
+          <span style={{ color: 'var(--text-secondary)' }}>Response:</span> {'{ result: number }'}
+          <br />
+          <span style={{ color: 'var(--text-secondary)' }}>Example:</span> {'{ op:"add", a:12, b:8 } → { result: 20 }'}
         </div>
       </div>
 
-      <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 8 }}>
-        <div style={{ fontSize: 9, fontWeight: 700, color: '#f59e0b', fontFamily: 'var(--font-mono)', marginBottom: 6 }}>POST /echo</div>
+      <div
+        style={{
+          background: 'var(--bg-primary)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-sm)',
+          padding: 8,
+        }}
+      >
+        <div
+          style={{ fontSize: 9, fontWeight: 700, color: '#f59e0b', fontFamily: 'var(--font-mono)', marginBottom: 6 }}
+        >
+          POST /echo
+        </div>
         <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.6 }}>
-          <span style={{ color: 'var(--text-secondary)' }}>Body:</span>{' '}{'{ value: any }'}<br />
-          <span style={{ color: 'var(--text-secondary)' }}>Response:</span>{' '}{'{ value: any }'}
+          <span style={{ color: 'var(--text-secondary)' }}>Body:</span> {'{ value: any }'}
+          <br />
+          <span style={{ color: 'var(--text-secondary)' }}>Response:</span> {'{ value: any }'}
         </div>
       </div>
 
       {/* Security warning */}
-      <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 'var(--radius-sm)', padding: 8 }}>
-        <div style={{ fontSize: 9, fontWeight: 700, color: '#ef4444', fontFamily: 'var(--font-mono)', marginBottom: 4 }}>
+      <div
+        style={{
+          background: 'rgba(239,68,68,0.08)',
+          border: '1px solid rgba(239,68,68,0.2)',
+          borderRadius: 'var(--radius-sm)',
+          padding: 8,
+        }}
+      >
+        <div
+          style={{ fontSize: 9, fontWeight: 700, color: '#ef4444', fontFamily: 'var(--font-mono)', marginBottom: 4 }}
+        >
           ⚠ SECURITY
         </div>
         <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.6 }}>
-          Some requests arrive <span style={{ color: '#ef4444', fontWeight: 700 }}>without authentication</span> (has_token=False).
-          You MUST check <span style={{ color: 'var(--accent)' }}>request.has_token</span> and drop unauthenticated requests.
-          Responding to them causes a <span style={{ color: '#ef4444' }}>SECURITY BREACH</span> and infects this node.
+          Some requests arrive <span style={{ color: '#ef4444', fontWeight: 700 }}>without authentication</span>{' '}
+          (has_token=False). You MUST check <span style={{ color: 'var(--accent)' }}>request.has_token</span> and drop
+          unauthenticated requests. Responding to them causes a{' '}
+          <span style={{ color: '#ef4444' }}>SECURITY BREACH</span> and infects this node.
         </div>
       </div>
 
-      <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.6, marginTop: 2 }}>
-        <span style={{ color: 'var(--accent)' }}>node = self.get_current_node()</span><br />
-        <span style={{ color: 'var(--accent)' }}>req = node.poll_for_request()</span><br />
-        <span style={{ color: '#ef4444' }}>if not req.has_token: return</span><br />
-        <span style={{ color: 'var(--accent)' }}>node.respond(req.id, {'{'} result {'}'} )</span>
+      <div
+        style={{
+          fontSize: 9,
+          color: 'var(--text-muted)',
+          fontFamily: 'var(--font-mono)',
+          lineHeight: 1.6,
+          marginTop: 2,
+        }}
+      >
+        <span style={{ color: 'var(--accent)' }}>node = self.get_current_node()</span>
+        <br />
+        <span style={{ color: 'var(--accent)' }}>req = node.poll_for_request()</span>
+        <br />
+        <span style={{ color: '#ef4444' }}>if not req.has_token: return</span>
+        <br />
+        <span style={{ color: 'var(--accent)' }}>
+          node.respond(req.id, {'{'} result {'}'} )
+        </span>
       </div>
     </div>
   );
@@ -188,7 +326,11 @@ export function ApiNodeInfo({ node }: { node: GameNode }) {
 
 export function GroundItems({ node }: { node: GameNode }) {
   const t = useT();
-  const floorItems = Array.isArray(node.data.items) ? node.data.items : (Array.isArray(node.data.drops) ? node.data.drops : []);
+  const floorItems = Array.isArray(node.data.items)
+    ? node.data.items
+    : Array.isArray(node.data.drops)
+      ? node.data.drops
+      : [];
   const maxBuffer: number | undefined = node.data.maxBuffer;
   const stacks = floorItems.length;
   if (stacks === 0 && !maxBuffer) return null;
@@ -206,31 +348,53 @@ export function GroundItems({ node }: { node: GameNode }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <Box size={11} style={{ color: 'var(--text-muted)' }} />
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: 'var(--text-muted)',
+            fontFamily: 'var(--font-mono)',
+            letterSpacing: '0.1em',
+          }}
+        >
           {t('ui.ground_items')}
         </span>
-        <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-          {totalItems}
-        </span>
+        <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{totalItems}</span>
         {maxBuffer !== undefined && maxBuffer > 0 && (
-          <div style={{
-            marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4,
-            fontSize: 9, fontWeight: 700,
-            color: stacks >= maxBuffer ? '#ef4444' : 'var(--text-muted)',
-            fontFamily: 'var(--font-mono)',
-          }}>
+          <div
+            style={{
+              marginLeft: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              fontSize: 9,
+              fontWeight: 700,
+              color: stacks >= maxBuffer ? '#ef4444' : 'var(--text-muted)',
+              fontFamily: 'var(--font-mono)',
+            }}
+          >
             <span>{t('node.buffer') || 'BUFFER'}</span>
-            <span>{stacks}/{maxBuffer}</span>
-            <div style={{
-              width: 40, height: 4, borderRadius: 2,
-              background: 'var(--bg-primary)', border: '1px solid var(--border)', overflow: 'hidden',
-            }}>
-              <div style={{
-                width: `${Math.min(100, (stacks / maxBuffer) * 100)}%`,
-                height: '100%',
-                background: stacks >= maxBuffer ? '#ef4444' : 'var(--accent)',
-                transition: 'width 0.2s, background 0.2s',
-              }} />
+            <span>
+              {stacks}/{maxBuffer}
+            </span>
+            <div
+              style={{
+                width: 40,
+                height: 4,
+                borderRadius: 2,
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border)',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  width: `${Math.min(100, (stacks / maxBuffer) * 100)}%`,
+                  height: '100%',
+                  background: stacks >= maxBuffer ? '#ef4444' : 'var(--accent)',
+                  transition: 'width 0.2s, background 0.2s',
+                }}
+              />
             </div>
           </div>
         )}

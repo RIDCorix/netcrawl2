@@ -26,6 +26,7 @@ export function takeAutosave(userId?: string): AutosaveSnapshot | null {
     quest_state: JSON.parse(JSON.stringify(s.quest_state)),
     level_state: JSON.parse(JSON.stringify(s.level_state)),
     layer_manager: JSON.parse(JSON.stringify(s.layer_manager)),
+    compute_lab: JSON.parse(JSON.stringify(s.compute_lab)),
   };
   s.autosave = snap;
   return snap;
@@ -49,6 +50,7 @@ export function restoreAutosave(userId?: string): boolean {
   s.quest_state = JSON.parse(JSON.stringify(snap.quest_state));
   s.level_state = JSON.parse(JSON.stringify(snap.level_state));
   s.layer_manager = JSON.parse(JSON.stringify(snap.layer_manager));
+  s.compute_lab = JSON.parse(JSON.stringify(snap.compute_lab || { sessions: {} }));
   forcePersist(userId);
   return true;
 }

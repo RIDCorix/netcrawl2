@@ -1,5 +1,18 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Database, Cpu, Lock, AlertTriangle, MousePointer, Upload, Shield, Box, Server, Globe, Bug } from 'lucide-react';
+import {
+  X,
+  Database,
+  Cpu,
+  Lock,
+  AlertTriangle,
+  MousePointer,
+  Upload,
+  Shield,
+  Box,
+  Server,
+  Globe,
+  Bug,
+} from 'lucide-react';
 import { useGameStore, GameNode } from '../store/gameStore';
 import { useEffect, useState } from 'react';
 import axios from 'axios';
@@ -41,16 +54,19 @@ const NODE_TYPE_ICONS: Record<string, any> = {
   locked: Lock,
 };
 
-
 export function NodeDetailPanel() {
-  const { selectedNodeId, nodes, edges, resources, selectNode } = useGameStore();
+  const { selectedNodeId, nodes, edges, resources, selectNode, openComputeLab } = useGameStore();
   const [deployOpen, setDeployOpen] = useState(false);
   const [chapterZeroDeploy, setChapterZeroDeploy] = useState<TutorialDescriptor>(null);
   const [openingDeploy, setOpeningDeploy] = useState(false);
   const [tutorialActionError, setTutorialActionError] = useState('');
   const [activeDialog, setActiveDialog] = useState<NodeDialogConfig | null>(null);
   const t = useT();
-  const tn = (label: string) => { const k = `n.${label}`; const v = t(k); return v === k ? label : v; };
+  const tn = (label: string) => {
+    const k = `n.${label}`;
+    const v = t(k);
+    return v === k ? label : v;
+  };
 
   useEffect(() => {
     const onTutorialMode = (event: Event) => {
@@ -63,17 +79,17 @@ export function NodeDetailPanel() {
 
   const node = nodes.find((n: any) => n.id === selectedNodeId);
 
-  const gather = useAsyncAction(
-    () => axios.post('/api/gather', { nodeId: node?.id }),
-    { successMsg: '+10 gathered!', fallbackError: 'Gather failed' },
-  );
-  const unlock = useAsyncAction(
-    () => axios.post('/api/unlock', { nodeId: node?.id }),
-    { successMsg: 'Unlocked!', fallbackError: 'Unlock failed' },
-  );
+  const gather = useAsyncAction(() => axios.post('/api/gather', { nodeId: node?.id }), {
+    successMsg: '+10 gathered!',
+    fallbackError: 'Gather failed',
+  });
+  const unlock = useAsyncAction(() => axios.post('/api/unlock', { nodeId: node?.id }), {
+    successMsg: 'Unlocked!',
+    fallbackError: 'Unlock failed',
+  });
   const build = useAsyncAction(
     (structureType: string) => axios.post('/api/node/build', { nodeId: node?.id, structureType }),
-    { successMsg: (d) => `Built ${d?.structureType || 'structure'} node!`, fallbackError: 'Build failed' },
+    { successMsg: d => `Built ${d?.structureType || 'structure'} node!`, fallbackError: 'Build failed' },
   );
 
   // Combined message from whichever action last fired
@@ -93,7 +109,7 @@ export function NodeDetailPanel() {
     if (n.type === 'resource') {
       return 'var(--data-color)';
     }
-if (n.type === 'cache') return '#a78bfa';
+    if (n.type === 'cache') return '#a78bfa';
     if (n.type === 'api') return '#f59e0b';
     if (n.type === 'empty') return 'var(--text-muted)';
     return 'var(--text-muted)';
@@ -158,15 +174,17 @@ if (n.type === 'cache') return '#a78bfa';
             data-tutorial-locked={tutorialLocked ? 'true' : undefined}
           >
             {/* Accent bar at top */}
-            <div style={{
-              position: 'absolute',
-              top: 0,
-              left: 20,
-              right: 20,
-              height: 2,
-              borderRadius: '0 0 2px 2px',
-              background: `linear-gradient(90deg, transparent, ${getNodeColor(node)}, transparent)`,
-            }} />
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 20,
+                right: 20,
+                height: 2,
+                borderRadius: '0 0 2px 2px',
+                background: `linear-gradient(90deg, transparent, ${getNodeColor(node)}, transparent)`,
+              }}
+            />
 
             {/* Header: type label + name (id) + close */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
@@ -177,10 +195,16 @@ if (n.type === 'cache') return '#a78bfa';
                     const NodeIcon = NODE_TYPE_ICONS[node.type] || Box;
                     return <NodeIcon size={12} style={{ color: getNodeColor(node), flexShrink: 0 }} />;
                   })()}
-                  <span style={{
-                    fontSize: 10, fontWeight: 700, color: getNodeColor(node),
-                    fontFamily: 'var(--font-mono)', letterSpacing: '0.12em', textTransform: 'uppercase',
-                  }}>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: getNodeColor(node),
+                      fontFamily: 'var(--font-mono)',
+                      letterSpacing: '0.12em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
                     {node.type}
                   </span>
                 </div>
@@ -188,17 +212,30 @@ if (n.type === 'cache') return '#a78bfa';
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                   {(() => {
                     const NodeIcon = NODE_TYPE_ICONS[node.type] || Box;
-                    return <NodeIcon size={16} style={{ color: getNodeColor(node), flexShrink: 0, position: 'relative', top: 2 }} />;
+                    return (
+                      <NodeIcon
+                        size={16}
+                        style={{ color: getNodeColor(node), flexShrink: 0, position: 'relative', top: 2 }}
+                      />
+                    );
                   })()}
-                  <span style={{
-                    fontSize: 18, fontWeight: 800, color: 'var(--text-primary)',
-                    fontFamily: 'var(--font-mono)',
-                  }}>
+                  <span
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 800,
+                      color: 'var(--text-primary)',
+                      fontFamily: 'var(--font-mono)',
+                    }}
+                  >
                     {tn(node.data.label)}
                   </span>
-                  <span style={{
-                    fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)',
-                  }}>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: 'var(--text-muted)',
+                      fontFamily: 'var(--font-mono)',
+                    }}
+                  >
                     ({node.id})
                   </span>
                 </div>
@@ -207,10 +244,16 @@ if (n.type === 'cache') return '#a78bfa';
                 onClick={() => !tutorialLocked && selectNode(null)}
                 disabled={tutorialLocked}
                 style={{
-                  color: 'var(--text-muted)', background: 'var(--bg-elevated)',
-                  border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                  cursor: 'pointer', padding: 4, display: 'flex',
-                  alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  color: 'var(--text-muted)',
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer',
+                  padding: 4,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
                 }}
               >
                 <X size={14} />
@@ -232,22 +275,45 @@ if (n.type === 'cache') return '#a78bfa';
 
               return (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--accent)', flexShrink: 0 }}>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 800,
+                      fontFamily: 'var(--font-mono)',
+                      color: 'var(--accent)',
+                      flexShrink: 0,
+                    }}
+                  >
                     {t('ui.lv').replace('{level}', String(upgradeLevel))}
                   </span>
-                  <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', flexShrink: 0 }}>
+                  <span
+                    style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', flexShrink: 0 }}
+                  >
                     {isMax ? t('ui.max') : xpFull ? 'READY' : ''}
                   </span>
-                  <div style={{ flex: 1, height: 4, background: 'var(--bg-primary)', borderRadius: 2, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                    <div style={{
-                      width: `${isMax ? 100 : xpPercent}%`,
-                      height: '100%',
-                      background: isMax ? '#f59e0b' : 'var(--accent)',
+                  <div
+                    style={{
+                      flex: 1,
+                      height: 4,
+                      background: 'var(--bg-primary)',
                       borderRadius: 2,
-                      transition: 'width 0.3s ease',
-                    }} />
+                      overflow: 'hidden',
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${isMax ? 100 : xpPercent}%`,
+                        height: '100%',
+                        background: isMax ? '#f59e0b' : 'var(--accent)',
+                        borderRadius: 2,
+                        transition: 'width 0.3s ease',
+                      }}
+                    />
                   </div>
-                  <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', flexShrink: 0 }}>
+                  <span
+                    style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', flexShrink: 0 }}
+                  >
                     {hasXpSystem ? `${nodeXp}/${nodeXpToNext}` : ''}
                   </span>
                 </div>
@@ -256,15 +322,17 @@ if (n.type === 'cache') return '#a78bfa';
 
             {/* Infected warning */}
             {(node.type === 'infected' || node.data.infected) && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '10px 12px',
-                borderRadius: 'var(--radius-md)',
-                background: 'var(--danger-dim)',
-                border: '1px solid rgba(255, 71, 87, 0.25)',
-              }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '10px 12px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--danger-dim)',
+                  border: '1px solid rgba(255, 71, 87, 0.25)',
+                }}
+              >
                 <AlertTriangle size={14} color="var(--danger)" />
                 <span style={{ fontSize: 11, color: 'var(--danger)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
                   {t('node.type.infected')} — Deploy a Guardian to repair
@@ -276,17 +344,24 @@ if (n.type === 'cache') return '#a78bfa';
 
             {/* Depletion status */}
             {node.data.depleted && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '8px 12px',
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--danger-dim)',
-                border: '1px solid rgba(255, 71, 87, 0.25)',
-              }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '8px 12px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--danger-dim)',
+                  border: '1px solid rgba(255, 71, 87, 0.25)',
+                }}
+              >
                 <span style={{ fontSize: 11, color: 'var(--danger)', fontFamily: 'var(--font-mono)' }}>
-                  {t('node.depleted')} — {t('node.recover.in', { s: node.data.depletedUntil ? Math.max(0, Math.ceil((node.data.depletedUntil - Date.now()) / 1000)) : '?' })}
+                  {t('node.depleted')} —{' '}
+                  {t('node.recover.in', {
+                    s: node.data.depletedUntil
+                      ? Math.max(0, Math.ceil((node.data.depletedUntil - Date.now()) / 1000))
+                      : '?',
+                  })}
                 </span>
               </div>
             )}
@@ -298,7 +373,7 @@ if (n.type === 'cache') return '#a78bfa';
 
             {/* Compute node info */}
             {node.type === 'compute' && node.data.unlocked && (
-              <ComputeNodeInfo node={node} onOpenDialog={setActiveDialog} />
+              <ComputeNodeInfo node={node} onOpenDialog={setActiveDialog} onOpenLab={openComputeLab} />
             )}
 
             {/* Cache node info */}
@@ -321,32 +396,31 @@ if (n.type === 'cache') return '#a78bfa';
                 </>
               )}
 
-              {!node.data.unlocked && node.data.unlockCost && (() => {
-                const affordable = canAffordUnlock(node.data.unlockCost, resources);
-                const reachable = hasUnlockedNeighbor(node, nodes, edges);
-                const label = unlock.loading
-                  ? 'UNLOCKING...'
-                  : !reachable
-                    ? t('ui.no_adjacent_unlock')
-                    : !affordable
-                      ? t('ui.insufficient')
-                      : t('node.unlock');
-                return (
-                  <>
-                    <SectionLabel>Unlock Cost</SectionLabel>
-                    <CostBadge cost={node.data.unlockCost} />
-                    <ActionButton
-                      onClick={unlock.run}
-                      disabled={unlock.loading || !affordable || !reachable}
-                    >
-                      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                        <Lock size={12} />
-                        {label}
-                      </span>
-                    </ActionButton>
-                  </>
-                );
-              })()}
+              {!node.data.unlocked &&
+                node.data.unlockCost &&
+                (() => {
+                  const affordable = canAffordUnlock(node.data.unlockCost, resources);
+                  const reachable = hasUnlockedNeighbor(node, nodes, edges);
+                  const label = unlock.loading
+                    ? 'UNLOCKING...'
+                    : !reachable
+                      ? t('ui.no_adjacent_unlock')
+                      : !affordable
+                        ? t('ui.insufficient')
+                        : t('node.unlock');
+                  return (
+                    <>
+                      <SectionLabel>Unlock Cost</SectionLabel>
+                      <CostBadge cost={node.data.unlockCost} />
+                      <ActionButton onClick={unlock.run} disabled={unlock.loading || !affordable || !reachable}>
+                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                          <Lock size={12} />
+                          {label}
+                        </span>
+                      </ActionButton>
+                    </>
+                  );
+                })()}
 
               {node.type === 'empty' && node.data.unlocked && (
                 <>
@@ -354,16 +428,29 @@ if (n.type === 'cache') return '#a78bfa';
                   <SectionLabel>Build Structure</SectionLabel>
                   {Object.entries(BUILD_COSTS).map(([type, cost]) => (
                     <div key={type} style={{ marginBottom: 8 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', marginBottom: 4, textTransform: 'uppercase' }}>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: 'var(--text-primary)',
+                          fontFamily: 'var(--font-mono)',
+                          marginBottom: 4,
+                          textTransform: 'uppercase',
+                        }}
+                      >
                         {type} Node
                       </div>
                       <CostBadge cost={cost} />
                       <ActionButton
                         onClick={() => build.run(type)}
-                      disabled={build.loading || !canAffordUnlock(cost, resources)}
+                        disabled={build.loading || !canAffordUnlock(cost, resources)}
                       >
                         <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                          {build.loading ? 'BUILDING...' : canAffordUnlock(cost, resources) ? `BUILD ${type.toUpperCase()}` : t('ui.insufficient')}
+                          {build.loading
+                            ? 'BUILDING...'
+                            : canAffordUnlock(cost, resources)
+                              ? `BUILD ${type.toUpperCase()}`
+                              : t('ui.insufficient')}
                         </span>
                       </ActionButton>
                     </div>
@@ -375,9 +462,7 @@ if (n.type === 'cache') return '#a78bfa';
             </div>
 
             {/* Upgrade + Chip section (unlocked nodes only) */}
-            {(node.id === 'hub' || node.data.unlocked) && (
-              <NodeEnhanceSection nodeId={node.id} node={node} />
-            )}
+            {(node.id === 'hub' || node.data.unlocked) && <NodeEnhanceSection nodeId={node.id} node={node} />}
 
             {/* Deploy button */}
             {canDeploy && (
@@ -401,15 +486,28 @@ if (n.type === 'cache') return '#a78bfa';
             {(node.id === 'hub' || node.data.unlocked) && (node.data.chipSlots || 0) > 0 && (
               <>
                 <Divider />
-                <ChipSlotManager nodeId={node.id} chipSlots={node.data.chipSlots || 0} installedChips={node.data.installedChips || []} />
+                <ChipSlotManager
+                  nodeId={node.id}
+                  chipSlots={node.data.chipSlots || 0}
+                  installedChips={node.data.installedChips || []}
+                />
               </>
             )}
 
             {/* Ground Items — inventory grid */}
             {(() => {
-              const hasItems = Array.isArray(node.data.items) ? node.data.items.length > 0 : Array.isArray(node.data.drops) ? node.data.drops.length > 0 : false;
+              const hasItems = Array.isArray(node.data.items)
+                ? node.data.items.length > 0
+                : Array.isArray(node.data.drops)
+                  ? node.data.drops.length > 0
+                  : false;
               if (!hasItems && !node.data.maxBuffer) return null;
-              return <><Divider /><GroundItems node={node} /></>;
+              return (
+                <>
+                  <Divider />
+                  <GroundItems node={node} />
+                </>
+              );
             })()}
           </motion.div>
         )}
@@ -429,9 +527,7 @@ if (n.type === 'cache') return '#a78bfa';
 
       {/* Node info dialog (pluggable) */}
       <AnimatePresence>
-        {activeDialog && (
-          <NodeInfoDialog config={activeDialog} onClose={() => setActiveDialog(null)} />
-        )}
+        {activeDialog && <NodeInfoDialog config={activeDialog} onClose={() => setActiveDialog(null)} />}
       </AnimatePresence>
     </>
   );

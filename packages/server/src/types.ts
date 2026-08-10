@@ -367,6 +367,24 @@ export interface LayerManagerState {
   snapshots: Record<number, LayerSnapshot>;
 }
 
+// ── Compute Lab ───────────────────────────────────────────────────────────
+
+/** Durable, server-authoritative state for the isolated operator tutorial. */
+export interface ComputeLabSession {
+  sourceNodeId: string;
+  operatorId: string;
+  status: 'available' | 'active' | 'mastered';
+  puzzle?: import('./puzzleDefinitions.js').PuzzleInstance;
+  lastAttempt?: { taskId: string; correct: boolean; at: number };
+  completedTaskId?: string;
+  completionResult?: { ok: true; correct: true; reward: { type: string; amount: number }; masteryUnlocked: boolean };
+  masteredAt?: number;
+}
+
+export interface ComputeLabState {
+  sessions: Record<string, ComputeLabSession>;
+}
+
 // ── Autosave ────────────────────────────────────────────────────────────────
 
 /** Snapshot of game progress used by the "return to autosave" recovery flow. */
@@ -379,6 +397,7 @@ export interface AutosaveSnapshot {
   quest_state: QuestState;
   level_state: LevelState;
   layer_manager: LayerManagerState;
+  compute_lab: ComputeLabState;
 }
 
 // ── Store ───────────────────────────────────────────────────────────────────
@@ -392,6 +411,7 @@ export interface Store {
   quest_state: QuestState;
   level_state: LevelState;
   layer_manager: LayerManagerState;
+  compute_lab: ComputeLabState;
   /** Latest healthy snapshot — refreshed periodically by gameTick while game is alive. */
   autosave?: AutosaveSnapshot;
   /** Durable at-least-once commands for the disposable Code Server runtime. */
