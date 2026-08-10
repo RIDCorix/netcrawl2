@@ -5,17 +5,16 @@
  * Uses Node.js built-in fetch (Node 18+) for zero dependencies.
  */
 
-export async function httpPost(url: string, data: Record<string, unknown>, timeout: number = 10000): Promise<Record<string, unknown>> {
+export async function httpPost(url: string, data: Record<string, unknown>, timeout: number | null = 10000): Promise<Record<string, unknown>> {
+  const controller = new AbortController();
+  const timer = timeout === null ? undefined : setTimeout(() => controller.abort(), timeout);
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeout);
     const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
       signal: controller.signal,
     });
-    clearTimeout(timer);
     const text = await resp.text();
     try {
       return JSON.parse(text);
@@ -24,6 +23,8 @@ export async function httpPost(url: string, data: Record<string, unknown>, timeo
     }
   } catch (e: unknown) {
     return { ok: false, error: String(e) };
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
   }
 }
 
@@ -68,6 +69,6 @@ export class ApiClient {
       workerId: this.workerId,
       action,
       payload,
-    });
+    }, null);
   }
 }

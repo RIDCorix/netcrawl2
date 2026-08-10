@@ -6,7 +6,7 @@ def test_v2_action_carries_fence_and_stale_result_stops_runtime(monkeypatch):
     captured = {}
 
     def fake_post(url, body, timeout=10, api_key=""):
-        captured.update(url=url, body=body, api_key=api_key)
+        captured.update(url=url, body=body, timeout=timeout, api_key=api_key)
         return {"ok": False, "reason": "stale_execution"}
 
     monkeypatch.setattr(client_module, "http_post", fake_post)
@@ -27,3 +27,4 @@ def test_v2_action_carries_fence_and_stale_result_stops_runtime(monkeypatch):
     assert captured["body"]["generation"] == 7
     assert captured["body"]["executionToken"] == "execution-token"
     assert captured["body"]["actionId"]
+    assert captured["timeout"] is None

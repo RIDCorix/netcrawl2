@@ -24,6 +24,22 @@ export function handleHarvest(): any {
 }
 
 const WAIT_FOR_DATA_MS = 250;
+type MineReservation = { workerId: string };
+const mineReservationQueues = new Map<string, MineReservation[]>();
+
+function mineReservationKey(nodeId: string, uid?: string): string {
+  return JSON.stringify([uid || '', nodeId]);
+}
+
+function isMiningInterrupted(workerId: string, nodeId: string, uid?: string): boolean {
+  const worker = getWorker(workerId, uid);
+  if (!worker || ['suspended', 'crashed', 'error', 'dead'].includes(worker.status)) return true;
+  return (worker.current_node || worker.node_id) !== nodeId;
+}
+
+function waitForData(): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, WAIT_FOR_DATA_MS));
+}
 
 /**
  * Reserve mine supply immediately before a mining animation starts. Reserving
@@ -35,34 +51,51 @@ async function reserveNodeData(
   workerId: string,
   uid?: string,
 ): Promise<{ ok: true; remainingData: number } | { ok: false; error: string }> {
-  while (true) {
-    const waitingWorker = getWorker(workerId, uid);
-    if (!waitingWorker || ['suspended', 'crashed', 'error', 'dead'].includes(waitingWorker.status)) {
-      return { ok: false, error: 'Mining interrupted' };
+  const queueKey = mineReservationKey(nodeId, uid);
+  const queue = mineReservationQueues.get(queueKey) || [];
+  const reservation: MineReservation = { workerId };
+  queue.push(reservation);
+  mineReservationQueues.set(queueKey, queue);
+
+  try {
+    while (true) {
+      if (isMiningInterrupted(workerId, nodeId, uid)) return { ok: false, error: 'Mining interrupted' };
+      if (queue[0] !== reservation) {
+        await waitForData();
+        continue;
+      }
+
+      const freshState = getGameState(uid);
+      const currentNode = freshState.nodes.find(n => n.id === nodeId);
+      if (!currentNode?.data.mineable) return { ok: false, error: 'Node is not mineable' };
+
+      const maxDataBuffer = Math.max(1, Number(currentNode.data.maxDataBuffer ?? 1));
+      if (requiredData > maxDataBuffer) return { ok: false, error: 'Mining yield exceeds node capacity' };
+
+      const availableData = Math.min(maxDataBuffer, Math.max(0, Number(currentNode.data.data ?? maxDataBuffer)));
+      if (availableData >= requiredData) {
+        const remainingData = availableData - requiredData;
+        saveGameState(
+          {
+            ...freshState,
+            nodes: freshState.nodes.map(n =>
+              n.id === nodeId ? { ...n, data: { ...n.data, data: remainingData, maxDataBuffer } } : n,
+            ),
+          },
+          uid,
+        );
+        broadcastFullState(uid);
+        return { ok: true, remainingData };
+      }
+
+      const refillRate = Math.max(0, Number(currentNode.data.dataRefillRate ?? currentNode.data.rate ?? 0));
+      if (refillRate === 0) return { ok: false, error: 'Mine supply cannot refill' };
+      await waitForData();
     }
-
-    const freshState = getGameState(uid);
-    const currentNode = freshState.nodes.find(n => n.id === nodeId);
-    if (!currentNode?.data.mineable) return { ok: false, error: 'Node is not mineable' };
-
-    const maxDataBuffer = Math.max(1, Number(currentNode.data.maxDataBuffer ?? 1));
-    const availableData = Math.min(maxDataBuffer, Math.max(0, Number(currentNode.data.data ?? maxDataBuffer)));
-    if (availableData >= requiredData) {
-      const remainingData = availableData - requiredData;
-      saveGameState(
-        {
-          ...freshState,
-          nodes: freshState.nodes.map(n =>
-            n.id === nodeId ? { ...n, data: { ...n.data, data: remainingData, maxDataBuffer } } : n,
-          ),
-        },
-        uid,
-      );
-      broadcastFullState(uid);
-      return { ok: true, remainingData };
-    }
-
-    await new Promise(resolve => setTimeout(resolve, WAIT_FOR_DATA_MS));
+  } finally {
+    const reservationIndex = queue.indexOf(reservation);
+    if (reservationIndex !== -1) queue.splice(reservationIndex, 1);
+    if (queue.length === 0) mineReservationQueues.delete(queueKey);
   }
 }
 

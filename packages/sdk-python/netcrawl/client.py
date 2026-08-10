@@ -9,9 +9,10 @@ import json
 import uuid
 import urllib.request
 import urllib.error
+from typing import Optional
 
 
-def http_post(url: str, data: dict, timeout: int = 10, api_key: str = "") -> dict:
+def http_post(url: str, data: dict, timeout: Optional[float] = 10, api_key: str = "") -> dict:
     """POST JSON to a URL and return the parsed response."""
     body = json.dumps(data).encode("utf-8")
     headers = {"Content-Type": "application/json"}
@@ -25,7 +26,7 @@ def http_post(url: str, data: dict, timeout: int = 10, api_key: str = "") -> dic
     return _do_request(req, timeout)
 
 
-def http_get(url: str, timeout: int = 10, api_key: str = "") -> dict:
+def http_get(url: str, timeout: Optional[float] = 10, api_key: str = "") -> dict:
     """GET a URL and return the parsed JSON response."""
     headers = {}
     if api_key:
@@ -34,7 +35,7 @@ def http_get(url: str, timeout: int = 10, api_key: str = "") -> dict:
     return _do_request(req, timeout)
 
 
-def _do_request(req: urllib.request.Request, timeout: int) -> dict:
+def _do_request(req: urllib.request.Request, timeout: Optional[float]) -> dict:
     """Execute an HTTP request with unified error handling."""
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -75,7 +76,9 @@ class ApiClient:
                 "executionToken": self.execution_token,
                 "actionId": str(uuid.uuid4()),
             })
-        result = http_post(f"{self.api_url}/api/worker/action", body, api_key=self.api_key)
+        # Mining can legitimately wait for shared supply, so action requests do
+        # not inherit the short deadline used by ordinary HTTP helpers.
+        result = http_post(f"{self.api_url}/api/worker/action", body, timeout=None, api_key=self.api_key)
         if result.get("reason") == "stale_execution":
             self.stale_execution = True
         return result
