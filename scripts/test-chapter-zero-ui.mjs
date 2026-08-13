@@ -141,6 +141,13 @@ assert.match(
   /useCodeServerCredentials\(connectOpen\)/,
   'Connect dialog must request a dedicated Code Server credential when opened',
 );
+for (const previewStage of ['hello_preview', 'miner_preview']) {
+  assert.match(
+    styles,
+    new RegExp(`\\[data-tutorial-stage="${previewStage}"\\] \\.chapter0-deploy-guide-inner[\\s\\S]{0,160}pointer-events:\\s*none`),
+    `${previewStage} guide must not intercept clicks meant for its highlighted map target`,
+  );
+}
 assert.match(
   deployGuide,
   /setupGate: setupGate \|\| setupGateTransition, setupGateTransition/,

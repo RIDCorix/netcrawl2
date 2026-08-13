@@ -1413,6 +1413,13 @@ body::after {
   font-family: var(--font-mono, monospace);
 }
 
+/* Preview cards only describe the next map action. Let clicks pass through so
+   a centered card can never cover the highlighted Hub or other map target. */
+.chapter0-deploy-guide[data-tutorial-stage="hello_preview"] .chapter0-deploy-guide-inner,
+.chapter0-deploy-guide[data-tutorial-stage="miner_preview"] .chapter0-deploy-guide-inner {
+  pointer-events: none;
+}
+
 /* The application-level guard owns interaction. Keep the marker for
    diagnostics, but leave pointer delivery intact for stage allowlists such as
    the deploy action inside an otherwise locked panel. */
