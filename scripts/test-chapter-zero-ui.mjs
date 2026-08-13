@@ -11,6 +11,7 @@ const app = readFileSync('packages/ui/src/App.tsx', 'utf8');
 const nodePanel = readFileSync('packages/ui/src/components/NodeDetailPanel.tsx', 'utf8');
 const workerPanel = readFileSync('packages/ui/src/components/WorkerDetailPanel.tsx', 'utf8');
 const tutorialOverlay = readFileSync('packages/ui/src/components/TutorialOverlay.tsx', 'utf8');
+const questGuideDialog = readFileSync('packages/ui/src/components/QuestGuideDialog.tsx', 'utf8');
 const zhTW = readFileSync('packages/ui/src/i18n/zh-TW.ts', 'utf8');
 const en = readFileSync('packages/ui/src/i18n/en.ts', 'utf8');
 const ja = readFileSync('packages/ui/src/i18n/ja.ts', 'utf8');
@@ -114,6 +115,18 @@ assert.match(
 );
 assert.match(
   deployGuide,
+  /const codeServerUp = codeServerConnected \|\| workerClasses\.length > 0/,
+  'a registered worker class must release the setup gate even before the boolean status push arrives',
+);
+assert.match(
+  deployGuide,
+  /const setupGate = stage === 'hello_preview' && !codeServerUp/,
+  'the setup gate must use the live-server signal',
+);
+assert.match(questGuideDialog, /data-code-server-status=\{codeServerUp \? 'connected' : 'waiting'\}/, 'Dev Setup must expose live connection status');
+assert.match(questGuideDialog, /quest\.q_setup\.connection_connected/, 'Dev Setup must render its connected status copy');
+assert.match(
+  deployGuide,
   /setupGate: setupGate \|\| setupGateTransition, setupGateTransition/,
   'setup cleanup must keep the guard on the transition allowlist until it finishes',
 );
@@ -141,6 +154,7 @@ for (const locale of [en, zhTW, ja]) {
   assert.match(locale, /tutorial\.chapter_zero\.deploy\.hello_preview_title/, 'all locales need the Hello preview copy');
   assert.match(locale, /tutorial\.chapter_zero\.deploy\.miner_preview_title/, 'all locales need the miner preview copy');
   assert.match(locale, /tutorial\.chapter_zero\.deploy\.continue_to_miner/, 'all locales need the log checkpoint CTA');
+  assert.match(locale, /quest\.q_setup\.connection_connected/, 'all locales need Dev Setup connection status copy');
 }
 assert.doesNotMatch(styles, /chapter0-deploy-blocker|chapter0-target-hub/, 'the dimming guide styles must be removed');
 assert.doesNotMatch(

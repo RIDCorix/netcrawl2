@@ -163,6 +163,9 @@ export const zhTW: Record<string, string> = {
   // === Quests ===
   'quest.q_setup.name': '開發設定',
   'quest.q_setup.objective.o1': '連接程式碼伺服器',
+  'quest.q_setup.connection_status': '程式碼伺服器狀態',
+  'quest.q_setup.connection_connected': '已連線',
+  'quest.q_setup.connection_waiting': '等待連線',
   'quest.required_short': '主線',
   'quest.optional_short': '選修',
   'deploy.missing_requirements': '缺少必要裝備：{requirements}。可點擊背包物品、按 Enter／空白鍵，或拖放來裝備。',

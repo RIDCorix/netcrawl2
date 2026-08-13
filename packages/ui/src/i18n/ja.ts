@@ -165,6 +165,9 @@ export const ja: Record<string, string> = {
   // === Quests ===
   'quest.q_setup.name': '開発セットアップ',
   'quest.q_setup.objective.o1': 'コードサーバーに接続する',
+  'quest.q_setup.connection_status': 'コードサーバーの状態',
+  'quest.q_setup.connection_connected': '接続済み',
+  'quest.q_setup.connection_waiting': '接続待ち',
   'quest.required_short': 'メイン',
   'quest.optional_short': '任意',
   'deploy.missing_requirements':

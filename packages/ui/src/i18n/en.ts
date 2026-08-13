@@ -165,6 +165,9 @@ export const en: Record<string, string> = {
   // === Quests ===
   'quest.q_setup.name': 'Dev Setup',
   'quest.q_setup.objective.o1': 'Connect code server',
+  'quest.q_setup.connection_status': 'Code server status',
+  'quest.q_setup.connection_connected': 'Connected',
+  'quest.q_setup.connection_waiting': 'Waiting for connection',
   'quest.required_short': 'Main',
   'quest.optional_short': 'Optional',
   'deploy.missing_requirements':

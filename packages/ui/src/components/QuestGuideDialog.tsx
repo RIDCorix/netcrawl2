@@ -4,7 +4,7 @@
  */
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronLeft, ChevronRight, BookOpen, Check, Gift, Zap, Mountain, Database, Lock } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, BookOpen, Check, Gift, Zap, Mountain, Database, Lock, Circle } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { Markdown } from './ui/markdown';
@@ -74,6 +74,8 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
   const t = useT();
   const openWikiPreview = useGameStore(s => s.openWikiPreview);
   const lang = useGameStore(s => s.settings.language);
+  const codeServerConnected = useGameStore(s => s.codeServerConnected);
+  const workerClasses = useGameStore(s => s.workerClasses);
   const translatedGuide = getTranslatedGuide(lang, quest.id);
   const guide = translatedGuide || quest.guide || [];
   const connection = {
@@ -91,6 +93,9 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
   const isLastPage = page === totalPages - 1;
   const isFirstPage = page === 0;
   const color = CHAPTER_COLORS[quest.chapter] || '#9ca3af';
+  const isSetupQuest = quest.id === 'q_setup';
+  // Match the live connection semantics used by the Connect panel and tutorial gate.
+  const codeServerUp = codeServerConnected || workerClasses.length > 0;
 
   const handleClaim = async () => {
     setClaiming(true);
@@ -246,6 +251,24 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
         )}
 
         {/* ── Objectives bar (always visible) ── */}
+        {isSetupQuest && (
+          <div
+            data-code-server-status={codeServerUp ? 'connected' : 'waiting'}
+            role="status"
+            style={{
+              padding: '8px 20px', borderBottom: '1px solid var(--border)',
+              background: codeServerUp ? 'rgba(74, 222, 128, 0.08)' : 'var(--bg-secondary)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+              fontSize: 10, fontFamily: 'var(--font-mono)',
+            }}
+          >
+            <span style={{ color: 'var(--text-secondary)' }}>{t('quest.q_setup.connection_status')}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: codeServerUp ? 'var(--success)' : 'var(--text-muted)', fontWeight: 700 }}>
+              <Circle size={8} fill="currentColor" aria-hidden="true" />
+              {t(codeServerUp ? 'quest.q_setup.connection_connected' : 'quest.q_setup.connection_waiting')}
+            </span>
+          </div>
+        )}
         <div
           style={{
             padding: '10px 20px',

@@ -96,6 +96,7 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
   const t = useT();
   const selectedNodeId = useGameStore(s => s.selectedNodeId);
   const codeServerConnected = useGameStore(s => s.codeServerConnected);
+  const workerClasses = useGameStore(s => s.workerClasses);
   const questsOpen = useGameStore(s => s.questsOpen);
   const selectedQuestId = useGameStore(s => s.selectedQuestId);
   const workers = useGameStore(s => s.workers);
@@ -104,7 +105,10 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
   const workerLogs = useGameStore(s => s.workerLogs);
   const setWorkerLogs = useGameStore(s => s.setWorkerLogs);
   const phase = phaseForStage(stage);
-  const setupGate = stage === 'hello_preview' && !codeServerConnected;
+  // A registered worker class is durable proof of a live code server even if
+  // the reconnecting client has not received its boolean status event yet.
+  const codeServerUp = codeServerConnected || workerClasses.length > 0;
+  const setupGate = stage === 'hello_preview' && !codeServerUp;
   const wasSetupGate = useRef(setupGate);
   const setupGateTransition = !setupGate && wasSetupGate.current && (questsOpen || selectedQuestId === 'q_setup');
   const helloWorkerId = session.world.deployTutorial.helloWorkerId;
@@ -202,7 +206,7 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
   const completedLoops = session.world.deployTutorial.minerCompletedLoops;
   const minerCandidateWorkerId = session.world.deployTutorial.minerCandidateWorkerId;
   const minerCandidate = workers.find(worker => worker.id === minerCandidateWorkerId);
-  const minerCanRetry = !!minerCandidateWorkerId && (!codeServerConnected || !minerCandidate || ['suspended', 'crashed', 'error', 'dead'].includes(minerCandidate.status));
+  const minerCanRetry = !!minerCandidateWorkerId && (!codeServerUp || !minerCandidate || ['suspended', 'crashed', 'error', 'dead'].includes(minerCandidate.status));
   const [retryingMiner, setRetryingMiner] = useState(false);
   const [minerRetryError, setMinerRetryError] = useState(false);
 
