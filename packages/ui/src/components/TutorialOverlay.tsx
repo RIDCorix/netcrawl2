@@ -82,6 +82,9 @@ export function TutorialOverlay() {
   const t = useT();
   const { workers, questsOpen, selectedQuestId, toggleQuests, selectQuest } = useGameStore();
   const [tutState, setTutState] = useState(loadTutorialState);
+  const [chapterZeroGuideActive, setChapterZeroGuideActive] = useState(
+    () => document.documentElement.dataset.chapterZeroTutorial !== undefined,
+  );
   const [highlightRect, setHighlightRect] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -120,6 +123,24 @@ export function TutorialOverlay() {
     setTutState(next);
   }, [dismiss, questsOpen, selectQuest, step, toggleQuests]);
 
+  // Chapter Zero has its own guarded flow. Once it starts, this legacy overlay
+  // must yield so both layers cannot compete for a map-target click.
+  useEffect(() => {
+    const onChapterZeroMode = (event: Event) => {
+      const active = Boolean((event as CustomEvent).detail?.active);
+      setChapterZeroGuideActive(active);
+      if (!active) return;
+      setTutState(state => {
+        if (state.dismissed) return state;
+        const next = { ...state, dismissed: true };
+        saveTutorialState(next);
+        return next;
+      });
+    };
+    window.addEventListener('chapter-zero-deploy-mode', onChapterZeroMode);
+    return () => window.removeEventListener('chapter-zero-deploy-mode', onChapterZeroMode);
+  }, []);
+
   // Auto-advance on waitFor conditions
   useEffect(() => {
     if (!isActive || !currentStep?.waitFor) return;
@@ -153,7 +174,7 @@ export function TutorialOverlay() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [isActive, currentStep, step]);
 
-  if (!isActive || !currentStep) return null;
+  if (chapterZeroGuideActive || !isActive || !currentStep) return null;
 
   const Icon = currentStep.icon;
   const isCenter = currentStep.placement === 'center' || !currentStep.target || !tooltipPos;

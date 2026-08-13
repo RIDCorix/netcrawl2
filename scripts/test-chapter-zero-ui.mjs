@@ -141,6 +141,16 @@ assert.match(
   /useCodeServerCredentials\(connectOpen\)/,
   'Connect dialog must request a dedicated Code Server credential when opened',
 );
+assert.match(
+  tutorialOverlay,
+  /window\.addEventListener\('chapter-zero-deploy-mode', onChapterZeroMode\)/,
+  'legacy tutorial overlay must observe the Chapter Zero guide lifecycle',
+);
+assert.match(
+  tutorialOverlay,
+  /if \(chapterZeroGuideActive \|\| !isActive \|\| !currentStep\) return null/,
+  'legacy tutorial overlay must yield to the Chapter Zero interaction guard',
+);
 for (const previewStage of ['hello_preview', 'miner_preview']) {
   assert.match(
     styles,
