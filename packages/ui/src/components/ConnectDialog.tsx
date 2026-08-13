@@ -3,7 +3,7 @@ import { X, Copy, Check, Terminal, Globe, Loader } from 'lucide-react';
 import { useState, useCallback } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useT } from '../hooks/useT';
-import { SERVER_URL, WS_URL } from '../lib/api';
+import { useCodeServerCredentials } from '../hooks/useCodeServerCredentials';
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -80,9 +80,8 @@ export function ConnectDialog() {
   // Derived from WS-pushed state — no polling.
   const codeServerConnected = storeCodeServerConnected || workerClasses.length > 0;
 
-  const serverUrl = SERVER_URL;
-  const isCloud = !!import.meta.env.VITE_API_URL;
-  const apiKey = localStorage.getItem('netcrawl-token') || '';
+  const { serverUrl, apiKey, requiresApiKey: isCloud, loading: credentialLoading, error: credentialError } = useCodeServerCredentials(connectOpen);
+  const credentialsReady = !isCloud || Boolean(apiKey);
 
   const pythonCopy = isCloud
     ? `app = NetCrawl(server="${serverUrl}", api_key="${apiKey}")`
@@ -155,12 +154,20 @@ export function ConnectDialog() {
               {/* Connection info */}
               <InfoRow label={t('connect.server_url')} value={serverUrl} />
               {isCloud && apiKey && <InfoRow label="API KEY" value={apiKey} />}
+              {isCloud && credentialLoading && (
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 12px' }}>{t('connect.credential_loading')}</p>
+              )}
+              {isCloud && credentialError && (
+                <p style={{ fontSize: 11, color: 'var(--danger)', margin: '0 0 12px' }}>
+                  {t(credentialError === 'session_expired' ? 'connect.session_expired' : 'connect.credential_unavailable')}
+                </p>
+              )}
 
               <div style={{ borderTop: '1px solid var(--border)', margin: '14px 0' }} />
 
               {/* Code examples — tabbed Python / JavaScript */}
-              <SyntaxBlock lang="Python" copyText={pythonCopy} code={<P>{pythonCopy}</P>} />
-              <SyntaxBlock lang="JavaScript" copyText={jsCopy} code={<P>{jsCopy}</P>} />
+              {credentialsReady && <SyntaxBlock lang="Python" copyText={pythonCopy} code={<P>{pythonCopy}</P>} />}
+              {credentialsReady && <SyntaxBlock lang="JavaScript" copyText={jsCopy} code={<P>{jsCopy}</P>} />}
             </div>
           </motion.div>
         </motion.div>

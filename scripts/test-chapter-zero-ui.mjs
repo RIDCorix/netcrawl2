@@ -11,6 +11,7 @@ const app = readFileSync('packages/ui/src/App.tsx', 'utf8');
 const nodePanel = readFileSync('packages/ui/src/components/NodeDetailPanel.tsx', 'utf8');
 const workerPanel = readFileSync('packages/ui/src/components/WorkerDetailPanel.tsx', 'utf8');
 const tutorialOverlay = readFileSync('packages/ui/src/components/TutorialOverlay.tsx', 'utf8');
+const connectDialog = readFileSync('packages/ui/src/components/ConnectDialog.tsx', 'utf8');
 const questGuideDialog = readFileSync('packages/ui/src/components/QuestGuideDialog.tsx', 'utf8');
 const zhTW = readFileSync('packages/ui/src/i18n/zh-TW.ts', 'utf8');
 const en = readFileSync('packages/ui/src/i18n/en.ts', 'utf8');
@@ -125,6 +126,21 @@ assert.match(
 );
 assert.match(questGuideDialog, /data-code-server-status=\{codeServerUp \? 'connected' : 'waiting'\}/, 'Dev Setup must expose live connection status');
 assert.match(questGuideDialog, /quest\.q_setup\.connection_connected/, 'Dev Setup must render its connected status copy');
+assert.doesNotMatch(
+  connectDialog,
+  /localStorage\.getItem\(['"]netcrawl-token['"]\)/,
+  'Connect dialog must never copy the browser login token into Code Server configuration',
+);
+assert.doesNotMatch(
+  questGuideDialog,
+  /localStorage\.getItem\(['"]netcrawl-token['"]\)/,
+  'setup guide must never copy the browser login token into Code Server configuration',
+);
+assert.match(
+  connectDialog,
+  /useCodeServerCredentials\(connectOpen\)/,
+  'Connect dialog must request a dedicated Code Server credential when opened',
+);
 assert.match(
   deployGuide,
   /setupGate: setupGate \|\| setupGateTransition, setupGateTransition/,

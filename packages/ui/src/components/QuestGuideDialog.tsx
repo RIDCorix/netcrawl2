@@ -17,7 +17,7 @@ import { DEMO_SCRIPTS } from './guide/demoScripts';
 import { getTranslatedGuide } from '../i18n/guides';
 import { translateWithFallback } from '../i18n/translateWithFallback';
 import { formatResource } from '../lib/format';
-import { SERVER_URL } from '../lib/api';
+import { useCodeServerCredentials } from '../hooks/useCodeServerCredentials';
 
 function RewardBadge({ reward, color }: { reward: any; color: string }) {
   const text = (() => {
@@ -78,10 +78,11 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
   const workerClasses = useGameStore(s => s.workerClasses);
   const translatedGuide = getTranslatedGuide(lang, quest.id);
   const guide = translatedGuide || quest.guide || [];
+  const codeServerCredentials = useCodeServerCredentials(true);
   const connection = {
-    serverUrl: SERVER_URL.trim(),
-    apiKey: (localStorage.getItem('netcrawl-token') || '').trim(),
-    requiresApiKey: Boolean(import.meta.env.VITE_API_URL),
+    serverUrl: codeServerCredentials.serverUrl.trim(),
+    apiKey: codeServerCredentials.apiKey.trim(),
+    requiresApiKey: codeServerCredentials.requiresApiKey,
   };
   const scrollRef = useRef<HTMLDivElement>(null);
 

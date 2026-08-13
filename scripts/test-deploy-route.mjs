@@ -46,6 +46,19 @@ try {
   const userB = registrationB.body.user.id;
   assert.equal((await request('/api/state', tokenA)).status, 200);
 
+  // Connect obtains a dedicated credential instead of copying the browser's
+  // seven-day login JWT. It remains user-scoped on the same runtime routes.
+  assert.equal((await request('/api/auth/code-server-token', '', {})).status, 401);
+  const codeServerCredential = await request('/api/auth/code-server-token', tokenA, {});
+  assert.equal(codeServerCredential.status, 200);
+  assert.ok(codeServerCredential.body.token);
+  assert.ok(codeServerCredential.body.expiresAt);
+  assert.notEqual(codeServerCredential.body.token, tokenA);
+  const codeServerClaims = JSON.parse(Buffer.from(codeServerCredential.body.token.split('.')[1], 'base64url').toString());
+  assert.equal(codeServerClaims.purpose, 'code-server');
+  assert.equal(codeServerClaims.exp - codeServerClaims.iat, 90 * 24 * 60 * 60);
+  assert.equal((await request('/api/state', codeServerCredential.body.token)).status, 200);
+
   // Harvest yield and mine-supply refill are independently upgraded: a Data
   // Nano at harvest rate 31 still refills at its 10/s baseline until its
   // refill-specific enhancement is allocated.

@@ -12,6 +12,7 @@ import { Request, Response, NextFunction } from 'express';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'netcrawl-dev-secret-do-not-use-in-production';
 const TOKEN_EXPIRY = '7d';
+const CODE_SERVER_TOKEN_EXPIRY = '90d';
 
 export interface User {
   id: string;
@@ -120,6 +121,17 @@ export function generateToken(user: User): string {
     JWT_SECRET,
     { expiresIn: TOKEN_EXPIRY }
   );
+}
+
+/** Issue a credential for the external Code Server, separate from browser login. */
+export function generateCodeServerToken(user: User): { token: string; expiresAt: string } {
+  const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+  const token = jwt.sign(
+    { userId: user.id, email: user.email, purpose: 'code-server' },
+    JWT_SECRET,
+    { expiresIn: CODE_SERVER_TOKEN_EXPIRY }
+  );
+  return { token, expiresAt: expiresAt.toISOString() };
 }
 
 export function verifyToken(token: string): { userId: string; email: string } | null {

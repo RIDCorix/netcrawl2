@@ -2,6 +2,7 @@
  * Authentication routes for NetCrawl2 cloud mode.
  * POST /api/auth/register
  * POST /api/auth/login
+ * POST /api/auth/code-server-token
  * GET  /api/auth/me
  */
 
@@ -11,6 +12,7 @@ import {
   authenticateUser,
   getUserById,
   generateToken,
+  generateCodeServerToken,
   sanitizeUser,
   authMiddleware,
   AuthenticatedRequest,
@@ -68,6 +70,18 @@ authRouter.post('/login', (req: Request, res: Response) => {
 
   const token = generateToken(user);
   res.json({ token, user: sanitizeUser(user) });
+});
+
+// POST /api/auth/code-server-token (requires a live browser login session)
+authRouter.post('/code-server-token', authMiddleware, (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
+  const user = authReq.user && getUserById(authReq.user.userId);
+  if (!user) {
+    res.status(404).json({ error: 'User not found' });
+    return;
+  }
+
+  res.json(generateCodeServerToken(user));
 });
 
 // GET /api/auth/me (requires auth)
