@@ -3,10 +3,17 @@ import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
 import { ChapterZeroInstructionEditor, DIRECT_MOVE_NARRATOR_KEYS } from '../packages/ui/src/components/ChapterZeroRepl';
 import { CodespaceSkeleton } from '../packages/ui/src/components/guide/CodespaceSkeleton';
+import { CodeServerCredentialStatus } from '../packages/ui/src/components/CodeServerCredentialStatus';
 
 type Renderer = TestRenderer.ReactTestRenderer;
 
-for (const variant of ['codespace-create', 'codespace-editor', 'codespace-terminal', 'codespace-run', 'codespace-stop'] as const) {
+for (const variant of [
+  'codespace-create',
+  'codespace-editor',
+  'codespace-terminal',
+  'codespace-run',
+  'codespace-stop',
+] as const) {
   let skeleton: Renderer | undefined;
   act(() => {
     skeleton = TestRenderer.create(<CodespaceSkeleton variant={variant} />);
@@ -14,6 +21,64 @@ for (const variant of ['codespace-create', 'codespace-editor', 'codespace-termin
   assert.equal(typeof skeleton!.root.findByProps({ className: 'codespace-skeleton' }).props['aria-label'], 'string');
   assert.equal(skeleton!.root.findByProps({ className: 'codespace-skeleton-target-label' }).children.length > 0, true);
 }
+
+let unavailableRetries = 0;
+let sessionReloads = 0;
+Object.defineProperty(globalThis, 'window', {
+  configurable: true,
+  value: {
+    location: {
+      reload: () => {
+        sessionReloads += 1;
+      },
+    },
+  },
+});
+let credentialState: Renderer | undefined;
+act(() => {
+  credentialState = TestRenderer.create(
+    <CodeServerCredentialStatus loading={true} error={null} retry={() => undefined} />,
+  );
+});
+assert.equal(credentialState!.root.findByProps({ 'data-code-server-credential-state': 'loading' }).type, 'p');
+assert.equal(credentialState!.root.findAllByType('button').length, 0);
+act(() =>
+  credentialState!.update(
+    <CodeServerCredentialStatus loading={false} error="session_expired" retry={() => undefined} />,
+  ),
+);
+assert.equal(credentialState!.root.findByProps({ 'data-code-server-credential-state': 'session_expired' }).type, 'div');
+assert.equal(credentialState!.root.findAllByType('button').length, 1);
+act(() => credentialState!.root.findByType('button').props.onClick());
+assert.equal(sessionReloads, 1);
+act(() =>
+  credentialState!.update(
+    <CodeServerCredentialStatus
+      loading={false}
+      error="unavailable"
+      retry={() => {
+        unavailableRetries += 1;
+      }}
+    />,
+  ),
+);
+act(() => credentialState!.root.findByType('button').props.onClick());
+assert.equal(unavailableRetries, 1);
+
+let blockedSkeleton: Renderer | undefined;
+act(() => {
+  blockedSkeleton = TestRenderer.create(
+    <CodespaceSkeleton
+      variant="codespace-editor"
+      connection={{ serverUrl: 'https://game.example', apiKey: '', requiresApiKey: true }}
+    />,
+  );
+});
+assert.equal(
+  blockedSkeleton!.toJSON(),
+  null,
+  'cloud setup must not render executable placeholders before credentials are ready',
+);
 
 function renderEditor(
   stage: 'direct_commands' | 'code_editor',

@@ -56,7 +56,9 @@ function discoverFields(cls: typeof WorkerClass): Record<string, WorkerField> {
 
   // Apply from base to derived so derived fields override
   for (let i = chain.length - 1; i >= 0; i--) {
-    const staticFields = (chain[i] as unknown as Record<string, unknown>)['fields'] as Record<string, WorkerField> | undefined;
+    const staticFields = (chain[i] as unknown as Record<string, unknown>)['fields'] as
+      | Record<string, WorkerField>
+      | undefined;
     if (staticFields) {
       for (const [key, value] of Object.entries(staticFields)) {
         if (value instanceof WorkerField) {
@@ -105,13 +107,20 @@ export class WorkerClass {
   // Dynamic field values injected at runtime
   [key: string]: unknown;
 
-  constructor(workerId: string, apiUrl: string, injectedFields: Record<string, unknown>) {
+  constructor(
+    workerId: string,
+    apiUrl: string,
+    injectedFields: Record<string, unknown>,
+    apiKey: string = '',
+    generation?: number,
+    executionToken: string = '',
+  ) {
     this._workerId = workerId;
     this._apiUrl = apiUrl;
     this._currentNode = 'hub';
     this._inventory = {};
     this._holding = null;
-    this._client = new ApiClient(apiUrl, workerId);
+    this._client = new ApiClient(apiUrl, workerId, apiKey, generation, executionToken);
 
     // Inject field values (replace descriptor instances with actual values)
     for (const [fieldName, value] of Object.entries(injectedFields)) {
@@ -156,7 +165,7 @@ export class WorkerClass {
   async getService(nodeId: string): Promise<CacheService> {
     const result = await this._client.action('get_service', { serviceNodeId: nodeId });
     if (!result['ok']) {
-      const reason = result['reason'] as string ?? '';
+      const reason = (result['reason'] as string) ?? '';
       if (['not_reachable', 'not_found', 'not_a_service'].includes(reason)) {
         throw new ServiceNotReachable((result['error'] as string) ?? `Service '${nodeId}' not reachable`);
       }

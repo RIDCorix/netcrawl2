@@ -4,7 +4,19 @@
  */
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronLeft, ChevronRight, BookOpen, Check, Gift, Zap, Mountain, Database, Lock, Circle } from 'lucide-react';
+import {
+  X,
+  ChevronLeft,
+  ChevronRight,
+  BookOpen,
+  Check,
+  Gift,
+  Zap,
+  Mountain,
+  Database,
+  Lock,
+  Circle,
+} from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { Markdown } from './ui/markdown';
@@ -18,6 +30,7 @@ import { getTranslatedGuide } from '../i18n/guides';
 import { translateWithFallback } from '../i18n/translateWithFallback';
 import { formatResource } from '../lib/format';
 import { useCodeServerCredentials } from '../hooks/useCodeServerCredentials';
+import { CodeServerCredentialStatus } from './CodeServerCredentialStatus';
 
 function RewardBadge({ reward, color }: { reward: any; color: string }) {
   const text = (() => {
@@ -56,13 +69,20 @@ function RewardBadge({ reward, color }: { reward: any; color: string }) {
   );
 }
 
-function resolveGuideConnectionContent(content: string, connection: { serverUrl: string; apiKey: string; requiresApiKey: boolean }) {
-  const apiKey = connection.apiKey || (connection.requiresApiKey ? 'API_KEY_NOT_AVAILABLE' : '本機模式不需要');
+function resolveGuideConnectionContent(
+  content: string,
+  connection: { serverUrl: string; apiKey: string; requiresApiKey: boolean },
+) {
+  const apiKey = connection.apiKey || '本機模式不需要';
   return content
-    .split('<貼上 API key>').join(apiKey)
-    .split('<貼上 Server URL>').join(connection.serverUrl)
-    .split('<paste API key>').join(apiKey)
-    .split('<paste Server URL>').join(connection.serverUrl);
+    .split('<貼上 API key>')
+    .join(apiKey)
+    .split('<貼上 Server URL>')
+    .join(connection.serverUrl)
+    .split('<paste API key>')
+    .join(apiKey)
+    .split('<paste Server URL>')
+    .join(connection.serverUrl);
 }
 
 export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () => void }) {
@@ -70,6 +90,7 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
   const [claiming, setClaiming] = useState(false);
   const [claimed, setClaimed] = useState(false);
   const [msg, setMsg] = useState('');
+  const isSetupQuest = quest.id === 'q_setup';
 
   const t = useT();
   const openWikiPreview = useGameStore(s => s.openWikiPreview);
@@ -78,12 +99,13 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
   const workerClasses = useGameStore(s => s.workerClasses);
   const translatedGuide = getTranslatedGuide(lang, quest.id);
   const guide = translatedGuide || quest.guide || [];
-  const codeServerCredentials = useCodeServerCredentials(true);
+  const codeServerCredentials = useCodeServerCredentials(isSetupQuest);
   const connection = {
     serverUrl: codeServerCredentials.serverUrl.trim(),
     apiKey: codeServerCredentials.apiKey.trim(),
     requiresApiKey: codeServerCredentials.requiresApiKey,
   };
+  const credentialsReady = !connection.requiresApiKey || Boolean(connection.apiKey);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Reset scroll on page change
@@ -94,7 +116,6 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
   const isLastPage = page === totalPages - 1;
   const isFirstPage = page === 0;
   const color = CHAPTER_COLORS[quest.chapter] || '#9ca3af';
-  const isSetupQuest = quest.id === 'q_setup';
   // Match the live connection semantics used by the Connect panel and tutorial gate.
   const codeServerUp = codeServerConnected || workerClasses.length > 0;
 
@@ -257,14 +278,27 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
             data-code-server-status={codeServerUp ? 'connected' : 'waiting'}
             role="status"
             style={{
-              padding: '8px 20px', borderBottom: '1px solid var(--border)',
+              padding: '8px 20px',
+              borderBottom: '1px solid var(--border)',
               background: codeServerUp ? 'rgba(74, 222, 128, 0.08)' : 'var(--bg-secondary)',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-              fontSize: 10, fontFamily: 'var(--font-mono)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 10,
+              fontSize: 10,
+              fontFamily: 'var(--font-mono)',
             }}
           >
             <span style={{ color: 'var(--text-secondary)' }}>{t('quest.q_setup.connection_status')}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: codeServerUp ? 'var(--success)' : 'var(--text-muted)', fontWeight: 700 }}>
+            <span
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                color: codeServerUp ? 'var(--success)' : 'var(--text-muted)',
+                fontWeight: 700,
+              }}
+            >
               <Circle size={8} fill="currentColor" aria-hidden="true" />
               {t(codeServerUp ? 'quest.q_setup.connection_connected' : 'quest.q_setup.connection_waiting')}
             </span>
@@ -431,8 +465,18 @@ export function QuestGuideDialog({ quest, onClose }: { quest: any; onClose: () =
                 {guide[page].title}
               </div>
               <div style={{ fontSize: 13, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
-                <CodespaceSkeleton variant={guide[page].skeleton} connection={connection} />
-                <Markdown content={resolveGuideConnectionContent(guide[page].content, connection)} />
+                {isSetupQuest && connection.requiresApiKey && !credentialsReady ? (
+                  <CodeServerCredentialStatus
+                    loading={codeServerCredentials.loading}
+                    error={codeServerCredentials.error}
+                    retry={codeServerCredentials.retry}
+                  />
+                ) : (
+                  <>
+                    <CodespaceSkeleton variant={guide[page].skeleton} connection={connection} />
+                    <Markdown content={resolveGuideConnectionContent(guide[page].content, connection)} />
+                  </>
+                )}
               </div>
               {DEMO_SCRIPTS[`${quest.id}:${page}`] && (
                 <div style={{ marginTop: 16 }}>

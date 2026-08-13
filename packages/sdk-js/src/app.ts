@@ -8,20 +8,35 @@
 import { httpPost, httpGet } from './client.js';
 import { WorkerClass } from './base.js';
 import { spawnWorker, killWorker, listActive } from './daemon/spawner.js';
+import { randomUUID } from 'node:crypto';
 
 type WorkerClassConstructor = typeof WorkerClass & {
-  new (workerId: string, apiUrl: string, injectedFields: Record<string, unknown>): WorkerClass;
+  new (
+    workerId: string,
+    apiUrl: string,
+    injectedFields: Record<string, unknown>,
+    apiKey?: string,
+    generation?: number,
+    executionToken?: string,
+  ): WorkerClass;
 };
+
+export type NetCrawlOptions = { server?: string; apiKey?: string };
 
 export class NetCrawl {
   private server: string;
   private apiKey: string;
+  private _sessionId: string = randomUUID();
   private _classes: Map<string, WorkerClassConstructor> = new Map();
   private _classFiles: Map<string, string> = new Map();
 
-  constructor(server: string = 'http://localhost:4800', apiKey: string = '') {
-    this.server = server.replace(/\/+$/, '');
-    this.apiKey = apiKey;
+  constructor(options?: string | NetCrawlOptions, apiKey: string = '') {
+    const resolved =
+      typeof options === 'string'
+        ? { server: options, apiKey }
+        : { server: options?.server ?? 'http://localhost:4800', apiKey: options?.apiKey ?? '' };
+    this.server = resolved.server.replace(/\/+$/, '');
+    this.apiKey = resolved.apiKey;
   }
 
   /**
@@ -33,9 +48,7 @@ export class NetCrawl {
 
     if (this._classes.has(classId)) {
       const existing = this._classes.get(classId)!;
-      throw new Error(
-        `Duplicate classId '${classId}': ${cls.name} conflicts with ${existing.name}`
-      );
+      throw new Error(`Duplicate classId '${classId}': ${cls.name} conflicts with ${existing.name}`);
     }
 
     this._classes.set(classId, cls);
@@ -47,11 +60,11 @@ export class NetCrawl {
   }
 
   private async _post(path: string, data: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return httpPost(`${this.server}${path}`, data);
+    return httpPost(`${this.server}${path}`, data, 10000, this.apiKey);
   }
 
   private async _get(path: string): Promise<Record<string, unknown>> {
-    return httpGet(`${this.server}${path}`);
+    return httpGet(`${this.server}${path}`, 10000, this.apiKey);
   }
 
   private async _registerAll(): Promise<void> {
@@ -63,8 +76,14 @@ export class NetCrawl {
       classes.push(schema);
     }
 
-    const result = await this._post('/api/worker-classes/register', { classes });
+    const result = await this._post('/api/runtime/register', {
+      protocolVersion: 2,
+      sessionId: this._sessionId,
+      classes,
+      activeExecutions: listActive(),
+    });
     if (result['ok']) {
+      this._sessionId = (result['sessionId'] as string) ?? this._sessionId;
       console.log(`[NetCrawl] Registered ${result['registered'] ?? 0} worker classes`);
     } else {
       console.log(`[NetCrawl] Registration failed: ${result['error']}`);
@@ -73,8 +92,8 @@ export class NetCrawl {
 
   private async _pollDeployQueue(): Promise<void> {
     try {
-      const result = await this._get('/api/deploy-queue');
-      const requests = (result['requests'] as Record<string, unknown>[]) ?? [];
+      const result = await this._get(`/api/runtime/commands?sessionId=${encodeURIComponent(this._sessionId)}`);
+      const requests = (result['commands'] as Record<string, unknown>[]) ?? [];
       for (const req of requests) {
         await this._handleDeploy(req);
       }
@@ -88,12 +107,21 @@ export class NetCrawl {
     const classId = deployReq['classId'] as string;
     const nodeId = deployReq['nodeId'] as string;
     const injectedFields = (deployReq['injectedFields'] as Record<string, unknown>) ?? {};
+    const commandId = deployReq['id'] as string;
+    const generation = deployReq['generation'] as number;
+    const executionToken = deployReq['executionToken'] as string;
+    const ack = (result: Record<string, unknown>) =>
+      this._post(`/api/runtime/commands/${commandId}/ack`, {
+        sessionId: this._sessionId,
+        workerId,
+        generation,
+        ...result,
+      });
 
     const cls = this._classes.get(classId);
     if (!cls) {
       console.log(`[NetCrawl] Unknown classId: ${classId}`);
-      await this._post('/api/deploy-ack', {
-        workerId,
+      await ack({
         error: `Unknown worker classId: ${classId}`,
       });
       return;
@@ -110,13 +138,15 @@ export class NetCrawl {
         cls.name,
         this.server,
         injectedFields,
+        this.apiKey,
+        generation,
+        executionToken,
       );
       console.log(`[NetCrawl] Spawned ${className} -- PID ${pid}`);
-      await this._post('/api/deploy-ack', { workerId, pid });
+      await ack({ pid });
     } catch (e: unknown) {
       console.log(`[NetCrawl] Spawn failed: ${e}`);
-      await this._post('/api/deploy-ack', {
-        workerId,
+      await ack({
         error: String(e),
       });
     }
@@ -170,17 +200,27 @@ export class NetCrawl {
 
     let registerCounter = 0;
 
-    const shutdown = () => {
+    const shutdown = async () => {
       console.log('\n[NetCrawl] Shutting down...');
       for (const u of listActive()) {
         killWorker(u.workerId);
+      }
+      try {
+        await this._post('/api/runtime/disconnect', { sessionId: this._sessionId });
+        await this._post('/api/code-server/disconnect', {});
+      } catch {
+        // Server may already be unavailable.
       }
       console.log('[NetCrawl] All workers stopped. Goodbye!');
       process.exit(0);
     };
 
-    process.on('SIGINT', shutdown);
-    process.on('SIGTERM', shutdown);
+    process.on('SIGINT', () => {
+      void shutdown();
+    });
+    process.on('SIGTERM', () => {
+      void shutdown();
+    });
 
     while (true) {
       await this._pollDeployQueue();

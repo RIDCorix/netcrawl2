@@ -7,6 +7,8 @@ type CredentialState = {
   error: 'session_expired' | 'unavailable' | null;
 };
 
+export type CodeServerCredentialError = CredentialState['error'];
+
 const isCloud = Boolean(import.meta.env.VITE_API_URL);
 let cachedApiKey = '';
 let pendingApiKey: Promise<string> | null = null;
@@ -33,7 +35,8 @@ async function loadApiKey(): Promise<string> {
 /** Shared, in-memory connection credentials for Connect and the setup guide. */
 export function useCodeServerCredentials(
   enabled = true,
-): CredentialState & { serverUrl: string; requiresApiKey: boolean } {
+): CredentialState & { serverUrl: string; requiresApiKey: boolean; retry: () => void } {
+  const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<CredentialState>({
     apiKey: isCloud ? cachedApiKey : '',
     loading: isCloud && !cachedApiKey,
@@ -57,7 +60,13 @@ export function useCodeServerCredentials(
     return () => {
       active = false;
     };
-  }, [enabled]);
+  }, [enabled, attempt]);
 
-  return { ...state, serverUrl: SERVER_URL, requiresApiKey: isCloud };
+  const retry = () => {
+    cachedApiKey = '';
+    pendingApiKey = null;
+    setAttempt(value => value + 1);
+  };
+
+  return { ...state, serverUrl: SERVER_URL, requiresApiKey: isCloud, retry };
 }

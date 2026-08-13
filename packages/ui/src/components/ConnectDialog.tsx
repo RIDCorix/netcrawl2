@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useT } from '../hooks/useT';
 import { useCodeServerCredentials } from '../hooks/useCodeServerCredentials';
+import { CodeServerCredentialStatus } from './CodeServerCredentialStatus';
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -19,13 +20,26 @@ function CopyButton({ text }: { text: string }) {
       whileTap={{ scale: 0.9 }}
       onClick={handleCopy}
       style={{
-        background: 'none', border: 'none', cursor: 'pointer',
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
         color: copied ? 'var(--success)' : 'var(--text-muted)',
-        padding: '4px 6px', display: 'flex', alignItems: 'center', gap: 4,
-        fontSize: 10, fontFamily: 'var(--font-mono)', flexShrink: 0,
+        padding: '4px 6px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 4,
+        fontSize: 10,
+        fontFamily: 'var(--font-mono)',
+        flexShrink: 0,
       }}
     >
-      {copied ? <><Check size={12} /> Copied</> : <Copy size={12} />}
+      {copied ? (
+        <>
+          <Check size={12} /> Copied
+        </>
+      ) : (
+        <Copy size={12} />
+      )}
     </motion.button>
   );
 }
@@ -33,16 +47,33 @@ function CopyButton({ text }: { text: string }) {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ marginBottom: 10 }}>
-      <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginBottom: 4, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+      <div
+        style={{
+          fontSize: 9,
+          fontFamily: 'var(--font-mono)',
+          color: 'var(--text-muted)',
+          marginBottom: 4,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+        }}
+      >
         {label}
       </div>
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background: 'var(--bg-base)', border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-sm)', padding: '6px 10px',
-        fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--accent)',
-        overflow: 'hidden',
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          background: 'var(--bg-base)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-sm)',
+          padding: '6px 10px',
+          fontFamily: 'var(--font-mono)',
+          fontSize: 11,
+          color: 'var(--accent)',
+          overflow: 'hidden',
+        }}
+      >
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
         <CopyButton text={value} />
       </div>
@@ -54,16 +85,33 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 function SyntaxBlock({ lang, code, copyText }: { lang: string; code: React.ReactNode; copyText: string }) {
   return (
     <div style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginBottom: 4, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+      <div
+        style={{
+          fontSize: 9,
+          fontFamily: 'var(--font-mono)',
+          color: 'var(--text-muted)',
+          marginBottom: 4,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+        }}
+      >
         {lang}
       </div>
-      <div style={{
-        display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-        background: '#0d1117', border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-sm)', padding: '10px 12px',
-        fontFamily: 'var(--font-mono)', fontSize: 11, lineHeight: 1.6,
-        overflow: 'auto',
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          background: '#0d1117',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-sm)',
+          padding: '10px 12px',
+          fontFamily: 'var(--font-mono)',
+          fontSize: 11,
+          lineHeight: 1.6,
+          overflow: 'auto',
+        }}
+      >
         <pre style={{ margin: 0, flex: 1, whiteSpace: 'pre' }}>{code}</pre>
         <CopyButton text={copyText} />
       </div>
@@ -80,7 +128,14 @@ export function ConnectDialog() {
   // Derived from WS-pushed state — no polling.
   const codeServerConnected = storeCodeServerConnected || workerClasses.length > 0;
 
-  const { serverUrl, apiKey, requiresApiKey: isCloud, loading: credentialLoading, error: credentialError } = useCodeServerCredentials(connectOpen);
+  const {
+    serverUrl,
+    apiKey,
+    requiresApiKey: isCloud,
+    loading: credentialLoading,
+    error: credentialError,
+    retry: retryCredential,
+  } = useCodeServerCredentials(connectOpen);
   const credentialsReady = !isCloud || Boolean(apiKey);
 
   const pythonCopy = isCloud
@@ -95,11 +150,18 @@ export function ConnectDialog() {
     <AnimatePresence>
       {connectOpen && (
         <motion.div
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
           style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
-            backdropFilter: 'blur(6px)', zIndex: 150,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 150,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
           onClick={toggleConnect}
         >
@@ -108,29 +170,56 @@ export function ConnectDialog() {
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
             style={{
-              width: 640, maxWidth: 'calc(100vw - 40px)',
+              width: 640,
+              maxWidth: 'calc(100vw - 40px)',
               maxHeight: 'calc(100vh - 80px)',
               background: 'var(--bg-glass-heavy)',
               border: '1px solid var(--border-bright)',
               borderRadius: 'var(--radius-lg)',
-              display: 'flex', flexDirection: 'column',
+              display: 'flex',
+              flexDirection: 'column',
               overflow: 'hidden',
             }}
           >
             {/* Header */}
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '14px 18px', borderBottom: '1px solid var(--border)', flexShrink: 0,
-            }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '14px 18px',
+                borderBottom: '1px solid var(--border)',
+                flexShrink: 0,
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Terminal size={14} style={{ color: 'var(--accent)' }} />
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.05em' }}>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: 'var(--text-primary)',
+                    letterSpacing: '0.05em',
+                  }}
+                >
                   {t('connect.title')}
                 </span>
               </div>
-              <motion.button whileTap={{ scale: 0.9 }} onClick={toggleConnect} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex' }}>
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={toggleConnect}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: 4,
+                  display: 'flex',
+                }}
+              >
                 <X size={16} />
               </motion.button>
             </div>
@@ -138,29 +227,46 @@ export function ConnectDialog() {
             {/* Scrollable content */}
             <div style={{ padding: '16px 18px', overflowY: 'auto', flex: 1 }}>
               {/* Status */}
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14,
-                fontSize: 11, fontFamily: 'var(--font-mono)',
-                color: codeServerConnected ? 'var(--success)' : 'var(--text-muted)',
-              }}>
-                {codeServerConnected ? <Globe size={12} /> : <Loader size={12} style={{ animation: 'spin 1.5s linear infinite' }} />}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  marginBottom: 14,
+                  fontSize: 11,
+                  fontFamily: 'var(--font-mono)',
+                  color: codeServerConnected ? 'var(--success)' : 'var(--text-muted)',
+                }}
+              >
+                {codeServerConnected ? (
+                  <Globe size={12} />
+                ) : (
+                  <Loader size={12} style={{ animation: 'spin 1.5s linear infinite' }} />
+                )}
                 <span>{codeServerConnected ? 'Code server connected' : 'Waiting for code server...'}</span>
               </div>
 
-              <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 14, margin: '0 0 14px' }}>
+              <p
+                style={{
+                  fontSize: 12,
+                  color: 'var(--text-secondary)',
+                  lineHeight: 1.5,
+                  marginBottom: 14,
+                  margin: '0 0 14px',
+                }}
+              >
                 {t('connect.description')}
               </p>
 
               {/* Connection info */}
               <InfoRow label={t('connect.server_url')} value={serverUrl} />
               {isCloud && apiKey && <InfoRow label="API KEY" value={apiKey} />}
-              {isCloud && credentialLoading && (
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 12px' }}>{t('connect.credential_loading')}</p>
-              )}
-              {isCloud && credentialError && (
-                <p style={{ fontSize: 11, color: 'var(--danger)', margin: '0 0 12px' }}>
-                  {t(credentialError === 'session_expired' ? 'connect.session_expired' : 'connect.credential_unavailable')}
-                </p>
+              {isCloud && (
+                <CodeServerCredentialStatus
+                  loading={credentialLoading}
+                  error={credentialError}
+                  retry={retryCredential}
+                />
               )}
 
               <div style={{ borderTop: '1px solid var(--border)', margin: '14px 0' }} />

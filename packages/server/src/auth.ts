@@ -116,28 +116,32 @@ export function getUserById(id: string): User | null {
 // ── JWT ─────────────────────────────────────────────────────────────────────
 
 export function generateToken(user: User): string {
-  return jwt.sign(
-    { userId: user.id, email: user.email },
-    JWT_SECRET,
-    { expiresIn: TOKEN_EXPIRY }
-  );
+  return jwt.sign({ userId: user.id, email: user.email, purpose: 'browser' }, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
 }
 
 /** Issue a credential for the external Code Server, separate from browser login. */
 export function generateCodeServerToken(user: User): { token: string; expiresAt: string } {
   const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
-  const token = jwt.sign(
-    { userId: user.id, email: user.email, purpose: 'code-server' },
-    JWT_SECRET,
-    { expiresIn: CODE_SERVER_TOKEN_EXPIRY }
-  );
+  const token = jwt.sign({ userId: user.id, email: user.email, purpose: 'code-server' }, JWT_SECRET, {
+    expiresIn: CODE_SERVER_TOKEN_EXPIRY,
+  });
   return { token, expiresAt: expiresAt.toISOString() };
 }
 
-export function verifyToken(token: string): { userId: string; email: string } | null {
+export type TokenPurpose = 'browser' | 'code-server';
+
+export function verifyToken(
+  token: string,
+  allowedPurposes: readonly TokenPurpose[] = ['browser'],
+): { userId: string; email: string; purpose: TokenPurpose } | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; email: string };
-    return { userId: decoded.userId, email: decoded.email };
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; email: string; purpose?: string };
+    // Tokens issued before purpose was introduced are browser sessions. This
+    // keeps existing sessions valid while preventing code-server credentials
+    // from crossing into browser-only routes.
+    const purpose: TokenPurpose = decoded.purpose === undefined ? 'browser' : (decoded.purpose as TokenPurpose);
+    if (!allowedPurposes.includes(purpose)) return null;
+    return { userId: decoded.userId, email: decoded.email, purpose };
   } catch {
     return null;
   }
@@ -146,26 +150,34 @@ export function verifyToken(token: string): { userId: string; email: string } | 
 // ── Express middleware ───────────────────────────────────────────────────────
 
 export interface AuthenticatedRequest extends Request {
-  user?: { userId: string; email: string };
+  user?: { userId: string; email: string; purpose: TokenPurpose };
 }
 
-export function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    res.status(401).json({ error: 'Missing or invalid Authorization header' });
-    return;
-  }
+export function authMiddlewareForPurposes(allowedPurposes: readonly TokenPurpose[]) {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.status(401).json({ error: 'Missing or invalid Authorization header' });
+      return;
+    }
 
-  const token = authHeader.slice(7);
-  const payload = verifyToken(token);
-  if (!payload) {
-    res.status(401).json({ error: 'Invalid or expired token' });
-    return;
-  }
+    const token = authHeader.slice(7);
+    const payload = verifyToken(token, allowedPurposes);
+    if (!payload) {
+      res.status(401).json({ error: 'Invalid or expired token' });
+      return;
+    }
 
-  req.user = payload;
-  next();
+    req.user = payload;
+    next();
+  };
 }
+
+/** Browser sessions are the default authorization boundary. */
+export const authMiddleware = authMiddlewareForPurposes(['browser']);
+
+/** Runtime endpoints accept both dedicated credentials and legacy browser sessions. */
+export const runtimeAuthMiddleware = authMiddlewareForPurposes(['browser', 'code-server']);
 
 /** Strip sensitive fields before sending user to client */
 export function sanitizeUser(user: User): Omit<User, 'passwordHash'> {

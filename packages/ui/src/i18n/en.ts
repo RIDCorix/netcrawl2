@@ -31,6 +31,8 @@ export const en: Record<string, string> = {
   'connect.credential_loading': 'Preparing a dedicated Code Server key…',
   'connect.session_expired': 'Your login session expired. Reload and sign in again to get a fresh Code Server key.',
   'connect.credential_unavailable': 'Could not prepare a Code Server key. Close this panel and try again.',
+  'connect.retry': 'Retry',
+  'connect.sign_in_again': 'Reload and sign in',
   'hud.level': 'Level {level}',
   'hud.reset': 'Reset Game',
   'hud.reset.confirm': 'Reset all progress? This cannot be undone.',

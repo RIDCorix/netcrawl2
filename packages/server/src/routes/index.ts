@@ -4,7 +4,7 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { setCurrentUser } from '../store.js';
-import { authMiddleware, AuthenticatedRequest } from '../auth.js';
+import { authMiddleware, runtimeAuthMiddleware, AuthenticatedRequest } from '../auth.js';
 import { authRouter } from '../authRoutes.js';
 import { handleWorkerAction } from '../actions/index.js';
 
@@ -28,7 +28,12 @@ router.use('/auth', authRouter);
 // Multi-user auth middleware
 if (process.env.NETCRAWL_MULTI_USER === 'true') {
   router.use((req: Request, res: Response, next: NextFunction) => {
-    authMiddleware(req as AuthenticatedRequest, res, () => {
+    const runtimeCredentialPaths = ['/runtime/', '/worker/action', '/worker/reset', '/code-server/disconnect'];
+    const acceptsRuntimeCredential = runtimeCredentialPaths.some(path =>
+      path.endsWith('/') ? req.path.startsWith(path) : req.path === path,
+    );
+    const middleware = acceptsRuntimeCredential ? runtimeAuthMiddleware : authMiddleware;
+    middleware(req as AuthenticatedRequest, res, () => {
       const authReq = req as AuthenticatedRequest;
       if (authReq.user) {
         setCurrentUser(authReq.user.userId);
@@ -58,6 +63,10 @@ router.post('/worker/action', async (req: Request, res: Response) => {
   if (!workerId || !action) {
     return res.status(400).json({ error: 'workerId and action required' });
   }
-  const result = await handleWorkerAction(workerId, action, payload || {}, uid, { generation, executionToken, actionId });
+  const result = await handleWorkerAction(workerId, action, payload || {}, uid, {
+    generation,
+    executionToken,
+    actionId,
+  });
   res.json(result);
 });

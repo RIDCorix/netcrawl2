@@ -39,6 +39,8 @@ export const zhTW: Record<string, string> = {
   'connect.credential_loading': '正在準備專用的 Code Server 金鑰…',
   'connect.session_expired': '登入工作階段已過期。請重新整理並再次登入，以取得新的 Code Server 金鑰。',
   'connect.credential_unavailable': '目前無法準備 Code Server 金鑰。請關閉此面板後再試一次。',
+  'connect.retry': '重試',
+  'connect.sign_in_again': '重新整理並登入',
   'hud.level': 'Lv.{level}',
   'hud.reset': '重置遊戲',
   'hud.reset.confirm': '確定重置所有進度？此操作無法復原。',

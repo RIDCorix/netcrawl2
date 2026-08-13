@@ -37,8 +37,11 @@ export const ja: Record<string, string> = {
   'connect.description': 'SDKをこのサーバーに接続してワーカーをデプロイします。',
   'connect.copied': 'コピーしました！',
   'connect.credential_loading': 'Code Server専用キーを準備しています…',
-  'connect.session_expired': 'ログインセッションの有効期限が切れました。再読み込みしてログインし直し、新しいCode Serverキーを取得してください。',
+  'connect.session_expired':
+    'ログインセッションの有効期限が切れました。再読み込みしてログインし直し、新しいCode Serverキーを取得してください。',
   'connect.credential_unavailable': 'Code Serverキーを準備できませんでした。このパネルを閉じて再試行してください。',
+  'connect.retry': '再試行',
+  'connect.sign_in_again': '再読み込みしてログイン',
   'hud.level': 'Lv.{level}',
   'hud.reset': 'ゲームリセット',
   'hud.reset.confirm': 'すべての進捗をリセットしますか？この操作は取り消せません。',

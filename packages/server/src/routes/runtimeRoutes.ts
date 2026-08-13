@@ -6,8 +6,19 @@ import { getWorkers, getWorker, upsertWorker, releaseWorkerFlop } from '../domai
 import { FLOP_COSTS } from '../types.js';
 import { getUserId } from './helpers.js';
 import { returnWorkerItems } from './helpers.js';
-import { claimCodeServerLease, isValidCodeServerLease, renewCodeServerLease, releaseCodeServerLease } from '../codeServerTracker.js';
-import { leaseDeployQueue, acknowledgeDeployCommand, enqueueWorkerExecution, registerWorkerClass, type WorkerClassEntry } from '../workerRegistry.js';
+import {
+  claimCodeServerLease,
+  isValidCodeServerLease,
+  renewCodeServerLease,
+  releaseCodeServerLease,
+} from '../codeServerTracker.js';
+import {
+  leaseDeployQueue,
+  acknowledgeDeployCommand,
+  enqueueWorkerExecution,
+  registerWorkerClass,
+  type WorkerClassEntry,
+} from '../workerRegistry.js';
 
 export const runtimeRoutes = Router();
 
@@ -20,7 +31,7 @@ runtimeRoutes.post('/runtime/register', (req: Request, res: Response) => {
 
   if (Array.isArray(classes)) {
     for (const entry of classes as WorkerClassEntry[]) {
-      if (entry?.class_id) registerWorkerClass({ ...entry, language: 'python' }, uid);
+      if (entry?.class_id) registerWorkerClass({ ...entry, language: entry.language || 'python' }, uid);
     }
   }
 
@@ -47,14 +58,28 @@ runtimeRoutes.post('/runtime/commands/:commandId/ack', (req: Request, res: Respo
   const { sessionId, generation, workerId, pid, error } = req.body || {};
   if (!isValidCodeServerLease(sessionId, uid)) return res.status(409).json({ ok: false, reason: 'stale_execution' });
   const worker = getWorker(workerId, uid);
-  if (!worker || worker.generation !== Number(generation)) return res.status(409).json({ ok: false, reason: 'stale_execution' });
+  if (!worker || worker.generation !== Number(generation))
+    return res.status(409).json({ ok: false, reason: 'stale_execution' });
   const decision = acknowledgeDeployCommand(String(req.params.commandId), sessionId, Number(generation), uid);
   if (decision === 'stale') return res.status(409).json({ ok: false, reason: 'stale_execution' });
   if (decision === 'duplicate') return res.json({ ok: true, duplicate: true });
   if (error) {
     returnWorkerItems(worker, uid);
     releaseWorkerFlop(worker.id, FLOP_COSTS.worker, uid);
-    upsertWorker({ ...worker, status: 'crashed', desiredState: 'suspended', pid: null, equippedPickaxe: null, equippedCpu: null, equippedRam: null, holding: [], flopAllocated: false }, uid);
+    upsertWorker(
+      {
+        ...worker,
+        status: 'crashed',
+        desiredState: 'suspended',
+        pid: null,
+        equippedPickaxe: null,
+        equippedCpu: null,
+        equippedRam: null,
+        holding: [],
+        flopAllocated: false,
+      },
+      uid,
+    );
   } else {
     upsertWorker({ ...worker, status: 'running', pid: pid || null, desiredState: 'running' }, uid);
   }

@@ -5,13 +5,27 @@
  * Uses Node.js built-in fetch (Node 18+) for zero dependencies.
  */
 
-export async function httpPost(url: string, data: Record<string, unknown>, timeout: number | null = 10000): Promise<Record<string, unknown>> {
+import crypto from 'node:crypto';
+
+function headers(apiKey: string, json = false): Record<string, string> {
+  return {
+    ...(json ? { 'Content-Type': 'application/json' } : {}),
+    ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+  };
+}
+
+export async function httpPost(
+  url: string,
+  data: Record<string, unknown>,
+  timeout: number | null = 10000,
+  apiKey: string = '',
+): Promise<Record<string, unknown>> {
   const controller = new AbortController();
   const timer = timeout === null ? undefined : setTimeout(() => controller.abort(), timeout);
   try {
     const resp = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headers(apiKey, true),
       body: JSON.stringify(data),
       signal: controller.signal,
     });
@@ -28,12 +42,17 @@ export async function httpPost(url: string, data: Record<string, unknown>, timeo
   }
 }
 
-export async function httpGet(url: string, timeout: number = 10000): Promise<Record<string, unknown>> {
+export async function httpGet(
+  url: string,
+  timeout: number = 10000,
+  apiKey: string = '',
+): Promise<Record<string, unknown>> {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);
     const resp = await fetch(url, {
       method: 'GET',
+      headers: headers(apiKey),
       signal: controller.signal,
     });
     clearTimeout(timer);
@@ -57,18 +76,36 @@ export async function httpGet(url: string, timeout: number = 10000): Promise<Rec
  */
 export class ApiClient {
   private apiUrl: string;
+  private apiKey: string;
+  private generation?: number;
+  private executionToken: string;
   readonly workerId: string;
 
-  constructor(apiUrl: string, workerId: string) {
+  constructor(apiUrl: string, workerId: string, apiKey: string = '', generation?: number, executionToken: string = '') {
     this.apiUrl = apiUrl.replace(/\/+$/, '');
     this.workerId = workerId;
+    this.apiKey = apiKey;
+    this.generation = generation;
+    this.executionToken = executionToken;
   }
 
   async action(action: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return httpPost(`${this.apiUrl}/api/worker/action`, {
-      workerId: this.workerId,
-      action,
-      payload,
-    }, null);
+    return httpPost(
+      `${this.apiUrl}/api/worker/action`,
+      {
+        workerId: this.workerId,
+        action,
+        payload,
+        ...(this.generation === undefined
+          ? {}
+          : {
+              generation: this.generation,
+              executionToken: this.executionToken,
+              actionId: crypto.randomUUID(),
+            }),
+      },
+      null,
+      this.apiKey,
+    );
   }
 }

@@ -18,6 +18,29 @@ interface ActiveProcess {
 
 const _activeProcesses: Map<string, ActiveProcess> = new Map();
 
+export function buildWorkerEnvironment(
+  workerId: string,
+  scriptPath: string,
+  className: string,
+  apiUrl: string,
+  injectedFields: Record<string, unknown>,
+  apiKey: string,
+  generation: number,
+  executionToken: string,
+): Record<string, string> {
+  return {
+    ...(process.env as Record<string, string>),
+    NETCRAWL_WORKER_ID: workerId,
+    NETCRAWL_API_URL: apiUrl,
+    NETCRAWL_SCRIPT_PATH: scriptPath,
+    NETCRAWL_CLASS_NAME: className,
+    NETCRAWL_INJECTED: JSON.stringify(injectedFields),
+    NETCRAWL_API_KEY: apiKey,
+    NETCRAWL_GENERATION: String(generation),
+    NETCRAWL_EXECUTION_TOKEN: executionToken,
+  };
+}
+
 /**
  * Spawn a Node.js worker subprocess.
  * Returns the PID.
@@ -28,17 +51,22 @@ export function spawnWorker(
   className: string,
   apiUrl: string,
   injectedFields: Record<string, unknown>,
+  apiKey: string = '',
+  generation: number = 0,
+  executionToken: string = '',
 ): number {
   const runnerPath = path.resolve(__dirname, '..', 'runner.js');
 
-  const env: Record<string, string> = {
-    ...process.env as Record<string, string>,
-    NETCRAWL_WORKER_ID: workerId,
-    NETCRAWL_API_URL: apiUrl,
-    NETCRAWL_SCRIPT_PATH: scriptPath,
-    NETCRAWL_CLASS_NAME: className,
-    NETCRAWL_INJECTED: JSON.stringify(injectedFields),
-  };
+  const env = buildWorkerEnvironment(
+    workerId,
+    scriptPath,
+    className,
+    apiUrl,
+    injectedFields,
+    apiKey,
+    generation,
+    executionToken,
+  );
 
   const child = fork(runnerPath, [], {
     env,
