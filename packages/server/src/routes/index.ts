@@ -22,21 +22,22 @@ import { getUserId } from './helpers.js';
 
 export const router: Router = Router();
 
+export const runtimeCredentialPaths = [
+  '/runtime/',
+  '/worker/action',
+  '/worker/reset',
+  '/worker-classes/register',
+  '/deploy-queue',
+  '/deploy-ack',
+  '/code-server/disconnect',
+] as const;
+
 // Auth routes (always public)
 router.use('/auth', authRouter);
 
 // Multi-user auth middleware
 if (process.env.NETCRAWL_MULTI_USER === 'true') {
   router.use((req: Request, res: Response, next: NextFunction) => {
-    const runtimeCredentialPaths = [
-      '/runtime/',
-      '/worker/action',
-      '/worker/reset',
-      '/worker-classes/register',
-      '/deploy-queue',
-      '/deploy-ack',
-      '/code-server/disconnect',
-    ];
     const acceptsRuntimeCredential = runtimeCredentialPaths.some(path =>
       path.endsWith('/') ? req.path.startsWith(path) : req.path === path,
     );

@@ -647,9 +647,9 @@ try {
   const wrongSessionDisconnect = await request('/api/runtime/disconnect', codeServerCredential.body.token, {
     sessionId: 'wrong-runtime-session',
   });
-  assert.equal(wrongSessionDisconnect.status, 200);
-  assert.equal(wrongSessionDisconnect.body.ok, true);
-  assert.equal(wrongSessionDisconnect.body.released, false);
+  assert.equal(wrongSessionDisconnect.status, 409);
+  assert.equal(wrongSessionDisconnect.body.ok, false);
+  assert.equal(wrongSessionDisconnect.body.reason, 'stale_execution');
   assert.deepEqual(runtimeSnapshot(userA), beforeWrongSessionDisconnect);
 
   const realDateNow = Date.now;
@@ -660,9 +660,9 @@ try {
     const expiredSessionDisconnect = await request('/api/runtime/disconnect', codeServerCredential.body.token, {
       sessionId: runtimeSession,
     });
-    assert.equal(expiredSessionDisconnect.status, 200);
-    assert.equal(expiredSessionDisconnect.body.ok, true);
-    assert.equal(expiredSessionDisconnect.body.released, false);
+    assert.equal(expiredSessionDisconnect.status, 409);
+    assert.equal(expiredSessionDisconnect.body.ok, false);
+    assert.equal(expiredSessionDisconnect.body.reason, 'stale_execution');
     assert.deepEqual(runtimeSnapshot(userA), beforeExpiredSessionDisconnect);
   } finally {
     Date.now = realDateNow;

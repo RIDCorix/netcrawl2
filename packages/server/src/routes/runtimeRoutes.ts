@@ -90,11 +90,11 @@ runtimeRoutes.post('/runtime/commands/:commandId/ack', (req: Request, res: Respo
 runtimeRoutes.post('/runtime/disconnect', (req: Request, res: Response) => {
   const uid = getUserId(req);
   const released = releaseCodeServerLease(req.body?.sessionId, uid);
-  if (released) {
-    // SDK 1.2.3 shuts down through this leased endpoint. Reconcile only for a
-    // matching session whose lease has not expired.
-    resetAllWorkers(uid);
-    broadcastFullState(uid);
-  }
-  res.json({ ok: true, released });
+  if (!released) return res.status(409).json({ ok: false, reason: 'stale_execution' });
+
+  // SDK 1.2.3 shuts down through this leased endpoint. Reconcile only for a
+  // matching session whose lease has not expired.
+  resetAllWorkers(uid);
+  broadcastFullState(uid);
+  res.json({ ok: true, released: true });
 });
