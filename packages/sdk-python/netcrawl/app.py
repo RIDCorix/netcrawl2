@@ -9,11 +9,19 @@ import os
 import time
 import importlib.util
 import uuid
+from dataclasses import dataclass
 from typing import Type
 
 from netcrawl.base import WorkerClass
 from netcrawl.client import http_post, http_get
 from netcrawl.daemon.spawner import spawn_worker, kill_worker, list_active
+
+
+@dataclass(frozen=True)
+class WorkerExecution:
+    class_id: str
+    generation: int
+    execution_token: str
 
 
 class NetCrawl:
@@ -33,7 +41,7 @@ class NetCrawl:
         self._classes: dict[str, Type[WorkerClass]] = {}
         self._class_files: dict[str, str] = {}
         self._file_mtimes: dict[str, float] = {}
-        self._worker_class_map: dict[str, str] = {}  # worker_id -> class_id
+        self._worker_executions: dict[str, WorkerExecution] = {}
         self._session_id = str(uuid.uuid4())
 
     def register(self, cls: Type[WorkerClass]) -> None:
@@ -110,7 +118,6 @@ class NetCrawl:
             return
 
         script_path = self._class_files.get(class_id, "")
-        self._worker_class_map[worker_id] = class_id
         print(f"[NetCrawl] Spawning {cls.class_name} (id={class_id}, worker={worker_id}) on node {node_id}")
 
         try:
@@ -126,6 +133,7 @@ class NetCrawl:
                 execution_token=execution_token,
                 initial_holding=deploy_req.get("initialHolding", []),
             )
+            self._worker_executions[worker_id] = WorkerExecution(class_id, generation, execution_token)
             print(f"[NetCrawl] Spawned {cls.class_name} — PID {pid}")
             ack(pid=pid)
         except Exception as e:
@@ -185,35 +193,46 @@ class NetCrawl:
         # Re-register all classes with the server
         self._register_all()
 
-        # Kill workers using this class — they will be auto-resumed via deploy queue
+        # Fence the authoritative execution before killing the local process.
+        # A rejected reset must remain visible and must not discard the fence
+        # needed for a later retry.
         workers_to_reset = [
-            wid for wid, cid in self._worker_class_map.items()
-            if cid == class_id
+            (worker_id, execution)
+            for worker_id, execution in self._worker_executions.items()
+            if execution.class_id == class_id
         ]
-        for worker_id in workers_to_reset:
+        reset_count = 0
+        for worker_id, execution in workers_to_reset:
+            result = self._post("/api/worker/reset", {
+                "workerId": worker_id,
+                "generation": execution.generation,
+                "executionToken": execution.execution_token,
+            })
+            if not result.get("ok"):
+                print(f"[NetCrawl] Hot reload reset rejected for {worker_id}: {result.get('reason') or result.get('error')}")
+                continue
             kill_worker(worker_id)
-            try:
-                self._post("/api/worker/reset", {"workerId": worker_id})
-            except Exception:
-                pass
-            del self._worker_class_map[worker_id]
+            del self._worker_executions[worker_id]
+            reset_count += 1
 
-        if workers_to_reset:
-            print(f"[NetCrawl] Hot reload: reset {len(workers_to_reset)} workers using {class_id}")
+        if reset_count:
+            print(f"[NetCrawl] Hot reload: reset {reset_count} workers using {class_id}")
 
     def _disconnect(self) -> None:
         """Notify the server that the code server is disconnecting."""
-        # Kill all local worker processes
+        # Release the current runtime lease before stopping local processes so
+        # the server reconciles only the active Code Server session.
+        try:
+            result = self._post("/api/runtime/disconnect", {"sessionId": self._session_id})
+            if result.get("ok") and result.get("released"):
+                print("[NetCrawl] Server notified — workers reset to suspended")
+            else:
+                print(f"[NetCrawl] Server disconnect rejected: {result.get('reason') or result.get('error') or 'stale_session'}")
+        except Exception as error:
+            print(f"[NetCrawl] Server disconnect failed: {error}")
+
         for entry in list_active():
             kill_worker(entry["worker_id"])
-
-        # Tell server to reset all workers to suspended
-        try:
-            self._post("/api/runtime/disconnect", {"sessionId": self._session_id})
-            self._post("/api/code-server/disconnect", {})
-            print("[NetCrawl] Server notified — workers reset to suspended")
-        except Exception:
-            pass  # Server may already be down
 
     def _wait_for_server(self, timeout: int = 30) -> bool:
         """Wait for the game server to be reachable."""

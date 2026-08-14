@@ -20,7 +20,6 @@ import { checkQuests } from '../quests.js';
 import { XP_REWARDS } from '../levelSystem.js';
 import { getUserId, returnWorkerItems } from './helpers.js';
 import { decideDeployAck, isPickaxeItemType, resolvePickaxeSelection } from '../deployEquipment.js';
-import type { AuthenticatedRequest } from '../auth.js';
 
 export const deployRoutes = Router();
 
@@ -189,10 +188,6 @@ deployRoutes.post('/deploy-ack', (req: Request, res: Response) => {
   const worker = getWorker(workerId, uid);
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
 
-  if ((req as AuthenticatedRequest).user?.purpose === 'code-server' && !commandId) {
-    return res.json({ ok: false, reason: 'stale_execution', error: 'Worker execution is no longer current' });
-  }
-
   if (commandId) {
     const commandAck = acknowledgeDeployCommand(commandId, sessionId, Number(generation), uid);
     if (commandAck === 'stale' || worker.generation !== Number(generation)) {
@@ -200,6 +195,9 @@ deployRoutes.post('/deploy-ack', (req: Request, res: Response) => {
     }
     if (commandAck === 'duplicate') return res.json({ ok: true, duplicate: true });
   } else {
+    // SDK 1.2.2 and older acknowledge legacy deploy-queue commands without a
+    // command/session fence. Keep this branch during client coexistence; SDK
+    // 1.2.3+ uses the session-fenced runtime command ACK route instead.
     acknowledgeLegacyDeploy(workerId, worker.generation || 0, uid);
   }
 

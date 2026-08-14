@@ -578,18 +578,17 @@ try {
   assert.equal(getWorker(workerId, userA).generation, generationBeforeReset + 1);
   assert.notEqual(getWorker(workerId, userA).executionToken, executionTokenBeforeReset);
 
-  // Legacy deploy ACKs have no execution proof. Dedicated Code Server
-  // credentials must fail closed, while browser compatibility is covered above.
+  // SDK 1.2.2 and older use the legacy deploy queue and ACK shape. Preserve
+  // that path while installed clients coexist with the session-fenced SDK.
   upsertWorker({ ...getWorker(workerId, userA), status: 'deploying', pid: null }, userA);
-  const beforeLegacyAck = cloneValue(getWorker(workerId, userA));
-  const rejectedLegacyAck = await request('/api/deploy-ack', codeServerCredential.body.token, {
+  const legacyAck = await request('/api/deploy-ack', codeServerCredential.body.token, {
     workerId,
     pid: 6060,
   });
-  assert.equal(rejectedLegacyAck.status, 200);
-  assert.equal(rejectedLegacyAck.body.ok, false);
-  assert.equal(rejectedLegacyAck.body.reason, 'stale_execution');
-  assert.deepEqual(getWorker(workerId, userA), beforeLegacyAck);
+  assert.equal(legacyAck.status, 200);
+  assert.equal(legacyAck.body.ok, true);
+  assert.equal(getWorker(workerId, userA).status, 'running');
+  assert.equal(getWorker(workerId, userA).pid, 6060);
 
   const currentFence = {
     generation: getWorker(workerId, userA).generation,
