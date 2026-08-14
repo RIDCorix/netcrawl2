@@ -19,6 +19,7 @@
     "format:check": "prettier --check packages/server/src packages/ui/src",
     "test": "pnpm test:node && pnpm test:sdk-python",
     "test:node": "node scripts/run-node-tests.mjs",
+    "test:node-discovery": "node scripts/test-node-test-discovery.mjs",
     "test:quest-guides": "node scripts/verify-quest-guide-consistency.mjs",
     "test:deploy-equipment": "node scripts/generate-equipment-catalog.mjs --check && node scripts/test-deploy-equipment.mjs",
     "test:deploy-route": "pnpm --filter @netcrawl/sdk exec tsc && pnpm --filter @netcrawl/server exec tsc --declaration false --outDir .test-dist && node scripts/test-deploy-route.mjs",
