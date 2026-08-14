@@ -1,0 +1,59 @@
+name: Test Suite
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node-tests:
+    name: Node tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out the SDK workspace fixture
+        uses: actions/checkout@v4
+        with:
+          repository: Starscribers/netcrawl-workspace
+          path: netcrawl-workspace
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.14"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run every Node test alias
+        env:
+          NETCRAWL_WORKSPACE_DIR: netcrawl-workspace
+        run: pnpm test:node
+
+  python-sdk-tests:
+    name: Python SDK tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.14"
+
+      - name: Run Python SDK tests
+        run: uv run --project packages/sdk-python --extra dev pytest -q packages/sdk-python/tests
