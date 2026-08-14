@@ -65,6 +65,9 @@ router.use('/', layerRoutes);
 router.use('/', devRoutes);
 router.use('/', runtimeRoutes);
 
+// RAV-811 v2 negative CI proof only: this intentionally lacks an execution fence.
+router.post('/runtime/unfenced-proof-v2', (_req: Request, res: Response) => res.json({ ok: true }));
+
 // Worker action dispatcher (POST /api/worker/action)
 router.post('/worker/action', async (req: Request, res: Response) => {
   const uid = getUserId(req);
