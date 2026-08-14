@@ -12,7 +12,7 @@ const LAB_NODES = [
     id: 'lab_start',
     type: 'hub',
     position: { x: 0, y: 150 },
-    label: 'START',
+    labelKey: 'compute_lab.node.start',
     typeKey: 'compute_lab.type.start',
     roleKey: 'compute_lab.role.start',
   },
@@ -20,7 +20,7 @@ const LAB_NODES = [
     id: 'lab_operator',
     type: 'compute',
     position: { x: 260, y: 150 },
-    label: 'OPERATOR',
+    labelKey: 'compute_lab.node.operator',
     typeKey: 'compute_lab.type.operator',
     roleKey: 'compute_lab.role.operator',
     difficulty: 'easy',
@@ -29,7 +29,7 @@ const LAB_NODES = [
     id: 'lab_input_a',
     type: 'resource',
     position: { x: 520, y: 45 },
-    label: 'INPUT A',
+    labelKey: 'compute_lab.node.input_a',
     typeKey: 'compute_lab.type.input',
     roleKey: 'compute_lab.role.input',
   },
@@ -37,7 +37,7 @@ const LAB_NODES = [
     id: 'lab_input_b',
     type: 'resource',
     position: { x: 520, y: 255 },
-    label: 'INPUT B',
+    labelKey: 'compute_lab.node.input_b',
     typeKey: 'compute_lab.type.input',
     roleKey: 'compute_lab.role.input',
   },
@@ -45,7 +45,7 @@ const LAB_NODES = [
     id: 'lab_result',
     type: 'cache',
     position: { x: 780, y: 150 },
-    label: 'RESULT',
+    labelKey: 'compute_lab.node.result',
     typeKey: 'compute_lab.type.result',
     roleKey: 'compute_lab.role.result',
   },
@@ -109,7 +109,7 @@ export function ComputeLabScreen() {
         position: node.position,
         selected: node.id === selectedNodeId,
         data: {
-          label: node.label,
+          label: t(node.labelKey),
           unlocked: true,
           selected: node.id === selectedNodeId,
           showWorkerDots: false,
@@ -118,14 +118,14 @@ export function ComputeLabScreen() {
           resource: node.type === 'resource' ? 'data' : undefined,
         },
       })),
-    [edgeStyle, selectedNodeId],
+    [edgeStyle, selectedNodeId, t],
   );
   const labEdges = useMemo<Edge[]>(() => {
     const graphNodes: GameNode[] = LAB_NODES.map(node => ({
       id: node.id,
       type: node.type,
       position: node.position,
-      data: { label: node.label, unlocked: true },
+      data: { label: t(node.labelKey), unlocked: true },
     }));
     return LAB_EDGES.map(([source, target]) => ({
       id: `${source}-${target}`,
@@ -135,7 +135,7 @@ export function ComputeLabScreen() {
       style: { stroke: 'var(--border-bright)', strokeWidth: 1.5 },
       ...getEdgeHandles(source, target, graphNodes, edgeStyle),
     }));
-  }, [edgeStyle]);
+  }, [edgeStyle, t]);
   const onNodeClick = useCallback((_: unknown, node: Node) => setSelectedNodeId(node.id), []);
 
   if (!computeLabOpen) return null;
@@ -192,7 +192,7 @@ export function ComputeLabScreen() {
               }}
             >
               <div style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontWeight: 800 }}>
-                {selectedNode.label}
+                {t(selectedNode.labelKey)}
               </div>
               <div style={{ marginTop: 6, color: 'var(--text-secondary)', fontSize: 13 }}>
                 {t(selectedNode.typeKey)} · {t(selectedNode.roleKey)}
