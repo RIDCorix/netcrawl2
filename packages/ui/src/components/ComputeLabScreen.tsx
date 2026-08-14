@@ -38,7 +38,7 @@ export function ComputeLabScreen() {
   const [revision, setRevision] = useState(0);
   const [run, setRun] = useState<Run | null>(null);
   const [frameIndex, setFrameIndex] = useState(0);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState<{ key: string; vars?: Record<string, string | number> } | null>(null);
 
   useEffect(() => {
     if (!computeLabOpen || !available || !sourceNode) return;
@@ -51,9 +51,9 @@ export function ComputeLabScreen() {
       .then(({ response, body }) => {
         if (!response.ok) throw new Error(body.error || 'Unable to load task');
         setTask(body);
-        setMessage('');
+        setMessage(null);
       })
-      .catch(error => setMessage(error.message));
+      .catch(() => setMessage({ key: 'compute_lab.task_load_failed' }));
   }, [computeLabOpen, available, sourceNode?.id]);
 
   useEffect(() => {
@@ -72,7 +72,7 @@ export function ComputeLabScreen() {
             setFrameIndex(Math.max(0, body.run.frames.length - 1));
           }
         })
-        .catch(() => setMessage('Connection lost. Your draft is still saved.'));
+        .catch(() => setMessage({ key: 'compute_lab.connection_lost' }));
     }, 350);
     return () => window.clearInterval(timer);
   }, [run?.id, run?.status]);
@@ -108,14 +108,16 @@ export function ComputeLabScreen() {
   };
   const startRun = async () => {
     if (!task || !sourceNode) return;
-    setMessage('');
+    setMessage(null);
     const response = await apiFetch('/api/compute-lab/runs', {
       method: 'POST',
       body: JSON.stringify({ taskId: task.taskId, source, revision, nodeId: sourceNode.id }),
     });
     const body = await response.json();
     if (!response.ok) {
-      setMessage(body.error || 'Run failed to start');
+      setMessage({
+        key: body.reason === 'disconnected' ? 'compute_lab.runner_offline' : 'compute_lab.run_start_failed',
+      });
       return;
     }
     setRun({ id: body.runId, revision, status: body.status, frames: [] });
@@ -130,10 +132,13 @@ export function ComputeLabScreen() {
     const body = await response.json();
     setMessage(
       body.correct
-        ? `Correct · +${body.reward?.amount || 0} ${body.reward?.type || ''}`
+        ? {
+            key: 'compute_lab.submit_correct',
+            vars: { amount: body.reward?.amount || 0, type: body.reward?.type || '' },
+          }
         : body.correct === false
-          ? `Not yet: expected ${body.expected}, got ${body.got}`
-          : body.error || 'Submission failed',
+          ? { key: 'compute_lab.submit_wrong', vars: { expected: String(body.expected), got: String(body.got) } }
+          : { key: 'compute_lab.submit_failed' },
     );
   };
 
@@ -204,7 +209,7 @@ export function ComputeLabScreen() {
               </button>
             </div>
             {!codeServerConnected && <div role="status">{t('compute_lab.runner_offline')}</div>}
-            {message && <div role="status">{message}</div>}
+            {message && <div role="status">{t(message.key, message.vars)}</div>}
           </section>
           <section
             aria-label={t('compute_lab.trace')}
