@@ -85,13 +85,8 @@ type NodeDetailPanelProps = {
   onDeployOpenChange?: (open: boolean) => void;
 };
 
-export function NodeDetailPanel({
-  nodeOverride,
-  onCloseOverride,
-  inspectionOnly = false,
-  deployTargetNodeId,
-  onDeployOpenChange,
-}: NodeDetailPanelProps = {}) {
+export function NodeDetailPanel(props: NodeDetailPanelProps = {}) {
+  const { nodeOverride, onCloseOverride, inspectionOnly = false, deployTargetNodeId, onDeployOpenChange } = props;
   const { selectedNodeId: gameSelectedNodeId, nodes, edges, resources, selectNode, openComputeLab } = useGameStore();
   const [deployOpen, setDeployOpen] = useState(false);
   const [chapterZeroDeploy, setChapterZeroDeploy] = useState<TutorialDescriptor>(null);
@@ -126,8 +121,9 @@ export function NodeDetailPanel({
     setDeployOpen(resumeDeploy);
   }, [chapterZeroDeploy, inspectionOnly, selectNode]);
 
-  const selectedNodeId = nodeOverride?.id ?? gameSelectedNodeId;
-  const node = nodeOverride ?? nodes.find((n: any) => n.id === selectedNodeId);
+  const hasNodeOverride = Object.prototype.hasOwnProperty.call(props, 'nodeOverride');
+  const selectedNodeId = hasNodeOverride ? (nodeOverride?.id ?? null) : gameSelectedNodeId;
+  const node = hasNodeOverride ? nodeOverride : nodes.find((n: any) => n.id === selectedNodeId);
   const closePanel = onCloseOverride ?? (() => selectNode(null));
 
   useEffect(() => {
@@ -227,6 +223,7 @@ export function NodeDetailPanel({
             }}
             data-tutorial-panel="node"
             data-tutorial-locked={tutorialLocked ? 'true' : undefined}
+            data-node-detail-id={node.id}
           >
             {/* Accent bar at top */}
             <div
@@ -296,6 +293,7 @@ export function NodeDetailPanel({
                 </div>
               </div>
               <button
+                data-node-panel-close
                 onClick={() => !tutorialLocked && closePanel()}
                 disabled={tutorialLocked}
                 style={{

@@ -15,7 +15,7 @@ const locales = ['en', 'ja', 'zh-TW'].map(locale =>
 for (const source of [screen, detail, app]) assert.doesNotMatch(source, /layer\/switch|switchActiveLayer/);
 assert.match(detail, /node\.id === 'e_op_add' && node\.data\.unlocked/);
 assert.match(screen, /source\?\.id === ADD_NODE_ID.*source\.type === 'compute'.*source\.data\.unlocked === true/);
-assert.match(screen, /<GraphCanvas nodes=\{labNodes\} edges=\{labEdges\} onNodeClick=\{onNodeClick\}/);
+assert.match(screen, /<GraphCanvasComponent nodes=\{labNodes\} edges=\{labEdges\} onNodeClick=\{onNodeClick\}/);
 assert.match(screen, /LAB_NODES/);
 assert.match(screen, /label: t\(node\.labelKey\)/);
 assert.match(screen, /unlocked: true/);
@@ -25,6 +25,7 @@ assert.match(screen, /nodeOverride=\{selectedGameNode\}/);
 assert.match(screen, /inspectionOnly/);
 assert.match(screen, /deployTargetNodeId=\{selectedNode\?\.id === 'lab_start' \? ADD_NODE_ID : undefined\}/);
 assert.match(panel, /nodeId=\{deployTargetNodeId \?\? node\.id\}/);
+assert.match(panel, /hasNodeOverride = Object\.prototype\.hasOwnProperty\.call\(props, 'nodeOverride'\)/);
 assert.match(panel, /inspectionOnly \? !!deployTargetNodeId : node\.id === 'hub' \|\| node\.data\.unlocked/);
 assert.match(panel, /!inspectionOnly && node\.data\.unlocked && node\.type === 'resource'/);
 assert.match(screen, /if \(deployOpen\) return/);

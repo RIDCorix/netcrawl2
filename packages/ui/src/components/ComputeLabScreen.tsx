@@ -61,7 +61,11 @@ const LAB_EDGES = [
 ] as const;
 
 /** An overlay-only, synthetic unlocked graph. It never changes game graph data. */
-export function ComputeLabScreen() {
+export function ComputeLabScreen({
+  GraphCanvasComponent = GraphCanvas,
+}: {
+  GraphCanvasComponent?: typeof GraphCanvas;
+} = {}) {
   const { computeLabOpen, computeLabSourceNodeId, nodes, closeComputeLab } = useGameStore();
   const edgeStyle = useGameStore(s => s.settings.edgeStyle);
   const t = useT();
@@ -77,6 +81,10 @@ export function ComputeLabScreen() {
     setSelectedNodeId(null);
     setDeployOpen(false);
     closeRef.current?.focus();
+  }, [computeLabOpen]);
+
+  useEffect(() => {
+    if (!computeLabOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (deployOpen) return;
       if (event.key === 'Escape') {
@@ -193,7 +201,7 @@ export function ComputeLabScreen() {
         </main>
       ) : (
         <main style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-          <GraphCanvas nodes={labNodes} edges={labEdges} onNodeClick={onNodeClick} />
+          <GraphCanvasComponent nodes={labNodes} edges={labEdges} onNodeClick={onNodeClick} />
           <NodeDetailPanel
             nodeOverride={selectedGameNode}
             onCloseOverride={() => setSelectedNodeId(null)}
