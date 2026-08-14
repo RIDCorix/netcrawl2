@@ -77,6 +77,32 @@ try {
   assert.equal((await request('/api/auth/me', codeServerCredential.body.token)).status, 401);
   assert.equal((await request('/api/auth/code-server-token', codeServerCredential.body.token, {})).status, 401);
   assert.equal((await request('/api/state', codeServerCredential.body.token)).status, 401);
+  const legacySdkRegistration = await request(
+    '/api/worker-classes/register',
+    codeServerCredential.body.token,
+    {
+      classes: [
+        {
+          class_id: 'legacy_sdk_probe',
+          class_name: 'Legacy SDK Probe',
+          fields: {},
+          file: 'legacy_sdk_probe.py',
+          language: 'python',
+        },
+      ],
+    },
+  );
+  assert.equal(legacySdkRegistration.status, 200, 'published Python SDK registration must accept code credentials');
+  assert.equal(
+    (await request('/api/deploy-queue', codeServerCredential.body.token)).status,
+    200,
+    'published Python SDK polling must accept code credentials',
+  );
+  assert.equal(
+    (await request('/api/deploy-ack', codeServerCredential.body.token, { workerId: 'missing-worker' })).status,
+    404,
+    'published Python SDK ACK must pass auth and reach route validation',
+  );
   const rejectedRuntimeSocket = await firstWebSocketEvent(codeServerCredential.body.token);
   assert.deepEqual(rejectedRuntimeSocket, { kind: 'close', code: 4001 });
   const browserSocketEvent = await firstWebSocketEvent(tokenA);
@@ -494,7 +520,7 @@ try {
   assert.equal(recovered.current_node, getWorker(workerId, userA)?.current_node);
   assert.equal(recovered.executionToken, '');
 
-  console.log('Deploy/lifecycle integration: 120 assertions passed');
+  console.log('Deploy/lifecycle integration: 123 assertions passed');
 } catch (error) {
   console.error(error);
   process.exitCode = 1;

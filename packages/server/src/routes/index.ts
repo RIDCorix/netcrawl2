@@ -28,7 +28,15 @@ router.use('/auth', authRouter);
 // Multi-user auth middleware
 if (process.env.NETCRAWL_MULTI_USER === 'true') {
   router.use((req: Request, res: Response, next: NextFunction) => {
-    const runtimeCredentialPaths = ['/runtime/', '/worker/action', '/worker/reset', '/code-server/disconnect'];
+    const runtimeCredentialPaths = [
+      '/runtime/',
+      '/worker/action',
+      '/worker/reset',
+      '/worker-classes/register',
+      '/deploy-queue',
+      '/deploy-ack',
+      '/code-server/disconnect',
+    ];
     const acceptsRuntimeCredential = runtimeCredentialPaths.some(path =>
       path.endsWith('/') ? req.path.startsWith(path) : req.path === path,
     );
