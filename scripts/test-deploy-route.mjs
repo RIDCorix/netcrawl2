@@ -5,6 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import WebSocket from '../packages/server/node_modules/ws/wrapper.mjs';
+import jwt from '../packages/server/node_modules/jsonwebtoken/index.js';
 
 process.env.NETCRAWL_MULTI_USER = 'true';
 process.env.JWT_SECRET = 'deploy-route-test-secret';
@@ -464,6 +465,53 @@ try {
     ).body.duplicate,
     true,
   );
+  // Code Server credentials are long-lived and reach worker processes, so
+  // every mutating action must prove it belongs to the current execution.
+  upsertWorker({ ...getWorker(workerId, userA), current_node: 'hub' }, userA);
+  const rejectedCodeServerActions = [
+    {},
+    { generation: command.generation },
+    { executionToken: command.executionToken },
+    { generation: command.generation - 1, executionToken: command.executionToken },
+    { generation: command.generation, executionToken: 'wrong-execution-token' },
+  ];
+  for (const fence of rejectedCodeServerActions) {
+    const beforeNode = getWorker(workerId, userA)?.current_node;
+    const rejected = await request('/api/worker/action', codeServerCredential.body.token, {
+      workerId,
+      action: 'move_edge',
+      payload: { edgeId: 'e1' },
+      ...fence,
+    });
+    assert.equal(rejected.status, 200);
+    assert.equal(rejected.body.ok, false);
+    assert.equal(rejected.body.reason, 'stale_execution');
+    assert.equal(getWorker(workerId, userA)?.current_node, beforeNode);
+  }
+  const currentCodeServerAction = await request('/api/worker/action', codeServerCredential.body.token, {
+    workerId,
+    action: 'move_edge',
+    payload: { edgeId: 'e1' },
+    generation: command.generation,
+    executionToken: command.executionToken,
+  });
+  assert.equal(currentCodeServerAction.status, 200);
+  assert.equal(currentCodeServerAction.body.ok, true);
+  assert.equal(currentCodeServerAction.body.from, 'hub');
+  assert.equal(getWorker(workerId, userA)?.current_node, 'n_relay1');
+  const legacyBrowserToken = jwt.sign(
+    { userId: userA, email: registrationA.body.user.email },
+    process.env.JWT_SECRET,
+    { expiresIn: '7d' },
+  );
+  const legacyBrowserAction = await request('/api/worker/action', legacyBrowserToken, {
+    workerId,
+    action: 'move_edge',
+    payload: { edgeId: 'e1' },
+  });
+  assert.equal(legacyBrowserAction.status, 200);
+  assert.equal(legacyBrowserAction.body.ok, true);
+  assert.equal(getWorker(workerId, userA)?.current_node, 'hub');
   const staleAction = await request('/api/worker/action', tokenA, {
     workerId,
     action: 'get_node_info',
@@ -520,7 +568,7 @@ try {
   assert.equal(recovered.current_node, getWorker(workerId, userA)?.current_node);
   assert.equal(recovered.executionToken, '');
 
-  console.log('Deploy/lifecycle integration: 123 assertions passed');
+  console.log('Deploy/lifecycle integration: 150 assertions passed');
 } catch (error) {
   console.error(error);
   process.exitCode = 1;

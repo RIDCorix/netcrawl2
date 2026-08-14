@@ -71,6 +71,10 @@ router.post('/worker/action', async (req: Request, res: Response) => {
   if (!workerId || !action) {
     return res.status(400).json({ error: 'workerId and action required' });
   }
+  const requiresExecutionFence = (req as AuthenticatedRequest).user?.purpose === 'code-server';
+  if (requiresExecutionFence && (generation === undefined || generation === null || !executionToken)) {
+    return res.json({ ok: false, reason: 'stale_execution', error: 'Worker execution is no longer current' });
+  }
   const result = await handleWorkerAction(workerId, action, payload || {}, uid, {
     generation,
     executionToken,
