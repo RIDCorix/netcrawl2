@@ -8,6 +8,7 @@ const detail = readFileSync(
 );
 const app = readFileSync(new URL('../packages/ui/src/App.tsx', import.meta.url), 'utf8');
 const store = readFileSync(new URL('../packages/ui/src/store/gameStore.ts', import.meta.url), 'utf8');
+const panel = readFileSync(new URL('../packages/ui/src/components/NodeDetailPanel.tsx', import.meta.url), 'utf8');
 const locales = ['en', 'ja', 'zh-TW'].map(locale =>
   readFileSync(new URL(`../packages/ui/src/i18n/${locale}.ts`, import.meta.url), 'utf8'),
 );
@@ -18,11 +19,19 @@ assert.match(screen, /<GraphCanvas nodes=\{labNodes\} edges=\{labEdges\} onNodeC
 assert.match(screen, /LAB_NODES/);
 assert.match(screen, /label: t\(node\.labelKey\)/);
 assert.match(screen, /unlocked: true/);
-assert.match(screen, /selectedNode\.id === 'lab_start'/);
-assert.match(screen, /selectNode\(ADD_NODE_ID\);\s*closeComputeLab\(\)/);
+assert.match(screen, /selectedNode\?\.id === 'lab_start'/);
+assert.match(screen, /<NodeDetailPanel/);
+assert.match(screen, /nodeOverride=\{selectedGameNode\}/);
+assert.match(screen, /inspectionOnly/);
+assert.match(screen, /deployTargetNodeId=\{selectedNode\?\.id === 'lab_start' \? ADD_NODE_ID : undefined\}/);
+assert.match(panel, /nodeId=\{deployTargetNodeId \?\? node\.id\}/);
+assert.match(panel, /inspectionOnly \? !!deployTargetNodeId : node\.id === 'hub' \|\| node\.data\.unlocked/);
+assert.match(panel, /!inspectionOnly && node\.data\.unlocked && node\.type === 'resource'/);
+assert.match(screen, /if \(deployOpen\) return/);
+assert.match(screen, /onDeployOpenChange=\{setDeployOpen\}/);
 assert.doesNotMatch(screen, /compute-lab-chain|compute-lab-arrow|\[zoom, setZoom\]/);
 assert.match(screen, /setSelectedNodeId\(node\.id\)/);
-assert.match(screen, /aria-live="polite"/);
+assert.doesNotMatch(screen, /<aside/);
 assert.doesNotMatch(screen, /computeLab\.sessions|task\?\.params|Mastered|Resume/);
 assert.doesNotMatch(store, /computeLab:/);
 assert.match(screen, /role="dialog"/);

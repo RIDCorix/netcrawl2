@@ -4,6 +4,7 @@ import { useGameStore, type GameNode } from '../store/gameStore';
 import { useT } from '../hooks/useT';
 import { GraphCanvas } from './graph/GameGraph';
 import { getEdgeHandles } from './graph/graphUtils';
+import { NodeDetailPanel } from './NodeDetailPanel';
 
 const ADD_NODE_ID = 'e_op_add';
 
@@ -61,20 +62,23 @@ const LAB_EDGES = [
 
 /** An overlay-only, synthetic unlocked graph. It never changes game graph data. */
 export function ComputeLabScreen() {
-  const { computeLabOpen, computeLabSourceNodeId, nodes, selectNode, closeComputeLab } = useGameStore();
+  const { computeLabOpen, computeLabSourceNodeId, nodes, closeComputeLab } = useGameStore();
   const edgeStyle = useGameStore(s => s.settings.edgeStyle);
   const t = useT();
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [deployOpen, setDeployOpen] = useState(false);
   const source = nodes.find(node => node.id === computeLabSourceNodeId);
   const available = source?.id === ADD_NODE_ID && source.type === 'compute' && source.data.unlocked === true;
 
   useEffect(() => {
     if (!computeLabOpen) return;
     setSelectedNodeId(null);
+    setDeployOpen(false);
     closeRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
+      if (deployOpen) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         closeComputeLab();
@@ -99,7 +103,7 @@ export function ComputeLabScreen() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [computeLabOpen, closeComputeLab]);
+  }, [computeLabOpen, closeComputeLab, deployOpen]);
 
   const labNodes = useMemo<Node[]>(
     () =>
@@ -140,6 +144,20 @@ export function ComputeLabScreen() {
 
   if (!computeLabOpen) return null;
   const selectedNode = LAB_NODES.find(node => node.id === selectedNodeId);
+  const selectedGameNode: GameNode | null = selectedNode
+    ? {
+        id: selectedNode.id,
+        type: selectedNode.type,
+        position: selectedNode.position,
+        data: {
+          label: t(selectedNode.labelKey),
+          unlocked: true,
+          difficulty: 'difficulty' in selectedNode ? selectedNode.difficulty : undefined,
+          resource: selectedNode.type === 'resource' ? 'data' : undefined,
+          rate: selectedNode.type === 'resource' ? 0 : undefined,
+        },
+      }
+    : null;
 
   return (
     <div
@@ -176,40 +194,13 @@ export function ComputeLabScreen() {
       ) : (
         <main style={{ flex: 1, minHeight: 0, position: 'relative' }}>
           <GraphCanvas nodes={labNodes} edges={labEdges} onNodeClick={onNodeClick} />
-          {selectedNode && (
-            <aside
-              aria-live="polite"
-              style={{
-                position: 'absolute',
-                right: 16,
-                top: 16,
-                width: 'min(300px, calc(100% - 32px))',
-                padding: 16,
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border-bright)',
-                borderRadius: 'var(--radius-md)',
-                boxShadow: '0 8px 28px rgba(0, 0, 0, .45)',
-              }}
-            >
-              <div style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontWeight: 800 }}>
-                {t(selectedNode.labelKey)}
-              </div>
-              <div style={{ marginTop: 6, color: 'var(--text-secondary)', fontSize: 13 }}>
-                {t(selectedNode.typeKey)} · {t(selectedNode.roleKey)}
-              </div>
-              {selectedNode.id === 'lab_start' && (
-                <button
-                  onClick={() => {
-                    selectNode(ADD_NODE_ID);
-                    closeComputeLab();
-                  }}
-                  style={{ minWidth: 44, minHeight: 44, marginTop: 14 }}
-                >
-                  {t('compute_lab.start_deploy')}
-                </button>
-              )}
-            </aside>
-          )}
+          <NodeDetailPanel
+            nodeOverride={selectedGameNode}
+            onCloseOverride={() => setSelectedNodeId(null)}
+            inspectionOnly
+            deployTargetNodeId={selectedNode?.id === 'lab_start' ? ADD_NODE_ID : undefined}
+            onDeployOpenChange={setDeployOpen}
+          />
         </main>
       )}
       <footer style={{ color: 'var(--text-muted)', fontSize: 12 }}>

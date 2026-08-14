@@ -74,8 +74,25 @@ const NODE_TYPE_ICONS: Record<string, any> = {
   locked: Lock,
 };
 
-export function NodeDetailPanel() {
-  const { selectedNodeId, nodes, edges, resources, selectNode, openComputeLab } = useGameStore();
+type NodeDetailPanelProps = {
+  /** Render the shared panel for a synthetic graph node without selecting it in the game store. */
+  nodeOverride?: GameNode | null;
+  onCloseOverride?: () => void;
+  /** Synthetic nodes may inspect the full panel but must not run game-state mutations. */
+  inspectionOnly?: boolean;
+  /** A real game node ID used by DeployDialog when the visible node is synthetic. */
+  deployTargetNodeId?: string;
+  onDeployOpenChange?: (open: boolean) => void;
+};
+
+export function NodeDetailPanel({
+  nodeOverride,
+  onCloseOverride,
+  inspectionOnly = false,
+  deployTargetNodeId,
+  onDeployOpenChange,
+}: NodeDetailPanelProps = {}) {
+  const { selectedNodeId: gameSelectedNodeId, nodes, edges, resources, selectNode, openComputeLab } = useGameStore();
   const [deployOpen, setDeployOpen] = useState(false);
   const [chapterZeroDeploy, setChapterZeroDeploy] = useState<TutorialDescriptor>(null);
   const [openingDeploy, setOpeningDeploy] = useState(false);
@@ -98,14 +115,24 @@ export function NodeDetailPanel() {
   }, []);
 
   useEffect(() => {
+    if (inspectionOnly) {
+      setDeployOpen(false);
+      return;
+    }
     const resumeDeploy = Boolean(
       chapterZeroDeploy && RESUMABLE_TUTORIAL_DEPLOY_STAGES.includes(chapterZeroDeploy.stage),
     );
     if (resumeDeploy) selectNode('hub');
     setDeployOpen(resumeDeploy);
-  }, [chapterZeroDeploy, selectNode]);
+  }, [chapterZeroDeploy, inspectionOnly, selectNode]);
 
-  const node = nodes.find((n: any) => n.id === selectedNodeId);
+  const selectedNodeId = nodeOverride?.id ?? gameSelectedNodeId;
+  const node = nodeOverride ?? nodes.find((n: any) => n.id === selectedNodeId);
+  const closePanel = onCloseOverride ?? (() => selectNode(null));
+
+  useEffect(() => {
+    onDeployOpenChange?.(deployOpen);
+  }, [deployOpen, onDeployOpenChange]);
 
   const gather = useAsyncAction(() => axios.post('/api/gather', { nodeId: node?.id }), {
     successMsg: '+10 gathered!',
@@ -143,15 +170,15 @@ export function NodeDetailPanel() {
     return 'var(--text-muted)';
   };
 
-  const tutorialLocked = !!chapterZeroDeploy;
+  const tutorialLocked = !inspectionOnly && !!chapterZeroDeploy;
   const canDeploy =
     node &&
-    (node.id === 'hub' || node.data.unlocked) &&
+    (inspectionOnly ? !!deployTargetNodeId : node.id === 'hub' || node.data.unlocked) &&
     !node.data.infected &&
-    (!chapterZeroDeploy || (node.id === 'hub' && !chapterZeroDeploy.setupGate));
+    (!chapterZeroDeploy || inspectionOnly || (node.id === 'hub' && !chapterZeroDeploy.setupGate));
 
   const handleDeployOpen = async () => {
-    if (!chapterZeroDeploy || !['hello_preview', 'miner_preview'].includes(chapterZeroDeploy.stage)) {
+    if (inspectionOnly || !chapterZeroDeploy || !['hello_preview', 'miner_preview'].includes(chapterZeroDeploy.stage)) {
       setTutorialActionError('');
       setDeployOpen(true);
       return;
@@ -269,7 +296,7 @@ export function NodeDetailPanel() {
                 </div>
               </div>
               <button
-                onClick={() => !tutorialLocked && selectNode(null)}
+                onClick={() => !tutorialLocked && closePanel()}
                 disabled={tutorialLocked}
                 style={{
                   color: 'var(--text-muted)',
@@ -412,7 +439,7 @@ export function NodeDetailPanel() {
 
             {/* Actions */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {node.data.unlocked && node.type === 'resource' && (
+              {!inspectionOnly && node.data.unlocked && node.type === 'resource' && (
                 <>
                   <SectionLabel>{t('ui.actions')}</SectionLabel>
                   <ActionButton onClick={gather.run} disabled={gather.loading}>
@@ -424,7 +451,8 @@ export function NodeDetailPanel() {
                 </>
               )}
 
-              {!node.data.unlocked &&
+              {!inspectionOnly &&
+                !node.data.unlocked &&
                 node.data.unlockCost &&
                 (() => {
                   const affordable = canAffordUnlock(node.data.unlockCost, resources);
@@ -450,7 +478,7 @@ export function NodeDetailPanel() {
                   );
                 })()}
 
-              {node.type === 'empty' && node.data.unlocked && (
+              {!inspectionOnly && node.type === 'empty' && node.data.unlocked && (
                 <>
                   <Divider />
                   <SectionLabel>Build Structure</SectionLabel>
@@ -490,7 +518,9 @@ export function NodeDetailPanel() {
             </div>
 
             {/* Upgrade + Chip section (unlocked nodes only) */}
-            {(node.id === 'hub' || node.data.unlocked) && <NodeEnhanceSection nodeId={node.id} node={node} />}
+            {!inspectionOnly && (node.id === 'hub' || node.data.unlocked) && (
+              <NodeEnhanceSection nodeId={node.id} node={node} />
+            )}
 
             {/* Deploy button */}
             {canDeploy && (
@@ -511,7 +541,7 @@ export function NodeDetailPanel() {
             )}
 
             {/* Chip Slots — 4x2 grid at bottom */}
-            {(node.id === 'hub' || node.data.unlocked) && (node.data.chipSlots || 0) > 0 && (
+            {!inspectionOnly && (node.id === 'hub' || node.data.unlocked) && (node.data.chipSlots || 0) > 0 && (
               <>
                 <Divider />
                 <ChipSlotManager
@@ -523,20 +553,21 @@ export function NodeDetailPanel() {
             )}
 
             {/* Ground Items — inventory grid */}
-            {(() => {
-              const hasItems = Array.isArray(node.data.items)
-                ? node.data.items.length > 0
-                : Array.isArray(node.data.drops)
-                  ? node.data.drops.length > 0
-                  : false;
-              if (!hasItems && !node.data.maxBuffer) return null;
-              return (
-                <>
-                  <Divider />
-                  <GroundItems node={node} />
-                </>
-              );
-            })()}
+            {!inspectionOnly &&
+              (() => {
+                const hasItems = Array.isArray(node.data.items)
+                  ? node.data.items.length > 0
+                  : Array.isArray(node.data.drops)
+                    ? node.data.drops.length > 0
+                    : false;
+                if (!hasItems && !node.data.maxBuffer) return null;
+                return (
+                  <>
+                    <Divider />
+                    <GroundItems node={node} />
+                  </>
+                );
+              })()}
           </motion.div>
         )}
       </AnimatePresence>
@@ -545,7 +576,7 @@ export function NodeDetailPanel() {
       <AnimatePresence>
         {deployOpen && node && (
           <DeployDialog
-            nodeId={node.id}
+            nodeId={deployTargetNodeId ?? node.id}
             nodeName={tn(node.data.label)}
             onClose={() => setDeployOpen(false)}
             tutorial={chapterZeroDeploy && node.id === 'hub' ? chapterZeroDeploy : undefined}
