@@ -64,6 +64,7 @@ export function EquipSlot({
   return (
     <div
       role="button"
+      data-tutorial-allowed
       tabIndex={0}
       aria-label={equipped ? removeLabel : emptyLabel}
       onDragOver={handleDragOver}
@@ -169,6 +170,7 @@ export function InvItem({
   return (
     <div
       role="button"
+      data-tutorial-allowed
       tabIndex={disabled ? -1 : 0}
       aria-disabled={disabled}
       aria-label={selectLabel}

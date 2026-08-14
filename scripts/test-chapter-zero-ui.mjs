@@ -7,6 +7,7 @@ const styles = readFileSync('packages/ui/src/styles.css', 'utf8');
 const nodeWrapper = readFileSync('packages/ui/src/components/graph/NodeWrapper.tsx', 'utf8');
 const deployDialog = readFileSync('packages/ui/src/components/DeployDialog.tsx', 'utf8');
 const deployGuide = readFileSync('packages/ui/src/components/chapter0/DeployTutorialGuide.tsx', 'utf8');
+const equipSlot = readFileSync('packages/ui/src/components/deploy/EquipSlot.tsx', 'utf8');
 const app = readFileSync('packages/ui/src/App.tsx', 'utf8');
 const nodePanel = readFileSync('packages/ui/src/components/NodeDetailPanel.tsx', 'utf8');
 const workerPanel = readFileSync('packages/ui/src/components/WorkerDetailPanel.tsx', 'utf8');
@@ -89,8 +90,17 @@ assert.match(deployGuide, /hello_log/, 'guide must own the HelloWorker log check
 assert.match(deployGuide, /helloWorkerId/, 'guide must target the verified HelloWorker');
 assert.doesNotMatch(deployDialog, /__hello_worker__|__no_equipment__/, 'tutorial deployment must not use sentinel values');
 assert.match(deployDialog, /data-tutorial-dialog/, 'tutorial dialog must expose an allowlisted surface');
+assert.match(deployDialog, /data-tutorial-allowed=\{tutorialMode \? true : undefined\}/, 'tutorial navigation must be explicitly allowlisted');
+assert.match(equipSlot, /data-tutorial-allowed/, 'tutorial equipment controls must be explicitly allowlisted');
+assert.match(deployDialog, /TUTORIAL_STEP_BY_STAGE/, 'a refresh must restore the committed deployment step');
+assert.match(deployDialog, /const restoredStep = TUTORIAL_STEP_BY_STAGE\[tutorial\.stage\]/, 'the restored deployment step must be derived from server state');
+assert.match(deployDialog, /selectedEdgeId/, 'a resumed deployment must restore its selected edge');
+assert.match(deployDialog, /selectedPickaxeType/, 'a resumed deployment must restore its selected pickaxe');
 assert.match(deployDialog, /tutorial\?: TutorialDeployDescriptor/, 'tutorial dialog must use an explicit descriptor');
 assert.doesNotMatch(deployDialog, /tutorialMode\?: boolean/, 'tutorial mode must not be a boolean contract');
+assert.match(nodePanel, /RESUMABLE_TUTORIAL_DEPLOY_STAGES/, 'a refresh must restore an in-progress tutorial deployment dialog');
+assert.match(nodePanel, /if \(resumeDeploy\) selectNode\('hub'\)/, 'a resumed deployment must restore its Hub target');
+assert.match(nodePanel, /setDeployOpen\(resumeDeploy\)/, 'only committed deployment stages may resume the tutorial dialog');
 assert.match(app, /ChapterZeroInteractionGuard/, 'application shell must install the tutorial interaction guard');
 assert.match(app, /stopImmediatePropagation/, 'interaction guard must block unrelated state mutations');
 assert.match(app, /focusin/, 'interaction guard must retain focus within the allowed surface');
@@ -124,6 +134,7 @@ assert.match(
   /const setupGate = stage === 'hello_preview' && !codeServerUp/,
   'the setup gate must use the live-server signal',
 );
+assert.match(deployGuide, /requestAnimationFrame\(\(\) => \{\s*window\.dispatchEvent\(new CustomEvent\('chapter-zero-deploy-mode'/s, 'the deploy descriptor must publish after sibling subscriptions mount');
 assert.match(questGuideDialog, /data-code-server-status=\{codeServerUp \? 'connected' : 'waiting'\}/, 'Dev Setup must expose live connection status');
 assert.match(questGuideDialog, /quest\.q_setup\.connection_connected/, 'Dev Setup must render its connected status copy');
 assert.doesNotMatch(

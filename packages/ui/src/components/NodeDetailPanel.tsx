@@ -41,7 +41,21 @@ type TutorialStage =
   | 'miner_deploy_execute'
   | 'handoff';
 
-type TutorialDescriptor = { active: true; phase: 'hello' | 'miner'; stage: TutorialStage; setupGate?: boolean } | null;
+type TutorialDescriptor = { active: true; phase: 'hello' | 'miner'; stage: TutorialStage; setupGate?: boolean; session?: any } | null;
+
+// These stages have already committed to the deployment dialog on the server.
+// Reopen it after a refresh so the interaction guard cannot strand a player
+// on a stage where map actions are deliberately blocked.
+const RESUMABLE_TUTORIAL_DEPLOY_STAGES: TutorialStage[] = [
+  'hello_deploy_open',
+  'hello_deploy_confirm',
+  'hello_deploy_execute',
+  'miner_deploy_open',
+  'miner_edge_select',
+  'miner_pickaxe_equip',
+  'miner_deploy_confirm',
+  'miner_deploy_execute',
+];
 
 const NODE_TYPE_ICONS: Record<string, any> = {
   hub: Shield,
@@ -76,6 +90,12 @@ export function NodeDetailPanel() {
     window.addEventListener('chapter-zero-deploy-mode', onTutorialMode);
     return () => window.removeEventListener('chapter-zero-deploy-mode', onTutorialMode);
   }, []);
+
+  useEffect(() => {
+    const resumeDeploy = Boolean(chapterZeroDeploy && RESUMABLE_TUTORIAL_DEPLOY_STAGES.includes(chapterZeroDeploy.stage));
+    if (resumeDeploy) selectNode('hub');
+    setDeployOpen(resumeDeploy);
+  }, [chapterZeroDeploy, selectNode]);
 
   const node = nodes.find((n: any) => n.id === selectedNodeId);
 

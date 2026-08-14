@@ -138,19 +138,20 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
 
   // The shell guard consumes an authoritative descriptor, never a boolean.
   useEffect(() => {
-    window.dispatchEvent(
-      new CustomEvent('chapter-zero-deploy-mode', {
-        detail: { active: true, phase, stage, setupGate: setupGate || setupGateTransition, setupGateTransition },
-      }),
-    );
+    const detail = { active: true, phase, stage, session, setupGate: setupGate || setupGateTransition, setupGateTransition };
+    // Sibling panels subscribe in their own effects. Publish after the first
+    // frame so a refresh cannot miss the descriptor and strand a persisted
+    // deployment stage behind the interaction guard.
+    const frame = requestAnimationFrame(() => {
+      window.dispatchEvent(new CustomEvent('chapter-zero-deploy-mode', { detail }));
+    });
     return () => {
-      window.dispatchEvent(
-        new CustomEvent('chapter-zero-deploy-mode', {
-          detail: { active: false, phase, stage, setupGate: setupGate || setupGateTransition, setupGateTransition },
-        }),
-      );
+      cancelAnimationFrame(frame);
+      window.dispatchEvent(new CustomEvent('chapter-zero-deploy-mode', {
+        detail: { ...detail, active: false },
+      }));
     };
-  }, [phase, setupGate, setupGateTransition, stage]);
+  }, [phase, session, setupGate, setupGateTransition, stage]);
 
   const publishSession = useCallback((nextSession: TutorialSession) => {
     window.dispatchEvent(new CustomEvent('chapter-zero-deploy-session', { detail: nextSession }));

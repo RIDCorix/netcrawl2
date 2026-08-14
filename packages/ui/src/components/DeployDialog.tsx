@@ -21,6 +21,17 @@ const RAM_CAPACITY_MULT = 50;
 const DIALOG_FOCUSABLE_SELECTOR =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])';
 
+const TUTORIAL_STEP_BY_STAGE: Partial<Record<TutorialDeployStage, number>> = {
+  hello_deploy_open: 0,
+  hello_deploy_confirm: 1,
+  hello_deploy_execute: 1,
+  miner_deploy_open: 0,
+  miner_edge_select: 1,
+  miner_pickaxe_equip: 2,
+  miner_deploy_confirm: 3,
+  miner_deploy_execute: 3,
+};
+
 export type TutorialDeployStage =
   | 'hello_preview'
   | 'hello_deploy_open'
@@ -39,6 +50,7 @@ export type TutorialDeployDescriptor = {
   active: true;
   phase: 'hello' | 'miner';
   stage: TutorialDeployStage;
+  session?: { world?: { deployTutorial?: { selectedEdgeId?: string | null; selectedPickaxeType?: string | null } } };
 };
 
 // ── Deploy Dialog ───────────────────────────────────────────────────────────
@@ -166,6 +178,29 @@ export function DeployDialog({
     setDeployed(false);
     setMessage('');
   }, [selectedClass]);
+
+  useEffect(() => {
+    if (!tutorialMode || !tutorial) return;
+    const restoredStep = TUTORIAL_STEP_BY_STAGE[tutorial.stage];
+    if (restoredStep !== undefined) setStep(restoredStep);
+  }, [selectedClass, tutorial, tutorialMode]);
+
+  useEffect(() => {
+    const deployState = tutorial?.session?.world?.deployTutorial;
+    if (!tutorialMode || !deployState) return;
+    const edge = gameEdges.find(candidate => candidate.id === deployState.selectedEdgeId);
+    if (edge && routeSlots[0]) {
+      setRoutes(current => current[routeSlots[0].name] ? current : {
+        ...current,
+        [routeSlots[0].name]: [{ id: edge.id, source: edge.source, target: edge.target }],
+      });
+    }
+    if (deployState.selectedPickaxeType && classItemSlots[0]) {
+      setEquippedPerUnit(current => current[0]?.[classItemSlots[0].name] ? current : [
+        { ...(current[0] || {}), [classItemSlots[0].name]: deployState.selectedPickaxeType! },
+      ]);
+    }
+  }, [classItemSlots, gameEdges, routeSlots, tutorial, tutorialMode]);
 
   useEffect(
     () => () => {
@@ -940,6 +975,7 @@ export function DeployDialog({
                 <button
                   onClick={handleNext}
                   disabled={advancing || !canGoNext()}
+                  data-tutorial-allowed={tutorialMode ? true : undefined}
                   aria-describedby={
                     currentStepKey === 'equipment' && !canGoNext() ? 'deploy-equipment-requirement' : undefined
                   }
