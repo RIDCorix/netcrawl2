@@ -19,6 +19,7 @@ assert.match(screen, /<GraphCanvasComponent nodes=\{labNodes\} edges=\{labEdges\
 assert.match(screen, /LAB_NODES/);
 assert.match(screen, /label: t\(node\.labelKey\)/);
 assert.match(screen, /unlocked: true/);
+assert.match(screen, /rate: node\.type === 'resource' \? 0 : undefined/);
 assert.match(screen, /selectedNode\?\.id === 'lab_start'/);
 assert.match(screen, /<NodeDetailPanel/);
 assert.match(screen, /nodeOverride=\{selectedGameNode\}/);

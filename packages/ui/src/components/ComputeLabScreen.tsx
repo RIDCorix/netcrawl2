@@ -128,6 +128,7 @@ export function ComputeLabScreen({
           edgeStyle,
           difficulty: 'difficulty' in node ? node.difficulty : undefined,
           resource: node.type === 'resource' ? 'data' : undefined,
+          rate: node.type === 'resource' ? 0 : undefined,
         },
       })),
     [edgeStyle, selectedNodeId, t],

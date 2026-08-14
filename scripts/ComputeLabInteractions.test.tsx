@@ -60,10 +60,16 @@ function GraphStub({ nodes, onNodeClick }: { nodes: Node[]; onNodeClick: (_: unk
   return (
     <div data-lab-graph>
       {nodes.map(node => (
-        <button key={node.id} data-lab-node={node.id} onClick={() => onNodeClick(null, node)} />
+        <button key={node.id} data-lab-node={node.id} onClick={() => onNodeClick(null, node)}>
+          {node.type === 'resource' ? <span data-lab-node-rate={node.id}>+{node.data.rate}/harvest</span> : null}
+        </button>
       ))}
     </div>
   );
+}
+
+function textContent(node: TestRenderer.ReactTestInstance): string {
+  return node.children.map(child => (typeof child === 'string' ? child : textContent(child))).join('');
 }
 
 let lab: TestRenderer.ReactTestRenderer;
@@ -75,10 +81,19 @@ assert.equal(
   null,
   'Lab must open without falling back to the selected world node',
 );
+for (const nodeId of ['lab_input_a', 'lab_input_b']) {
+  assert.equal(textContent(lab!.root.findByProps({ 'data-lab-node-rate': nodeId })), '+0/harvest');
+}
+assert.doesNotMatch(textContent(lab!.root), /undefined/, 'Lab graph must not render undefined values');
 
 for (const nodeId of ['lab_start', 'lab_operator', 'lab_input_a', 'lab_input_b', 'lab_result']) {
   act(() => lab!.root.findByProps({ 'data-lab-node': nodeId }).props.onClick());
   assert.equal(lab!.root.findByType(NodeDetailPanel).props.nodeOverride.id, nodeId);
+  if (nodeId === 'lab_input_a' || nodeId === 'lab_input_b') {
+    const panel = lab!.root.findByProps({ 'data-node-detail-id': nodeId });
+    assert.match(textContent(panel), /\+0\/harvest/, `${nodeId} panel must show the same zero rate as its graph node`);
+    assert.doesNotMatch(textContent(lab!.root), /undefined/, `${nodeId} selection must not render undefined values`);
+  }
   const closeButton = lab!.root
     .findAllByProps({ 'data-node-panel-close': true })
     .find(candidate => candidate.type === 'button');
