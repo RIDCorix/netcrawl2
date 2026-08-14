@@ -60,7 +60,7 @@ export function invalidateCodeServerLease(userId?: string): void {
 export function releaseCodeServerLease(sessionId: string | undefined, userId?: string): boolean {
   const key = keyFor(userId);
   const lease = leases.get(key);
-  if (!sessionId || !lease || lease.sessionId !== sessionId) return false;
+  if (!sessionId || !lease || lease.sessionId !== sessionId || lease.expiresAt <= Date.now()) return false;
   leases.delete(key);
   lastSeen.delete(key);
   wasConnected.delete(key);

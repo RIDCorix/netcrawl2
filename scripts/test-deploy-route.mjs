@@ -616,9 +616,8 @@ try {
   assert.equal(getWorker(workerId, userA).status, 'deploying');
   assert.equal(getWorker(workerId, userA).pid, null);
 
-  // Published Python SDK 1.2.2 first releases its protocol-v2 session, then
-  // sends an empty legacy disconnect. The leased call remains its successful,
-  // state-changing shutdown path; the unfenced follow-up is a harmless reject.
+  // Published Python SDK 1.2.3 releases its protocol-v2 session through this
+  // leased endpoint. Only a current, unexpired session may reconcile workers.
   const sdkRegistration = await request('/api/runtime/register', codeServerCredential.body.token, {
     protocolVersion: 2,
     sessionId: runtimeSession,
@@ -627,13 +626,6 @@ try {
   });
   assert.equal(sdkRegistration.status, 200);
   upsertWorker({ ...getWorker(workerId, userA), status: 'running', pid: 6062 }, userA);
-  const beforeStaleSessionDisconnect = runtimeSnapshot(userA);
-  const staleSessionDisconnect = await request('/api/runtime/disconnect', codeServerCredential.body.token, {
-    sessionId: 'stale-runtime-session',
-  });
-  assert.equal(staleSessionDisconnect.status, 200);
-  assert.equal(staleSessionDisconnect.body.released, false);
-  assert.deepEqual(runtimeSnapshot(userA), beforeStaleSessionDisconnect);
   const sdkDisconnect = await request('/api/runtime/disconnect', codeServerCredential.body.token, {
     sessionId: runtimeSession,
   });
@@ -642,6 +634,40 @@ try {
   assert.equal(sdkDisconnect.body.released, true);
   assert.equal(getWorker(workerId, userA).status, 'deploying');
   assert.equal(getWorker(workerId, userA).pid, null);
+
+  const wrongSessionRegistration = await request('/api/runtime/register', codeServerCredential.body.token, {
+    protocolVersion: 2,
+    sessionId: runtimeSession,
+    classes: [reloadedWorkerClass],
+    activeExecutions: [],
+  });
+  assert.equal(wrongSessionRegistration.status, 200);
+  upsertWorker({ ...getWorker(workerId, userA), status: 'running', pid: 6063 }, userA);
+  const beforeWrongSessionDisconnect = runtimeSnapshot(userA);
+  const wrongSessionDisconnect = await request('/api/runtime/disconnect', codeServerCredential.body.token, {
+    sessionId: 'wrong-runtime-session',
+  });
+  assert.equal(wrongSessionDisconnect.status, 200);
+  assert.equal(wrongSessionDisconnect.body.ok, true);
+  assert.equal(wrongSessionDisconnect.body.released, false);
+  assert.deepEqual(runtimeSnapshot(userA), beforeWrongSessionDisconnect);
+
+  const realDateNow = Date.now;
+  const leaseClaimedAt = realDateNow();
+  Date.now = () => leaseClaimedAt + 15_001;
+  try {
+    const beforeExpiredSessionDisconnect = runtimeSnapshot(userA);
+    const expiredSessionDisconnect = await request('/api/runtime/disconnect', codeServerCredential.body.token, {
+      sessionId: runtimeSession,
+    });
+    assert.equal(expiredSessionDisconnect.status, 200);
+    assert.equal(expiredSessionDisconnect.body.ok, true);
+    assert.equal(expiredSessionDisconnect.body.released, false);
+    assert.deepEqual(runtimeSnapshot(userA), beforeExpiredSessionDisconnect);
+  } finally {
+    Date.now = realDateNow;
+  }
+
   const afterSdkDisconnect = runtimeSnapshot(userA);
   const legacyDisconnect = await request('/api/code-server/disconnect', codeServerCredential.body.token, {});
   assert.equal(legacyDisconnect.status, 200);
