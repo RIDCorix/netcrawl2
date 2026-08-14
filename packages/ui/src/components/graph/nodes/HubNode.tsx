@@ -4,7 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Database, AlertTriangle } from 'lucide-react';
 import { NodeWrapper } from '../NodeWrapper';
 
-function HubDepositBadge({ deposit, offset, onDone }: {
+function HubDepositBadge({
+  deposit,
+  offset,
+  onDone,
+}: {
   deposit: { id: number; goodCount: number; badCount: number };
   offset: number;
   onDone: () => void;
@@ -28,13 +32,25 @@ function HubDepositBadge({ deposit, offset, onDone }: {
       exit={{ opacity: 0 }}
       transition={{ duration: 1.4, ease: 'easeOut', times: [0, 0.15, 0.7, 1] }}
       style={{
-        position: 'absolute', top: -4, left: '50%', transform: 'translateX(-50%)',
-        pointerEvents: 'none', display: 'flex', alignItems: 'center', gap: 3,
-        padding: '3px 7px', borderRadius: 999,
-        background: `${color}20`, border: `1px solid ${color}`,
-        boxShadow: `0 0 10px ${color}aa`, color,
-        fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 800,
-        whiteSpace: 'nowrap', zIndex: 20,
+        position: 'absolute',
+        top: -4,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        pointerEvents: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 3,
+        padding: '3px 7px',
+        borderRadius: 999,
+        background: `${color}20`,
+        border: `1px solid ${color}`,
+        boxShadow: `0 0 10px ${color}aa`,
+        color,
+        fontFamily: 'var(--font-mono)',
+        fontSize: 10,
+        fontWeight: 800,
+        whiteSpace: 'nowrap',
+        zIndex: 20,
       }}
     >
       <Icon size={11} />
@@ -53,12 +69,23 @@ export function HubNode({ id, data, selected }: any) {
   const flashColor = flashKind === 'bad' ? '#ef4444' : flashKind === 'good' ? '#facc15' : null;
 
   return (
-    <NodeWrapper selected={selected} glowColor="var(--accent)" nodeId={id} showWorkerDots={data.showWorkerDots} edgeStyle={data.edgeStyle} fadeIn={data.fadeIn} routeIndices={data.routeIndices} unlockable={data.unlockable} unlocked={data.unlocked} style={{
-      animation: 'hub-pulse 3s ease-in-out infinite',
-      padding: '14px 20px',
-      borderRadius: 'var(--radius-lg)',
-      border: '2px solid var(--accent)',
-    }}>
+    <NodeWrapper
+      selected={selected}
+      glowColor="var(--accent)"
+      nodeId={id}
+      showWorkerDots={data.showWorkerDots}
+      edgeStyle={data.edgeStyle}
+      fadeIn={data.fadeIn}
+      routeIndices={data.routeIndices}
+      unlockable={data.unlockable}
+      unlocked={data.unlocked}
+      style={{
+        animation: 'hub-pulse 3s ease-in-out infinite',
+        padding: '14px 20px',
+        borderRadius: 'var(--radius-lg)',
+        border: '2px solid var(--accent)',
+      }}
+    >
       {flashColor && (
         <motion.div
           key={flashKey}
@@ -66,7 +93,9 @@ export function HubNode({ id, data, selected }: any) {
           animate={{ opacity: [0, 0.9, 0], scale: [1, 1.08, 1.14] }}
           transition={{ duration: 0.9, ease: 'easeOut' }}
           style={{
-            position: 'absolute', inset: -4, borderRadius: 'var(--radius-lg)',
+            position: 'absolute',
+            inset: -4,
+            borderRadius: 'var(--radius-lg)',
             border: `2px solid ${flashColor}`,
             boxShadow: `0 0 18px ${flashColor}, 0 0 36px ${flashColor}80`,
             pointerEvents: 'none',
@@ -80,7 +109,9 @@ export function HubNode({ id, data, selected }: any) {
       </AnimatePresence>
       <div data-tutorial="hub-node" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
         <Shield size={20} color="var(--accent)" />
-        <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{data.label}</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+          {data.label}
+        </div>
         <div style={{ fontSize: 8, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>CENTRAL HUB</div>
       </div>
     </NodeWrapper>

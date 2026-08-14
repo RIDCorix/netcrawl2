@@ -26,7 +26,7 @@ export interface APIRequest {
   type: string;
   body: Record<string, any>;
   hasToken: boolean;
-  token: string | null;   // actual token value (may be present even if hasToken=false for phishing)
+  token: string | null; // actual token value (may be present even if hasToken=false for phishing)
   deadlineTick: number;
   reward: { credits: number };
   status: 'pending' | 'accepted' | 'completed' | 'failed' | 'expired' | 'rejected';
@@ -289,7 +289,8 @@ export function apiReject(nodeId: string, workerId: string, requestId: string, s
   const queue = getAPIQueue(nodeId);
   const request = queue.find(r => r.id === requestId);
   if (!request) return { ok: false, error: 'Request not found' };
-  if (request.status !== 'accepted') return { ok: false, error: `Request status is '${request.status}', expected 'accepted'` };
+  if (request.status !== 'accepted')
+    return { ok: false, error: `Request status is '${request.status}', expected 'accepted'` };
 
   request.status = 'rejected';
 
@@ -317,7 +318,8 @@ export function apiRespond(nodeId: string, workerId: string, requestId: string, 
   const queue = getAPIQueue(nodeId);
   const request = queue.find(r => r.id === requestId);
   if (!request) return { ok: false, error: 'Request not found' };
-  if (request.status !== 'accepted') return { ok: false, error: `Request status is '${request.status}', expected 'accepted'` };
+  if (request.status !== 'accepted')
+    return { ok: false, error: `Request status is '${request.status}', expected 'accepted'` };
 
   // ── Security check: responding 2xx to unauthenticated request ──
   if (!request.hasToken) {
@@ -396,7 +398,15 @@ export function getAPIPendingCount(nodeId: string): number {
   return getAPIQueue(nodeId).filter(r => r.status === 'pending' || r.status === 'accepted').length;
 }
 
-export function getAPIStats(nodeId: string): { pending: number; completed: number; failed: number; expired: number; rejected: number; infectionValue: number; slaStatus: string } {
+export function getAPIStats(nodeId: string): {
+  pending: number;
+  completed: number;
+  failed: number;
+  expired: number;
+  rejected: number;
+  infectionValue: number;
+  slaStatus: string;
+} {
   const queue = getAPIQueue(nodeId);
   return {
     pending: queue.filter(r => r.status === 'pending' || r.status === 'accepted').length,
@@ -430,5 +440,6 @@ export const API_SPEC: APISpec = {
       example: { body: { value: 42 }, response: { value: 42 } },
     },
   ],
-  securityNote: 'Some requests arrive WITHOUT a token (has_token=False). You MUST call reject(req.id, 401) for these. Responding with 2xx to an unauthenticated request adds +25 infection. Requests that expire without being rejected add +8 infection. 100 infection = node infected.',
+  securityNote:
+    'Some requests arrive WITHOUT a token (has_token=False). You MUST call reject(req.id, 401) for these. Responding with 2xx to an unauthenticated request adds +25 infection. Requests that expire without being rejected add +8 infection. 100 infection = node infected.',
 };

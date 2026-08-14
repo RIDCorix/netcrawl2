@@ -52,7 +52,10 @@ export function cacheKeys(nodeId: string): string[] {
   const now = Date.now();
   const keys: string[] = [];
   for (const [k, e] of cacheStore) {
-    if (e.ttl > 0 && now - e.storedAt > e.ttl) { cacheStore.delete(k); continue; }
+    if (e.ttl > 0 && now - e.storedAt > e.ttl) {
+      cacheStore.delete(k);
+      continue;
+    }
     keys.push(k);
   }
   return keys;

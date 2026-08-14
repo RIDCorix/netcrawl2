@@ -84,10 +84,8 @@ export function checkLayerUnlocks(userId?: string): number[] {
     const dataMet = !thresh.total_data_deposited || (stats['total_data_deposited'] || 0) >= thresh.total_data_deposited;
     const rpMet = !thresh.rp || state.resources.rp >= thresh.rp;
     const creditsMet = !thresh.credits || state.resources.credits >= thresh.credits;
-    const requiredStatsMet = !thresh.required_stats
-      || Object.entries(thresh.required_stats).every(
-        ([key, min]) => (stats[key] || 0) >= min
-      );
+    const requiredStatsMet =
+      !thresh.required_stats || Object.entries(thresh.required_stats).every(([key, min]) => (stats[key] || 0) >= min);
 
     if (dataMet && rpMet && creditsMet && requiredStatsMet) {
       unlockLayer(def.id, userId);

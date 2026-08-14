@@ -10,24 +10,46 @@ const GRID_COLS = 4;
 const GRID_ROWS = 2;
 const MAX_SLOTS_DISPLAY = GRID_COLS * GRID_ROWS; // 8 slots max in grid
 
-function ChipCard({ chip, small, onAction, actionIcon }: {
-  chip: Chip; small?: boolean; onAction?: () => void; actionIcon?: React.ReactNode;
+function ChipCard({
+  chip,
+  small,
+  onAction,
+  actionIcon,
+}: {
+  chip: Chip;
+  small?: boolean;
+  onAction?: () => void;
+  actionIcon?: React.ReactNode;
 }) {
   const t = useT();
   const color = RARITY_COLORS[chip.rarity];
   const chipName = t('chip.' + chip.chipType + '.name') || chip.name;
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 8,
-      padding: small ? '4px 8px' : '6px 10px',
-      borderRadius: 'var(--radius-sm)',
-      background: 'var(--bg-primary)',
-      border: `1px solid ${color}40`,
-      minWidth: 0,
-    }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: small ? '4px 8px' : '6px 10px',
+        borderRadius: 'var(--radius-sm)',
+        background: 'var(--bg-primary)',
+        border: `1px solid ${color}40`,
+        minWidth: 0,
+      }}
+    >
       <Cpu size={small ? 10 : 12} style={{ color, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: small ? 9 : 10, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div
+          style={{
+            fontSize: small ? 9 : 10,
+            fontWeight: 700,
+            color: 'var(--text-primary)',
+            fontFamily: 'var(--font-mono)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
           {chipName}
         </div>
         <div style={{ fontSize: small ? 8 : 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
@@ -35,10 +57,18 @@ function ChipCard({ chip, small, onAction, actionIcon }: {
         </div>
       </div>
       {onAction && (
-        <button onClick={onAction} style={{
-          color: 'var(--text-muted)', background: 'none', border: 'none',
-          cursor: 'pointer', padding: 2, display: 'flex', flexShrink: 0,
-        }}>
+        <button
+          onClick={onAction}
+          style={{
+            color: 'var(--text-muted)',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 2,
+            display: 'flex',
+            flexShrink: 0,
+          }}
+        >
           {actionIcon || <X size={10} />}
         </button>
       )}
@@ -47,7 +77,12 @@ function ChipCard({ chip, small, onAction, actionIcon }: {
 }
 
 /** A single grid slot — filled or empty */
-function GridSlot({ chip, onRemove, onInsert, disabled }: {
+function GridSlot({
+  chip,
+  onRemove,
+  onInsert,
+  disabled,
+}: {
   chip?: Chip;
   onRemove?: (chipId: string) => void;
   onInsert?: () => void;
@@ -79,30 +114,48 @@ function GridSlot({ chip, onRemove, onInsert, disabled }: {
         onClick={() => onRemove?.(chip.id)}
       >
         <Cpu size={14} style={{ color }} />
-        <div style={{
-          fontSize: 7, fontWeight: 700, fontFamily: 'var(--font-mono)',
-          color: 'var(--text-primary)', textAlign: 'center',
-          lineHeight: 1.1, padding: '0 2px',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          width: '100%',
-        }}>
+        <div
+          style={{
+            fontSize: 7,
+            fontWeight: 700,
+            fontFamily: 'var(--font-mono)',
+            color: 'var(--text-primary)',
+            textAlign: 'center',
+            lineHeight: 1.1,
+            padding: '0 2px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            width: '100%',
+          }}
+        >
           {chipName.replace('Chip ', '').replace('Module', 'Mod')}
         </div>
         {/* Rarity dot */}
-        <div style={{
-          position: 'absolute', top: 3, right: 3,
-          width: 5, height: 5, borderRadius: '50%',
-          background: color,
-          boxShadow: `0 0 4px ${color}`,
-        }} />
+        <div
+          style={{
+            position: 'absolute',
+            top: 3,
+            right: 3,
+            width: 5,
+            height: 5,
+            borderRadius: '50%',
+            background: color,
+            boxShadow: `0 0 4px ${color}`,
+          }}
+        />
         {/* Remove hover indicator */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'rgba(255,71,87,0.15)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          opacity: 0,
-          transition: 'opacity 0.15s',
-        }}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'rgba(255,71,87,0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: 0,
+            transition: 'opacity 0.15s',
+          }}
           onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
           onMouseLeave={e => (e.currentTarget.style.opacity = '0')}
         >
@@ -129,15 +182,29 @@ function GridSlot({ chip, onRemove, onInsert, disabled }: {
         opacity: disabled ? 0.35 : 0.55,
         transition: 'opacity 0.15s, border-color 0.15s',
       }}
-      onMouseEnter={e => { if (!disabled) { e.currentTarget.style.opacity = '0.85'; e.currentTarget.style.borderColor = 'var(--accent)'; } }}
-      onMouseLeave={e => { if (!disabled) { e.currentTarget.style.opacity = '0.55'; e.currentTarget.style.borderColor = 'var(--text-muted)'; } }}
+      onMouseEnter={e => {
+        if (!disabled) {
+          e.currentTarget.style.opacity = '0.85';
+          e.currentTarget.style.borderColor = 'var(--accent)';
+        }
+      }}
+      onMouseLeave={e => {
+        if (!disabled) {
+          e.currentTarget.style.opacity = '0.55';
+          e.currentTarget.style.borderColor = 'var(--text-muted)';
+        }
+      }}
     >
       <Plus size={12} style={{ color: 'var(--text-muted)' }} />
     </button>
   );
 }
 
-export function ChipSlotManager({ nodeId, chipSlots, installedChips }: {
+export function ChipSlotManager({
+  nodeId,
+  chipSlots,
+  installedChips,
+}: {
   nodeId: string;
   chipSlots: number;
   installedChips: Chip[];
@@ -153,14 +220,20 @@ export function ChipSlotManager({ nodeId, chipSlots, installedChips }: {
     try {
       await axios.post('/api/node/chip/insert', { nodeId, chipId });
       setShowPicker(false);
-    } catch {} finally { setBusy(false); }
+    } catch {
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleRemove = async (chipId: string) => {
     setBusy(true);
     try {
       await axios.post('/api/node/chip/remove', { nodeId, chipId });
-    } catch {} finally { setBusy(false); }
+    } catch {
+    } finally {
+      setBusy(false);
+    }
   };
 
   // Build grid items: installed chips fill first, then empty slots
@@ -180,7 +253,15 @@ export function ChipSlotManager({ nodeId, chipSlots, installedChips }: {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <Cpu size={11} style={{ color: 'var(--text-muted)' }} />
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: 'var(--text-muted)',
+            fontFamily: 'var(--font-mono)',
+            letterSpacing: '0.1em',
+          }}
+        >
           CHIP SLOTS
         </span>
         <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
@@ -189,24 +270,19 @@ export function ChipSlotManager({ nodeId, chipSlots, installedChips }: {
       </div>
 
       {/* 4x2 Grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
-        gap: 4,
-      }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
+          gap: 4,
+        }}
+      >
         {gridItems.map((item, i) =>
           item.type === 'chip' ? (
-            <GridSlot
-              key={item.chip.id}
-              chip={item.chip}
-              onRemove={handleRemove}
-            />
+            <GridSlot key={item.chip.id} chip={item.chip} onRemove={handleRemove} />
           ) : (
-            <GridSlot
-              key={`empty-${i}`}
-              onInsert={() => setShowPicker(true)}
-            />
-          )
+            <GridSlot key={`empty-${i}`} onInsert={() => setShowPicker(true)} />
+          ),
         )}
       </div>
 
@@ -214,28 +290,65 @@ export function ChipSlotManager({ nodeId, chipSlots, installedChips }: {
       <AnimatePresence>
         {showPicker && hasEmptySlots && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
             style={{ overflow: 'hidden' }}
           >
-            <div style={{
-              padding: 8, borderRadius: 'var(--radius-sm)',
-              background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-              display: 'flex', flexDirection: 'column', gap: 4,
-              maxHeight: 140, overflowY: 'auto',
-            }}>
+            <div
+              style={{
+                padding: 8,
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+                maxHeight: 140,
+                overflowY: 'auto',
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Select chip to install:</span>
-                <button onClick={() => setShowPicker(false)} style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 1, display: 'flex' }}>
+                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                  Select chip to install:
+                </span>
+                <button
+                  onClick={() => setShowPicker(false)}
+                  style={{
+                    color: 'var(--text-muted)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: 1,
+                    display: 'flex',
+                  }}
+                >
                   <X size={10} />
                 </button>
               </div>
               {playerChips.length === 0 ? (
-                <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', padding: '6px 0', textAlign: 'center' }}>
+                <div
+                  style={{
+                    fontSize: 9,
+                    color: 'var(--text-muted)',
+                    fontFamily: 'var(--font-mono)',
+                    padding: '6px 0',
+                    textAlign: 'center',
+                  }}
+                >
                   No chips available. Open chip packs from the inventory.
                 </div>
-              ) : playerChips.map(chip => (
-                <ChipCard key={chip.id} chip={chip} small onAction={() => handleInsert(chip.id)} actionIcon={<Plus size={10} />} />
-              ))}
+              ) : (
+                playerChips.map(chip => (
+                  <ChipCard
+                    key={chip.id}
+                    chip={chip}
+                    small
+                    onAction={() => handleInsert(chip.id)}
+                    actionIcon={<Plus size={10} />}
+                  />
+                ))
+              )}
             </div>
           </motion.div>
         )}

@@ -115,7 +115,9 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
   const logs = helloWorkerId ? workerLogs[helloWorkerId] || [] : [];
   const [grantError, setGrantError] = useState(false);
   const [logError, setLogError] = useState(false);
-  const [advanceError, setAdvanceError] = useState<'miner_not_registered' | 'miner_schema_incompatible' | 'hello_log_pending' | null>(null);
+  const [advanceError, setAdvanceError] = useState<
+    'miner_not_registered' | 'miner_schema_incompatible' | 'hello_log_pending' | null
+  >(null);
   const [advancing, setAdvancing] = useState(false);
 
   useEffect(() => {
@@ -136,13 +138,17 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
 
   // The shell guard consumes an authoritative descriptor, never a boolean.
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent('chapter-zero-deploy-mode', {
-      detail: { active: true, phase, stage, setupGate: setupGate || setupGateTransition, setupGateTransition },
-    }));
+    window.dispatchEvent(
+      new CustomEvent('chapter-zero-deploy-mode', {
+        detail: { active: true, phase, stage, setupGate: setupGate || setupGateTransition, setupGateTransition },
+      }),
+    );
     return () => {
-      window.dispatchEvent(new CustomEvent('chapter-zero-deploy-mode', {
-        detail: { active: false, phase, stage, setupGate: setupGate || setupGateTransition, setupGateTransition },
-      }));
+      window.dispatchEvent(
+        new CustomEvent('chapter-zero-deploy-mode', {
+          detail: { active: false, phase, stage, setupGate: setupGate || setupGateTransition, setupGateTransition },
+        }),
+      );
     };
   }, [phase, setupGate, setupGateTransition, stage]);
 
@@ -206,7 +212,9 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
   const completedLoops = session.world.deployTutorial.minerCompletedLoops;
   const minerCandidateWorkerId = session.world.deployTutorial.minerCandidateWorkerId;
   const minerCandidate = workers.find(worker => worker.id === minerCandidateWorkerId);
-  const minerCanRetry = !!minerCandidateWorkerId && (!codeServerUp || !minerCandidate || ['suspended', 'crashed', 'error', 'dead'].includes(minerCandidate.status));
+  const minerCanRetry =
+    !!minerCandidateWorkerId &&
+    (!codeServerUp || !minerCandidate || ['suspended', 'crashed', 'error', 'dead'].includes(minerCandidate.status));
   const [retryingMiner, setRetryingMiner] = useState(false);
   const [minerRetryError, setMinerRetryError] = useState(false);
 
@@ -226,7 +234,11 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
 
   useEffect(() => {
     if (stage !== 'miner_deploy_execute' || !session.world.deployTutorial.minerCandidateWorkerId) return;
-    const refresh = () => axios.get('/api/tutorial/chapter-zero').then(response => publishSession(response.data)).catch(() => undefined);
+    const refresh = () =>
+      axios
+        .get('/api/tutorial/chapter-zero')
+        .then(response => publishSession(response.data))
+        .catch(() => undefined);
     refresh();
     const interval = window.setInterval(refresh, 1500);
     return () => window.clearInterval(interval);
@@ -234,26 +246,56 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
   const copy = useMemo(() => {
     if (stage === 'hello_preview') {
       return selectedNodeId === 'hub'
-        ? ['tutorial.chapter_zero.deploy.hello_hub_selected_prompt', 'tutorial.chapter_zero.deploy.hello_hub_selected_hint']
+        ? [
+            'tutorial.chapter_zero.deploy.hello_hub_selected_prompt',
+            'tutorial.chapter_zero.deploy.hello_hub_selected_hint',
+          ]
         : ['tutorial.chapter_zero.deploy.hello_hub_prompt', 'tutorial.chapter_zero.deploy.hello_hub_hint'];
     }
     if (stage === 'miner_preview') {
       return selectedNodeId === 'hub'
-        ? ['tutorial.chapter_zero.deploy.miner_hub_selected_prompt', 'tutorial.chapter_zero.deploy.miner_hub_selected_hint']
+        ? [
+            'tutorial.chapter_zero.deploy.miner_hub_selected_prompt',
+            'tutorial.chapter_zero.deploy.miner_hub_selected_hint',
+          ]
         : ['tutorial.chapter_zero.deploy.miner_hub_prompt', 'tutorial.chapter_zero.deploy.miner_hub_hint'];
     }
     const copyByStage: Record<DeployStage, [string, string]> = {
       hello_preview: ['', ''],
-      hello_deploy_open: ['tutorial.chapter_zero.deploy.hello_class_prompt', 'tutorial.chapter_zero.deploy.hello_class_hint'],
-      hello_deploy_confirm: ['tutorial.chapter_zero.deploy.hello_confirm_prompt', 'tutorial.chapter_zero.deploy.hello_confirm_hint'],
-      hello_deploy_execute: ['tutorial.chapter_zero.deploy.hello_execute_prompt', 'tutorial.chapter_zero.deploy.hello_execute_hint'],
+      hello_deploy_open: [
+        'tutorial.chapter_zero.deploy.hello_class_prompt',
+        'tutorial.chapter_zero.deploy.hello_class_hint',
+      ],
+      hello_deploy_confirm: [
+        'tutorial.chapter_zero.deploy.hello_confirm_prompt',
+        'tutorial.chapter_zero.deploy.hello_confirm_hint',
+      ],
+      hello_deploy_execute: [
+        'tutorial.chapter_zero.deploy.hello_execute_prompt',
+        'tutorial.chapter_zero.deploy.hello_execute_hint',
+      ],
       hello_log: ['tutorial.chapter_zero.deploy.hello_log_prompt', 'tutorial.chapter_zero.deploy.hello_log_hint'],
       miner_preview: ['', ''],
-      miner_deploy_open: ['tutorial.chapter_zero.deploy.miner_class_prompt', 'tutorial.chapter_zero.deploy.miner_class_hint'],
-      miner_edge_select: ['tutorial.chapter_zero.deploy.miner_edge_prompt', 'tutorial.chapter_zero.deploy.miner_edge_hint'],
-      miner_pickaxe_equip: ['tutorial.chapter_zero.deploy.miner_pickaxe_prompt', 'tutorial.chapter_zero.deploy.miner_pickaxe_hint'],
-      miner_deploy_confirm: ['tutorial.chapter_zero.deploy.miner_confirm_prompt', 'tutorial.chapter_zero.deploy.miner_confirm_hint'],
-      miner_deploy_execute: ['tutorial.chapter_zero.deploy.miner_execute_prompt', 'tutorial.chapter_zero.deploy.miner_execute_hint'],
+      miner_deploy_open: [
+        'tutorial.chapter_zero.deploy.miner_class_prompt',
+        'tutorial.chapter_zero.deploy.miner_class_hint',
+      ],
+      miner_edge_select: [
+        'tutorial.chapter_zero.deploy.miner_edge_prompt',
+        'tutorial.chapter_zero.deploy.miner_edge_hint',
+      ],
+      miner_pickaxe_equip: [
+        'tutorial.chapter_zero.deploy.miner_pickaxe_prompt',
+        'tutorial.chapter_zero.deploy.miner_pickaxe_hint',
+      ],
+      miner_deploy_confirm: [
+        'tutorial.chapter_zero.deploy.miner_confirm_prompt',
+        'tutorial.chapter_zero.deploy.miner_confirm_hint',
+      ],
+      miner_deploy_execute: [
+        'tutorial.chapter_zero.deploy.miner_execute_prompt',
+        'tutorial.chapter_zero.deploy.miner_execute_hint',
+      ],
       handoff: ['', ''],
     };
     return copyByStage[stage];
@@ -274,7 +316,11 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
           <>
             <div className="chapter0-deploy-guide-title">{t('tutorial.chapter_zero.deploy.complete_title')}</div>
             <p className="chapter0-deploy-guide-body">{t('tutorial.chapter_zero.deploy.complete_body')}</p>
-            <button className="chapter0-deploy-guide-btn chapter0-deploy-guide-btn--primary" onClick={onDismiss} data-tutorial-allowed>
+            <button
+              className="chapter0-deploy-guide-btn chapter0-deploy-guide-btn--primary"
+              onClick={onDismiss}
+              data-tutorial-allowed
+            >
               {t('tutorial.chapter_zero.continue')}
             </button>
           </>
@@ -298,7 +344,9 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
                 <div className="chapter0-deploy-log-worker">{helloWorkerId}</div>
                 {logs.length > 0 ? (
                   <div className="chapter0-deploy-log-list" aria-live="polite">
-                    {logs.slice(-5).map((log, index) => <div key={`${log.created_at}-${index}`}>{log.message}</div>)}
+                    {logs.slice(-5).map((log, index) => (
+                      <div key={`${log.created_at}-${index}`}>{log.message}</div>
+                    ))}
                   </div>
                 ) : (
                   <p className="chapter0-deploy-guide-hint">{t('tutorial.chapter_zero.deploy.hello_log_waiting')}</p>
@@ -339,23 +387,41 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
             {stage === 'miner_deploy_execute' && session.world.deployTutorial.minerCandidateWorkerId && (
               <div className="chapter0-deploy-loop-progress" aria-live="polite" data-tutorial-worker-loop>
                 <div className="chapter0-deploy-log-title">{t('tutorial.chapter_zero.deploy.miner_loop_title')}</div>
-                <div className="chapter0-deploy-guide-hint">{t('tutorial.chapter_zero.deploy.miner_loop_count', { count: completedLoops, target: 2 })}</div>
+                <div className="chapter0-deploy-guide-hint">
+                  {t('tutorial.chapter_zero.deploy.miner_loop_count', { count: completedLoops, target: 2 })}
+                </div>
                 <div className="chapter0-deploy-steps">
                   {['move_to_mine', 'mine', 'collect', 'return_to_hub', 'deposit'].map(loopStep => (
-                    <div key={loopStep} className={`chapter0-deploy-step-dot${loopStep === minerLoop ? ' chapter0-deploy-step-dot--done' : ''}`}>
-                      <span className="chapter0-deploy-step-label">{t(`tutorial.chapter_zero.deploy.loop_${loopStep}`)}</span>
+                    <div
+                      key={loopStep}
+                      className={`chapter0-deploy-step-dot${loopStep === minerLoop ? ' chapter0-deploy-step-dot--done' : ''}`}
+                    >
+                      <span className="chapter0-deploy-step-label">
+                        {t(`tutorial.chapter_zero.deploy.loop_${loopStep}`)}
+                      </span>
                     </div>
                   ))}
                 </div>
                 {minerCanRetry && (
                   <div className="chapter0-deploy-error" role="alert">
                     <span>{t('tutorial.chapter_zero.deploy.miner_retry_prompt')}</span>
-                    <button onClick={retryMiner} disabled={retryingMiner} className="chapter0-deploy-error-retry" data-tutorial-allowed>
-                      {retryingMiner ? t('tutorial.chapter_zero.deploy.retrying') : t('tutorial.chapter_zero.deploy.miner_retry')}
+                    <button
+                      onClick={retryMiner}
+                      disabled={retryingMiner}
+                      className="chapter0-deploy-error-retry"
+                      data-tutorial-allowed
+                    >
+                      {retryingMiner
+                        ? t('tutorial.chapter_zero.deploy.retrying')
+                        : t('tutorial.chapter_zero.deploy.miner_retry')}
                     </button>
                   </div>
                 )}
-                {minerRetryError && <div className="chapter0-deploy-error" role="alert">{t('tutorial.chapter_zero.deploy.miner_retry_error')}</div>}
+                {minerRetryError && (
+                  <div className="chapter0-deploy-error" role="alert">
+                    {t('tutorial.chapter_zero.deploy.miner_retry_error')}
+                  </div>
+                )}
               </div>
             )}
 
@@ -384,7 +450,9 @@ function CodePreview({ fileName, code, title, body }: { fileName: string; code: 
       <div className="chapter0-deploy-code-preview-title">{title}</div>
       <p className="chapter0-deploy-guide-hint">{body}</p>
       <div className="chapter0-deploy-code-file">{fileName}</div>
-      <pre><code>{code}</code></pre>
+      <pre>
+        <code>{code}</code>
+      </pre>
     </section>
   );
 }

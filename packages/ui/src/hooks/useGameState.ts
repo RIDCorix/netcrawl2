@@ -27,7 +27,7 @@ export function useGameState() {
       }
     };
 
-    ws.onmessage = (event) => {
+    ws.onmessage = event => {
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === 'STATE_UPDATE') {
@@ -64,7 +64,7 @@ export function useGameState() {
           if (level !== 'debug') {
             const state = useGameStore.getState();
             const workers = state.workers.map((w: any) =>
-              w.id === workerId ? { ...w, lastLog: { message, level, ts } } : w
+              w.id === workerId ? { ...w, lastLog: { message, level, ts } } : w,
             );
             useGameStore.setState({ workers });
           }
@@ -81,7 +81,7 @@ export function useGameState() {
       reconnectRef.current = setTimeout(connect, 2000);
     };
 
-    ws.onerror = (err) => {
+    ws.onerror = err => {
       console.error('[WS] Error:', err);
     };
   }, [setConnected, updateFromServer]);

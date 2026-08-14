@@ -39,10 +39,12 @@ export async function startServer(options: ServerOptions = {}): Promise<{
 
   // Middleware
   const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(s => s.trim());
-  app.use(cors({
-    origin: allowedOrigins?.length ? allowedOrigins : true,
-    credentials: true,
-  }));
+  app.use(
+    cors({
+      origin: allowedOrigins?.length ? allowedOrigins : true,
+      credentials: true,
+    }),
+  );
   app.use(express.json());
 
   // Routes
@@ -99,14 +101,19 @@ export async function startServer(options: ServerOptions = {}): Promise<{
     const state = getGameState(userId);
     const { nodes, edges } = getVisibleState(2, userId);
     const workers = getWorkers(userId);
-    ws.send(JSON.stringify({ type: 'STATE_UPDATE', payload: { ...state, nodes, edges, workers, levelSummary: getPlayerLevelSummary(userId) } }));
+    ws.send(
+      JSON.stringify({
+        type: 'STATE_UPDATE',
+        payload: { ...state, nodes, edges, workers, levelSummary: getPlayerLevelSummary(userId) },
+      }),
+    );
   });
 
   // Start game tick
   startGameTick();
 
   // Start server
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     server.listen(port, () => {
       const actualPort = (server.address() as any).port;
       console.log(`[NetCrawl Server] Running on http://localhost:${actualPort}`);

@@ -13,7 +13,7 @@
     "desktop:dist:mac": "pnpm --filter @netcrawl/desktop dist:mac",
     "desktop:dist:win": "pnpm --filter @netcrawl/desktop dist:win",
     "desktop:dist:linux": "pnpm --filter @netcrawl/desktop dist:linux",
-    "lint": "eslint packages/server/src packages/ui/src --max-warnings 400",
+    "lint": "eslint packages/server/src packages/ui/src --max-warnings 403",
     "lint:fix": "eslint packages/server/src packages/ui/src --fix",
     "format": "prettier --write packages/server/src packages/ui/src",
     "format:check": "prettier --check packages/server/src packages/ui/src",

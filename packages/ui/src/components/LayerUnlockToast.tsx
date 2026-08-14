@@ -26,12 +26,15 @@ export function LayerUnlockToast() {
       }}
     >
       <AnimatePresence>
-        {layerUnlockToasts.map((toast) => (
+        {layerUnlockToasts.map(toast => (
           <Toast
             key={toast.id}
             toast={toast}
             onDismiss={() => removeLayerUnlockToast(toast.id)}
-            onOpen={() => { removeLayerUnlockToast(toast.id); openLayerSelect(); }}
+            onOpen={() => {
+              removeLayerUnlockToast(toast.id);
+              openLayerSelect();
+            }}
           />
         ))}
       </AnimatePresence>
@@ -74,26 +77,38 @@ function Toast({
       }}
       onClick={onOpen}
     >
-      <div style={{
-        width: 36, height: 36,
-        borderRadius: 8,
-        background: 'rgba(0,212,170,0.12)',
-        border: '1px solid rgba(0,212,170,0.3)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 18, flexShrink: 0,
-      }}>
+      <div
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 8,
+          background: 'rgba(0,212,170,0.12)',
+          border: '1px solid rgba(0,212,170,0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 18,
+          flexShrink: 0,
+        }}
+      >
         {toast.emoji}
       </div>
       <div style={{ flex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
           <Globe size={11} style={{ color: '#00d4aa' }} />
-          <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: '#00d4aa', fontWeight: 700, letterSpacing: '0.08em' }}>
+          <span
+            style={{
+              fontSize: 10,
+              fontFamily: 'var(--font-mono)',
+              color: '#00d4aa',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+            }}
+          >
             NEW LAYER UNLOCKED
           </span>
         </div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
-          {toast.name}
-        </div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{toast.name}</div>
         <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginTop: 1 }}>
           Click to view &rarr;
         </div>

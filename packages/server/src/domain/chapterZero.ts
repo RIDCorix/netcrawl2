@@ -54,13 +54,7 @@ export interface ChapterZeroDeployState {
   minerCompletedLoops: number;
 }
 
-export type MinerLoopStep =
-  | 'awaiting_deploy'
-  | 'move_to_mine'
-  | 'mine'
-  | 'collect'
-  | 'return_to_hub'
-  | 'deposit';
+export type MinerLoopStep = 'awaiting_deploy' | 'move_to_mine' | 'mine' | 'collect' | 'return_to_hub' | 'deposit';
 
 export interface ChapterZeroWorld {
   worker: { nodeId: 'hub' | 'mine'; holding: Item[]; equippedPickaxe: 'pickaxe_basic'; lastLog: string | null };
@@ -339,7 +333,15 @@ export function advanceChapterZeroStage(current: ChapterZeroSession, to: Chapter
 /** Set a deploy tutorial field (edge or pickaxe) without stage change. */
 export function setDeployTutorialField(
   current: ChapterZeroSession,
-  field: 'selectedEdgeId' | 'selectedPickaxeType' | 'helloWorkerId' | 'minerWorkerId' | 'minerCandidateWorkerId' | 'minerLoopStep' | 'minerCompletedLoops' | 'grantedItems',
+  field:
+    | 'selectedEdgeId'
+    | 'selectedPickaxeType'
+    | 'helloWorkerId'
+    | 'minerWorkerId'
+    | 'minerCandidateWorkerId'
+    | 'minerLoopStep'
+    | 'minerCompletedLoops'
+    | 'grantedItems',
   value: string | boolean | number | null,
 ): ChapterZeroSession {
   const session = structuredClone(current);

@@ -15,13 +15,22 @@ export function CostBadge({ cost }: { cost: Partial<Resources> }) {
       {Object.entries(cost).map(([key, val]) => {
         const Icon = icons[key];
         return (
-          <div key={key} style={{
-            display: 'flex', alignItems: 'center', gap: 4,
-            padding: '3px 10px', borderRadius: 'var(--radius-sm)',
-            background: `color-mix(in srgb, ${colors[key]} 10%, transparent)`,
-            border: `1px solid color-mix(in srgb, ${colors[key]} 20%, transparent)`,
-            fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 600, color: colors[key],
-          }}>
+          <div
+            key={key}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '3px 10px',
+              borderRadius: 'var(--radius-sm)',
+              background: `color-mix(in srgb, ${colors[key]} 10%, transparent)`,
+              border: `1px solid color-mix(in srgb, ${colors[key]} 20%, transparent)`,
+              fontSize: 11,
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 600,
+              color: colors[key],
+            }}
+          >
             {Icon && <Icon size={10} />}
             {formatResource(key, val as number)}
           </div>
@@ -31,7 +40,14 @@ export function CostBadge({ cost }: { cost: Partial<Resources> }) {
   );
 }
 
-export function ActionButton({ onClick, children, variant = 'primary', disabled = false, className, 'data-tutorial-target': tutorialTarget }: {
+export function ActionButton({
+  onClick,
+  children,
+  variant = 'primary',
+  disabled = false,
+  className,
+  'data-tutorial-target': tutorialTarget,
+}: {
   onClick: () => void;
   children: React.ReactNode;
   variant?: 'primary' | 'danger' | 'secondary';
@@ -46,15 +62,27 @@ export function ActionButton({ onClick, children, variant = 'primary', disabled 
   };
   const s = styles[variant];
   return (
-    <button className={className} onClick={onClick} disabled={disabled} data-tutorial-target={tutorialTarget} style={{
-      background: disabled ? 'var(--bg-elevated)' : s.bg,
-      color: disabled ? 'var(--text-muted)' : s.text,
-      border: disabled ? '1px solid var(--border)' : 'none',
-      borderRadius: 'var(--radius-sm)', padding: '10px 16px',
-      fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)',
-      cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
-      transition: 'all 0.15s', width: '100%', letterSpacing: '0.03em',
-    }}>
+    <button
+      className={className}
+      onClick={onClick}
+      disabled={disabled}
+      data-tutorial-target={tutorialTarget}
+      style={{
+        background: disabled ? 'var(--bg-elevated)' : s.bg,
+        color: disabled ? 'var(--text-muted)' : s.text,
+        border: disabled ? '1px solid var(--border)' : 'none',
+        borderRadius: 'var(--radius-sm)',
+        padding: '10px 16px',
+        fontSize: 13,
+        fontWeight: 700,
+        fontFamily: 'var(--font-mono)',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.5 : 1,
+        transition: 'all 0.15s',
+        width: '100%',
+        letterSpacing: '0.03em',
+      }}
+    >
       {children}
     </button>
   );
@@ -68,10 +96,13 @@ export function StatusMessage({ msg }: { msg: string }) {
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       style={{
-        fontSize: 11, padding: '6px 10px', borderRadius: 'var(--radius-sm)',
+        fontSize: 11,
+        padding: '6px 10px',
+        borderRadius: 'var(--radius-sm)',
         background: isError ? 'var(--danger-dim)' : 'rgba(46, 213, 115, 0.1)',
         border: `1px solid ${isError ? 'rgba(255, 71, 87, 0.2)' : 'rgba(46, 213, 115, 0.2)'}`,
-        color: isError ? 'var(--danger)' : 'var(--success)', fontFamily: 'var(--font-mono)',
+        color: isError ? 'var(--danger)' : 'var(--success)',
+        fontFamily: 'var(--font-mono)',
       }}
     >
       {msg}
@@ -79,50 +110,99 @@ export function StatusMessage({ msg }: { msg: string }) {
   );
 }
 
-function StatRow({ statKey, name, current, max, canAdd, canSub, onAllocate }: {
-  statKey: string; name: string; current: number; max: number;
-  canAdd: boolean; canSub: boolean; onAllocate: (delta: number) => void;
+function StatRow({
+  statKey,
+  name,
+  current,
+  max,
+  canAdd,
+  canSub,
+  onAllocate,
+}: {
+  statKey: string;
+  name: string;
+  current: number;
+  max: number;
+  canAdd: boolean;
+  canSub: boolean;
+  onAllocate: (delta: number) => void;
 }) {
   const pct = max > 0 ? (current / max) * 100 : 0;
-  const STAT_COLORS: Record<string, string> = { rate: 'var(--data-color)', defense: 'var(--accent)', chipSlots: 'var(--rp-color)' };
+  const STAT_COLORS: Record<string, string> = {
+    rate: 'var(--data-color)',
+    defense: 'var(--accent)',
+    chipSlots: 'var(--rp-color)',
+  };
   const color = STAT_COLORS[statKey] || 'var(--accent)';
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <button onClick={() => onAllocate(-1)} disabled={!canSub} style={{
-        width: 22, height: 22, borderRadius: 'var(--radius-sm)',
-        background: canSub ? 'var(--bg-elevated)' : 'transparent',
-        border: `1px solid ${canSub ? 'var(--border-bright)' : 'var(--border)'}`,
-        color: canSub ? 'var(--text-secondary)' : 'var(--text-muted)',
-        cursor: canSub ? 'pointer' : 'not-allowed', opacity: canSub ? 1 : 0.3,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0,
-      }}>
+      <button
+        onClick={() => onAllocate(-1)}
+        disabled={!canSub}
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: 'var(--radius-sm)',
+          background: canSub ? 'var(--bg-elevated)' : 'transparent',
+          border: `1px solid ${canSub ? 'var(--border-bright)' : 'var(--border)'}`,
+          color: canSub ? 'var(--text-secondary)' : 'var(--text-muted)',
+          cursor: canSub ? 'pointer' : 'not-allowed',
+          opacity: canSub ? 1 : 0.3,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          padding: 0,
+        }}
+      >
         <Minus size={10} />
       </button>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-          <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>{name}</span>
-          <span style={{ fontSize: 10, fontWeight: 800, fontFamily: 'var(--font-mono)', color }}>{current}/{max}</span>
+          <span
+            style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}
+          >
+            {name}
+          </span>
+          <span style={{ fontSize: 10, fontWeight: 800, fontFamily: 'var(--font-mono)', color }}>
+            {current}/{max}
+          </span>
         </div>
         <div style={{ display: 'flex', gap: 2, height: 6 }}>
           {Array.from({ length: max }).map((_, i) => (
-            <div key={i} style={{
-              flex: 1, borderRadius: 2,
-              background: i < current ? color : 'var(--bg-primary)',
-              border: `1px solid ${i < current ? 'transparent' : 'var(--border)'}`,
-              transition: 'background 0.2s',
-            }} />
+            <div
+              key={i}
+              style={{
+                flex: 1,
+                borderRadius: 2,
+                background: i < current ? color : 'var(--bg-primary)',
+                border: `1px solid ${i < current ? 'transparent' : 'var(--border)'}`,
+                transition: 'background 0.2s',
+              }}
+            />
           ))}
         </div>
       </div>
-      <button onClick={() => onAllocate(1)} disabled={!canAdd} style={{
-        width: 22, height: 22, borderRadius: 'var(--radius-sm)',
-        background: canAdd ? `color-mix(in srgb, ${color} 15%, transparent)` : 'transparent',
-        border: `1px solid ${canAdd ? color : 'var(--border)'}`,
-        color: canAdd ? color : 'var(--text-muted)',
-        cursor: canAdd ? 'pointer' : 'not-allowed', opacity: canAdd ? 1 : 0.3,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0,
-      }}>
+      <button
+        onClick={() => onAllocate(1)}
+        disabled={!canAdd}
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: 'var(--radius-sm)',
+          background: canAdd ? `color-mix(in srgb, ${color} 15%, transparent)` : 'transparent',
+          border: `1px solid ${canAdd ? color : 'var(--border)'}`,
+          color: canAdd ? color : 'var(--text-muted)',
+          cursor: canAdd ? 'pointer' : 'not-allowed',
+          opacity: canAdd ? 1 : 0.3,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          padding: 0,
+        }}
+      >
         <Plus size={10} />
       </button>
     </div>
@@ -135,15 +215,24 @@ export function NodeEnhanceSection({ nodeId, node }: { nodeId: string; node: Gam
   const [busy, setBusy] = useState(false);
 
   const fetchData = () => {
-    axios.get(`/api/node/upgrades?nodeId=${nodeId}`).then(r => setData(r.data)).catch(() => {});
+    axios
+      .get(`/api/node/upgrades?nodeId=${nodeId}`)
+      .then(r => setData(r.data))
+      .catch(() => {});
   };
 
-  useEffect(() => { fetchData(); }, [nodeId, node.data.upgradeLevel, node.data.nodeXp, node.data.enhancementPoints, node.data.statAlloc]);
+  useEffect(() => {
+    fetchData();
+  }, [nodeId, node.data.upgradeLevel, node.data.nodeXp, node.data.enhancementPoints, node.data.statAlloc]);
 
   const handleAllocate = async (statKey: string, delta: number) => {
     setBusy(true);
-    try { await axios.post('/api/node/stat/allocate', { nodeId, statKey, delta }); }
-    catch {} finally { setBusy(false); }
+    try {
+      await axios.post('/api/node/stat/allocate', { nodeId, statKey, delta });
+    } catch {
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (!data) return null;
@@ -156,22 +245,33 @@ export function NodeEnhanceSection({ nodeId, node }: { nodeId: string; node: Gam
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <SectionLabel>{t('ui.enhance')}</SectionLabel>
-          <span style={{
-            fontSize: 10, fontWeight: 800, fontFamily: 'var(--font-mono)',
-            padding: '2px 8px', borderRadius: 'var(--radius-sm)',
-            background: availablePoints > 0 ? 'var(--accent-dim)' : 'var(--bg-elevated)',
-            color: availablePoints > 0 ? 'var(--accent)' : 'var(--text-muted)',
-            border: `1px solid ${availablePoints > 0 ? 'var(--accent)' : 'var(--border)'}`,
-          }}>
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 800,
+              fontFamily: 'var(--font-mono)',
+              padding: '2px 8px',
+              borderRadius: 'var(--radius-sm)',
+              background: availablePoints > 0 ? 'var(--accent-dim)' : 'var(--bg-elevated)',
+              color: availablePoints > 0 ? 'var(--accent)' : 'var(--text-muted)',
+              border: `1px solid ${availablePoints > 0 ? 'var(--accent)' : 'var(--border)'}`,
+            }}
+          >
             {availablePoints} / {enhancementPoints} EP
           </span>
         </div>
         {availablePoints > 0 && (
-          <div style={{
-            fontSize: 10, color: 'var(--accent)', fontFamily: 'var(--font-mono)',
-            padding: '4px 8px', borderRadius: 'var(--radius-sm)',
-            background: 'var(--accent-dim)', textAlign: 'center',
-          }}>
+          <div
+            style={{
+              fontSize: 10,
+              color: 'var(--accent)',
+              fontFamily: 'var(--font-mono)',
+              padding: '4px 8px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--accent-dim)',
+              textAlign: 'center',
+            }}
+          >
             {t('ui.ep_available').replace('{n}', String(availablePoints))}
           </div>
         )}
@@ -180,12 +280,14 @@ export function NodeEnhanceSection({ nodeId, node }: { nodeId: string; node: Gam
           const statName = t(`stat.${stat.key}.name`);
           return (
             <StatRow
-              key={stat.key} statKey={stat.key}
+              key={stat.key}
+              statKey={stat.key}
               name={statName === `stat.${stat.key}.name` ? stat.name : statName}
-              current={current} max={stat.maxPoints}
+              current={current}
+              max={stat.maxPoints}
               canAdd={availablePoints > 0 && current < stat.maxPoints && !busy}
               canSub={current > 0 && !busy}
-              onAllocate={(d) => handleAllocate(stat.key, d)}
+              onAllocate={d => handleAllocate(stat.key, d)}
             />
           );
         })}
@@ -195,5 +297,8 @@ export function NodeEnhanceSection({ nodeId, node }: { nodeId: string; node: Gam
 }
 
 export function toSnakeCase(str: string): string {
-  return str.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  return str
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '');
 }

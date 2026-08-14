@@ -10,7 +10,12 @@ export function getPlayerInventory(userId?: string): InventoryItem[] {
   return resolveStore(userId).game_state.playerInventory || [];
 }
 
-export function addToPlayerInventory(itemType: string, count: number, metadata?: { efficiency?: number }, userId?: string) {
+export function addToPlayerInventory(
+  itemType: string,
+  count: number,
+  metadata?: { efficiency?: number },
+  userId?: string,
+) {
   const s = resolveStore(userId);
   const inv = s.game_state.playerInventory || [];
   const existing = inv.find(i => i.itemType === itemType);

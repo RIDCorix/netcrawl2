@@ -18,8 +18,7 @@ export const WS_URL = (() => {
 })();
 
 /** Server URL for display in ConnectDialog */
-export const SERVER_URL = import.meta.env.VITE_API_URL
-  || `${window.location.protocol}//${window.location.host}`;
+export const SERVER_URL = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.host}`;
 
 /** Fetch wrapper — prepends API_BASE and adds auth token */
 export function apiFetch(path: string, init?: RequestInit): Promise<Response> {

@@ -6,12 +6,30 @@ import { Router, Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import { FLOP_COSTS } from '../types.js';
 import { getGameState } from '../domain/gameState.js';
-import { getWorker, upsertWorker, addWorkerLog, allocateFlop, releaseFlop, releaseWorkerFlop } from '../domain/workers.js';
-import { addToPlayerInventory, removeFromPlayerInventory, getItemEfficiency, getCpuComputePoints, getRamCapacityBonus, getItemComputeCost } from '../domain/inventory.js';
+import {
+  getWorker,
+  upsertWorker,
+  addWorkerLog,
+  allocateFlop,
+  releaseFlop,
+  releaseWorkerFlop,
+} from '../domain/workers.js';
+import {
+  addToPlayerInventory,
+  removeFromPlayerInventory,
+  getItemEfficiency,
+  getCpuComputePoints,
+  getRamCapacityBonus,
+  getItemComputeCost,
+} from '../domain/inventory.js';
 import { incrementStat, addToStatArray, setStatMax, getStatArray } from '../domain/achievements.js';
 import { awardXp } from '../domain/level.js';
 import {
-  getWorkerClass, enqueueDeploy, leaseDeployQueue, acknowledgeDeployCommand, acknowledgeLegacyDeploy,
+  getWorkerClass,
+  enqueueDeploy,
+  leaseDeployQueue,
+  acknowledgeDeployCommand,
+  acknowledgeLegacyDeploy,
 } from '../workerRegistry.js';
 import { broadcastFullState } from '../broadcastHelper.js';
 import { markCodeServerSeen } from '../codeServerTracker.js';
@@ -55,7 +73,11 @@ deployRoutes.post('/deploy', async (req: Request, res: Response) => {
       releaseFlop(flopCost, uid);
       return res.status(400).json({ error: `Not enough ${cpuItemType} (need ${cpuCount})` });
     }
-    equippedCpu = { itemType: cpuItemType, computePoints: getCpuComputePoints(cpuItemType) * cpuCount, count: cpuCount };
+    equippedCpu = {
+      itemType: cpuItemType,
+      computePoints: getCpuComputePoints(cpuItemType) * cpuCount,
+      count: cpuCount,
+    };
   }
 
   // Handle RAM modules
@@ -69,7 +91,11 @@ deployRoutes.post('/deploy', async (req: Request, res: Response) => {
       if (equippedCpu) addToPlayerInventory(equippedCpu.itemType, equippedCpu.count, undefined, uid);
       return res.status(400).json({ error: `Not enough ${ramItemType} (need ${ramCount})` });
     }
-    equippedRam = { itemType: ramItemType, capacityBonus: getRamCapacityBonus(ramItemType) * ramCount, count: ramCount };
+    equippedRam = {
+      itemType: ramItemType,
+      capacityBonus: getRamCapacityBonus(ramItemType) * ramCount,
+      count: ramCount,
+    };
   }
 
   // Handle equipped pickaxe
@@ -90,7 +116,9 @@ deployRoutes.post('/deploy', async (req: Request, res: Response) => {
       releaseFlop(flopCost, uid);
       if (equippedCpu) addToPlayerInventory(equippedCpu.itemType, equippedCpu.count, undefined, uid);
       if (equippedRam) addToPlayerInventory(equippedRam.itemType, equippedRam.count, undefined, uid);
-      return res.status(400).json({ error: `Not enough compute (need ${totalCost}, have ${totalCompute}). Add more CPU.` });
+      return res
+        .status(400)
+        .json({ error: `Not enough compute (need ${totalCost}, have ${totalCompute}). Add more CPU.` });
     }
     const removed = removeFromPlayerInventory(pickaxeItemType, 1, uid);
     if (!removed) {
@@ -107,7 +135,10 @@ deployRoutes.post('/deploy', async (req: Request, res: Response) => {
   // Build injected fields
   const injectedFields: Record<string, any> = {};
   if (equippedPickaxe && pickaxeSelection) {
-    injectedFields[pickaxeSelection.fieldName] = { itemType: equippedPickaxe.itemType, efficiency: equippedPickaxe.efficiency };
+    injectedFields[pickaxeSelection.fieldName] = {
+      itemType: equippedPickaxe.itemType,
+      efficiency: equippedPickaxe.efficiency,
+    };
   }
   if (routes && typeof routes === 'object') {
     const routeMetadata: Record<string, any[]> = {};
@@ -128,40 +159,46 @@ deployRoutes.post('/deploy', async (req: Request, res: Response) => {
     }
   }
 
-  upsertWorker({
-    id: workerId,
-    node_id: nodeId,
-    class_name: workerClass.class_name,
-    class_icon: workerClass.class_icon || 'Bot',
-    commit_hash: 'HEAD',
-    status: 'deploying',
-    current_node: nodeId,
-    carrying: {},
-    pid: null,
-    deployed_at: new Date().toISOString(),
-    holding: [],
-    flopAllocated: true,
-    equippedPickaxe,
-    equippedCpu,
-    equippedRam,
-    deployConfig: { classId, equippedItems: equippedItems || {}, injectedFields },
-    desiredState: 'running',
-    generation: 1,
-    executionToken: randomUUID(),
-  }, uid);
+  upsertWorker(
+    {
+      id: workerId,
+      node_id: nodeId,
+      class_name: workerClass.class_name,
+      class_icon: workerClass.class_icon || 'Bot',
+      commit_hash: 'HEAD',
+      status: 'deploying',
+      current_node: nodeId,
+      carrying: {},
+      pid: null,
+      deployed_at: new Date().toISOString(),
+      holding: [],
+      flopAllocated: true,
+      equippedPickaxe,
+      equippedCpu,
+      equippedRam,
+      deployConfig: { classId, equippedItems: equippedItems || {}, injectedFields },
+      desiredState: 'running',
+      generation: 1,
+      executionToken: randomUUID(),
+    },
+    uid,
+  );
 
-  enqueueDeploy({
-    id: workerId,
-    workerId,
-    nodeId,
-    classId,
-    equippedItems: equippedItems || {},
-    injectedFields,
-    createdAt: new Date().toISOString(),
-    generation: 1,
-    executionToken: getWorker(workerId, uid)!.executionToken,
-    initialHolding: [],
-  }, uid);
+  enqueueDeploy(
+    {
+      id: workerId,
+      workerId,
+      nodeId,
+      classId,
+      equippedItems: equippedItems || {},
+      injectedFields,
+      createdAt: new Date().toISOString(),
+      generation: 1,
+      executionToken: getWorker(workerId, uid)!.executionToken,
+      initialHolding: [],
+    },
+    uid,
+  );
 
   broadcastFullState(uid);
   incrementStat('total_workers_deployed', 1, uid);
@@ -211,17 +248,20 @@ deployRoutes.post('/deploy-ack', (req: Request, res: Response) => {
   if (ackDecision === 'spawn_failed') {
     returnWorkerItems(worker, uid);
     releaseWorkerFlop(workerId, FLOP_COSTS.worker, uid);
-    upsertWorker({
-      ...worker,
-      status: 'crashed',
-      desiredState: 'suspended',
-      pid: null,
-      equippedPickaxe: null,
-      equippedCpu: null,
-      equippedRam: null,
-      holding: [],
-      flopAllocated: false,
-    }, uid);
+    upsertWorker(
+      {
+        ...worker,
+        status: 'crashed',
+        desiredState: 'suspended',
+        pid: null,
+        equippedPickaxe: null,
+        equippedCpu: null,
+        equippedRam: null,
+        holding: [],
+        flopAllocated: false,
+      },
+      uid,
+    );
     addWorkerLog(workerId, `[ERROR] Spawn failed: ${spawnError}`, uid);
   } else {
     upsertWorker({ ...worker, status: 'running', pid: pid || null, desiredState: 'running' }, uid);

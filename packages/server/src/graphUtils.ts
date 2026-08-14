@@ -12,10 +12,7 @@ export function getNeighborIds(edges: any[], nodeId: string): string[] {
 }
 
 export function edgeExists(edges: any[], from: string, to: string): boolean {
-  return edges.some(e =>
-    (e.source === from && e.target === to) ||
-    (e.source === to && e.target === from)
-  );
+  return edges.some(e => (e.source === from && e.target === to) || (e.source === to && e.target === from));
 }
 
 export function bfsPath(edges: any[], start: string, end: string): string[] | null {

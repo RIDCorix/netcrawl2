@@ -38,8 +38,8 @@ const plugin: NodeDialogPlugin = {
   nodeType: 'compute',
   dialogKey: 'puzzleCatalog',
   priority: 0,
-  match: (data) => !data.fixedPuzzleTemplate && data.difficulty === 'medium',
-  build: (data) => ({
+  match: data => !data.fixedPuzzleTemplate && data.difficulty === 'medium',
+  build: data => ({
     buttonLabel: 'Puzzle Catalog',
     dialogTitle: `Puzzles — ${data.label} (MEDIUM)`,
     dialogContent: MARKDOWN,

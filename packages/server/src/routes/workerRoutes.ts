@@ -9,15 +9,28 @@ import fs from 'fs';
 import { simpleGit } from 'simple-git';
 import { FLOP_COSTS } from '../types.js';
 import { getGameState, resetGameState } from '../domain/gameState.js';
-import { getWorkers, getWorker, upsertWorker, deleteWorker, resetAllWorkers, getWorkerLogs, allocateWorkerFlop, releaseWorkerFlop, releaseFlop } from '../domain/workers.js';
+import {
+  getWorkers,
+  getWorker,
+  upsertWorker,
+  deleteWorker,
+  resetAllWorkers,
+  getWorkerLogs,
+  allocateWorkerFlop,
+  releaseWorkerFlop,
+  releaseFlop,
+} from '../domain/workers.js';
 import { addToPlayerInventory } from '../domain/inventory.js';
 import { getAutosave, restoreAutosave } from '../domain/autosave.js';
 import { incrementStat } from '../domain/achievements.js';
 import { awardXp } from '../domain/level.js';
 import {
   type WorkerClassEntry,
-  registerWorkerClass, getWorkerClass, getAllWorkerClasses,
-  enqueueDeploy, removeFromDeployQueue,
+  registerWorkerClass,
+  getWorkerClass,
+  getAllWorkerClasses,
+  enqueueDeploy,
+  removeFromDeployQueue,
 } from '../workerRegistry.js';
 import { killWorker, suspendWorker, getActiveProcesses } from '../workerSpawner.js';
 import { markCodeServerSeen, invalidateCodeServerLease } from '../codeServerTracker.js';
@@ -104,35 +117,51 @@ workerRoutes.post('/worker/reset', (req: Request, res: Response) => {
   const generation = (worker.generation || 0) + 1;
   const executionToken = randomUUID();
 
-  upsertWorker({
-    ...worker,
-    current_node: recoveryNode,
-    status: 'deploying',
-    pid: null,
-    deployConfig: refreshedConfig,
-    desiredState: 'running',
-    generation,
-    executionToken,
-  }, uid);
+  upsertWorker(
+    {
+      ...worker,
+      current_node: recoveryNode,
+      status: 'deploying',
+      pid: null,
+      deployConfig: refreshedConfig,
+      desiredState: 'running',
+      generation,
+      executionToken,
+    },
+    uid,
+  );
 
   if (!allocateWorkerFlop(workerId, FLOP_COSTS.worker, uid)) {
-    upsertWorker({ ...worker, current_node: recoveryNode, status: 'suspended', pid: null, desiredState: 'suspended', flopAllocated: false }, uid);
+    upsertWorker(
+      {
+        ...worker,
+        current_node: recoveryNode,
+        status: 'suspended',
+        pid: null,
+        desiredState: 'suspended',
+        flopAllocated: false,
+      },
+      uid,
+    );
     broadcastFullState(uid);
     return res.status(400).json({ error: 'Not enough FLOP' });
   }
 
-  enqueueDeploy({
-    id: worker.id,
-    workerId: worker.id,
-    nodeId: recoveryNode,
-    classId: refreshedConfig.classId,
-    equippedItems: refreshedConfig.equippedItems,
-    injectedFields: refreshedConfig.injectedFields,
-    createdAt: new Date().toISOString(),
-    generation,
-    executionToken,
-    initialHolding: worker.holding || [],
-  }, uid);
+  enqueueDeploy(
+    {
+      id: worker.id,
+      workerId: worker.id,
+      nodeId: recoveryNode,
+      classId: refreshedConfig.classId,
+      equippedItems: refreshedConfig.equippedItems,
+      injectedFields: refreshedConfig.injectedFields,
+      createdAt: new Date().toISOString(),
+      generation,
+      executionToken,
+      initialHolding: worker.holding || [],
+    },
+    uid,
+  );
   broadcastFullState(uid);
   res.json({ ok: true });
 });
@@ -293,7 +322,8 @@ workerRoutes.post('/worker-classes/register', (req: Request, res: Response) => {
   const allClasses = getAllWorkerClasses(uid);
   let resumed = 0;
   for (const w of allWorkers) {
-    if (w.desiredState !== 'running' || ['running', 'moving', 'harvesting', 'idle', 'suspending'].includes(w.status)) continue;
+    if (w.desiredState !== 'running' || ['running', 'moving', 'harvesting', 'idle', 'suspending'].includes(w.status))
+      continue;
 
     const config = w.deployConfig || {
       classId: allClasses.find(c => c.class_name === w.class_name)?.class_id || w.class_name.toLowerCase(),
@@ -312,20 +342,34 @@ workerRoutes.post('/worker-classes/register', (req: Request, res: Response) => {
     const existing = getWorker(w.id, uid)!;
     const generation = (existing.generation || 0) + 1;
     const executionToken = randomUUID();
-    upsertWorker({ ...existing, status: 'deploying', pid: null, deployConfig: config, desiredState: 'running', generation, executionToken }, uid);
+    upsertWorker(
+      {
+        ...existing,
+        status: 'deploying',
+        pid: null,
+        deployConfig: config,
+        desiredState: 'running',
+        generation,
+        executionToken,
+      },
+      uid,
+    );
 
-    enqueueDeploy({
-      id: w.id,
-      workerId: w.id,
-      nodeId: w.node_id,
-      classId: config.classId,
-      equippedItems: config.equippedItems,
-      injectedFields: config.injectedFields,
-      createdAt: new Date().toISOString(),
-      generation,
-      executionToken,
-      initialHolding: existing.holding || [],
-    }, uid);
+    enqueueDeploy(
+      {
+        id: w.id,
+        workerId: w.id,
+        nodeId: w.node_id,
+        classId: config.classId,
+        equippedItems: config.equippedItems,
+        injectedFields: config.injectedFields,
+        createdAt: new Date().toISOString(),
+        generation,
+        executionToken,
+        initialHolding: existing.holding || [],
+      },
+      uid,
+    );
     resumed++;
   }
   if (resumed > 0) {

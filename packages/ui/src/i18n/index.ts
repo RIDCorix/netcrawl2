@@ -1,25 +1,25 @@
-import { TRANSLATIONS } from './translations'
+import { TRANSLATIONS } from './translations';
 
-export type Language = 'en' | 'zh-TW' | 'ja'
+export type Language = 'en' | 'zh-TW' | 'ja';
 
 export const LANGUAGES: { code: Language; label: string; flag: string }[] = [
-  { code: 'en',    label: 'English',  flag: '🇺🇸' },
+  { code: 'en', label: 'English', flag: '🇺🇸' },
   { code: 'zh-TW', label: '繁體中文', flag: '🇹🇼' },
-  { code: 'ja',    label: '日本語',   flag: '🇯🇵' },
-]
+  { code: 'ja', label: '日本語', flag: '🇯🇵' },
+];
 
 // Translation lookup: t('key') → string
 export function createTranslator(lang: Language) {
-  const dict = TRANSLATIONS[lang] ?? TRANSLATIONS['en']
+  const dict = TRANSLATIONS[lang] ?? TRANSLATIONS['en'];
   return (key: string, vars?: Record<string, string | number>): string => {
-    let str = dict[key] ?? TRANSLATIONS['en'][key] ?? key
+    let str = dict[key] ?? TRANSLATIONS['en'][key] ?? key;
     if (vars) {
       Object.entries(vars).forEach(([k, v]) => {
-        str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v))
-      })
+        str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
+      });
     }
-    return str
-  }
+    return str;
+  };
 }
 
-export type TranslatorFn = ReturnType<typeof createTranslator>
+export type TranslatorFn = ReturnType<typeof createTranslator>;

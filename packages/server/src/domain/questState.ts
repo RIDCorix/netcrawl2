@@ -111,8 +111,10 @@ export function advanceChapterZeroStageTo(stage: ChapterZeroStage, userId?: stri
     const miner = getWorkerClass('miner', userId);
     const fields = miner ? Object.entries(miner.fields || {}) : [];
     const edgeFields = fields.filter(([, field]) => field.type === 'edge');
-    const pickaxeFields = fields.filter(([name, field]) =>
-      field.type === 'item' && (name === 'pickaxe' || field.field === 'pickaxe' || /pickaxe/i.test((field as any).item_type || '')),
+    const pickaxeFields = fields.filter(
+      ([name, field]) =>
+        field.type === 'item' &&
+        (name === 'pickaxe' || field.field === 'pickaxe' || /pickaxe/i.test((field as any).item_type || '')),
     );
     if (!miner) return { ok: false as const, error: 'miner_not_registered' as const, ...getChapterZero(userId) };
     if (fields.length !== 2 || edgeFields.length !== 1 || pickaxeFields.length !== 1) {
@@ -162,9 +164,7 @@ export function grantChapterZeroDeployItems(userId?: string) {
 
   // Granting is idempotent so refresh/retry cannot duplicate tutorial assets.
   const store = resolveStore(userId);
-  const hasPickaxe = store.game_state.playerInventory.some(
-    i => i.itemType === 'pickaxe_basic' && i.count > 0,
-  );
+  const hasPickaxe = store.game_state.playerInventory.some(i => i.itemType === 'pickaxe_basic' && i.count > 0);
   if (!hasPickaxe) {
     addToPlayerInventory('pickaxe_basic', 1, undefined, userId);
   }
@@ -330,14 +330,25 @@ export function recordChapterZeroMinerAction(
   if (session.stage !== 'miner_deploy_execute' || deploy.minerCandidateWorkerId !== workerId) return null;
 
   const expected: Record<string, string> = {
-    move_to_mine: 'move_edge', mine: 'mine', collect: 'collect', return_to_hub: 'move_edge', deposit: 'deposit',
+    move_to_mine: 'move_edge',
+    mine: 'mine',
+    collect: 'collect',
+    return_to_hub: 'move_edge',
+    deposit: 'deposit',
   };
   if (expected[deploy.minerLoopStep] !== action) return null;
-  if ((deploy.minerLoopStep === 'move_to_mine' || deploy.minerLoopStep === 'return_to_hub') && payload?.edgeId !== deploy.selectedEdgeId) return null;
+  if (
+    (deploy.minerLoopStep === 'move_to_mine' || deploy.minerLoopStep === 'return_to_hub') &&
+    payload?.edgeId !== deploy.selectedEdgeId
+  )
+    return null;
   if (deploy.minerLoopStep === 'deposit' && !(result.totalData > 0)) return null;
 
   const next: Record<string, any> = {
-    move_to_mine: 'mine', mine: 'collect', collect: 'return_to_hub', return_to_hub: 'deposit',
+    move_to_mine: 'mine',
+    mine: 'collect',
+    collect: 'return_to_hub',
+    return_to_hub: 'deposit',
   };
   const updated = structuredClone(session);
   if (deploy.minerLoopStep === 'deposit') {

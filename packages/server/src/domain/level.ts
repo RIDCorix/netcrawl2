@@ -3,7 +3,14 @@
  */
 
 import { resolveStore } from '../store.js';
-import { grantXp, getLevelSummary, getTitleForLevel, type LevelState, type LevelSummary, type LevelUpResult } from '../levelSystem.js';
+import {
+  grantXp,
+  getLevelSummary,
+  getTitleForLevel,
+  type LevelState,
+  type LevelSummary,
+  type LevelUpResult,
+} from '../levelSystem.js';
 import { addActivePassive, addUnlockedRecipe } from './questState.js';
 import { addToPlayerInventory } from './inventory.js';
 
@@ -60,15 +67,18 @@ export function awardXp(amount: number, userId?: string): LevelUpResult {
   // Broadcast level-up notification
   if (result.levelsGained > 0 && _broadcast) {
     const title = getTitleForLevel(result.newState.level);
-    _broadcast({
-      type: 'LEVEL_UP',
-      payload: {
-        level: result.newState.level,
-        title: title.title,
-        titleZh: title.titleZh,
-        milestones: result.newMilestones,
+    _broadcast(
+      {
+        type: 'LEVEL_UP',
+        payload: {
+          level: result.newState.level,
+          title: title.title,
+          titleZh: title.titleZh,
+          milestones: result.newMilestones,
+        },
       },
-    }, userId);
+      userId,
+    );
   }
 
   return result;

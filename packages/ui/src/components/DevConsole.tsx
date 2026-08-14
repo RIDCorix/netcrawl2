@@ -3,9 +3,21 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { apiFetch } from '../lib/api';
 
 // ── Types ───────────────────────────────────────────────────────────────────
-interface NodeCompletion { id: string; label: string; unlocked: boolean }
-interface QuestCompletion { id: string; name: string; status: string }
-interface MapCompletion { id: number; name: string; unlocked: boolean }
+interface NodeCompletion {
+  id: string;
+  label: string;
+  unlocked: boolean;
+}
+interface QuestCompletion {
+  id: string;
+  name: string;
+  status: string;
+}
+interface MapCompletion {
+  id: number;
+  name: string;
+  unlocked: boolean;
+}
 
 interface Completions {
   items: string[];
@@ -58,23 +70,19 @@ function computeSuggestions(input: string, completions: Completions | null): Sug
   // The "current" token is the one being typed. If input ends in whitespace,
   // we're starting a fresh token (empty prefix); otherwise we're editing the last.
   const editingIndex = trailingSpace ? tokens.length : Math.max(0, tokens.length - 1);
-  const current = trailingSpace ? '' : (tokens[tokens.length - 1] || '');
+  const current = trailingSpace ? '' : tokens[tokens.length - 1] || '';
   const lc = current.toLowerCase();
 
   // Position 0 → command name
   if (editingIndex === 0) {
-    return ROOT_COMMANDS
-      .filter(c => c.toLowerCase().startsWith(lc))
-      .map(c => ({ value: c, label: c }));
+    return ROOT_COMMANDS.filter(c => c.toLowerCase().startsWith(lc)).map(c => ({ value: c, label: c }));
   }
 
   const cmd = tokens[0];
 
   if (cmd === '/give') {
     if (editingIndex === 1) {
-      return completions.items
-        .filter(i => i.toLowerCase().includes(lc))
-        .map(i => ({ value: i, label: i }));
+      return completions.items.filter(i => i.toLowerCase().includes(lc)).map(i => ({ value: i, label: i }));
     }
     if (editingIndex === 2) {
       // quantity — offer a few presets
@@ -87,17 +95,12 @@ function computeSuggestions(input: string, completions: Completions | null): Sug
 
   if (cmd === '/nodes' || cmd === '/quests' || cmd === '/maps') {
     if (editingIndex === 1) {
-      return LOCK_ACTIONS
-        .filter(a => a.startsWith(lc))
-        .map(a => ({ value: a, label: a }));
+      return LOCK_ACTIONS.filter(a => a.startsWith(lc)).map(a => ({ value: a, label: a }));
     }
     if (editingIndex === 2) {
       if (cmd === '/nodes') {
         return completions.nodes
-          .filter(n =>
-            n.id.toLowerCase().includes(lc) ||
-            n.label.toLowerCase().includes(lc)
-          )
+          .filter(n => n.id.toLowerCase().includes(lc) || n.label.toLowerCase().includes(lc))
           .slice(0, 40)
           .map(n => ({
             value: n.id,
@@ -107,19 +110,13 @@ function computeSuggestions(input: string, completions: Completions | null): Sug
       }
       if (cmd === '/quests') {
         return completions.quests
-          .filter(q =>
-            q.id.toLowerCase().includes(lc) ||
-            q.name.toLowerCase().includes(lc)
-          )
+          .filter(q => q.id.toLowerCase().includes(lc) || q.name.toLowerCase().includes(lc))
           .slice(0, 40)
           .map(q => ({ value: q.id, label: q.id, detail: `${q.name} [${q.status}]` }));
       }
       if (cmd === '/maps') {
         return completions.maps
-          .filter(m =>
-            String(m.id).startsWith(lc) ||
-            m.name.toLowerCase().includes(lc)
-          )
+          .filter(m => String(m.id).startsWith(lc) || m.name.toLowerCase().includes(lc))
           .map(m => ({
             value: String(m.id),
             label: String(m.id),
@@ -180,11 +177,8 @@ export function DevConsole() {
       const target = e.target as HTMLElement | null;
       // Don't hijack while typing into another text field, unless the console
       // itself is already focused.
-      if (!open && target && (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
-      )) return;
+      if (!open && target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable))
+        return;
       e.preventDefault();
       setOpen(o => !o);
     };
@@ -208,107 +202,128 @@ export function DevConsole() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [log]);
 
-  const suggestions = useMemo(
-    () => computeSuggestions(input, completions),
-    [input, completions]
-  );
+  const suggestions = useMemo(() => computeSuggestions(input, completions), [input, completions]);
 
   // Keep selected index in range
   useEffect(() => {
     setSelectedSuggestion(s => (suggestions.length === 0 ? 0 : Math.min(s, suggestions.length - 1)));
   }, [suggestions]);
 
-  const runCommand = useCallback(async (raw: string) => {
-    const line = raw.trim();
-    if (!line) return;
-    appendLog('in', `> ${line}`);
-    setHistory(h => [...h.slice(-50), line]);
-    setHistoryIdx(null);
+  const runCommand = useCallback(
+    async (raw: string) => {
+      const line = raw.trim();
+      if (!line) return;
+      appendLog('in', `> ${line}`);
+      setHistory(h => [...h.slice(-50), line]);
+      setHistoryIdx(null);
 
-    const [cmd, ...args] = line.split(/\s+/);
+      const [cmd, ...args] = line.split(/\s+/);
 
-    if (cmd === '/help') {
-      appendLog('sys', '/give <itemType> <count>');
-      appendLog('sys', '/nodes <unlock|lock> <nodeId>');
-      appendLog('sys', '/quests <unlock|lock> <questId>');
-      appendLog('sys', '/maps <unlock|lock> <layerId>');
-      appendLog('sys', '/restart [--yes]  — wipe all game progress');
-      appendLog('sys', '/clear    — clear log');
-      appendLog('sys', 'Tab: complete   ↑↓: history   Esc/~: close');
-      return;
-    }
-    if (cmd === '/clear') { setLog([]); return; }
-
-    if (cmd === '/restart') {
-      // Two-step confirmation: first `/restart` arms a pending reset, second
-      // `/restart` (or `/restart --yes`) confirms. `--yes` skips the prompt
-      // entirely so power users can chain this.
-      const force = args.includes('--yes') || args.includes('-y');
-      if (!force && !pendingRestartRef.current) {
-        pendingRestartRef.current = true;
-        window.setTimeout(() => { pendingRestartRef.current = false; }, 10_000);
-        appendLog('sys', 'this will wipe ALL progress: nodes, resources, workers, inventory, chips, quests, achievements.');
-        appendLog('sys', "type '/restart' again within 10s to confirm, or '/restart --yes' to skip the prompt next time.");
+      if (cmd === '/help') {
+        appendLog('sys', '/give <itemType> <count>');
+        appendLog('sys', '/nodes <unlock|lock> <nodeId>');
+        appendLog('sys', '/quests <unlock|lock> <questId>');
+        appendLog('sys', '/maps <unlock|lock> <layerId>');
+        appendLog('sys', '/restart [--yes]  — wipe all game progress');
+        appendLog('sys', '/clear    — clear log');
+        appendLog('sys', 'Tab: complete   ↑↓: history   Esc/~: close');
         return;
       }
-      pendingRestartRef.current = false;
+      if (cmd === '/clear') {
+        setLog([]);
+        return;
+      }
+
+      if (cmd === '/restart') {
+        // Two-step confirmation: first `/restart` arms a pending reset, second
+        // `/restart` (or `/restart --yes`) confirms. `--yes` skips the prompt
+        // entirely so power users can chain this.
+        const force = args.includes('--yes') || args.includes('-y');
+        if (!force && !pendingRestartRef.current) {
+          pendingRestartRef.current = true;
+          window.setTimeout(() => {
+            pendingRestartRef.current = false;
+          }, 10_000);
+          appendLog(
+            'sys',
+            'this will wipe ALL progress: nodes, resources, workers, inventory, chips, quests, achievements.',
+          );
+          appendLog(
+            'sys',
+            "type '/restart' again within 10s to confirm, or '/restart --yes' to skip the prompt next time.",
+          );
+          return;
+        }
+        pendingRestartRef.current = false;
+        try {
+          const res = await apiFetch('/api/reset', { method: 'POST' });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            appendLog('err', data.error || `HTTP ${res.status}`);
+          } else {
+            appendLog('ok', 'game progress reset. fresh world incoming via websocket.');
+            loadCompletions();
+          }
+        } catch (e: any) {
+          appendLog('err', e?.message || String(e));
+        }
+        return;
+      }
+
       try {
-        const res = await apiFetch('/api/reset', { method: 'POST' });
+        let res: Response;
+        if (cmd === '/give') {
+          const [itemType, countStr] = args;
+          if (!itemType || !countStr) {
+            appendLog('err', 'usage: /give <itemType> <count>');
+            return;
+          }
+          const count = Number(countStr);
+          if (!Number.isFinite(count) || count <= 0) {
+            appendLog('err', 'count must be a positive number');
+            return;
+          }
+          res = await apiFetch('/api/dev/give', {
+            method: 'POST',
+            body: JSON.stringify({ itemType, count }),
+          });
+        } else if (cmd === '/nodes' || cmd === '/quests' || cmd === '/maps') {
+          const [action, target] = args;
+          if (!action || !target) {
+            appendLog('err', `usage: ${cmd} <unlock|lock> <id>`);
+            return;
+          }
+          if (action !== 'lock' && action !== 'unlock') {
+            appendLog('err', "action must be 'lock' or 'unlock'");
+            return;
+          }
+          const base = cmd === '/nodes' ? '/api/dev/nodes' : cmd === '/quests' ? '/api/dev/quests' : '/api/dev/maps';
+          const key = cmd === '/nodes' ? 'nodeId' : cmd === '/quests' ? 'questId' : 'layerId';
+          const value: string | number = cmd === '/maps' ? Number(target) : target;
+          res = await apiFetch(`${base}/${action}`, {
+            method: 'POST',
+            body: JSON.stringify({ [key]: value }),
+          });
+        } else {
+          appendLog('err', `unknown command: ${cmd}`);
+          return;
+        }
+
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           appendLog('err', data.error || `HTTP ${res.status}`);
         } else {
-          appendLog('ok', 'game progress reset. fresh world incoming via websocket.');
+          appendLog('ok', data.message || 'ok');
+          // Refresh completions after a successful mutation so auto-complete
+          // reflects the new state (e.g. a freshly unlocked node).
           loadCompletions();
         }
       } catch (e: any) {
         appendLog('err', e?.message || String(e));
       }
-      return;
-    }
-
-    try {
-      let res: Response;
-      if (cmd === '/give') {
-        const [itemType, countStr] = args;
-        if (!itemType || !countStr) { appendLog('err', 'usage: /give <itemType> <count>'); return; }
-        const count = Number(countStr);
-        if (!Number.isFinite(count) || count <= 0) { appendLog('err', 'count must be a positive number'); return; }
-        res = await apiFetch('/api/dev/give', {
-          method: 'POST',
-          body: JSON.stringify({ itemType, count }),
-        });
-      } else if (cmd === '/nodes' || cmd === '/quests' || cmd === '/maps') {
-        const [action, target] = args;
-        if (!action || !target) { appendLog('err', `usage: ${cmd} <unlock|lock> <id>`); return; }
-        if (action !== 'lock' && action !== 'unlock') {
-          appendLog('err', "action must be 'lock' or 'unlock'"); return;
-        }
-        const base = cmd === '/nodes' ? '/api/dev/nodes' : cmd === '/quests' ? '/api/dev/quests' : '/api/dev/maps';
-        const key = cmd === '/nodes' ? 'nodeId' : cmd === '/quests' ? 'questId' : 'layerId';
-        const value: string | number = cmd === '/maps' ? Number(target) : target;
-        res = await apiFetch(`${base}/${action}`, {
-          method: 'POST',
-          body: JSON.stringify({ [key]: value }),
-        });
-      } else {
-        appendLog('err', `unknown command: ${cmd}`);
-        return;
-      }
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        appendLog('err', data.error || `HTTP ${res.status}`);
-      } else {
-        appendLog('ok', data.message || 'ok');
-        // Refresh completions after a successful mutation so auto-complete
-        // reflects the new state (e.g. a freshly unlocked node).
-        loadCompletions();
-      }
-    } catch (e: any) {
-      appendLog('err', e?.message || String(e));
-    }
-  }, [appendLog, loadCompletions]);
+    },
+    [appendLog, loadCompletions],
+  );
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
@@ -400,17 +415,19 @@ export function DevConsole() {
             backdropFilter: 'blur(6px)',
           }}
         >
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '4px 12px',
-            borderBottom: '1px solid rgba(0, 212, 170, 0.15)',
-            fontSize: 11,
-            color: COLORS.dim,
-            textTransform: 'uppercase',
-            letterSpacing: 1,
-          }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '4px 12px',
+              borderBottom: '1px solid rgba(0, 212, 170, 0.15)',
+              fontSize: 11,
+              color: COLORS.dim,
+              textTransform: 'uppercase',
+              letterSpacing: 1,
+            }}
+          >
             <span>dev console</span>
             <span>~ / esc to close · tab to complete</span>
           </div>
@@ -434,10 +451,13 @@ export function DevConsole() {
                 key={l.id}
                 style={{
                   color:
-                    l.kind === 'err' ? COLORS.err :
-                    l.kind === 'ok' ? COLORS.ok :
-                    l.kind === 'sys' ? COLORS.dim :
-                    COLORS.fg,
+                    l.kind === 'err'
+                      ? COLORS.err
+                      : l.kind === 'ok'
+                        ? COLORS.ok
+                        : l.kind === 'sys'
+                          ? COLORS.dim
+                          : COLORS.fg,
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word',
                 }}
@@ -447,12 +467,14 @@ export function DevConsole() {
             ))}
           </div>
 
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            padding: '6px 12px',
-            borderTop: '1px solid rgba(0, 212, 170, 0.15)',
-          }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              padding: '6px 12px',
+              borderTop: '1px solid rgba(0, 212, 170, 0.15)',
+            }}
+          >
             <span style={{ color: COLORS.prompt, marginRight: 8 }}>❯</span>
             <input
               ref={inputRef}
@@ -477,11 +499,13 @@ export function DevConsole() {
           </div>
 
           {suggestions.length > 0 && (
-            <div style={{
-              borderTop: '1px solid rgba(0, 212, 170, 0.15)',
-              maxHeight: 200,
-              overflowY: 'auto',
-            }}>
+            <div
+              style={{
+                borderTop: '1px solid rgba(0, 212, 170, 0.15)',
+                maxHeight: 200,
+                overflowY: 'auto',
+              }}
+            >
               {suggestions.map((s, i) => {
                 const active = i === selectedSuggestion;
                 return (
@@ -504,10 +528,12 @@ export function DevConsole() {
                   >
                     <span style={{ minWidth: 160 }}>{s.label}</span>
                     {s.detail && (
-                      <span style={{
-                        color: active ? 'rgba(10,26,22,0.75)' : COLORS.dim,
-                        fontSize: 11,
-                      }}>
+                      <span
+                        style={{
+                          color: active ? 'rgba(10,26,22,0.75)' : COLORS.dim,
+                          fontSize: 11,
+                        }}
+                      >
                         {s.detail}
                       </span>
                     )}

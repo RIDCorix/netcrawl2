@@ -24,11 +24,18 @@ export function QuestToast() {
   }, [questToasts]);
 
   return (
-    <div style={{
-      position: 'fixed', bottom: 80, left: 16, zIndex: 60,
-      display: 'flex', flexDirection: 'column', gap: 8,
-      pointerEvents: 'none',
-    }}>
+    <div
+      style={{
+        position: 'fixed',
+        bottom: 80,
+        left: 16,
+        zIndex: 60,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        pointerEvents: 'none',
+      }}
+    >
       <AnimatePresence>
         {questToasts.map(toast => (
           <motion.div
@@ -38,7 +45,9 @@ export function QuestToast() {
             exit={{ x: -320, opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 350 }}
             style={{
-              display: 'flex', alignItems: 'center', gap: 10,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
               padding: '12px 16px',
               background: 'var(--bg-glass-heavy)',
               backdropFilter: 'blur(24px)',
@@ -56,10 +65,27 @@ export function QuestToast() {
               <BookOpen size={16} style={{ color: '#60a5fa' }} />
             )}
             <div>
-              <div style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--font-mono)', color: toast.type === 'completed' ? '#4ade80' : '#60a5fa', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+              <div
+                style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  fontFamily: 'var(--font-mono)',
+                  color: toast.type === 'completed' ? '#4ade80' : '#60a5fa',
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                }}
+              >
                 {toast.type === 'completed' ? 'Quest Complete' : 'New Quest'}
               </div>
-              <div style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', marginTop: 1 }}>
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  fontFamily: 'var(--font-mono)',
+                  color: 'var(--text-primary)',
+                  marginTop: 1,
+                }}
+              >
                 {toast.name}
               </div>
             </div>

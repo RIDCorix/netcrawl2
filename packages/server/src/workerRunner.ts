@@ -25,38 +25,38 @@ async function postAction(action: string, payload: any = {}) {
 
 const api = {
   async move(nodeId: string) {
-    const result = await postAction('move', { targetNodeId: nodeId }) as any;
+    const result = (await postAction('move', { targetNodeId: nodeId })) as any;
     if (!result.ok) throw new Error(result.error || 'Move failed');
     const travelTime = result.travelTime || 1000;
     await new Promise(r => setTimeout(r, travelTime));
   },
 
   async harvest() {
-    const result = await postAction('harvest') as any;
+    const result = (await postAction('harvest')) as any;
     if (!result.ok) throw new Error(result.error || 'Harvest failed');
     return result.harvested;
   },
 
   async deposit() {
-    const result = await postAction('deposit') as any;
+    const result = (await postAction('deposit')) as any;
     if (!result.ok) throw new Error(result.error || 'Deposit failed');
     return result.deposited;
   },
 
   async scan() {
-    const result = await postAction('scan') as any;
+    const result = (await postAction('scan')) as any;
     if (!result.ok) throw new Error(result.error || 'Scan failed');
     return result.nodes || [];
   },
 
   async repair(nodeId: string) {
-    const result = await postAction('repair', { nodeId }) as any;
+    const result = (await postAction('repair', { nodeId })) as any;
     if (!result.ok) throw new Error(result.error || 'Repair failed');
     return result;
   },
 
   async findPath(from: string, to: string) {
-    const result = await postAction('findPath', { from, to }) as any;
+    const result = (await postAction('findPath', { from, to })) as any;
     if (!result.ok) throw new Error(result.error || 'FindPath failed');
     return result.path || [];
   },
@@ -67,7 +67,7 @@ const api = {
   },
 
   async getResources() {
-    const result = await postAction('getResources') as any;
+    const result = (await postAction('getResources')) as any;
     if (!result.ok) throw new Error(result.error || 'GetResources failed');
     return result.resources;
   },

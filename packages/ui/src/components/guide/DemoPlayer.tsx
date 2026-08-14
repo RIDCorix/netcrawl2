@@ -18,8 +18,22 @@ import type { DemoScript, DemoGraphState } from './types';
 
 // Same theme as markdown.tsx code blocks
 const codeTheme: Record<string, React.CSSProperties> = {
-  'code[class*="language-"]': { color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: '1.7' },
-  'pre[class*="language-"]': { color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: '1.7', background: 'transparent', padding: 0, margin: 0, overflow: 'visible' },
+  'code[class*="language-"]': {
+    color: 'var(--text-primary)',
+    fontFamily: 'var(--font-mono)',
+    fontSize: '12px',
+    lineHeight: '1.7',
+  },
+  'pre[class*="language-"]': {
+    color: 'var(--text-primary)',
+    fontFamily: 'var(--font-mono)',
+    fontSize: '12px',
+    lineHeight: '1.7',
+    background: 'transparent',
+    padding: 0,
+    margin: 0,
+    overflow: 'visible',
+  },
   comment: { color: 'var(--text-muted)' },
   string: { color: 'var(--color-positive, #4ade80)' },
   keyword: { color: 'var(--accent)' },
@@ -37,22 +51,30 @@ const codeTheme: Record<string, React.CSSProperties> = {
 
 function HighlightedCode({ code, activeLine }: { code: string; activeLine: number }) {
   return (
-    <div style={{
-      background: 'var(--bg-primary)',
-      borderRadius: 'var(--radius-md)',
-      border: '1px solid var(--border)',
-      padding: '8px 0',
-      overflow: 'auto',
-      height: '100%',
-    }}>
+    <div
+      style={{
+        background: 'var(--bg-primary)',
+        borderRadius: 'var(--radius-md)',
+        border: '1px solid var(--border)',
+        padding: '8px 0',
+        overflow: 'auto',
+        height: '100%',
+      }}
+    >
       <SyntaxHighlighter
         style={codeTheme as any}
         language="python"
         PreTag="div"
         customStyle={{ background: 'transparent', padding: 0, margin: 0 }}
-        codeTagProps={{ style: { fontFamily: 'var(--font-mono)', fontVariantLigatures: 'none', fontFeatureSettings: '"liga" 0, "calt" 0' } }}
+        codeTagProps={{
+          style: {
+            fontFamily: 'var(--font-mono)',
+            fontVariantLigatures: 'none',
+            fontFeatureSettings: '"liga" 0, "calt" 0',
+          },
+        }}
         showLineNumbers
-        lineNumberStyle={(lineNum) => ({
+        lineNumberStyle={lineNum => ({
           width: 28,
           minWidth: 28,
           paddingRight: 12,
@@ -62,7 +84,7 @@ function HighlightedCode({ code, activeLine }: { code: string; activeLine: numbe
           transition: 'color 0.2s',
         })}
         wrapLines
-        lineProps={(lineNum) => ({
+        lineProps={lineNum => ({
           style: {
             display: 'block',
             padding: '0 12px',
@@ -80,7 +102,16 @@ function HighlightedCode({ code, activeLine }: { code: string; activeLine: numbe
 
 // ── Playback Controls ──────────────────────────────────────────────────────
 
-function Controls({ playing, onPlay, onPause, onStep, onReset, stepIndex, totalSteps, statusLabel }: {
+function Controls({
+  playing,
+  onPlay,
+  onPause,
+  onStep,
+  onReset,
+  stepIndex,
+  totalSteps,
+  statusLabel,
+}: {
   playing: boolean;
   onPlay: () => void;
   onPause: () => void;
@@ -108,12 +139,14 @@ function Controls({ playing, onPlay, onPause, onStep, onReset, stepIndex, totalS
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 6,
-      padding: '6px 0',
-    }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '6px 0',
+      }}
+    >
       {atEnd ? (
         <button style={btnStyle} onClick={onReset}>
           <RotateCcw size={12} /> Reset
@@ -134,12 +167,14 @@ function Controls({ playing, onPlay, onPause, onStep, onReset, stepIndex, totalS
       >
         <SkipForward size={12} /> Step
       </button>
-      <span style={{
-        fontSize: 10,
-        color: 'var(--text-muted)',
-        fontFamily: 'var(--font-mono)',
-        marginLeft: 'auto',
-      }}>
+      <span
+        style={{
+          fontSize: 10,
+          color: 'var(--text-muted)',
+          fontFamily: 'var(--font-mono)',
+          marginLeft: 'auto',
+        }}
+      >
         {statusLabel || `${stepIndex}/${totalSteps}`}
       </span>
     </div>
@@ -154,19 +189,20 @@ export function DemoPlayer({ script }: { script: DemoScript }) {
   const [graphState, setGraphState] = useState<DemoGraphState>(script.initialState);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const currentStep = stepIndex >= 0 && stepIndex < script.steps.length
-    ? script.steps[stepIndex]
-    : null;
+  const currentStep = stepIndex >= 0 && stepIndex < script.steps.length ? script.steps[stepIndex] : null;
 
   const activeLine = currentStep?.codeLine || 0;
 
   // Apply step
-  const applyStep = useCallback((index: number) => {
-    if (index < 0 || index >= script.steps.length) return;
-    const step = script.steps[index];
-    setGraphState(prev => step.apply(prev));
-    setStepIndex(index);
-  }, [script.steps]);
+  const applyStep = useCallback(
+    (index: number) => {
+      if (index < 0 || index >= script.steps.length) return;
+      const step = script.steps[index];
+      setGraphState(prev => step.apply(prev));
+      setStepIndex(index);
+    },
+    [script.steps],
+  );
 
   // Step forward
   const doStep = useCallback(() => {
@@ -191,7 +227,9 @@ export function DemoPlayer({ script }: { script: DemoScript }) {
     }
     const duration = currentStep?.durationMs || 1200;
     timerRef.current = setTimeout(() => doStep(), duration);
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, [playing, stepIndex, doStep, currentStep?.durationMs, script.steps.length]);
 
   const onPlay = () => {
@@ -209,7 +247,10 @@ export function DemoPlayer({ script }: { script: DemoScript }) {
     }
   };
   const onPause = () => setPlaying(false);
-  const onStep_ = () => { setPlaying(false); doStep(); };
+  const onStep_ = () => {
+    setPlaying(false);
+    doStep();
+  };
   const onReset = () => {
     setPlaying(false);
     setStepIndex(-1);
@@ -217,18 +258,22 @@ export function DemoPlayer({ script }: { script: DemoScript }) {
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 0,
-      width: '100%',
-    }}>
-      {/* Code + Graph side by side */}
-      <div style={{
+    <div
+      style={{
         display: 'flex',
-        gap: 10,
-        height: 260,
-      }}>
+        flexDirection: 'column',
+        gap: 0,
+        width: '100%',
+      }}
+    >
+      {/* Code + Graph side by side */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 10,
+          height: 260,
+        }}
+      >
         <div style={{ flex: 1, minWidth: 0 }}>
           <HighlightedCode code={script.code} activeLine={activeLine} />
         </div>

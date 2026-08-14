@@ -85,7 +85,12 @@ export function TutorialOverlay() {
   const [chapterZeroGuideActive, setChapterZeroGuideActive] = useState(
     () => document.documentElement.dataset.chapterZeroTutorial !== undefined,
   );
-  const [highlightRect, setHighlightRect] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+  const [highlightRect, setHighlightRect] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -159,19 +164,34 @@ export function TutorialOverlay() {
         return;
       }
       const el = document.querySelector(currentStep.target);
-      if (!el) { setHighlightRect(null); setTooltipPos(null); return; }
+      if (!el) {
+        setHighlightRect(null);
+        setTooltipPos(null);
+        return;
+      }
       const rect = el.getBoundingClientRect();
       const pad = 6;
-      setHighlightRect({ top: rect.top - pad, left: rect.left - pad, width: rect.width + pad * 2, height: rect.height + pad * 2 });
+      setHighlightRect({
+        top: rect.top - pad,
+        left: rect.left - pad,
+        width: rect.width + pad * 2,
+        height: rect.height + pad * 2,
+      });
       const gap = 16;
-      if (currentStep.placement === 'bottom') setTooltipPos({ top: rect.bottom + gap, left: rect.left + rect.width / 2 });
-      else if (currentStep.placement === 'top') setTooltipPos({ top: rect.top - gap, left: rect.left + rect.width / 2 });
-      else if (currentStep.placement === 'right') setTooltipPos({ top: rect.top + rect.height / 2, left: rect.right + gap });
-      else if (currentStep.placement === 'left') setTooltipPos({ top: rect.top + rect.height / 2, left: rect.left - gap });
+      if (currentStep.placement === 'bottom')
+        setTooltipPos({ top: rect.bottom + gap, left: rect.left + rect.width / 2 });
+      else if (currentStep.placement === 'top')
+        setTooltipPos({ top: rect.top - gap, left: rect.left + rect.width / 2 });
+      else if (currentStep.placement === 'right')
+        setTooltipPos({ top: rect.top + rect.height / 2, left: rect.right + gap });
+      else if (currentStep.placement === 'left')
+        setTooltipPos({ top: rect.top + rect.height / 2, left: rect.left - gap });
     };
     updateRect();
     intervalRef.current = setInterval(updateRect, 300);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
   }, [isActive, currentStep, step]);
 
   if (chapterZeroGuideActive || !isActive || !currentStep) return null;
@@ -188,57 +208,125 @@ export function TutorialOverlay() {
       exit={{ opacity: 0, scale: 0.9, y: 8 }}
       transition={{ type: 'spring', damping: 24, stiffness: 300 }}
       style={{
-        background: 'var(--bg-glass-heavy)', backdropFilter: 'blur(20px)',
-        border: '1px solid var(--border-bright)', borderRadius: 'var(--radius-lg)',
+        background: 'var(--bg-glass-heavy)',
+        backdropFilter: 'blur(20px)',
+        border: '1px solid var(--border-bright)',
+        borderRadius: 'var(--radius-lg)',
         boxShadow: '0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,212,170,0.1)',
-        width: 320, padding: '16px 20px',
-        display: 'flex', flexDirection: 'column' as const, gap: 10,
+        width: 320,
+        padding: '16px 20px',
+        display: 'flex',
+        flexDirection: 'column' as const,
+        gap: 10,
         pointerEvents: 'auto' as const,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: 'var(--radius-sm)',
-            background: 'rgba(0,212,170,0.15)', border: '1px solid rgba(0,212,170,0.3)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 'var(--radius-sm)',
+              background: 'rgba(0,212,170,0.15)',
+              border: '1px solid rgba(0,212,170,0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
             <Icon size={14} style={{ color: 'var(--accent)' }} />
           </div>
-          <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 800,
+              color: 'var(--text-primary)',
+              fontFamily: 'var(--font-mono)',
+              letterSpacing: '0.05em',
+            }}
+          >
             {t(currentStep.title) || currentStep.title}
           </span>
         </div>
-        <button onClick={skipToConnection} title="Skip to code server setup" style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', borderRadius: 4 }}>
+        <button
+          onClick={skipToConnection}
+          title="Skip to code server setup"
+          style={{
+            color: 'var(--text-muted)',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 2,
+            display: 'flex',
+            borderRadius: 4,
+          }}
+        >
           <X size={12} />
         </button>
       </div>
 
-      <p style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', lineHeight: 1.7, margin: 0 }}>
+      <p
+        style={{
+          fontSize: 11,
+          color: 'var(--text-secondary)',
+          fontFamily: 'var(--font-mono)',
+          lineHeight: 1.7,
+          margin: 0,
+        }}
+      >
         {t(currentStep.content) || currentStep.content}
       </p>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
         <div style={{ display: 'flex', gap: 4 }}>
           {TUTORIAL_STEPS.map((_, i) => (
-            <div key={i} style={{
-              width: i === step ? 14 : 5, height: 5, borderRadius: 3,
-              background: i === step ? 'var(--accent)' : i < step ? 'rgba(0,212,170,0.4)' : 'var(--border-bright)',
-              transition: 'all 0.2s',
-            }} />
+            <div
+              key={i}
+              style={{
+                width: i === step ? 14 : 5,
+                height: 5,
+                borderRadius: 3,
+                background: i === step ? 'var(--accent)' : i < step ? 'rgba(0,212,170,0.4)' : 'var(--border-bright)',
+                transition: 'all 0.2s',
+              }}
+            />
           ))}
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
-          <button onClick={skipToConnection} style={{ fontSize: 9, fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px' }}>
+          <button
+            onClick={skipToConnection}
+            style={{
+              fontSize: 9,
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 600,
+              color: 'var(--text-muted)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '4px 6px',
+            }}
+          >
             {t('tutorial.btn.skip')}
           </button>
           {hasNextButton && (
-            <button onClick={advance} style={{
-              display: 'flex', alignItems: 'center', gap: 4,
-              fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 800,
-              color: '#000', background: 'var(--accent)', border: 'none',
-              cursor: 'pointer', padding: '5px 12px', borderRadius: 'var(--radius-sm)',
-            }}>
+            <button
+              onClick={advance}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                fontSize: 10,
+                fontFamily: 'var(--font-mono)',
+                fontWeight: 800,
+                color: '#000',
+                background: 'var(--accent)',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '5px 12px',
+                borderRadius: 'var(--radius-sm)',
+              }}
+            >
               {t(currentStep.nextLabel || 'tutorial.btn.next')} <ChevronRight size={10} />
             </button>
           )}
@@ -252,7 +340,7 @@ export function TutorialOverlay() {
       {/* Full-screen blocker — z-index must be above quest tree (100), docs (150), etc. */}
       <div
         style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.45)' }}
-        onClick={(e) => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
       />
 
       {/* Click zone that forwards click to the highlighted target element */}
@@ -264,9 +352,12 @@ export function TutorialOverlay() {
           }}
           style={{
             position: 'fixed',
-            top: highlightRect.top, left: highlightRect.left,
-            width: highlightRect.width, height: highlightRect.height,
-            zIndex: 302, borderRadius: 'var(--radius-md)',
+            top: highlightRect.top,
+            left: highlightRect.left,
+            width: highlightRect.width,
+            height: highlightRect.height,
+            zIndex: 302,
+            borderRadius: 'var(--radius-md)',
             cursor: 'pointer',
           }}
         />
@@ -278,13 +369,17 @@ export function TutorialOverlay() {
           {highlightRect && (
             <motion.div
               key={`highlight-${step}`}
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               style={{
-                position: 'fixed', ...highlightRect,
+                position: 'fixed',
+                ...highlightRect,
                 borderRadius: 'var(--radius-md)',
                 border: '2px solid var(--accent)',
                 boxShadow: '0 0 20px rgba(0,212,170,0.4)',
-                pointerEvents: 'none', zIndex: 301,
+                pointerEvents: 'none',
+                zIndex: 301,
                 animation: currentStep.waitFor ? 'pulse-ring 1.5s ease-in-out infinite' : undefined,
               }}
             />
@@ -294,16 +389,41 @@ export function TutorialOverlay() {
         {/* Tooltip */}
         <AnimatePresence mode="wait">
           {isCenter ? (
-            <div key={`center-${step}`} style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 303 }}>
+            <div
+              key={`center-${step}`}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                pointerEvents: 'none',
+                zIndex: 303,
+              }}
+            >
               {tooltipCard}
             </div>
           ) : tooltipPos ? (
-            <div key={`pos-${step}`} style={{
-              position: 'fixed',
-              top: currentStep.placement === 'bottom' ? tooltipPos.top : currentStep.placement === 'top' ? tooltipPos.top - 180 : tooltipPos.top - 90,
-              left: currentStep.placement === 'right' ? tooltipPos.left : currentStep.placement === 'left' ? tooltipPos.left - 336 : tooltipPos.left - 160,
-              zIndex: 303, pointerEvents: 'none',
-            }}>
+            <div
+              key={`pos-${step}`}
+              style={{
+                position: 'fixed',
+                top:
+                  currentStep.placement === 'bottom'
+                    ? tooltipPos.top
+                    : currentStep.placement === 'top'
+                      ? tooltipPos.top - 180
+                      : tooltipPos.top - 90,
+                left:
+                  currentStep.placement === 'right'
+                    ? tooltipPos.left
+                    : currentStep.placement === 'left'
+                      ? tooltipPos.left - 336
+                      : tooltipPos.left - 160,
+                zIndex: 303,
+                pointerEvents: 'none',
+              }}
+            >
               {tooltipCard}
             </div>
           ) : null}

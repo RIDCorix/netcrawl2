@@ -22,9 +22,29 @@ import { handleLog, handleReportError } from './logActions.js';
 import { handleMove, handleMoveEdge } from './moveActions.js';
 import { handleMine, handleHarvest } from './mineActions.js';
 import { handleCollect, handleDeposit, handleDiscard, handleDrop, handleHasItems } from './inventoryActions.js';
-import { handleScan, handleGetEdges, handleGetNodeInfo, handleScanEdges, handleScanEdgesAdvanced, handleFindPath, handleFindNearest, handleGetResources } from './scanActions.js';
+import {
+  handleScan,
+  handleGetEdges,
+  handleGetNodeInfo,
+  handleScanEdges,
+  handleScanEdgesAdvanced,
+  handleFindPath,
+  handleFindNearest,
+  handleGetResources,
+} from './scanActions.js';
 import { handleCompute, handleSubmit } from './computeActions.js';
-import { handleGetService, handleCacheGet, handleCacheSet, handleCacheKeys, handleApiPoll, handleApiRespond, handleApiStats, handleApiReject, handleValidateToken, handleRepair } from './serviceActions.js';
+import {
+  handleGetService,
+  handleCacheGet,
+  handleCacheSet,
+  handleCacheKeys,
+  handleApiPoll,
+  handleApiRespond,
+  handleApiStats,
+  handleApiReject,
+  handleValidateToken,
+  handleRepair,
+} from './serviceActions.js';
 
 // ── Action registry ─────────────────────────────────────────────────────────
 
@@ -32,46 +52,46 @@ type ActionHandler = (ctx: ActionContext, payload: any) => any | Promise<any>;
 
 const ACTION_HANDLERS: Record<string, ActionHandler> = {
   // Movement
-  move:       handleMove,
-  move_edge:  handleMoveEdge,
+  move: handleMove,
+  move_edge: handleMoveEdge,
 
   // Mining
-  mine:       handleMine,
-  harvest:    handleHarvest,
+  mine: handleMine,
+  harvest: handleHarvest,
 
   // Inventory
-  collect:    handleCollect,
-  deposit:    handleDeposit,
-  discard:    handleDiscard,
-  drop:       handleDrop,
-  has_items:  handleHasItems,
+  collect: handleCollect,
+  deposit: handleDeposit,
+  discard: handleDiscard,
+  drop: handleDrop,
+  has_items: handleHasItems,
   has_dropped_items: handleHasItems,
 
   // Scan / query
-  scan:                handleScan,
-  get_edges:           handleGetEdges,
-  get_node_info:       handleGetNodeInfo,
-  scan_edges:          handleScanEdges,
+  scan: handleScan,
+  get_edges: handleGetEdges,
+  get_node_info: handleGetNodeInfo,
+  scan_edges: handleScanEdges,
   scan_edges_advanced: handleScanEdgesAdvanced,
-  findPath:            handleFindPath,
-  findNearest:         handleFindNearest,
-  getResources:        handleGetResources,
+  findPath: handleFindPath,
+  findNearest: handleFindNearest,
+  getResources: handleGetResources,
 
   // Compute puzzles
-  compute:    handleCompute,
-  submit:     handleSubmit,
+  compute: handleCompute,
+  submit: handleSubmit,
 
   // Services (cache, API, auth)
-  get_service:     handleGetService,
-  cache_get:       handleCacheGet,
-  cache_set:       handleCacheSet,
-  cache_keys:      handleCacheKeys,
-  api_poll:        handleApiPoll,
-  api_respond:     handleApiRespond,
-  api_stats:       handleApiStats,
-  api_reject:      handleApiReject,
-  validate_token:  handleValidateToken,
-  repair:          handleRepair,
+  get_service: handleGetService,
+  cache_get: handleCacheGet,
+  cache_set: handleCacheSet,
+  cache_keys: handleCacheKeys,
+  api_poll: handleApiPoll,
+  api_respond: handleApiRespond,
+  api_stats: handleApiStats,
+  api_reject: handleApiReject,
+  validate_token: handleValidateToken,
+  repair: handleRepair,
 };
 
 // ── Main handler ────────────────────────────────────────────────────────────
@@ -82,13 +102,23 @@ export interface ExecutionFence {
   actionId?: string;
 }
 
-export async function handleWorkerAction(workerId: string, action: string, payload: any, userId?: string, fence: ExecutionFence = {}): Promise<any> {
+export async function handleWorkerAction(
+  workerId: string,
+  action: string,
+  payload: any,
+  userId?: string,
+  fence: ExecutionFence = {},
+): Promise<any> {
   const uid = userId || getCurrentUserId() || undefined;
 
   const worker = getWorker(workerId, uid);
   if (!worker) return { ok: false, error: 'Worker not found' };
   if (fence.generation !== undefined || fence.executionToken !== undefined) {
-    if (worker.generation !== Number(fence.generation) || !fence.executionToken || worker.executionToken !== fence.executionToken) {
+    if (
+      worker.generation !== Number(fence.generation) ||
+      !fence.executionToken ||
+      worker.executionToken !== fence.executionToken
+    ) {
       return { ok: false, reason: 'stale_execution', error: 'Worker execution is no longer current' };
     }
   }
@@ -120,7 +150,12 @@ export async function handleWorkerAction(workerId: string, action: string, paylo
   if (actionKey) {
     const s = resolveStore(uid);
     s.worker_action_results ||= {};
-    s.worker_action_results[actionKey] = { workerId, generation: worker.generation || 0, result, committedAt: new Date().toISOString() };
+    s.worker_action_results[actionKey] = {
+      workerId,
+      generation: worker.generation || 0,
+      result,
+      committedAt: new Date().toISOString(),
+    };
     const keys = Object.keys(s.worker_action_results);
     if (keys.length > 2000) for (const key of keys.slice(0, keys.length - 2000)) delete s.worker_action_results[key];
   }

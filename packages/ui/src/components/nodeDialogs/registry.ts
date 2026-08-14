@@ -62,5 +62,5 @@ export function getDialogsForNode(nodeType: string, nodeData: any): ResolvedDial
 
 /** Exposed for debugging — lists every registered plugin id. */
 export function listRegisteredPlugins(): string[] {
-  return allPlugins.map((p) => p.id);
+  return allPlugins.map(p => p.id);
 }

@@ -66,23 +66,43 @@ export function ErrorOffscreenIndicators({ gameNodes }: { gameNodes: GameNode[] 
             if (gn) reactFlow.setCenter(gn.position.x, gn.position.y, { duration: 400, zoom: 1.2 });
           }}
           style={{
-            position: 'absolute', left: ind.x, top: ind.y,
-            transform: 'translate(-50%, -50%)', pointerEvents: 'auto', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 4,
+            position: 'absolute',
+            left: ind.x,
+            top: ind.y,
+            transform: 'translate(-50%, -50%)',
+            pointerEvents: 'auto',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
             animation: 'error-indicator-pulse 2s ease-in-out infinite',
           }}
           title={`Error: ${ind.label} — click to jump`}
         >
-          <svg width={20} height={20} style={{ transform: `rotate(${ind.angle}deg)`, filter: 'drop-shadow(0 0 4px rgba(239,68,68,0.6))' }}>
+          <svg
+            width={20}
+            height={20}
+            style={{ transform: `rotate(${ind.angle}deg)`, filter: 'drop-shadow(0 0 4px rgba(239,68,68,0.6))' }}
+          >
             <polygon points="18,10 2,3 2,17" fill="#ef4444" />
           </svg>
-          <span style={{
-            fontSize: 8, fontFamily: 'var(--font-mono)', fontWeight: 700,
-            color: '#ef4444', background: 'rgba(0,0,0,0.75)',
-            padding: '2px 5px', borderRadius: 3, border: '1px solid #ef444460',
-            maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            textShadow: '0 0 4px rgba(239,68,68,0.5)',
-          }}>
+          <span
+            style={{
+              fontSize: 8,
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 700,
+              color: '#ef4444',
+              background: 'rgba(0,0,0,0.75)',
+              padding: '2px 5px',
+              borderRadius: 3,
+              border: '1px solid #ef444460',
+              maxWidth: 100,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              textShadow: '0 0 4px rgba(239,68,68,0.5)',
+            }}
+          >
             ⚠ {ind.label}
           </span>
         </div>

@@ -14,7 +14,15 @@ const DROP_COLOR: Record<string, string> = {
 };
 
 /** Vertical mine-supply meter, deliberately separate from the floor-drop buffer. */
-export function ResourceDataIndicator({ data, maxDataBuffer, visible = true }: { data?: number; maxDataBuffer?: number; visible?: boolean }) {
+export function ResourceDataIndicator({
+  data,
+  maxDataBuffer,
+  visible = true,
+}: {
+  data?: number;
+  maxDataBuffer?: number;
+  visible?: boolean;
+}) {
   if (!visible || maxDataBuffer === undefined || maxDataBuffer <= 0) return null;
 
   const max = Math.max(1, Math.floor(maxDataBuffer));
@@ -23,23 +31,61 @@ export function ResourceDataIndicator({ data, maxDataBuffer, visible = true }: {
   const color = percent <= 20 ? '#f59e0b' : '#45aaf2';
 
   return (
-    <div aria-label={`Mine data: ${current}/${max}`} role="meter" aria-valuemin={0} aria-valuemax={max} aria-valuenow={current} style={{
-      position: 'absolute', left: -41, top: 0, height: 43, width: 34,
-      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, pointerEvents: 'none', zIndex: 3, fontFamily: 'var(--font-mono)',
-    }}>
-      <div style={{
-        position: 'relative', width: 7, height: 30, overflow: 'hidden', borderRadius: 999,
-        background: 'color-mix(in srgb, var(--bg-primary) 82%, transparent)', border: '1px solid var(--border-bright)', boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
-      }}>
-        <div style={{
-          position: 'absolute', bottom: 0, left: 0, right: 0, height: `${percent}%`, background: color,
-          boxShadow: `0 0 7px ${color}`, transition: 'height 180ms ease-out, background 180ms ease-out',
-        }} />
+    <div
+      aria-label={`Mine data: ${current}/${max}`}
+      role="meter"
+      aria-valuemin={0}
+      aria-valuemax={max}
+      aria-valuenow={current}
+      style={{
+        position: 'absolute',
+        left: -41,
+        top: 0,
+        height: 43,
+        width: 34,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 4,
+        pointerEvents: 'none',
+        zIndex: 3,
+        fontFamily: 'var(--font-mono)',
+      }}
+    >
+      <div
+        style={{
+          position: 'relative',
+          width: 7,
+          height: 30,
+          overflow: 'hidden',
+          borderRadius: 999,
+          background: 'color-mix(in srgb, var(--bg-primary) 82%, transparent)',
+          border: '1px solid var(--border-bright)',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: `${percent}%`,
+            background: color,
+            boxShadow: `0 0 7px ${color}`,
+            transition: 'height 180ms ease-out, background 180ms ease-out',
+          }}
+        />
       </div>
-      <span style={{
-        color: percent <= 20 ? '#fbbf24' : 'var(--text-muted)', fontSize: 8, fontWeight: 800,
-        lineHeight: 1, whiteSpace: 'nowrap',
-      }}>
+      <span
+        style={{
+          color: percent <= 20 ? '#fbbf24' : 'var(--text-muted)',
+          fontSize: 8,
+          fontWeight: 800,
+          lineHeight: 1,
+          whiteSpace: 'nowrap',
+        }}
+      >
         {current}/{max}
       </span>
     </div>

@@ -629,7 +629,9 @@ function Shell({
               <button
                 onClick={onSkip}
                 style={{
-                  fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 700,
+                  fontSize: 10,
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: 700,
                   color: 'var(--text-secondary)',
                   background: 'none',
                   border: '1px solid var(--border-bright)',
@@ -637,7 +639,9 @@ function Shell({
                   padding: '2px 8px',
                   borderRadius: 4,
                   letterSpacing: '0.05em',
-                  display: 'flex', alignItems: 'center', gap: 4,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
                 }}
               >
                 {t('tutorial.chapter_zero.skip_to_game')} <X size={10} />

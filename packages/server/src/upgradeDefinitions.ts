@@ -8,11 +8,11 @@ import type { RecipeCost } from './types.js';
 // ── Node Upgrades ───────────────────────────────────────────────────────────
 
 export interface UpgradeEffect {
-  rateBonus?: number;      // +N to resource rate
-  chipSlots?: number;      // set chip slots to this value
-  autoCollect?: boolean;   // auto-deposit items
-  defenseBonus?: number;   // reduces infection spread chance
-  moveSpeedMult?: number;  // workers pass through faster
+  rateBonus?: number; // +N to resource rate
+  chipSlots?: number; // set chip slots to this value
+  autoCollect?: boolean; // auto-deposit items
+  defenseBonus?: number; // reduces infection spread chance
+  moveSpeedMult?: number; // workers pass through faster
 }
 
 export interface UpgradeLevel {
@@ -28,48 +28,83 @@ export interface UpgradeLevel {
 // Keyed by node type, then by resource subtype for resource nodes
 export const NODE_UPGRADE_DEFS: Record<string, UpgradeLevel[]> = {
   'resource:data': [
-    { level: 1, name: 'Cache Expander', description: '+1 data production rate', cost: {}, effects: { rateBonus: 1 }, enhancementPoints: 2 },
-    { level: 2, name: 'Data Cluster', description: '+1 chip slot', cost: {}, effects: { chipSlots: 2 }, enhancementPoints: 3 },
-    { level: 3, name: 'Auto Sync', description: 'Drops auto-deposit to hub', cost: {}, effects: { autoCollect: true }, enhancementPoints: 4 },
+    {
+      level: 1,
+      name: 'Cache Expander',
+      description: '+1 data production rate',
+      cost: {},
+      effects: { rateBonus: 1 },
+      enhancementPoints: 2,
+    },
+    {
+      level: 2,
+      name: 'Data Cluster',
+      description: '+1 chip slot',
+      cost: {},
+      effects: { chipSlots: 2 },
+      enhancementPoints: 3,
+    },
+    {
+      level: 3,
+      name: 'Auto Sync',
+      description: 'Drops auto-deposit to hub',
+      cost: {},
+      effects: { autoCollect: true },
+      enhancementPoints: 4,
+    },
   ],
-  'hub': [
-    { level: 1, name: 'Expansion Bay', description: '+1 chip slot (total 2)', cost: {}, effects: { chipSlots: 2 }, enhancementPoints: 3 },
-    { level: 2, name: 'Command Center', description: '+2 chip slots (total 4), +1 defense', cost: {}, effects: { chipSlots: 4, defenseBonus: 1 }, enhancementPoints: 4 },
+  hub: [
+    {
+      level: 1,
+      name: 'Expansion Bay',
+      description: '+1 chip slot (total 2)',
+      cost: {},
+      effects: { chipSlots: 2 },
+      enhancementPoints: 3,
+    },
+    {
+      level: 2,
+      name: 'Command Center',
+      description: '+2 chip slots (total 4), +1 defense',
+      cost: {},
+      effects: { chipSlots: 4, defenseBonus: 1 },
+      enhancementPoints: 4,
+    },
   ],
 };
 
 // ── Node Stat Allocation (Enhancement Points) ─────────────────────────────
 
 export interface NodeStatDef {
-  key: string;         // stat identifier
-  name: string;        // display name (i18n key: stat.<key>.name)
-  maxPoints: number;   // max points allocatable to this stat
-  perPoint: number;    // value per point (e.g. +1 rate per point)
+  key: string; // stat identifier
+  name: string; // display name (i18n key: stat.<key>.name)
+  maxPoints: number; // max points allocatable to this stat
+  perPoint: number; // value per point (e.g. +1 rate per point)
 }
 
 /** Allocatable stats per node upgrade key */
 export const NODE_STAT_DEFS: Record<string, NodeStatDef[]> = {
   'resource:data': [
-    { key: 'rate',      name: 'Production Rate', maxPoints: 5, perPoint: 1 },
-    { key: 'refillRate', name: 'Refill Rate',     maxPoints: 5, perPoint: 1 },
-    { key: 'defense',   name: 'Defense',         maxPoints: 3, perPoint: 1 },
-    { key: 'chipSlots', name: 'Chip Slots',      maxPoints: 2, perPoint: 1 },
+    { key: 'rate', name: 'Production Rate', maxPoints: 5, perPoint: 1 },
+    { key: 'refillRate', name: 'Refill Rate', maxPoints: 5, perPoint: 1 },
+    { key: 'defense', name: 'Defense', maxPoints: 3, perPoint: 1 },
+    { key: 'chipSlots', name: 'Chip Slots', maxPoints: 2, perPoint: 1 },
   ],
-  'hub': [
-    { key: 'defense',   name: 'Defense',         maxPoints: 5, perPoint: 1 },
-    { key: 'chipSlots', name: 'Chip Slots',      maxPoints: 3, perPoint: 1 },
+  hub: [
+    { key: 'defense', name: 'Defense', maxPoints: 5, perPoint: 1 },
+    { key: 'chipSlots', name: 'Chip Slots', maxPoints: 3, perPoint: 1 },
   ],
-  'compute': [
-    { key: 'defense',   name: 'Defense',         maxPoints: 3, perPoint: 1 },
-    { key: 'chipSlots', name: 'Chip Slots',      maxPoints: 2, perPoint: 1 },
+  compute: [
+    { key: 'defense', name: 'Defense', maxPoints: 3, perPoint: 1 },
+    { key: 'chipSlots', name: 'Chip Slots', maxPoints: 2, perPoint: 1 },
   ],
-  'cache': [
-    { key: 'defense',   name: 'Defense',         maxPoints: 3, perPoint: 1 },
-    { key: 'chipSlots', name: 'Chip Slots',      maxPoints: 2, perPoint: 1 },
+  cache: [
+    { key: 'defense', name: 'Defense', maxPoints: 3, perPoint: 1 },
+    { key: 'chipSlots', name: 'Chip Slots', maxPoints: 2, perPoint: 1 },
   ],
-  'api': [
-    { key: 'defense',   name: 'Defense',         maxPoints: 3, perPoint: 1 },
-    { key: 'chipSlots', name: 'Chip Slots',      maxPoints: 2, perPoint: 1 },
+  api: [
+    { key: 'defense', name: 'Defense', maxPoints: 3, perPoint: 1 },
+    { key: 'chipSlots', name: 'Chip Slots', maxPoints: 2, perPoint: 1 },
   ],
 };
 
@@ -93,25 +128,103 @@ export interface ChipDef {
 
 export const CHIP_DEFS: ChipDef[] = [
   // Common
-  { chipType: 'harvest_speed_1', name: 'Speed Chip I', description: '+20% harvest speed', rarity: 'common', effect: { type: 'harvest_speed_mult', value: 1.2 } },
-  { chipType: 'defense_1', name: 'Firewall Chip I', description: '+1 infection resistance', rarity: 'common', effect: { type: 'defense', value: 1 } },
-  { chipType: 'move_speed_1', name: 'Router Chip I', description: '-20% travel time', rarity: 'common', effect: { type: 'move_speed_mult', value: 0.8 } },
+  {
+    chipType: 'harvest_speed_1',
+    name: 'Speed Chip I',
+    description: '+20% harvest speed',
+    rarity: 'common',
+    effect: { type: 'harvest_speed_mult', value: 1.2 },
+  },
+  {
+    chipType: 'defense_1',
+    name: 'Firewall Chip I',
+    description: '+1 infection resistance',
+    rarity: 'common',
+    effect: { type: 'defense', value: 1 },
+  },
+  {
+    chipType: 'move_speed_1',
+    name: 'Router Chip I',
+    description: '-20% travel time',
+    rarity: 'common',
+    effect: { type: 'move_speed_mult', value: 0.8 },
+  },
 
   // Uncommon
-  { chipType: 'harvest_speed_2', name: 'Speed Chip II', description: '+40% harvest speed', rarity: 'uncommon', effect: { type: 'harvest_speed_mult', value: 1.4 } },
-  { chipType: 'production_rate_1', name: 'Yield Chip I', description: '+1 resource rate', rarity: 'uncommon', effect: { type: 'production_rate', value: 1 } },
-  { chipType: 'capacity_1', name: 'Worker Buffer Chip', description: '+10 worker carry capacity', rarity: 'uncommon', effect: { type: 'capacity_bonus', value: 10 } },
-  { chipType: 'node_buffer_1', name: 'Node Buffer Chip I', description: '+2 node stack slots', rarity: 'uncommon', effect: { type: 'node_buffer_bonus', value: 2 } },
+  {
+    chipType: 'harvest_speed_2',
+    name: 'Speed Chip II',
+    description: '+40% harvest speed',
+    rarity: 'uncommon',
+    effect: { type: 'harvest_speed_mult', value: 1.4 },
+  },
+  {
+    chipType: 'production_rate_1',
+    name: 'Yield Chip I',
+    description: '+1 resource rate',
+    rarity: 'uncommon',
+    effect: { type: 'production_rate', value: 1 },
+  },
+  {
+    chipType: 'capacity_1',
+    name: 'Worker Buffer Chip',
+    description: '+10 worker carry capacity',
+    rarity: 'uncommon',
+    effect: { type: 'capacity_bonus', value: 10 },
+  },
+  {
+    chipType: 'node_buffer_1',
+    name: 'Node Buffer Chip I',
+    description: '+2 node stack slots',
+    rarity: 'uncommon',
+    effect: { type: 'node_buffer_bonus', value: 2 },
+  },
 
   // Rare
-  { chipType: 'defense_2', name: 'Firewall Chip II', description: '+3 infection resistance', rarity: 'rare', effect: { type: 'defense', value: 3 } },
-  { chipType: 'production_rate_2', name: 'Yield Chip II', description: '+2 resource rate', rarity: 'rare', effect: { type: 'production_rate', value: 2 } },
-  { chipType: 'harvest_speed_3', name: 'Speed Chip III', description: '+60% harvest speed', rarity: 'rare', effect: { type: 'harvest_speed_mult', value: 1.6 } },
-  { chipType: 'node_buffer_2', name: 'Node Buffer Chip II', description: '+4 node stack slots', rarity: 'rare', effect: { type: 'node_buffer_bonus', value: 4 } },
+  {
+    chipType: 'defense_2',
+    name: 'Firewall Chip II',
+    description: '+3 infection resistance',
+    rarity: 'rare',
+    effect: { type: 'defense', value: 3 },
+  },
+  {
+    chipType: 'production_rate_2',
+    name: 'Yield Chip II',
+    description: '+2 resource rate',
+    rarity: 'rare',
+    effect: { type: 'production_rate', value: 2 },
+  },
+  {
+    chipType: 'harvest_speed_3',
+    name: 'Speed Chip III',
+    description: '+60% harvest speed',
+    rarity: 'rare',
+    effect: { type: 'harvest_speed_mult', value: 1.6 },
+  },
+  {
+    chipType: 'node_buffer_2',
+    name: 'Node Buffer Chip II',
+    description: '+4 node stack slots',
+    rarity: 'rare',
+    effect: { type: 'node_buffer_bonus', value: 4 },
+  },
 
   // Legendary
-  { chipType: 'auto_repair', name: 'Nanite Core', description: 'Auto-repairs infection in 30s', rarity: 'legendary', effect: { type: 'auto_repair', value: 30 } },
-  { chipType: 'overclock', name: 'Overclock Module', description: '+100% harvest speed', rarity: 'legendary', effect: { type: 'harvest_speed_mult', value: 2.0 } },
+  {
+    chipType: 'auto_repair',
+    name: 'Nanite Core',
+    description: 'Auto-repairs infection in 30s',
+    rarity: 'legendary',
+    effect: { type: 'auto_repair', value: 30 },
+  },
+  {
+    chipType: 'overclock',
+    name: 'Overclock Module',
+    description: '+100% harvest speed',
+    rarity: 'legendary',
+    effect: { type: 'harvest_speed_mult', value: 2.0 },
+  },
 ];
 
 // ── Chip Packs ──────────────────────────────────────────────────────────────
@@ -190,8 +303,8 @@ export const MAX_CHIP_SLOTS = 6;
 /** Base max buffer (stack count) per node type. Nodes without an entry cannot
  *  hold items on the floor at all (e.g. locked, puzzle, auth). */
 export const BASE_NODE_BUFFER: Record<string, number> = {
-  hub: 8,        // hub is a transit point, needs headroom for drops before deposit
-  resource: 4,   // resource nodes accumulate mined stacks
+  hub: 8, // hub is a transit point, needs headroom for drops before deposit
+  resource: 4, // resource nodes accumulate mined stacks
   compute: 2,
   cache: 2,
   api: 2,
@@ -219,25 +332,25 @@ export function computeNodeBuffer(nodeType: string, chipEffects: Record<string, 
 export const NODE_XP_THRESHOLDS: Record<string, number[]> = {
   // [xpForLv1, xpForLv2, xpForLv3]
   'resource:data': [100, 300, 800],
-  'hub':           [150, 500],
+  hub: [150, 500],
 };
 
 /** XP granted per action, keyed by node type */
 export const NODE_XP_PER_ACTION: Record<string, Record<string, number>> = {
   'resource:data': {
-    mine: 8,        // worker mines this node
-    harvest: 3,     // manual gather from UI
+    mine: 8, // worker mines this node
+    harvest: 3, // manual gather from UI
   },
-  'hub': {
-    deposit: 4,       // worker deposits resources here
+  hub: {
+    deposit: 4, // worker deposits resources here
   },
-  'compute': {
-    solve_puzzle: 15,  // worker solves a puzzle here
+  compute: {
+    solve_puzzle: 15, // worker solves a puzzle here
   },
-  'cache': {
-    cache_hit: 3,      // cache get/set used
+  cache: {
+    cache_hit: 3, // cache get/set used
   },
-  'api': {
+  api: {
     complete_request: 10, // API request completed
   },
 };

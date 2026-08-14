@@ -144,11 +144,7 @@ const SCHEDULE_INTERVAL = 25; // ms
 /**
  * Start playing a procedural BGM track.  Returns a cleanup function.
  */
-export function startTrack(
-  ctx: AudioContext,
-  dest: GainNode,
-  trackId: string,
-): () => void {
+export function startTrack(ctx: AudioContext, dest: GainNode, trackId: string): () => void {
   const cfg = TRACK_PRESETS[trackId];
   if (!cfg) {
     console.warn(`[bgm] Unknown track: ${trackId}`);
@@ -383,14 +379,38 @@ export function startTrack(
     alive = false;
     clearInterval(timer);
     for (const n of activeNodes) {
-      try { n.stop(); } catch { /* already stopped */ }
-      try { n.disconnect(); } catch { /* ok */ }
+      try {
+        n.stop();
+      } catch {
+        /* already stopped */
+      }
+      try {
+        n.disconnect();
+      } catch {
+        /* ok */
+      }
     }
     activeNodes.length = 0;
-    try { masterFilter.disconnect(); } catch { /* ok */ }
-    try { reverb.disconnect(); } catch { /* ok */ }
-    try { reverbGain.disconnect(); } catch { /* ok */ }
-    try { dryGain.disconnect(); } catch { /* ok */ }
+    try {
+      masterFilter.disconnect();
+    } catch {
+      /* ok */
+    }
+    try {
+      reverb.disconnect();
+    } catch {
+      /* ok */
+    }
+    try {
+      reverbGain.disconnect();
+    } catch {
+      /* ok */
+    }
+    try {
+      dryGain.disconnect();
+    } catch {
+      /* ok */
+    }
   };
 }
 
@@ -399,8 +419,6 @@ export function startTrack(
  */
 export function playTrack(trackId: string): void {
   import('./engine').then(({ audioEngine }) => {
-    audioEngine.playBgm(trackId, (ctx: AudioContext, dest: GainNode) =>
-      startTrack(ctx, dest, trackId),
-    );
+    audioEngine.playBgm(trackId, (ctx: AudioContext, dest: GainNode) => startTrack(ctx, dest, trackId));
   });
 }

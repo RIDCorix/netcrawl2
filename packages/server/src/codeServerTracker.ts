@@ -18,7 +18,10 @@ const leases = new Map<string, CodeServerLease>();
 const keyFor = (userId?: string) => userId || '__default__';
 
 /** Claim the sole Code Server lease for a user. A running second server gets a conflict. */
-export function claimCodeServerLease(requestedSessionId?: string, userId?: string): { ok: true; sessionId: string; expiresAt: number } | { ok: false; reason: 'code_server_conflict' } {
+export function claimCodeServerLease(
+  requestedSessionId?: string,
+  userId?: string,
+): { ok: true; sessionId: string; expiresAt: number } | { ok: false; reason: 'code_server_conflict' } {
   const key = keyFor(userId);
   const now = Date.now();
   const existing = leases.get(key);

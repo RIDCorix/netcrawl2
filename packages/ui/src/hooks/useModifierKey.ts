@@ -18,13 +18,24 @@ function ensureGlobalListener() {
 
   const onDown = (e: KeyboardEvent) => {
     const next = e.ctrlKey || e.metaKey;
-    if (next !== ctrlDown) { ctrlDown = next; notify(); }
+    if (next !== ctrlDown) {
+      ctrlDown = next;
+      notify();
+    }
   };
   const onUp = (e: KeyboardEvent) => {
     const next = e.ctrlKey || e.metaKey;
-    if (next !== ctrlDown) { ctrlDown = next; notify(); }
+    if (next !== ctrlDown) {
+      ctrlDown = next;
+      notify();
+    }
   };
-  const onBlur = () => { if (ctrlDown) { ctrlDown = false; notify(); } };
+  const onBlur = () => {
+    if (ctrlDown) {
+      ctrlDown = false;
+      notify();
+    }
+  };
   window.addEventListener('keydown', onDown);
   window.addEventListener('keyup', onUp);
   window.addEventListener('blur', onBlur);
@@ -33,10 +44,14 @@ function ensureGlobalListener() {
 function subscribe(l: () => void) {
   ensureGlobalListener();
   listeners.add(l);
-  return () => { listeners.delete(l); };
+  return () => {
+    listeners.delete(l);
+  };
 }
 
-function getSnapshot() { return ctrlDown; }
+function getSnapshot() {
+  return ctrlDown;
+}
 
 /** True while either Ctrl or Cmd (Meta) is currently held. */
 export function useCtrlOrCmd(): boolean {

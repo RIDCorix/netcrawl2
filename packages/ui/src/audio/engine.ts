@@ -137,10 +137,7 @@ export class AudioEngine {
    * `startFn` is called with the AudioContext and the BGM GainNode;
    * it should return a cleanup function.
    */
-  playBgm(
-    trackId: string,
-    startFn: (ctx: AudioContext, dest: GainNode) => (() => void),
-  ): void {
+  playBgm(trackId: string, startFn: (ctx: AudioContext, dest: GainNode) => () => void): void {
     const ctx = this.ensureContext();
     if (!this.bgmGain) return;
 
@@ -212,12 +209,19 @@ export class AudioEngine {
     // Schedule cleanup after fade
     const cb = this.bgmStopCallback;
     const nodes = [...this.bgmGainNodes];
-    setTimeout(() => {
-      cb?.();
-      for (const g of nodes) {
-        try { g.disconnect(); } catch { /* already disconnected */ }
-      }
-    }, FADE_DURATION * 1000 + 100);
+    setTimeout(
+      () => {
+        cb?.();
+        for (const g of nodes) {
+          try {
+            g.disconnect();
+          } catch {
+            /* already disconnected */
+          }
+        }
+      },
+      FADE_DURATION * 1000 + 100,
+    );
 
     this.bgmGainNodes = [];
     this.bgmStopCallback = null;

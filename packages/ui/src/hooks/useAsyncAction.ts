@@ -44,33 +44,39 @@ export function useAsyncAction(
 
   const clearMsg = useCallback(() => {
     setMsg('');
-    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
   }, []);
 
-  const run = useCallback(async (...args: any[]) => {
-    setLoading(true);
-    clearMsg();
-    try {
-      const res = await fn(...args);
-      const data = res?.data ?? res;
-      const successText = typeof opts.successMsg === 'function'
-        ? opts.successMsg(data)
-        : opts.successMsg || '';
-      if (successText) {
-        setMsg(successText);
-        timerRef.current = setTimeout(() => setMsg(''), opts.msgDuration ?? MSG_TIMEOUT_MS);
+  const run = useCallback(
+    async (...args: any[]) => {
+      setLoading(true);
+      clearMsg();
+      try {
+        const res = await fn(...args);
+        const data = res?.data ?? res;
+        const successText = typeof opts.successMsg === 'function' ? opts.successMsg(data) : opts.successMsg || '';
+        if (successText) {
+          setMsg(successText);
+          timerRef.current = setTimeout(() => setMsg(''), opts.msgDuration ?? MSG_TIMEOUT_MS);
+        }
+        opts.onSuccess?.(data);
+        return data;
+      } catch (err: unknown) {
+        const errMsg = axios.isAxiosError(err)
+          ? err.response?.data?.error || err.message
+          : err instanceof Error
+            ? err.message
+            : String(err);
+        setMsg(errMsg || opts.fallbackError || 'Action failed');
+      } finally {
+        setLoading(false);
       }
-      opts.onSuccess?.(data);
-      return data;
-    } catch (err: unknown) {
-      const errMsg = axios.isAxiosError(err)
-        ? err.response?.data?.error || err.message
-        : err instanceof Error ? err.message : String(err);
-      setMsg(errMsg || opts.fallbackError || 'Action failed');
-    } finally {
-      setLoading(false);
-    }
-  }, [fn, opts.successMsg, opts.fallbackError, opts.msgDuration, opts.onSuccess, clearMsg]);
+    },
+    [fn, opts.successMsg, opts.fallbackError, opts.msgDuration, opts.onSuccess, clearMsg],
+  );
 
   return { run, loading, msg, clearMsg };
 }

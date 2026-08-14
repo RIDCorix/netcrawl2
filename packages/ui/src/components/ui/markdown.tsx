@@ -21,8 +21,22 @@ import { Copy, Check } from 'lucide-react';
 
 // Code theme using CSS variables
 const codeTheme: Record<string, React.CSSProperties> = {
-  'code[class*="language-"]': { color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: '1.6' },
-  'pre[class*="language-"]': { color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: '1.6', background: 'var(--bg-primary)', padding: '12px 14px', borderRadius: '8px', overflow: 'auto' },
+  'code[class*="language-"]': {
+    color: 'var(--text-primary)',
+    fontFamily: 'var(--font-mono)',
+    fontSize: '12px',
+    lineHeight: '1.6',
+  },
+  'pre[class*="language-"]': {
+    color: 'var(--text-primary)',
+    fontFamily: 'var(--font-mono)',
+    fontSize: '12px',
+    lineHeight: '1.6',
+    background: 'var(--bg-primary)',
+    padding: '12px 14px',
+    borderRadius: '8px',
+    overflow: 'auto',
+  },
   comment: { color: 'var(--text-muted)' },
   string: { color: 'var(--color-positive, #4ade80)' },
   'triple-quoted-string': { color: 'var(--color-positive, #4ade80)' },
@@ -40,9 +54,9 @@ const codeTheme: Record<string, React.CSSProperties> = {
   'attr-name': { color: 'var(--accent)' },
   'attr-value': { color: 'var(--color-positive, #4ade80)' },
   property: { color: '#c9d1d9' },
-  'method': { color: 'var(--color-warning, #fbbf24)' },
-  'self': { color: '#ff7b72' },
-  'constant': { color: 'var(--color-warning, #f59e0b)' },
+  method: { color: 'var(--color-warning, #fbbf24)' },
+  self: { color: '#ff7b72' },
+  constant: { color: 'var(--color-warning, #f59e0b)' },
 };
 
 // Platform tab groups — consecutive code blocks with these languages become tabs
@@ -66,7 +80,11 @@ const LANG_LABELS: Record<string, string> = {
 const PREF_KEY = 'netcrawl-code-tab-pref';
 
 function getTabPref(): Record<string, string> {
-  try { return JSON.parse(localStorage.getItem(PREF_KEY) || '{}'); } catch { return {}; }
+  try {
+    return JSON.parse(localStorage.getItem(PREF_KEY) || '{}');
+  } catch {
+    return {};
+  }
 }
 function setTabPref(group: string, tab: string) {
   const prefs = getTabPref();
@@ -87,14 +105,22 @@ function CopyButton({ text }: { text: string }) {
     <button
       onClick={handleCopy}
       style={{
-        position: 'absolute', top: 6, right: 6,
-        display: 'flex', alignItems: 'center', gap: 4,
-        padding: '3px 8px', borderRadius: '4px',
+        position: 'absolute',
+        top: 6,
+        right: 6,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '3px 8px',
+        borderRadius: '4px',
         background: copied ? 'var(--bg-positive, rgba(74,222,128,0.15))' : 'var(--bg-secondary)',
         border: `1px solid ${copied ? 'var(--border-bright)' : 'var(--border)'}`,
         color: copied ? 'var(--color-positive, #4ade80)' : 'var(--text-muted)',
-        fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 600,
-        cursor: 'pointer', transition: 'all 0.15s',
+        fontSize: 10,
+        fontFamily: 'var(--font-mono)',
+        fontWeight: 600,
+        cursor: 'pointer',
+        transition: 'all 0.15s',
       }}
     >
       {copied ? <Check size={10} /> : <Copy size={10} />}
@@ -150,21 +176,27 @@ function DiffView({ code }: { code: string }) {
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      border: '1px solid var(--border)',
-      borderRadius: '8px',
-      overflow: 'hidden',
-      margin: '8px 0',
-      fontSize: 11,
-    }}>
+    <div
+      style={{
+        display: 'flex',
+        border: '1px solid var(--border)',
+        borderRadius: '8px',
+        overflow: 'hidden',
+        margin: '8px 0',
+        fontSize: 11,
+      }}
+    >
       {/* Before */}
       <div style={colStyle}>
         <div style={{ ...headerStyle, color: '#f87171', background: 'rgba(239,68,68,0.05)' }}>Before</div>
         <div style={{ padding: '4px 0' }}>
           {removed.map((line, i) => {
             const isCtx = context.includes(line.trim());
-            return <div key={i} style={lineStyle(isCtx ? 'context' : 'remove')}>{line || '\u00A0'}</div>;
+            return (
+              <div key={i} style={lineStyle(isCtx ? 'context' : 'remove')}>
+                {line || '\u00A0'}
+              </div>
+            );
           })}
         </div>
       </div>
@@ -178,7 +210,11 @@ function DiffView({ code }: { code: string }) {
         <div style={{ padding: '4px 0' }}>
           {added.map((line, i) => {
             const isCtx = context.includes(line.trim());
-            return <div key={i} style={lineStyle(isCtx ? 'context' : 'add')}>{line || '\u00A0'}</div>;
+            return (
+              <div key={i} style={lineStyle(isCtx ? 'context' : 'add')}>
+                {line || '\u00A0'}
+              </div>
+            );
           })}
         </div>
       </div>
@@ -206,7 +242,11 @@ function CodeBlockInner({ language, code }: { language: string; code: string }) 
           overflowX: 'auto',
         }}
         codeTagProps={{
-          style: { fontFamily: 'var(--font-mono)', fontVariantLigatures: 'none', fontFeatureSettings: '"liga" 0, "calt" 0' },
+          style: {
+            fontFamily: 'var(--font-mono)',
+            fontVariantLigatures: 'none',
+            fontFeatureSettings: '"liga" 0, "calt" 0',
+          },
         }}
       >
         {code}
@@ -217,7 +257,10 @@ function CodeBlockInner({ language, code }: { language: string; code: string }) 
 
 /** Tabbed code block — shows tabs for platform/language switching */
 function TabbedCodeBlock({ blocks }: { blocks: { lang: string; label: string; code: string }[] }) {
-  const groupKey = blocks.map(b => b.lang).sort().join(',');
+  const groupKey = blocks
+    .map(b => b.lang)
+    .sort()
+    .join(',');
   const prefs = getTabPref();
   const savedTab = blocks.find(b => prefs[groupKey] === b.lang || prefs['platform'] === b.lang);
   const [active, setActive] = useState(savedTab?.lang || blocks[0].lang);
@@ -247,8 +290,11 @@ function TabbedCodeBlock({ blocks }: { blocks: { lang: string; label: string; co
                 borderBottom: isActive ? '1px solid var(--bg-primary)' : '1px solid transparent',
                 background: isActive ? 'var(--bg-primary)' : 'transparent',
                 color: isActive ? 'var(--accent)' : 'var(--text-muted)',
-                fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: isActive ? 700 : 400,
-                cursor: 'pointer', transition: 'all 0.1s',
+                fontSize: 10,
+                fontFamily: 'var(--font-mono)',
+                fontWeight: isActive ? 700 : 400,
+                cursor: 'pointer',
+                transition: 'all 0.1s',
               }}
             >
               {b.label}
@@ -265,7 +311,9 @@ function TabbedCodeBlock({ blocks }: { blocks: { lang: string; label: string; co
  * Pre-process markdown to detect consecutive code blocks that should be tabbed.
  * Returns segments: either plain markdown strings or tab groups.
  */
-type Segment = { type: 'md'; content: string } | { type: 'tabs'; blocks: { lang: string; label: string; code: string }[] };
+type Segment =
+  | { type: 'md'; content: string }
+  | { type: 'tabs'; blocks: { lang: string; label: string; code: string }[] };
 
 function parseSegments(content: string): Segment[] {
   const segments: Segment[] = [];
@@ -332,8 +380,9 @@ function parseSegments(content: string): Segment[] {
     if (i + 1 < blocks.length && (b.lang === 'python' || b.lang === 'javascript' || b.lang === 'js')) {
       const between = content.slice(b.end, blocks[i + 1].start).trim();
       const nextB = blocks[i + 1];
-      const isLangPair = (b.lang === 'python' && (nextB.lang === 'javascript' || nextB.lang === 'js'))
-        || ((b.lang === 'javascript' || b.lang === 'js') && nextB.lang === 'python');
+      const isLangPair =
+        (b.lang === 'python' && (nextB.lang === 'javascript' || nextB.lang === 'js')) ||
+        ((b.lang === 'javascript' || b.lang === 'js') && nextB.lang === 'python');
       if (between.length === 0 && isLangPair) {
         const mdBefore = content.slice(lastIndex, b.start).trim();
         if (mdBefore) segments.push({ type: 'md', content: mdBefore });
@@ -373,17 +422,19 @@ function MarkdownBlock({ content }: { content: string }) {
 
           if (isInline) {
             return (
-              <code style={{
-                background: 'var(--bg-primary)',
-                border: '1px solid var(--border)',
-                borderRadius: '4px',
-                padding: '1px 5px',
-                fontSize: '12px',
-                fontFamily: 'var(--font-mono)',
-                fontVariantLigatures: 'none',
-                fontFeatureSettings: '"liga" 0, "calt" 0',
-                color: 'var(--accent)',
-              }}>
+              <code
+                style={{
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '4px',
+                  padding: '1px 5px',
+                  fontSize: '12px',
+                  fontFamily: 'var(--font-mono)',
+                  fontVariantLigatures: 'none',
+                  fontFeatureSettings: '"liga" 0, "calt" 0',
+                  color: 'var(--accent)',
+                }}
+              >
                 {children}
               </code>
             );
@@ -412,7 +463,11 @@ function MarkdownBlock({ content }: { content: string }) {
                   lineHeight: '1.7',
                 }}
                 codeTagProps={{
-                  style: { fontFamily: 'var(--font-mono)', fontVariantLigatures: 'none', fontFeatureSettings: '"liga" 0, "calt" 0' },
+                  style: {
+                    fontFamily: 'var(--font-mono)',
+                    fontVariantLigatures: 'none',
+                    fontFeatureSettings: '"liga" 0, "calt" 0',
+                  },
                 }}
               >
                 {codeString}
@@ -420,28 +475,102 @@ function MarkdownBlock({ content }: { content: string }) {
             </div>
           );
         },
-        p({ children }) { return <p style={{ margin: '8px 0', lineHeight: 1.7 }}>{children}</p>; },
-        ul({ children }) { return <ul style={{ margin: '6px 0', paddingLeft: '20px', lineHeight: 1.7 }}>{children}</ul>; },
-        ol({ children }) { return <ol style={{ margin: '6px 0', paddingLeft: '20px', lineHeight: 1.7 }}>{children}</ol>; },
-        li({ children }) { return <li style={{ margin: '2px 0' }}>{children}</li>; },
-        strong({ children }) { return <strong style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{children}</strong>; },
+        p({ children }) {
+          return <p style={{ margin: '8px 0', lineHeight: 1.7 }}>{children}</p>;
+        },
+        ul({ children }) {
+          return <ul style={{ margin: '6px 0', paddingLeft: '20px', lineHeight: 1.7 }}>{children}</ul>;
+        },
+        ol({ children }) {
+          return <ol style={{ margin: '6px 0', paddingLeft: '20px', lineHeight: 1.7 }}>{children}</ol>;
+        },
+        li({ children }) {
+          return <li style={{ margin: '2px 0' }}>{children}</li>;
+        },
+        strong({ children }) {
+          return <strong style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{children}</strong>;
+        },
         table({ children }) {
           return (
             <div style={{ overflowX: 'auto', margin: '8px 0' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: 'var(--font-mono)' }}>{children}</table>
+              <table
+                style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: 'var(--font-mono)' }}
+              >
+                {children}
+              </table>
             </div>
           );
         },
-        th({ children }) { return <th style={{ textAlign: 'left', padding: '6px 10px', borderBottom: '1px solid var(--border-bright)', color: 'var(--text-muted)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em' }}>{children}</th>; },
-        td({ children }) { return <td style={{ padding: '5px 10px', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)' }}>{children}</td>; },
-        h1({ children }) { return <h1 style={{ fontSize: '18px', fontWeight: 800, margin: '12px 0 6px', color: 'var(--text-primary)' }}>{children}</h1>; },
-        h2({ children }) { return <h2 style={{ fontSize: '15px', fontWeight: 700, margin: '10px 0 4px', color: 'var(--text-primary)' }}>{children}</h2>; },
-        h3({ children }) { return <h3 style={{ fontSize: '13px', fontWeight: 700, margin: '8px 0 4px', color: 'var(--text-primary)' }}>{children}</h3>; },
+        th({ children }) {
+          return (
+            <th
+              style={{
+                textAlign: 'left',
+                padding: '6px 10px',
+                borderBottom: '1px solid var(--border-bright)',
+                color: 'var(--text-muted)',
+                fontSize: '10px',
+                fontWeight: 700,
+                letterSpacing: '0.05em',
+              }}
+            >
+              {children}
+            </th>
+          );
+        },
+        td({ children }) {
+          return (
+            <td
+              style={{ padding: '5px 10px', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+            >
+              {children}
+            </td>
+          );
+        },
+        h1({ children }) {
+          return (
+            <h1 style={{ fontSize: '18px', fontWeight: 800, margin: '12px 0 6px', color: 'var(--text-primary)' }}>
+              {children}
+            </h1>
+          );
+        },
+        h2({ children }) {
+          return (
+            <h2 style={{ fontSize: '15px', fontWeight: 700, margin: '10px 0 4px', color: 'var(--text-primary)' }}>
+              {children}
+            </h2>
+          );
+        },
+        h3({ children }) {
+          return (
+            <h3 style={{ fontSize: '13px', fontWeight: 700, margin: '8px 0 4px', color: 'var(--text-primary)' }}>
+              {children}
+            </h3>
+          );
+        },
         a({ href, children }) {
           const isExternal = href && /^https?:\/\//.test(href);
-          return <a href={href} {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})} style={{ color: 'var(--accent)', textDecoration: 'underline', textUnderlineOffset: '2px' }}>{children}</a>;
+          return (
+            <a
+              href={href}
+              {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+              style={{ color: 'var(--accent)', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+            >
+              {children}
+            </a>
+          );
         },
-        hr() { return <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, var(--border-bright), transparent)', margin: '12px 0' }} />; },
+        hr() {
+          return (
+            <div
+              style={{
+                height: 1,
+                background: 'linear-gradient(90deg, transparent, var(--border-bright), transparent)',
+                margin: '12px 0',
+              }}
+            />
+          );
+        },
       }}
     >
       {content}
@@ -460,9 +589,11 @@ export function Markdown({ content }: { content: string }) {
   return (
     <>
       {segments.map((seg, i) =>
-        seg.type === 'tabs'
-          ? <TabbedCodeBlock key={i} blocks={seg.blocks} />
-          : <MarkdownBlock key={i} content={seg.content} />
+        seg.type === 'tabs' ? (
+          <TabbedCodeBlock key={i} blocks={seg.blocks} />
+        ) : (
+          <MarkdownBlock key={i} content={seg.content} />
+        ),
       )}
     </>
   );

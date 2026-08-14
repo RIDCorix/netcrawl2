@@ -22,9 +22,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
     try {
       const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/register';
-      const body = mode === 'login'
-        ? { email, password }
-        : { email, password, displayName };
+      const body = mode === 'login' ? { email, password } : { email, password, displayName };
 
       const res = await apiFetch(endpoint, {
         method: 'POST',
@@ -48,25 +46,36 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   };
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0,
-      background: '#0a0a0f',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: 'var(--font-mono, "SF Mono", "Fira Code", monospace)',
-    }}>
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: '#0a0a0f',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'var(--font-mono, "SF Mono", "Fira Code", monospace)',
+      }}
+    >
       {/* Background grid */}
-      <div style={{
-        position: 'absolute', inset: 0, opacity: 0.03,
-        backgroundImage: 'linear-gradient(rgba(74,222,128,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(74,222,128,0.3) 1px, transparent 1px)',
-        backgroundSize: '40px 40px',
-      }} />
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          opacity: 0.03,
+          backgroundImage:
+            'linear-gradient(rgba(74,222,128,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(74,222,128,0.3) 1px, transparent 1px)',
+          backgroundSize: '40px 40px',
+        }}
+      />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
         style={{
-          width: 380, padding: 32,
+          width: 380,
+          padding: 32,
           background: 'rgba(15,15,25,0.9)',
           border: '1px solid rgba(74,222,128,0.15)',
           borderRadius: 16,
@@ -75,17 +84,25 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       >
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            marginBottom: 8,
-          }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              marginBottom: 8,
+            }}
+          >
             <Terminal size={24} style={{ color: '#4ade80' }} />
-            <span style={{
-              fontSize: 24, fontWeight: 800, letterSpacing: '0.12em',
-              background: 'linear-gradient(135deg, #4ade80, #22d3ee)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}>
+            <span
+              style={{
+                fontSize: 24,
+                fontWeight: 800,
+                letterSpacing: '0.12em',
+                background: 'linear-gradient(135deg, #4ade80, #22d3ee)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
               NETCRAWL
             </span>
           </div>
@@ -99,15 +116,23 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           {(['login', 'register'] as const).map(m => (
             <button
               key={m}
-              onClick={() => { setMode(m); setError(''); }}
+              onClick={() => {
+                setMode(m);
+                setError('');
+              }}
               style={{
-                flex: 1, padding: '8px 0', border: 'none', cursor: 'pointer',
+                flex: 1,
+                padding: '8px 0',
+                border: 'none',
+                cursor: 'pointer',
                 borderRadius: '8px 8px 0 0',
                 background: mode === m ? 'rgba(74,222,128,0.08)' : 'transparent',
                 borderBottom: mode === m ? '2px solid #4ade80' : '2px solid transparent',
                 color: mode === m ? '#4ade80' : '#4b6479',
-                fontSize: 11, fontWeight: mode === m ? 700 : 400,
-                fontFamily: 'inherit', letterSpacing: '0.05em',
+                fontSize: 11,
+                fontWeight: mode === m ? 700 : 400,
+                fontFamily: 'inherit',
+                letterSpacing: '0.05em',
                 transition: 'all 0.15s',
               }}
             >
@@ -147,12 +172,19 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           />
 
           {error && (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '8px 10px', borderRadius: 8,
-              background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
-              color: '#ef4444', fontSize: 11,
-            }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 10px',
+                borderRadius: 8,
+                background: 'rgba(239,68,68,0.08)',
+                border: '1px solid rgba(239,68,68,0.2)',
+                color: '#ef4444',
+                fontSize: 11,
+              }}
+            >
               <AlertCircle size={12} /> {error}
             </div>
           )}
@@ -162,11 +194,20 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             disabled={loading}
             whileTap={{ scale: 0.97 }}
             style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              padding: '12px 0', borderRadius: 8, border: 'none', cursor: loading ? 'wait' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              padding: '12px 0',
+              borderRadius: 8,
+              border: 'none',
+              cursor: loading ? 'wait' : 'pointer',
               background: 'linear-gradient(135deg, #4ade80, #22d3ee)',
-              color: '#0a0a0f', fontSize: 12, fontWeight: 700,
-              fontFamily: 'inherit', letterSpacing: '0.05em',
+              color: '#0a0a0f',
+              fontSize: 12,
+              fontWeight: 700,
+              fontFamily: 'inherit',
+              letterSpacing: '0.05em',
               opacity: loading ? 0.6 : 1,
               marginTop: 4,
             }}

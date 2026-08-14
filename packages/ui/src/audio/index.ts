@@ -34,10 +34,5 @@ export {
 export type { SfxId } from './sfx';
 
 // Music packs
-export {
-  MUSIC_PACKS,
-  MUSIC_PACK_ORDER,
-  getAllTrackIds,
-  isFreePack,
-} from './musicPacks';
+export { MUSIC_PACKS, MUSIC_PACK_ORDER, getAllTrackIds, isFreePack } from './musicPacks';
 export type { MusicPack } from './musicPacks';

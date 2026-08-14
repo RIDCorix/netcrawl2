@@ -63,19 +63,19 @@ export interface LevelTitle {
 }
 
 export const LEVEL_TITLES: LevelTitle[] = [
-  { level: 1,  title: 'Script Kiddie',       titleZh: '腳本小子' },
-  { level: 3,  title: 'Junior Dev',           titleZh: '初級開發者' },
-  { level: 5,  title: 'Network Technician',   titleZh: '網路技術員' },
-  { level: 8,  title: 'Developer',            titleZh: '開發者' },
-  { level: 10, title: 'System Admin',         titleZh: '系統管理員' },
-  { level: 13, title: 'DevOps',               titleZh: 'DevOps 工程師' },
-  { level: 15, title: 'Network Engineer',     titleZh: '網路工程師' },
-  { level: 18, title: 'Staff Engineer',       titleZh: '資深工程師' },
-  { level: 20, title: 'Senior Architect',     titleZh: '高級架構師' },
-  { level: 23, title: 'Principal',            titleZh: '首席工程師' },
-  { level: 25, title: 'Distinguished',        titleZh: '傑出工程師' },
-  { level: 28, title: 'Fellow',               titleZh: '院士級工程師' },
-  { level: 30, title: 'Network Master',       titleZh: '網路大師' },
+  { level: 1, title: 'Script Kiddie', titleZh: '腳本小子' },
+  { level: 3, title: 'Junior Dev', titleZh: '初級開發者' },
+  { level: 5, title: 'Network Technician', titleZh: '網路技術員' },
+  { level: 8, title: 'Developer', titleZh: '開發者' },
+  { level: 10, title: 'System Admin', titleZh: '系統管理員' },
+  { level: 13, title: 'DevOps', titleZh: 'DevOps 工程師' },
+  { level: 15, title: 'Network Engineer', titleZh: '網路工程師' },
+  { level: 18, title: 'Staff Engineer', titleZh: '資深工程師' },
+  { level: 20, title: 'Senior Architect', titleZh: '高級架構師' },
+  { level: 23, title: 'Principal', titleZh: '首席工程師' },
+  { level: 25, title: 'Distinguished', titleZh: '傑出工程師' },
+  { level: 28, title: 'Fellow', titleZh: '院士級工程師' },
+  { level: 30, title: 'Network Master', titleZh: '網路大師' },
 ];
 
 /** Get the current title for a given level */
@@ -108,83 +108,106 @@ export interface MilestoneReward {
 export const MILESTONE_REWARDS: MilestoneReward[] = [
   {
     level: 3,
-    rewards: [
-      { kind: 'max_workers_bonus', value: 1 },
-    ],
+    rewards: [{ kind: 'max_workers_bonus', value: 1 }],
   },
   {
     level: 5,
     rewards: [
       { kind: 'recipe_unlock', recipeId: 'scanner', name: 'Scanner' },
-      { kind: 'passive', effectId: 'level_harvest_5', description: '+5% harvest speed (Level 5)', effect: { harvest_speed_mult: 0.05 } },
+      {
+        kind: 'passive',
+        effectId: 'level_harvest_5',
+        description: '+5% harvest speed (Level 5)',
+        effect: { harvest_speed_mult: 0.05 },
+      },
     ],
   },
   {
     level: 8,
-    rewards: [
-      { kind: 'max_workers_bonus', value: 1 },
-    ],
+    rewards: [{ kind: 'max_workers_bonus', value: 1 }],
   },
   {
     level: 10,
     rewards: [
-      { kind: 'passive', effectId: 'level_defense_1', description: '+1 global defense (Level 10)', effect: { defense_bonus: 1 } },
+      {
+        kind: 'passive',
+        effectId: 'level_defense_1',
+        description: '+1 global defense (Level 10)',
+        effect: { defense_bonus: 1 },
+      },
       { kind: 'recipe_unlock', recipeId: 'overclock_kit', name: 'Overclock Kit' },
       { kind: 'flop_bonus', value: 20 },
     ],
   },
   {
     level: 13,
-    rewards: [
-      { kind: 'max_workers_bonus', value: 1 },
-    ],
+    rewards: [{ kind: 'max_workers_bonus', value: 1 }],
   },
   {
     level: 15,
     rewards: [
-      { kind: 'passive', effectId: 'level_unlock_discount', description: '-10% node unlock cost (Level 15)', effect: { unlock_cost_mult: -0.10 } },
+      {
+        kind: 'passive',
+        effectId: 'level_unlock_discount',
+        description: '-10% node unlock cost (Level 15)',
+        effect: { unlock_cost_mult: -0.1 },
+      },
       { kind: 'recipe_unlock', recipeId: 'signal_booster', name: 'Signal Booster' },
       { kind: 'flop_bonus', value: 20 },
     ],
   },
   {
     level: 18,
-    rewards: [
-      { kind: 'max_workers_bonus', value: 1 },
-    ],
+    rewards: [{ kind: 'max_workers_bonus', value: 1 }],
   },
   {
     level: 20,
     rewards: [
-      { kind: 'passive', effectId: 'level_harvest_15', description: '+15% harvest speed (Level 20)', effect: { harvest_speed_mult: 0.15 } },
+      {
+        kind: 'passive',
+        effectId: 'level_harvest_15',
+        description: '+15% harvest speed (Level 20)',
+        effect: { harvest_speed_mult: 0.15 },
+      },
       { kind: 'recipe_unlock', recipeId: 'antivirus_module', name: 'Antivirus Module' },
       { kind: 'flop_bonus', value: 30 },
     ],
   },
   {
     level: 23,
-    rewards: [
-      { kind: 'max_workers_bonus', value: 1 },
-    ],
+    rewards: [{ kind: 'max_workers_bonus', value: 1 }],
   },
   {
     level: 25,
     rewards: [
-      { kind: 'passive', effectId: 'level_defense_2', description: '+2 global defense (Level 25)', effect: { defense_bonus: 2 } },
-      { kind: 'passive', effectId: 'level_unlock_discount_2', description: '-15% node unlock cost (Level 25)', effect: { unlock_cost_mult: -0.15 } },
+      {
+        kind: 'passive',
+        effectId: 'level_defense_2',
+        description: '+2 global defense (Level 25)',
+        effect: { defense_bonus: 2 },
+      },
+      {
+        kind: 'passive',
+        effectId: 'level_unlock_discount_2',
+        description: '-15% node unlock cost (Level 25)',
+        effect: { unlock_cost_mult: -0.15 },
+      },
       { kind: 'flop_bonus', value: 30 },
     ],
   },
   {
     level: 28,
-    rewards: [
-      { kind: 'max_workers_bonus', value: 1 },
-    ],
+    rewards: [{ kind: 'max_workers_bonus', value: 1 }],
   },
   {
     level: 30,
     rewards: [
-      { kind: 'passive', effectId: 'level_harvest_25', description: '+25% harvest speed (Level 30)', effect: { harvest_speed_mult: 0.25 } },
+      {
+        kind: 'passive',
+        effectId: 'level_harvest_25',
+        description: '+25% harvest speed (Level 30)',
+        effect: { harvest_speed_mult: 0.25 },
+      },
       { kind: 'flop_bonus', value: 50 },
       { kind: 'items', items: [{ itemType: 'chip_pack_premium', count: 3 }] },
     ],
@@ -205,10 +228,10 @@ export function getMilestonesUpToLevel(level: number): MilestoneReward[] {
 
 export interface LevelState {
   level: number;
-  xp: number;              // current XP within this level
-  totalXp: number;         // lifetime XP earned
-  maxWorkersBonus: number;  // extra worker slots from leveling
-  flopBonus: number;        // extra FLOP from leveling
+  xp: number; // current XP within this level
+  totalXp: number; // lifetime XP earned
+  maxWorkersBonus: number; // extra worker slots from leveling
+  flopBonus: number; // extra FLOP from leveling
   claimedMilestones: number[]; // levels whose milestones have been applied
 }
 

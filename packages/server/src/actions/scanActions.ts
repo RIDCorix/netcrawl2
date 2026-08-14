@@ -32,12 +32,19 @@ export function handleGetNodeInfo(ctx: ActionContext): any {
     .filter(e => e.source === infoNode || e.target === infoNode)
     .map(e => ({ id: e.id, otherNode: e.source === infoNode ? e.target : e.source }));
   return {
-    ok: true, id: nodeInfo.id, type: nodeInfo.type, label: nodeInfo.data.label,
+    ok: true,
+    id: nodeInfo.id,
+    type: nodeInfo.type,
+    label: nodeInfo.data.label,
     data: {
-      resource: nodeInfo.data.resource, rate: nodeInfo.data.rate,
-      difficulty: nodeInfo.data.difficulty, rewardResource: nodeInfo.data.rewardResource,
-      unlocked: nodeInfo.data.unlocked, infected: nodeInfo.data.infected,
-      mineable: nodeInfo.data.mineable, upgradeLevel: nodeInfo.data.upgradeLevel,
+      resource: nodeInfo.data.resource,
+      rate: nodeInfo.data.rate,
+      difficulty: nodeInfo.data.difficulty,
+      rewardResource: nodeInfo.data.rewardResource,
+      unlocked: nodeInfo.data.unlocked,
+      infected: nodeInfo.data.infected,
+      mineable: nodeInfo.data.mineable,
+      upgradeLevel: nodeInfo.data.upgradeLevel,
       solveCount: nodeInfo.data.solveCount,
     },
     edges: infoEdges,
@@ -61,17 +68,35 @@ export function handleScanEdgesAdvanced(ctx: ActionContext): any {
     .map(e => {
       const targetId = e.source === curNode ? e.target : e.source;
       const targetNode = nodes.find(n => n.id === targetId);
-      const targetEdges = targetNode ? edges
-        .filter(te => te.source === targetId || te.target === targetId)
-        .map(te => ({ id: te.id, otherNode: te.source === targetId ? te.target : te.source }))
+      const targetEdges = targetNode
+        ? edges
+            .filter(te => te.source === targetId || te.target === targetId)
+            .map(te => ({ id: te.id, otherNode: te.source === targetId ? te.target : te.source }))
         : [];
       return {
-        edge_id: e.id, source_node_id: curNode, target_node_id: targetId,
-        target_node_data: targetNode ? {
-          ok: true, id: targetNode.id, type: targetNode.type, label: targetNode.data.label,
-          data: { resource: targetNode.data.resource, rate: targetNode.data.rate, difficulty: targetNode.data.difficulty, rewardResource: targetNode.data.rewardResource, unlocked: targetNode.data.unlocked, infected: targetNode.data.infected, mineable: targetNode.data.mineable, upgradeLevel: targetNode.data.upgradeLevel, solveCount: targetNode.data.solveCount },
-          edges: targetEdges,
-        } : null,
+        edge_id: e.id,
+        source_node_id: curNode,
+        target_node_id: targetId,
+        target_node_data: targetNode
+          ? {
+              ok: true,
+              id: targetNode.id,
+              type: targetNode.type,
+              label: targetNode.data.label,
+              data: {
+                resource: targetNode.data.resource,
+                rate: targetNode.data.rate,
+                difficulty: targetNode.data.difficulty,
+                rewardResource: targetNode.data.rewardResource,
+                unlocked: targetNode.data.unlocked,
+                infected: targetNode.data.infected,
+                mineable: targetNode.data.mineable,
+                upgradeLevel: targetNode.data.upgradeLevel,
+                solveCount: targetNode.data.solveCount,
+              },
+              edges: targetEdges,
+            }
+          : null,
       };
     });
   return { ok: true, edges: connected };
@@ -98,7 +123,10 @@ export function handleFindNearest(ctx: ActionContext, payload: any): any {
       if (visited.has(nid)) continue;
       visited.add(nid);
       const n = nodes.find(nd => nd.id === nid);
-      if (n && n.type === nodeType && n.data.unlocked) { foundId = nid; break; }
+      if (n && n.type === nodeType && n.data.unlocked) {
+        foundId = nid;
+        break;
+      }
       queue.push(nid);
     }
   }

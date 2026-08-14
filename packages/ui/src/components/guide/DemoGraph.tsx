@@ -16,7 +16,10 @@ import type { DemoGraphState, DemoWorker } from './types';
 // ── Shared handle style (hidden) ───────────────────────────────────────────
 
 const HANDLE_STYLE: React.CSSProperties = {
-  opacity: 0, top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+  opacity: 0,
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
 };
 
 // ── Worker Dot ─────────────────────────────────────────────────────────────
@@ -110,7 +113,12 @@ function DropBadge({ count }: { count: number }) {
 
 // ── Node Wrapper (matches GameGraph exactly) ───────────────────────────────
 
-function DemoNodeWrapper({ children, glowColor, highlighted, style = {} }: {
+function DemoNodeWrapper({
+  children,
+  glowColor,
+  highlighted,
+  style = {},
+}: {
   children: React.ReactNode;
   glowColor?: string;
   highlighted?: boolean;
@@ -118,21 +126,23 @@ function DemoNodeWrapper({ children, glowColor, highlighted, style = {} }: {
 }) {
   const borderColor = highlighted ? '#fff' : glowColor || 'var(--border-bright)';
   return (
-    <div style={{
-      position: 'relative',
-      padding: '6px',
-      borderRadius: '10px',
-      background: 'var(--bg-glass-heavy)',
-      border: `1px solid ${borderColor}`,
-      boxShadow: highlighted
-        ? `0 0 0 1px rgba(255,255,255,0.3), 0 0 16px rgba(255,255,255,0.2)`
-        : glowColor
-          ? `0 0 8px ${glowColor}33`
-          : '0 2px 8px rgba(0, 0, 0, 0.4)',
-      textAlign: 'center' as const,
-      transition: 'border-color 0.3s, box-shadow 0.3s',
-      ...style,
-    }}>
+    <div
+      style={{
+        position: 'relative',
+        padding: '6px',
+        borderRadius: '10px',
+        background: 'var(--bg-glass-heavy)',
+        border: `1px solid ${borderColor}`,
+        boxShadow: highlighted
+          ? `0 0 0 1px rgba(255,255,255,0.3), 0 0 16px rgba(255,255,255,0.2)`
+          : glowColor
+            ? `0 0 8px ${glowColor}33`
+            : '0 2px 8px rgba(0, 0, 0, 0.4)',
+        textAlign: 'center' as const,
+        transition: 'border-color 0.3s, box-shadow 0.3s',
+        ...style,
+      }}
+    >
       <Handle id="center" type="source" position={Position.Top} style={HANDLE_STYLE} />
       <Handle id="center" type="target" position={Position.Top} style={HANDLE_STYLE} />
       {children}
@@ -140,7 +150,12 @@ function DemoNodeWrapper({ children, glowColor, highlighted, style = {} }: {
   );
 }
 
-function DemoNodeLabel({ label, subtitle, icon: Icon, iconColor }: {
+function DemoNodeLabel({
+  label,
+  subtitle,
+  icon: Icon,
+  iconColor,
+}: {
   label: string;
   subtitle?: string;
   icon: any;
@@ -149,22 +164,22 @@ function DemoNodeLabel({ label, subtitle, icon: Icon, iconColor }: {
   return (
     <>
       <Icon size={16} color={iconColor} />
-      <div style={{
-        position: 'absolute',
-        left: '100%',
-        top: '50%',
-        transform: 'translateY(-50%)',
-        marginLeft: 8,
-        pointerEvents: 'none',
-        whiteSpace: 'nowrap',
-      }}>
+      <div
+        style={{
+          position: 'absolute',
+          left: '100%',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          marginLeft: 8,
+          pointerEvents: 'none',
+          whiteSpace: 'nowrap',
+        }}
+      >
         <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
           {label}
         </div>
         {subtitle && (
-          <div style={{ fontSize: 8, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-            {subtitle}
-          </div>
+          <div style={{ fontSize: 8, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{subtitle}</div>
         )}
       </div>
     </>
@@ -202,10 +217,14 @@ function DemoCustomNode({ data }: any) {
     <DemoNodeWrapper
       glowColor={color}
       highlighted={data.highlighted}
-      style={isHub ? {
-        animation: 'hub-pulse 3s ease-in-out infinite',
-        padding: '10px 14px',
-      } : undefined}
+      style={
+        isHub
+          ? {
+              animation: 'hub-pulse 3s ease-in-out infinite',
+              padding: '10px 14px',
+            }
+          : undefined
+      }
     >
       <DropBadge count={data.dropCount || 0} />
       {isWorkerHere && <DemoWorkerDot worker={data.worker} />}
@@ -217,12 +236,7 @@ function DemoCustomNode({ data }: any) {
           </div>
         </div>
       ) : (
-        <DemoNodeLabel
-          label={data.label}
-          subtitle={data.subtitle}
-          icon={Icon}
-          iconColor={color}
-        />
+        <DemoNodeLabel label={data.label} subtitle={data.subtitle} icon={Icon} iconColor={color} />
       )}
     </DemoNodeWrapper>
   );
@@ -233,62 +247,66 @@ const NODE_TYPES = { demo: DemoCustomNode };
 // ── Main Component ─────────────────────────────────────────────────────────
 
 export function DemoGraph({ state }: { state: DemoGraphState }) {
-  const nodes: Node[] = useMemo(() =>
-    state.nodes.map(n => ({
-      id: n.id,
-      type: 'demo',
-      position: n.position,
-      draggable: false,
-      selectable: false,
-      data: {
-        nodeId: n.id,
-        nodeType: n.type,
-        label: n.label,
-        subtitle: n.subtitle,
-        color: n.color,
-        highlighted: n.highlighted,
-        dropCount: n.dropCount || 0,
-        workerNodeId: state.worker?.nodeId,
-        worker: state.worker?.nodeId === n.id ? state.worker : undefined,
-        ...n.data,
-      },
-    })),
+  const nodes: Node[] = useMemo(
+    () =>
+      state.nodes.map(n => ({
+        id: n.id,
+        type: 'demo',
+        position: n.position,
+        draggable: false,
+        selectable: false,
+        data: {
+          nodeId: n.id,
+          nodeType: n.type,
+          label: n.label,
+          subtitle: n.subtitle,
+          color: n.color,
+          highlighted: n.highlighted,
+          dropCount: n.dropCount || 0,
+          workerNodeId: state.worker?.nodeId,
+          worker: state.worker?.nodeId === n.id ? state.worker : undefined,
+          ...n.data,
+        },
+      })),
     [state],
   );
 
-  const edges: Edge[] = useMemo(() =>
-    state.edges.map(e => ({
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      type: 'straight',
-      sourceHandle: 'center',
-      targetHandle: 'center',
-      style: {
-        stroke: e.highlighted ? '#fff' : 'var(--border-bright)',
-        strokeWidth: e.highlighted ? 3 : 1.5,
-        filter: e.highlighted
-          ? 'drop-shadow(0 0 8px rgba(255, 255, 255, 0.4))'
-          : 'drop-shadow(0 0 2px rgba(0, 212, 170, 0.15))',
-        transition: 'stroke 0.3s, stroke-width 0.3s, filter 0.3s',
-      },
-      label: e.label,
-      labelStyle: { fill: 'var(--text-secondary)', fontSize: 9, fontFamily: 'var(--font-mono)' },
-      labelBgStyle: { fill: 'var(--bg-glass-heavy)', fillOpacity: 0.9 },
-      labelBgPadding: [4, 2] as [number, number],
-    })),
+  const edges: Edge[] = useMemo(
+    () =>
+      state.edges.map(e => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        type: 'straight',
+        sourceHandle: 'center',
+        targetHandle: 'center',
+        style: {
+          stroke: e.highlighted ? '#fff' : 'var(--border-bright)',
+          strokeWidth: e.highlighted ? 3 : 1.5,
+          filter: e.highlighted
+            ? 'drop-shadow(0 0 8px rgba(255, 255, 255, 0.4))'
+            : 'drop-shadow(0 0 2px rgba(0, 212, 170, 0.15))',
+          transition: 'stroke 0.3s, stroke-width 0.3s, filter 0.3s',
+        },
+        label: e.label,
+        labelStyle: { fill: 'var(--text-secondary)', fontSize: 9, fontFamily: 'var(--font-mono)' },
+        labelBgStyle: { fill: 'var(--bg-glass-heavy)', fillOpacity: 0.9 },
+        labelBgPadding: [4, 2] as [number, number],
+      })),
     [state],
   );
 
   return (
-    <div style={{
-      width: '100%',
-      height: '100%',
-      borderRadius: 'var(--radius-md)',
-      overflow: 'hidden',
-      background: 'var(--bg-primary)',
-      border: '1px solid var(--border)',
-    }}>
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        borderRadius: 'var(--radius-md)',
+        overflow: 'hidden',
+        background: 'var(--bg-primary)',
+        border: '1px solid var(--border)',
+      }}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}

@@ -41,7 +41,8 @@ export function GameOverDialog() {
       setConfirmReset(false);
       return;
     }
-    axios.get('/api/autosave')
+    axios
+      .get('/api/autosave')
       .then(r => setInfo(r.data))
       .catch(() => setInfo({ exists: false }));
   }, [gameOver]);
@@ -83,13 +84,18 @@ export function GameOverDialog() {
     <AnimatePresence>
       {gameOver && (
         <motion.div
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
           style={{
-            position: 'fixed', inset: 0,
+            position: 'fixed',
+            inset: 0,
             background: 'rgba(0,0,0,0.75)',
             backdropFilter: 'blur(10px)',
             zIndex: 200,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
           <motion.div
@@ -116,52 +122,68 @@ export function GameOverDialog() {
                 animate={{ scale: 1, rotate: [0, -4, 4, 0] }}
                 transition={{ delay: 0.1, duration: 0.5 }}
                 style={{
-                  width: 56, height: 56, borderRadius: '50%',
+                  width: 56,
+                  height: 56,
+                  borderRadius: '50%',
                   background: 'rgba(239,68,68,0.15)',
                   border: '1px solid rgba(239,68,68,0.5)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
                 <ShieldAlert size={28} style={{ color: 'var(--danger)' }} />
               </motion.div>
-              <div style={{
-                fontSize: 18, fontWeight: 800, letterSpacing: '0.15em',
-                color: 'var(--danger)',
-              }}>
+              <div
+                style={{
+                  fontSize: 18,
+                  fontWeight: 800,
+                  letterSpacing: '0.15em',
+                  color: 'var(--danger)',
+                }}
+              >
                 HUB DOWN
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
-                基地已被感染摧毀。<br/>
+                基地已被感染摧毀。
+                <br />
                 你可以回到最近的自動存檔點,或重新開始。
               </div>
             </div>
 
             {/* Autosave status */}
-            <div style={{
-              padding: '10px 14px',
-              background: 'var(--bg-primary)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)',
-              marginBottom: 14,
-              fontSize: 10,
-              color: 'var(--text-muted)',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            }}>
+            <div
+              style={{
+                padding: '10px 14px',
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                marginBottom: 14,
+                fontSize: 10,
+                color: 'var(--text-muted)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
               <span>最近存檔</span>
               <span style={{ color: info?.exists ? 'var(--accent)' : 'var(--text-muted)', fontWeight: 700 }}>
-                {info == null ? '…'
-                  : info.exists ? `tick ${info.tick} · ${formatAgo(info.ts!)}`
-                  : '無'}
+                {info == null ? '…' : info.exists ? `tick ${info.tick} · ${formatAgo(info.ts!)}` : '無'}
               </span>
             </div>
 
             {error && (
-              <div style={{
-                padding: '8px 12px', marginBottom: 12,
-                background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: 10, color: 'var(--danger)',
-              }}>
+              <div
+                style={{
+                  padding: '8px 12px',
+                  marginBottom: 12,
+                  background: 'rgba(239,68,68,0.1)',
+                  border: '1px solid rgba(239,68,68,0.3)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: 10,
+                  color: 'var(--danger)',
+                }}
+              >
                 {error}
               </div>
             )}
@@ -172,19 +194,28 @@ export function GameOverDialog() {
                 onClick={handleRestore}
                 disabled={!info?.exists || busy !== null}
                 style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
                   padding: '12px 16px',
                   background: info?.exists && busy === null ? 'var(--accent)' : 'var(--bg-elevated)',
                   color: info?.exists && busy === null ? '#000' : 'var(--text-muted)',
                   border: 'none',
                   borderRadius: 'var(--radius-sm)',
                   fontFamily: 'var(--font-mono)',
-                  fontSize: 12, fontWeight: 800, letterSpacing: '0.08em',
+                  fontSize: 12,
+                  fontWeight: 800,
+                  letterSpacing: '0.08em',
                   cursor: info?.exists && busy === null ? 'pointer' : 'not-allowed',
                   transition: 'filter 0.15s',
                 }}
-                onMouseEnter={e => { if (info?.exists && busy === null) e.currentTarget.style.filter = 'brightness(1.1)'; }}
-                onMouseLeave={e => { e.currentTarget.style.filter = 'none'; }}
+                onMouseEnter={e => {
+                  if (info?.exists && busy === null) e.currentTarget.style.filter = 'brightness(1.1)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.filter = 'none';
+                }}
               >
                 <RotateCcw size={14} />
                 {busy === 'restore' ? 'RESTORING…' : '回到自動存檔點'}
@@ -193,23 +224,26 @@ export function GameOverDialog() {
                 onClick={handleReset}
                 disabled={busy !== null}
                 style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
                   padding: '10px 16px',
                   background: confirmReset ? 'rgba(239,68,68,0.15)' : 'transparent',
                   color: confirmReset ? 'var(--danger)' : 'var(--text-muted)',
                   border: `1px solid ${confirmReset ? 'var(--danger)' : 'var(--border)'}`,
                   borderRadius: 'var(--radius-sm)',
                   fontFamily: 'var(--font-mono)',
-                  fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
                   cursor: busy !== null ? 'not-allowed' : 'pointer',
                   opacity: busy !== null ? 0.5 : 1,
                   transition: 'background 0.15s, color 0.15s, border-color 0.15s',
                 }}
               >
                 <Power size={12} />
-                {busy === 'reset'
-                  ? 'RESETTING…'
-                  : confirmReset ? '確定要重新開始?進度將清空' : '重新開始'}
+                {busy === 'reset' ? 'RESETTING…' : confirmReset ? '確定要重新開始?進度將清空' : '重新開始'}
               </button>
               {confirmReset && busy === null && (
                 <button

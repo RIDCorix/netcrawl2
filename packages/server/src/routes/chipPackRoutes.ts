@@ -81,7 +81,7 @@ chipPackRoutes.get('/chip-packs', (req: Request, res: Response) => {
   const packs = CHIP_PACK_DEFS.map(p => ({
     ...p,
     affordable: Object.entries(p.cost).every(([k, v]) => (resources[k] || 0) >= (v as number)),
-    owned: (getPlayerInventory(uid).find(i => i.itemType === p.packType)?.count) || 0,
+    owned: getPlayerInventory(uid).find(i => i.itemType === p.packType)?.count || 0,
   }));
 
   res.json({ packs, playerChips: getPlayerChips(uid) });

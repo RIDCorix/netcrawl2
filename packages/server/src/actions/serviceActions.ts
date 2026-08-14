@@ -22,7 +22,11 @@ import { REPAIR_DATA_COST } from '../constants.js';
 
 // ── Cache range check helper ────────────────────────────────────────────────
 
-function checkCacheReach(workerNode: string, cacheNodeId: string, edges: any[]): { ok: true } | { ok: false; error: string; reason: string } {
+function checkCacheReach(
+  workerNode: string,
+  cacheNodeId: string,
+  edges: any[],
+): { ok: true } | { ok: false; error: string; reason: string } {
   const range = getCacheRange(cacheNodeId);
   const path = bfsPath(edges, workerNode, cacheNodeId);
   const dist = path ? path.length - 1 : Infinity;
@@ -44,8 +48,20 @@ export function handleGetService(ctx: ActionContext, payload: any): any {
     const range = getCacheRange(serviceNodeId);
     const path = bfsPath(edges, workerNode, serviceNodeId);
     const distance = path ? path.length - 1 : Infinity;
-    if (distance > range) return { ok: false, error: `Cache node '${serviceNodeId}' is out of range (distance ${distance}, range ${range})`, reason: 'not_reachable' };
-    return { ok: true, serviceType: 'cache', nodeId: serviceNodeId, range, capacity: getCacheCapacity(serviceNodeId), usedSlots: cacheKeys(serviceNodeId).length };
+    if (distance > range)
+      return {
+        ok: false,
+        error: `Cache node '${serviceNodeId}' is out of range (distance ${distance}, range ${range})`,
+        reason: 'not_reachable',
+      };
+    return {
+      ok: true,
+      serviceType: 'cache',
+      nodeId: serviceNodeId,
+      range,
+      capacity: getCacheCapacity(serviceNodeId),
+      usedSlots: cacheKeys(serviceNodeId).length,
+    };
   }
   return { ok: false, error: `Node '${serviceNodeId}' is not a service node`, reason: 'not_a_service' };
 }
@@ -117,7 +133,8 @@ export async function handleValidateToken(ctx: ActionContext, payload: any): Pro
   const { workerId, worker, nodes } = ctx;
   const currentNode = worker.current_node || worker.node_id;
   const authNode = nodes.find(n => n.id === currentNode);
-  if (!authNode || authNode.type !== 'auth') return { ok: false, error: 'Must be at an auth node to validate tokens', reason: 'not_at_auth_node' };
+  if (!authNode || authNode.type !== 'auth')
+    return { ok: false, error: 'Must be at an auth node to validate tokens', reason: 'not_at_auth_node' };
   if (!authNode.data.unlocked) return { ok: false, error: 'Auth node is locked' };
   const { token } = payload;
   if (!token) return { ok: false, error: 'token required' };
@@ -131,17 +148,24 @@ export async function handleRepair(ctx: ActionContext, payload: any): Promise<an
   const { workerId, uid, worker, nodes, edges, resources } = ctx;
   const { nodeId } = payload;
   const currentNode = worker.current_node || worker.node_id;
-  if (!edgeExists(edges, currentNode, nodeId) && currentNode !== nodeId) return { ok: false, error: 'Node not adjacent' };
+  if (!edgeExists(edges, currentNode, nodeId) && currentNode !== nodeId)
+    return { ok: false, error: 'Node not adjacent' };
   const node = nodes.find(n => n.id === nodeId);
   if (!node || !node.data.infected) return { ok: false, error: 'Node is not infected' };
-  if ((resources.data || 0) < REPAIR_DATA_COST) return { ok: false, error: `Not enough data (need ${REPAIR_DATA_COST})` };
+  if ((resources.data || 0) < REPAIR_DATA_COST)
+    return { ok: false, error: `Not enough data (need ${REPAIR_DATA_COST})` };
 
   setLock(workerId, ACTION_DELAY);
   await getLock(workerId);
 
   const freshState = getGameState(uid);
   const newNodes = freshState.nodes.map(n => {
-    if (n.id === nodeId) return { ...n, type: n.type === 'infected' ? 'resource' : n.type, data: { ...n.data, infected: false, infectionValue: 0 } };
+    if (n.id === nodeId)
+      return {
+        ...n,
+        type: n.type === 'infected' ? 'resource' : n.type,
+        data: { ...n.data, infected: false, infectionValue: 0 },
+      };
     return n;
   });
   const newResources = { ...freshState.resources, data: freshState.resources.data - REPAIR_DATA_COST };

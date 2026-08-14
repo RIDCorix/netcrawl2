@@ -59,7 +59,7 @@ export const MUSIC_PACK_ORDER = ['starter', 'ambient', 'techno', 'synthwave', 'e
 
 /** Get all track IDs across all packs */
 export function getAllTrackIds(): string[] {
-  return Object.values(MUSIC_PACKS).flatMap((p) => p.trackIds);
+  return Object.values(MUSIC_PACKS).flatMap(p => p.trackIds);
 }
 
 /** Check if a pack is free */

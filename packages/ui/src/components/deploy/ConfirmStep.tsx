@@ -15,13 +15,40 @@ interface ConfirmStepProps {
   getNodeLabel: (id: string) => string;
 }
 
-export function ConfirmStep({ selectedClassEntry, unitCount, nodeName, routes, equipped, getNodeLabel }: ConfirmStepProps) {
+export function ConfirmStep({
+  selectedClassEntry,
+  unitCount,
+  nodeName,
+  routes,
+  equipped,
+  getNodeLabel,
+}: ConfirmStepProps) {
   const t = useT();
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>{t('ui.confirm_deploy')}</div>
-      <div style={{ padding: '12px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-elevated)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          color: 'var(--text-muted)',
+          fontFamily: 'var(--font-mono)',
+          letterSpacing: '0.1em',
+        }}
+      >
+        {t('ui.confirm_deploy')}
+      </div>
+      <div
+        style={{
+          padding: '12px 14px',
+          borderRadius: 'var(--radius-md)',
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
+        }}
+      >
         <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)' }}>
           <span style={{ color: 'var(--text-muted)' }}>Class: </span>
           <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{selectedClassEntry?.class_name}</span>
@@ -35,7 +62,9 @@ export function ConfirmStep({ selectedClassEntry, unitCount, nodeName, routes, e
           <div key={name} style={{ fontSize: 12, fontFamily: 'var(--font-mono)' }}>
             <span style={{ color: 'var(--text-muted)' }}>{name}: </span>
             <span style={{ color: 'var(--accent)', fontWeight: 700 }}>
-              {edges.map((e, i) => (i === 0 ? getNodeLabel(e.source) + ' → ' : '') + getNodeLabel(e.target)).join(' → ')}
+              {edges
+                .map((e, i) => (i === 0 ? getNodeLabel(e.source) + ' → ' : '') + getNodeLabel(e.target))
+                .join(' → ')}
             </span>
           </div>
         ))}

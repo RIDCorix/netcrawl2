@@ -31,13 +31,7 @@ const RECIPE_ICON_COLORS: Record<string, string> = {
   beacon: 'var(--accent)',
 };
 
-function RecipeCard({
-  recipe,
-  onCraft,
-}: {
-  recipe: Recipe;
-  onCraft: (recipe: Recipe) => void;
-}) {
+function RecipeCard({ recipe, onCraft }: { recipe: Recipe; onCraft: (recipe: Recipe) => void }) {
   const t = useT();
   const Icon = RECIPE_ICONS[recipe.output.itemType] || Hammer;
   const iconColor = RECIPE_ICON_COLORS[recipe.output.itemType] || 'var(--text-muted)';
@@ -76,10 +70,16 @@ function RecipeCard({
           <Icon size={18} style={{ color: iconColor }} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+          <div
+            className="text-sm font-semibold"
+            style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}
+          >
             {t('item.' + recipe.output.itemType + '.name') || recipe.name}
           </div>
-          <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.4 }}>
+          <div
+            className="text-xs mt-0.5"
+            style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.4 }}
+          >
             {t('item.' + recipe.output.itemType + '.desc') || recipe.description}
           </div>
         </div>
@@ -88,19 +88,32 @@ function RecipeCard({
       {/* Cost */}
       <div className="flex flex-wrap gap-2">
         {recipe.cost.data !== undefined && (
-          <div className="flex items-center gap-1 px-2 py-0.5 rounded text-xs" style={{ background: 'rgba(69,170,242,0.08)', color: 'var(--data-color)', fontFamily: 'var(--font-mono)' }}>
+          <div
+            className="flex items-center gap-1 px-2 py-0.5 rounded text-xs"
+            style={{ background: 'rgba(69,170,242,0.08)', color: 'var(--data-color)', fontFamily: 'var(--font-mono)' }}
+          >
             <Database size={10} />
             {formatBytes(recipe.cost.data)}
           </div>
         )}
         {recipe.cost.rp !== undefined && (
-          <div className="flex items-center gap-1 px-2 py-0.5 rounded text-xs" style={{ background: 'rgba(167,139,250,0.08)', color: 'var(--rp-color)', fontFamily: 'var(--font-mono)' }}>
+          <div
+            className="flex items-center gap-1 px-2 py-0.5 rounded text-xs"
+            style={{ background: 'rgba(167,139,250,0.08)', color: 'var(--rp-color)', fontFamily: 'var(--font-mono)' }}
+          >
             <Cpu size={10} />
             {recipe.cost.rp}
           </div>
         )}
         {recipe.cost.credits !== undefined && (
-          <div className="flex items-center gap-1 px-2 py-0.5 rounded text-xs" style={{ background: 'rgba(245,158,11,0.08)', color: 'var(--credits-color)', fontFamily: 'var(--font-mono)' }}>
+          <div
+            className="flex items-center gap-1 px-2 py-0.5 rounded text-xs"
+            style={{
+              background: 'rgba(245,158,11,0.08)',
+              color: 'var(--credits-color)',
+              fontFamily: 'var(--font-mono)',
+            }}
+          >
             <Star size={10} />
             {recipe.cost.credits}
           </div>
@@ -183,7 +196,13 @@ function ConfirmDialog({
           </div>
           <button
             onClick={onCancel}
-            style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}
+            style={{
+              color: 'var(--text-muted)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '2px',
+            }}
           >
             <X size={14} />
           </button>
@@ -193,17 +212,34 @@ function ConfirmDialog({
         </div>
         <div className="flex flex-wrap gap-2">
           {recipe.cost.data !== undefined && (
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded text-xs" style={{ background: 'rgba(69,170,242,0.08)', color: 'var(--data-color)', fontFamily: 'var(--font-mono)' }}>
+            <div
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs"
+              style={{
+                background: 'rgba(69,170,242,0.08)',
+                color: 'var(--data-color)',
+                fontFamily: 'var(--font-mono)',
+              }}
+            >
               <Database size={10} /> -{formatBytes(recipe.cost.data)}
             </div>
           )}
           {recipe.cost.rp !== undefined && (
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded text-xs" style={{ background: 'rgba(167,139,250,0.08)', color: 'var(--rp-color)', fontFamily: 'var(--font-mono)' }}>
+            <div
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs"
+              style={{ background: 'rgba(167,139,250,0.08)', color: 'var(--rp-color)', fontFamily: 'var(--font-mono)' }}
+            >
               <Cpu size={10} /> -{recipe.cost.rp} RP
             </div>
           )}
           {recipe.cost.credits !== undefined && (
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded text-xs" style={{ background: 'rgba(245,158,11,0.08)', color: 'var(--credits-color)', fontFamily: 'var(--font-mono)' }}>
+            <div
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs"
+              style={{
+                background: 'rgba(245,158,11,0.08)',
+                color: 'var(--credits-color)',
+                fontFamily: 'var(--font-mono)',
+              }}
+            >
               <Star size={10} /> -{recipe.cost.credits} credits
             </div>
           )}
@@ -245,7 +281,9 @@ function ConfirmDialog({
               gap: '5px',
             }}
           >
-            {crafting ? 'Crafting...' : (
+            {crafting ? (
+              'Crafting...'
+            ) : (
               <>
                 <Check size={12} />
                 Confirm
@@ -302,7 +340,10 @@ export function CraftPanel() {
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <div className="text-xs font-semibold" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>
+        <div
+          className="text-xs font-semibold"
+          style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}
+        >
           CRAFT
         </div>
 

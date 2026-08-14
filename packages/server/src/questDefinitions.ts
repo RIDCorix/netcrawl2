@@ -32,12 +32,7 @@ export type RewardType =
 export interface GuideStep {
   title: string;
   content: string;
-  skeleton?:
-    | 'codespace-create'
-    | 'codespace-editor'
-    | 'codespace-terminal'
-    | 'codespace-run'
-    | 'codespace-stop';
+  skeleton?: 'codespace-create' | 'codespace-editor' | 'codespace-terminal' | 'codespace-run' | 'codespace-stop';
 }
 
 export interface QuestDef {

@@ -22,7 +22,17 @@ export async function spawnWorker(options: {
   equippedRam?: { itemType: string; capacityBonus: number; count: number } | null;
   injectedFields?: Record<string, any>;
 }): Promise<{ ok: boolean; error?: string; pid?: number }> {
-  const { workerId, nodeId, className, commitHash, workspacePath, equippedPickaxe, equippedCpu, equippedRam, injectedFields } = options;
+  const {
+    workerId,
+    nodeId,
+    className,
+    commitHash,
+    workspacePath,
+    equippedPickaxe,
+    equippedCpu,
+    equippedRam,
+    injectedFields,
+  } = options;
 
   // Resolve the worker script path
   const workersDir = path.join(workspacePath, 'workers');
@@ -63,25 +73,27 @@ export async function spawnWorker(options: {
   // Keep any durable authority record intact. This local spawner is only an
   // execution host and must never replace equipment/holding ownership.
   const existing = getWorker(workerId);
-  upsertWorker(existing || {
-    id: workerId,
-    node_id: nodeId,
-    class_name: className,
-    class_icon: 'Bot',
-    commit_hash: commitHash,
-    status: 'deploying',
-    current_node: nodeId,
-    carrying: {},
-    pid: null,
-    deployed_at: new Date().toISOString(),
-    holding: [],
-    equippedPickaxe: equippedPickaxe || null,
-    equippedCpu: equippedCpu || null,
-    equippedRam: equippedRam || null,
-    desiredState: 'running',
-    generation: 1,
-    executionToken: '',
-  });
+  upsertWorker(
+    existing || {
+      id: workerId,
+      node_id: nodeId,
+      class_name: className,
+      class_icon: 'Bot',
+      commit_hash: commitHash,
+      status: 'deploying',
+      current_node: nodeId,
+      carrying: {},
+      pid: null,
+      deployed_at: new Date().toISOString(),
+      holding: [],
+      equippedPickaxe: equippedPickaxe || null,
+      equippedCpu: equippedCpu || null,
+      equippedRam: equippedRam || null,
+      desiredState: 'running',
+      generation: 1,
+      executionToken: '',
+    },
+  );
 
   let child: ChildProcess;
 
@@ -138,7 +150,7 @@ export async function spawnWorker(options: {
     if (current) upsertWorker({ ...current, status: 'running', pid: child.pid, desiredState: 'running' });
   }
 
-  child.on('exit', (code) => {
+  child.on('exit', code => {
     console.log(`[Spawner] Worker ${workerId} exited with code ${code}`);
     activeProcesses.delete(workerId);
     if (intentionallyStopped.delete(workerId)) return;
@@ -155,7 +167,7 @@ export async function spawnWorker(options: {
     }
   });
 
-  child.on('error', (err) => {
+  child.on('error', err => {
     console.error(`[Spawner] Worker ${workerId} error:`, err.message);
   });
 

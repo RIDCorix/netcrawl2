@@ -15,12 +15,25 @@ import { getUserId } from './helpers.js';
 export const devRoutes = Router();
 
 const DEV_ITEM_TYPES: string[] = [
-  'pickaxe_basic', 'pickaxe_iron', 'pickaxe_diamond', 'fullstack_pickaxe',
-  'shield', 'beacon', 'scanner', 'signal_booster', 'overclock_kit',
-  'antivirus_module', 'memory_allocator',
-  'cpu_basic', 'cpu_advanced', 'ram_basic', 'ram_advanced',
-  'chip_pack_basic', 'chip_pack_premium',
-  'data_fragment', 'rp_shard',
+  'pickaxe_basic',
+  'pickaxe_iron',
+  'pickaxe_diamond',
+  'fullstack_pickaxe',
+  'shield',
+  'beacon',
+  'scanner',
+  'signal_booster',
+  'overclock_kit',
+  'antivirus_module',
+  'memory_allocator',
+  'cpu_basic',
+  'cpu_advanced',
+  'ram_basic',
+  'ram_advanced',
+  'chip_pack_basic',
+  'chip_pack_premium',
+  'data_fragment',
+  'rp_shard',
 ];
 
 devRoutes.get('/dev/completions', (req: Request, res: Response) => {
@@ -29,13 +42,19 @@ devRoutes.get('/dev/completions', (req: Request, res: Response) => {
   res.json({
     items: DEV_ITEM_TYPES,
     nodes: state.nodes.map((n: any) => ({
-      id: n.id, label: n.data?.label || n.id, unlocked: !!n.data?.unlocked,
+      id: n.id,
+      label: n.data?.label || n.id,
+      unlocked: !!n.data?.unlocked,
     })),
     quests: QUESTS.map(q => ({
-      id: q.id, name: q.name, status: getQuestStatus(q.id, uid) || 'locked',
+      id: q.id,
+      name: q.name,
+      status: getQuestStatus(q.id, uid) || 'locked',
     })),
     maps: LAYER_DEFS.map(l => ({
-      id: l.id, name: l.name, unlocked: isLayerUnlocked(l.id, uid),
+      id: l.id,
+      name: l.name,
+      unlocked: isLayerUnlocked(l.id, uid),
     })),
   });
 });
@@ -63,7 +82,7 @@ devRoutes.post('/dev/nodes/:action', (req: Request, res: Response) => {
   const node = state.nodes.find((n: any) => n.id === nodeId);
   if (!node) return res.status(404).json({ error: `node not found: ${nodeId}` });
   const newNodes = state.nodes.map((n: any) =>
-    n.id === nodeId ? { ...n, data: { ...n.data, unlocked: action === 'unlock' } } : n
+    n.id === nodeId ? { ...n, data: { ...n.data, unlocked: action === 'unlock' } } : n,
   );
   saveGameState({ ...state, nodes: newNodes }, uid);
   broadcastFullState(uid);

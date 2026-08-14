@@ -33,7 +33,7 @@ export function returnWorkerItems(worker: any, uid?: string) {
   if (worker.equippedRam) {
     addToPlayerInventory(worker.equippedRam.itemType, worker.equippedRam.count || 1, undefined, uid);
   }
-  for (const item of (worker.holding || [])) {
+  for (const item of worker.holding || []) {
     if (item.type !== 'bad_data') {
       addToPlayerInventory(item.type, item.count, undefined, uid);
     }

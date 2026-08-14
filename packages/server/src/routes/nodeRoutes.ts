@@ -10,8 +10,13 @@ import { getPlayerChips, removePlayerChip, addPlayerChip, getNodeChipEffects } f
 import { incrementStat } from '../domain/achievements.js';
 import { awardXp } from '../domain/level.js';
 import {
-  NODE_UPGRADE_DEFS, getUpgradeKey, getNodeXpThreshold, NODE_STAT_DEFS,
-  MAX_CHIP_SLOTS, computeNodeBuffer, BASE_NODE_BUFFER,
+  NODE_UPGRADE_DEFS,
+  getUpgradeKey,
+  getNodeXpThreshold,
+  NODE_STAT_DEFS,
+  MAX_CHIP_SLOTS,
+  computeNodeBuffer,
+  BASE_NODE_BUFFER,
 } from '../upgradeDefinitions.js';
 import { checkCost, deductCost } from '../stateHelpers.js';
 import { broadcastFullState } from '../broadcastHelper.js';
@@ -51,7 +56,11 @@ nodeRoutes.post('/node/build', (req: Request, res: Response) => {
   const newNodes = state.nodes.map((n: any) => {
     if (n.id !== nodeId) return n;
     if (structureType === 'cache') {
-      return { ...n, type: 'cache', data: { ...n.data, label: 'Cache Node', upgradeLevel: 1, cacheRange: 1, cacheCapacity: 10 } };
+      return {
+        ...n,
+        type: 'cache',
+        data: { ...n.data, label: 'Cache Node', upgradeLevel: 1, cacheRange: 1, cacheCapacity: 10 },
+      };
     }
     if (structureType === 'api') {
       return { ...n, type: 'api', data: { ...n.data, label: 'API Node', upgradeLevel: 1, pendingRequests: 0 } };
@@ -74,7 +83,9 @@ nodeRoutes.get('/node/build-options', (req: Request, res: Response) => {
   const state = getGameState(uid);
   const resources = state.resources;
   const options = Object.entries(BUILD_COSTS).map(([type, cost]) => ({
-    type, cost, affordable: !checkCost(resources, cost),
+    type,
+    cost,
+    affordable: !checkCost(resources, cost),
   }));
   res.json({ options });
 });
@@ -109,14 +120,22 @@ nodeRoutes.get('/node/upgrades', (req: Request, res: Response) => {
   const currentBuffer = Array.isArray(node.data.items) ? node.data.items.length : 0;
 
   res.json({
-    nodeId, nodeType: node.type, resource: node.data.resource,
-    currentLevel, maxLevel,
+    nodeId,
+    nodeType: node.type,
+    resource: node.data.resource,
+    currentLevel,
+    maxLevel,
     chipSlots: Math.min(MAX_CHIP_SLOTS, node.data.chipSlots || 0),
     maxChipSlots: MAX_CHIP_SLOTS,
     installedChips: node.data.installedChips || [],
-    nodeXp, nodeXpToNext: nodeXpToNext || 0,
-    enhancementPoints, availablePoints, statAlloc, statDefs,
-    maxBuffer, currentBuffer,
+    nodeXp,
+    nodeXpToNext: nodeXpToNext || 0,
+    enhancementPoints,
+    availablePoints,
+    statAlloc,
+    statDefs,
+    maxBuffer,
+    currentBuffer,
     baseBuffer: BASE_NODE_BUFFER[node.type] ?? 0,
   });
 });
@@ -125,7 +144,8 @@ nodeRoutes.get('/node/upgrades', (req: Request, res: Response) => {
 nodeRoutes.post('/node/stat/allocate', (req: Request, res: Response) => {
   const uid = getUserId(req);
   const { nodeId, statKey, delta } = req.body;
-  if (!nodeId || !statKey || delta === undefined) return res.status(400).json({ error: 'nodeId, statKey, delta required' });
+  if (!nodeId || !statKey || delta === undefined)
+    return res.status(400).json({ error: 'nodeId, statKey, delta required' });
 
   const state = getGameState(uid);
   const node = state.nodes.find((n: any) => n.id === nodeId);
@@ -158,22 +178,26 @@ nodeRoutes.post('/node/stat/allocate', (req: Request, res: Response) => {
   const data = { ...node.data, statAlloc };
   if (statKey === 'rate') data.rate = (data.baseRate || data.rate || 0) + (statAlloc.rate || 0) * statDef.perPoint;
   if (statKey === 'refillRate') {
-    data.dataRefillRate = getBaseResourceRefillRate(data.baseRate || data.rate || 1)
-      + (statAlloc.refillRate || 0) * statDef.perPoint;
+    data.dataRefillRate =
+      getBaseResourceRefillRate(data.baseRate || data.rate || 1) + (statAlloc.refillRate || 0) * statDef.perPoint;
     data.refillBalanceVersion = 2;
   }
   if (statKey === 'defense') data.defense = (data.baseDefense || 0) + (statAlloc.defense || 0) * statDef.perPoint;
   if (statKey === 'chipSlots') {
-    data.chipSlots = Math.min(MAX_CHIP_SLOTS, (data.baseChipSlots || 1) + (statAlloc.chipSlots || 0) * statDef.perPoint);
+    data.chipSlots = Math.min(
+      MAX_CHIP_SLOTS,
+      (data.baseChipSlots || 1) + (statAlloc.chipSlots || 0) * statDef.perPoint,
+    );
   }
 
-  const newNodes = state.nodes.map((n: any) => n.id === nodeId ? { ...n, data } : n);
+  const newNodes = state.nodes.map((n: any) => (n.id === nodeId ? { ...n, data } : n));
   saveGameState({ ...state, nodes: newNodes }, uid);
   broadcastFullState(uid);
   checkQuests(uid);
 
   res.json({
-    ok: true, statAlloc,
+    ok: true,
+    statAlloc,
     availablePoints: enhancementPoints - Object.values(statAlloc).reduce((s: number, v: number) => s + v, 0),
   });
 });

@@ -25,21 +25,25 @@ function moveWorker(prev: DemoGraphState, nodeId: string, status?: DemoGraphStat
 function highlightEdge(prev: DemoGraphState, edgeId: string, on = true): DemoGraphState {
   return {
     ...prev,
-    edges: prev.edges.map((e): DemoEdge => e.id === edgeId ? { ...e, highlighted: on } : { ...e, highlighted: false }),
+    edges: prev.edges.map(
+      (e): DemoEdge => (e.id === edgeId ? { ...e, highlighted: on } : { ...e, highlighted: false }),
+    ),
   };
 }
 
 function highlightNode(prev: DemoGraphState, nodeId: string, on = true): DemoGraphState {
   return {
     ...prev,
-    nodes: prev.nodes.map((n): DemoNode => n.id === nodeId ? { ...n, highlighted: on } : { ...n, highlighted: false }),
+    nodes: prev.nodes.map(
+      (n): DemoNode => (n.id === nodeId ? { ...n, highlighted: on } : { ...n, highlighted: false }),
+    ),
   };
 }
 
 function setDrops(prev: DemoGraphState, nodeId: string, count: number): DemoGraphState {
   return {
     ...prev,
-    nodes: prev.nodes.map((n): DemoNode => n.id === nodeId ? { ...n, dropCount: count } : n),
+    nodes: prev.nodes.map((n): DemoNode => (n.id === nodeId ? { ...n, dropCount: count } : n)),
   };
 }
 
@@ -58,9 +62,7 @@ const HUB_MINE_NODES: DemoNode[] = [
   { id: 'mine', type: 'resource', label: 'Data Mine', position: { x: 0, y: -60 }, subtitle: '+10/harvest' },
 ];
 
-const HUB_MINE_EDGES: DemoEdge[] = [
-  { id: 'e1', source: 'hub', target: 'mine' },
-];
+const HUB_MINE_EDGES: DemoEdge[] = [{ id: 'e1', source: 'hub', target: 'mine' }];
 
 const INITIAL_HUB_MINE: DemoGraphState = {
   nodes: HUB_MINE_NODES,
@@ -87,12 +89,12 @@ def on_loop(self):
     {
       codeLine: 1,
       durationMs: 600,
-      apply: (prev) => patch(prev, { statusLabel: '▶ on_startup() called' }),
+      apply: prev => patch(prev, { statusLabel: '▶ on_startup() called' }),
     },
     {
       codeLine: 2,
       durationMs: 1200,
-      apply: (prev) => {
+      apply: prev => {
         let s = highlightNode(prev, 'hub');
         return patch(s, { statusLabel: '💬 info: "I just started!"' });
       },
@@ -100,12 +102,12 @@ def on_loop(self):
     {
       codeLine: 4,
       durationMs: 600,
-      apply: (prev) => patch(clearHighlights(prev), { statusLabel: '🔁 on_loop() — iteration 1' }),
+      apply: prev => patch(clearHighlights(prev), { statusLabel: '🔁 on_loop() — iteration 1' }),
     },
     {
       codeLine: 5,
       durationMs: 1000,
-      apply: (prev) => {
+      apply: prev => {
         let s = highlightNode(prev, 'hub');
         return patch(s, { statusLabel: '💬 info: "Still running..."' });
       },
@@ -113,12 +115,12 @@ def on_loop(self):
     {
       codeLine: 4,
       durationMs: 600,
-      apply: (prev) => patch(clearHighlights(prev), { statusLabel: '🔁 on_loop() — iteration 2' }),
+      apply: prev => patch(clearHighlights(prev), { statusLabel: '🔁 on_loop() — iteration 2' }),
     },
     {
       codeLine: 5,
       durationMs: 1000,
-      apply: (prev) => {
+      apply: prev => {
         let s = highlightNode(prev, 'hub');
         return patch(s, { statusLabel: '💬 info: "Still running..."' });
       },
@@ -126,12 +128,12 @@ def on_loop(self):
     {
       codeLine: 4,
       durationMs: 600,
-      apply: (prev) => patch(clearHighlights(prev), { statusLabel: '🔁 on_loop() — iteration 3' }),
+      apply: prev => patch(clearHighlights(prev), { statusLabel: '🔁 on_loop() — iteration 3' }),
     },
     {
       codeLine: 5,
       durationMs: 1000,
-      apply: (prev) => {
+      apply: prev => {
         let s = highlightNode(prev, 'hub');
         return patch(s, { statusLabel: '💬 info: "Still running..." (repeats forever)' });
       },
@@ -153,7 +155,7 @@ const METHOD_CALL_DEMO: DemoScript = {
     {
       codeLine: 2,
       durationMs: 1000,
-      apply: (prev) => {
+      apply: prev => {
         let s = highlightEdge(prev, 'e1');
         s = moveWorker(s, 'mine', { nodeId: 'mine', color: '#fbbf24', status: 'moving' });
         return patch(s, { statusLabel: 'Moving to mine...' });
@@ -162,7 +164,7 @@ const METHOD_CALL_DEMO: DemoScript = {
     {
       codeLine: 3,
       durationMs: 1200,
-      apply: (prev) => {
+      apply: prev => {
         let s = clearHighlights(prev);
         s = moveWorker(s, 'mine', { nodeId: 'mine', color: '#fbbf24', status: 'mining' });
         s = highlightNode(s, 'mine');
@@ -173,9 +175,14 @@ const METHOD_CALL_DEMO: DemoScript = {
     {
       codeLine: 4,
       durationMs: 1000,
-      apply: (prev) => {
+      apply: prev => {
         let s = clearHighlights(prev);
-        s = moveWorker(s, 'mine', { nodeId: 'mine', color: '#fbbf24', status: 'collecting', holding: { type: 'data_fragment', amount: 1 } });
+        s = moveWorker(s, 'mine', {
+          nodeId: 'mine',
+          color: '#fbbf24',
+          status: 'collecting',
+          holding: { type: 'data_fragment', amount: 1 },
+        });
         s = setDrops(s, 'mine', 0);
         return patch(s, { statusLabel: 'Collected data_fragment' });
       },
@@ -183,16 +190,21 @@ const METHOD_CALL_DEMO: DemoScript = {
     {
       codeLine: 5,
       durationMs: 1000,
-      apply: (prev) => {
+      apply: prev => {
         let s = highlightEdge(prev, 'e1');
-        s = moveWorker(s, 'hub', { nodeId: 'hub', color: '#fbbf24', status: 'moving', holding: { type: 'data_fragment', amount: 1 } });
+        s = moveWorker(s, 'hub', {
+          nodeId: 'hub',
+          color: '#fbbf24',
+          status: 'moving',
+          holding: { type: 'data_fragment', amount: 1 },
+        });
         return patch(s, { statusLabel: 'Returning to hub...' });
       },
     },
     {
       codeLine: 6,
       durationMs: 1200,
-      apply: (prev) => {
+      apply: prev => {
         let s = clearHighlights(prev);
         s = highlightNode(s, 'hub');
         s = moveWorker(s, 'hub', { nodeId: 'hub', color: '#fbbf24', status: 'depositing', holding: null });
@@ -221,7 +233,7 @@ const CONDITIONS_DEMO: DemoScript = {
     {
       codeLine: 2,
       durationMs: 800,
-      apply: (prev) => {
+      apply: prev => {
         let s = highlightEdge(prev, 'e1');
         s = moveWorker(s, 'mine', { nodeId: 'mine', color: '#fbbf24', status: 'moving' });
         return patch(s, { statusLabel: 'Moving to mine...' });
@@ -230,7 +242,7 @@ const CONDITIONS_DEMO: DemoScript = {
     {
       codeLine: 3,
       durationMs: 1000,
-      apply: (prev) => {
+      apply: prev => {
         let s = clearHighlights(prev);
         s = highlightNode(s, 'mine');
         s = moveWorker(s, 'mine', { nodeId: 'mine', color: '#fbbf24', status: 'mining' });
@@ -241,9 +253,14 @@ const CONDITIONS_DEMO: DemoScript = {
     {
       codeLine: 4,
       durationMs: 800,
-      apply: (prev) => {
+      apply: prev => {
         let s = clearHighlights(prev);
-        s = moveWorker(s, 'mine', { nodeId: 'mine', color: '#fbbf24', status: 'collecting', holding: { type: 'data_fragment', amount: 1 } });
+        s = moveWorker(s, 'mine', {
+          nodeId: 'mine',
+          color: '#fbbf24',
+          status: 'collecting',
+          holding: { type: 'data_fragment', amount: 1 },
+        });
         s = setDrops(s, 'mine', 0);
         return patch(s, { statusLabel: 'result = { ok: true, item: data_fragment }' });
       },
@@ -251,21 +268,26 @@ const CONDITIONS_DEMO: DemoScript = {
     {
       codeLine: 6,
       durationMs: 600,
-      apply: (prev) => patch(prev, { statusLabel: '✓ result.ok is True → deposit' }),
+      apply: prev => patch(prev, { statusLabel: '✓ result.ok is True → deposit' }),
     },
     {
       codeLine: 7,
       durationMs: 800,
-      apply: (prev) => {
+      apply: prev => {
         let s = highlightEdge(prev, 'e1');
-        s = moveWorker(s, 'hub', { nodeId: 'hub', color: '#fbbf24', status: 'moving', holding: { type: 'data_fragment', amount: 1 } });
+        s = moveWorker(s, 'hub', {
+          nodeId: 'hub',
+          color: '#fbbf24',
+          status: 'moving',
+          holding: { type: 'data_fragment', amount: 1 },
+        });
         return patch(s, { statusLabel: 'Returning to hub...' });
       },
     },
     {
       codeLine: 8,
       durationMs: 1200,
-      apply: (prev) => {
+      apply: prev => {
         let s = clearHighlights(prev);
         s = highlightNode(s, 'hub');
         s = moveWorker(s, 'hub', { nodeId: 'hub', color: '#fbbf24', status: 'depositing', holding: null });
@@ -300,7 +322,7 @@ self.deposit()`,
     {
       codeLine: 1,
       durationMs: 1200,
-      apply: (prev) => {
+      apply: prev => {
         let s = highlightNode(prev, 'mine');
         s = moveWorker(s, 'mine', { nodeId: 'mine', color: '#fbbf24', status: 'mining' });
         // Mine produces 2 drops: bad_data then data_fragment
@@ -311,26 +333,31 @@ self.deposit()`,
     {
       codeLine: 3,
       durationMs: 800,
-      apply: (prev) => patch(prev, { statusLabel: 'has_dropped_items() → True (2 items)' }),
+      apply: prev => patch(prev, { statusLabel: 'has_dropped_items() → True (2 items)' }),
     },
     {
       codeLine: 4,
       durationMs: 800,
-      apply: (prev) => {
+      apply: prev => {
         let s = setDrops(prev, 'mine', 1);
-        s = moveWorker(s, 'mine', { nodeId: 'mine', color: '#fbbf24', status: 'collecting', holding: { type: 'bad_data', amount: 1 } });
+        s = moveWorker(s, 'mine', {
+          nodeId: 'mine',
+          color: '#fbbf24',
+          status: 'collecting',
+          holding: { type: 'bad_data', amount: 1 },
+        });
         return patch(s, { statusLabel: 'Collected: bad_data ⚠' });
       },
     },
     {
       codeLine: 6,
       durationMs: 600,
-      apply: (prev) => patch(prev, { statusLabel: 'item.type == "bad_data" → True!' }),
+      apply: prev => patch(prev, { statusLabel: 'item.type == "bad_data" → True!' }),
     },
     {
       codeLine: 7,
       durationMs: 1000,
-      apply: (prev) => {
+      apply: prev => {
         let s = moveWorker(prev, 'mine', { nodeId: 'mine', color: '#fbbf24', status: 'discarding', holding: null });
         return patch(s, { statusLabel: '🗑 Discarded bad_data' });
       },
@@ -338,7 +365,7 @@ self.deposit()`,
     {
       codeLine: 3,
       durationMs: 800,
-      apply: (prev) => {
+      apply: prev => {
         let s = moveWorker(prev, 'mine', { nodeId: 'mine', color: '#fbbf24' });
         return patch(s, { statusLabel: 'has_dropped_items() → True (1 item left)' });
       },
@@ -346,35 +373,45 @@ self.deposit()`,
     {
       codeLine: 4,
       durationMs: 800,
-      apply: (prev) => {
+      apply: prev => {
         let s = setDrops(prev, 'mine', 0);
-        s = moveWorker(s, 'mine', { nodeId: 'mine', color: '#fbbf24', status: 'collecting', holding: { type: 'data_fragment', amount: 1 } });
+        s = moveWorker(s, 'mine', {
+          nodeId: 'mine',
+          color: '#fbbf24',
+          status: 'collecting',
+          holding: { type: 'data_fragment', amount: 1 },
+        });
         return patch(s, { statusLabel: 'Collected: data_fragment ✓' });
       },
     },
     {
       codeLine: 6,
       durationMs: 600,
-      apply: (prev) => patch(prev, { statusLabel: 'item.type == "bad_data" → False' }),
+      apply: prev => patch(prev, { statusLabel: 'item.type == "bad_data" → False' }),
     },
     {
       codeLine: 9,
       durationMs: 600,
-      apply: (prev) => patch(prev, { statusLabel: 'break → exit while loop' }),
+      apply: prev => patch(prev, { statusLabel: 'break → exit while loop' }),
     },
     {
       codeLine: 11,
       durationMs: 800,
-      apply: (prev) => {
+      apply: prev => {
         let s = highlightEdge(prev, 'e1');
-        s = moveWorker(s, 'hub', { nodeId: 'hub', color: '#fbbf24', status: 'moving', holding: { type: 'data_fragment', amount: 1 } });
+        s = moveWorker(s, 'hub', {
+          nodeId: 'hub',
+          color: '#fbbf24',
+          status: 'moving',
+          holding: { type: 'data_fragment', amount: 1 },
+        });
         return patch(s, { statusLabel: 'Returning to hub...' });
       },
     },
     {
       codeLine: 12,
       durationMs: 1200,
-      apply: (prev) => {
+      apply: prev => {
         let s = clearHighlights(prev);
         s = highlightNode(s, 'hub');
         s = moveWorker(s, 'hub', { nodeId: 'hub', color: '#fbbf24', status: 'depositing', holding: null });
@@ -420,11 +457,11 @@ for edge in edges:
     {
       codeLine: 1,
       durationMs: 1000,
-      apply: (prev) => {
+      apply: prev => {
         // Highlight all edges = scan result
         return {
           ...prev,
-          edges: prev.edges.map(e => ({ ...e, highlighted: true } as DemoEdge)),
+          edges: prev.edges.map(e => ({ ...e, highlighted: true }) as DemoEdge),
           statusLabel: 'Scanning... 4 edges found',
         };
       },
@@ -433,7 +470,7 @@ for edge in edges:
     {
       codeLine: 3,
       durationMs: 600,
-      apply: (prev) => {
+      apply: prev => {
         let s = clearHighlights(prev);
         s = highlightEdge(s, 'ce1');
         return patch(s, { statusLabel: 'for edge ce1 → Mine A' });
@@ -442,7 +479,7 @@ for edge in edges:
     {
       codeLine: 4,
       durationMs: 600,
-      apply: (prev) => {
+      apply: prev => {
         let s = highlightNode(prev, 'm1');
         return patch(s, { statusLabel: 'isinstance → ResourceNode ✓' });
       },
@@ -450,7 +487,7 @@ for edge in edges:
     {
       codeLine: 5,
       durationMs: 800,
-      apply: (prev) => {
+      apply: prev => {
         let s = moveWorker(prev, 'm1', { nodeId: 'm1', color: '#fbbf24', status: 'moving' });
         return patch(s, { statusLabel: 'Moving to Mine A' });
       },
@@ -458,7 +495,7 @@ for edge in edges:
     {
       codeLine: 6,
       durationMs: 800,
-      apply: (prev) => {
+      apply: prev => {
         let s = moveWorker(prev, 'm1', { nodeId: 'm1', color: '#fbbf24', status: 'mining' });
         s = setDrops(s, 'm1', 1);
         return patch(s, { statusLabel: '⛏ Mining...' });
@@ -467,34 +504,47 @@ for edge in edges:
     {
       codeLine: 7,
       durationMs: 600,
-      apply: (prev) => {
+      apply: prev => {
         let s = setDrops(prev, 'm1', 0);
-        s = moveWorker(s, 'm1', { nodeId: 'm1', color: '#fbbf24', status: 'collecting', holding: { type: 'data_fragment', amount: 1 } });
+        s = moveWorker(s, 'm1', {
+          nodeId: 'm1',
+          color: '#fbbf24',
+          status: 'collecting',
+          holding: { type: 'data_fragment', amount: 1 },
+        });
         return patch(s, { statusLabel: 'Collected' });
       },
     },
     {
       codeLine: 8,
       durationMs: 800,
-      apply: (prev) => {
+      apply: prev => {
         let s = clearHighlights(prev);
-        s = moveWorker(s, 'relay', { nodeId: 'relay', color: '#fbbf24', status: 'moving', holding: { type: 'data_fragment', amount: 1 } });
+        s = moveWorker(s, 'relay', {
+          nodeId: 'relay',
+          color: '#fbbf24',
+          status: 'moving',
+          holding: { type: 'data_fragment', amount: 1 },
+        });
         return patch(s, { statusLabel: 'Back to relay' });
       },
     },
     {
       codeLine: 9,
       durationMs: 600,
-      apply: (prev) => {
+      apply: prev => {
         let s = moveWorker(prev, 'relay', { nodeId: 'relay', color: '#fbbf24', status: 'depositing', holding: null });
-        return patch(s, { statusLabel: 'Deposited +1 → next edge', resources: { data: (prev.resources?.data || 0) + 1 } });
+        return patch(s, {
+          statusLabel: 'Deposited +1 → next edge',
+          resources: { data: (prev.resources?.data || 0) + 1 },
+        });
       },
     },
     // Iteration 2: Mine B
     {
       codeLine: 3,
       durationMs: 600,
-      apply: (prev) => {
+      apply: prev => {
         let s = clearHighlights(prev);
         s = highlightEdge(s, 'ce2');
         return patch(s, { statusLabel: 'for edge ce2 → Mine B' });
@@ -503,7 +553,7 @@ for edge in edges:
     {
       codeLine: 5,
       durationMs: 800,
-      apply: (prev) => {
+      apply: prev => {
         let s = highlightNode(prev, 'm2');
         s = moveWorker(s, 'm2', { nodeId: 'm2', color: '#fbbf24', status: 'moving' });
         return patch(s, { statusLabel: 'Moving to Mine B' });
@@ -512,7 +562,7 @@ for edge in edges:
     {
       codeLine: 6,
       durationMs: 800,
-      apply: (prev) => {
+      apply: prev => {
         let s = moveWorker(prev, 'm2', { nodeId: 'm2', color: '#fbbf24', status: 'mining' });
         s = setDrops(s, 'm2', 1);
         return patch(s, { statusLabel: '⛏ Mining...' });
@@ -521,20 +571,23 @@ for edge in edges:
     {
       codeLine: 8,
       durationMs: 800,
-      apply: (prev) => {
+      apply: prev => {
         let s = setDrops(prev, 'm2', 0);
         s = clearHighlights(s);
         s = moveWorker(s, 'relay', { nodeId: 'relay', color: '#fbbf24', status: 'depositing', holding: null });
-        return patch(s, { statusLabel: 'Mine + collect + deposit → Data +1', resources: { data: (prev.resources?.data || 0) + 1 } });
+        return patch(s, {
+          statusLabel: 'Mine + collect + deposit → Data +1',
+          resources: { data: (prev.resources?.data || 0) + 1 },
+        });
       },
     },
     // Summary: remaining iterations implied
     {
       codeLine: 3,
       durationMs: 1500,
-      apply: (prev) => {
+      apply: prev => {
         // Flash all remaining edges
-        let s = { ...prev, edges: prev.edges.map(e => ({ ...e, highlighted: true } as DemoEdge)) };
+        let s = { ...prev, edges: prev.edges.map(e => ({ ...e, highlighted: true }) as DemoEdge) };
         s = moveWorker(s, 'relay', { nodeId: 'relay', color: '#fbbf24' });
         return patch(s, { statusLabel: '... continues for ce3, ce4 → all mines visited!', resources: { data: 4 } });
       },
@@ -580,29 +633,29 @@ const ROUTE_DEMO: DemoScript = {
     {
       codeLine: 2,
       durationMs: 600,
-      apply: (prev) => patch(highlightEdge(prev, 're1'), { statusLabel: 'for edge re1 (hub → relay)' }),
+      apply: prev => patch(highlightEdge(prev, 're1'), { statusLabel: 'for edge re1 (hub → relay)' }),
     },
     {
       codeLine: 3,
       durationMs: 800,
-      apply: (prev) => patch(moveWorker(clearHighlights(prev), 'relay'), { statusLabel: 'Moving to Relay' }),
+      apply: prev => patch(moveWorker(clearHighlights(prev), 'relay'), { statusLabel: 'Moving to Relay' }),
     },
     // Forward: relay → deep
     {
       codeLine: 2,
       durationMs: 600,
-      apply: (prev) => patch(highlightEdge(prev, 're2'), { statusLabel: 'for edge re2 (relay → deep)' }),
+      apply: prev => patch(highlightEdge(prev, 're2'), { statusLabel: 'for edge re2 (relay → deep)' }),
     },
     {
       codeLine: 3,
       durationMs: 800,
-      apply: (prev) => patch(moveWorker(clearHighlights(prev), 'deep'), { statusLabel: 'Moving to Deep Mine' }),
+      apply: prev => patch(moveWorker(clearHighlights(prev), 'deep'), { statusLabel: 'Moving to Deep Mine' }),
     },
     // Mine + collect
     {
       codeLine: 5,
       durationMs: 1200,
-      apply: (prev) => {
+      apply: prev => {
         let s = highlightNode(prev, 'deep');
         s = moveWorker(s, 'deep', { nodeId: 'deep', color: '#fbbf24', status: 'mining' });
         s = setDrops(s, 'deep', 1);
@@ -613,7 +666,7 @@ const ROUTE_DEMO: DemoScript = {
     {
       codeLine: 7,
       durationMs: 800,
-      apply: (prev) => {
+      apply: prev => {
         let s = clearHighlights(prev);
         s = setDrops(s, 'deep', 0);
         return patch(s, { statusLabel: 'holding.type == "data_fragment" → keep!' });
@@ -623,29 +676,29 @@ const ROUTE_DEMO: DemoScript = {
     {
       codeLine: 11,
       durationMs: 600,
-      apply: (prev) => patch(highlightEdge(prev, 're2'), { statusLabel: 'reversed: edge re2 (deep → relay)' }),
+      apply: prev => patch(highlightEdge(prev, 're2'), { statusLabel: 'reversed: edge re2 (deep → relay)' }),
     },
     {
       codeLine: 12,
       durationMs: 800,
-      apply: (prev) => patch(moveWorker(clearHighlights(prev), 'relay'), { statusLabel: 'Moving to Relay' }),
+      apply: prev => patch(moveWorker(clearHighlights(prev), 'relay'), { statusLabel: 'Moving to Relay' }),
     },
     // Backward: relay → hub
     {
       codeLine: 11,
       durationMs: 600,
-      apply: (prev) => patch(highlightEdge(prev, 're1'), { statusLabel: 'reversed: edge re1 (relay → hub)' }),
+      apply: prev => patch(highlightEdge(prev, 're1'), { statusLabel: 'reversed: edge re1 (relay → hub)' }),
     },
     {
       codeLine: 12,
       durationMs: 800,
-      apply: (prev) => patch(moveWorker(clearHighlights(prev), 'hub'), { statusLabel: 'Moving to Hub' }),
+      apply: prev => patch(moveWorker(clearHighlights(prev), 'hub'), { statusLabel: 'Moving to Hub' }),
     },
     // Deposit
     {
       codeLine: 14,
       durationMs: 1000,
-      apply: (prev) => {
+      apply: prev => {
         let s = highlightNode(prev, 'hub');
         s = moveWorker(s, 'hub', { nodeId: 'hub', color: '#fbbf24', status: 'depositing' });
         return patch(s, { statusLabel: '💰 Deposited! +40 data' });
@@ -655,7 +708,8 @@ const ROUTE_DEMO: DemoScript = {
     {
       codeLine: 14,
       durationMs: 800,
-      apply: (prev) => patch(clearHighlights(moveWorker(prev, 'hub')), { statusLabel: '✓ Loop complete — starting again' }),
+      apply: prev =>
+        patch(clearHighlights(moveWorker(prev, 'hub')), { statusLabel: '✓ Loop complete — starting again' }),
     },
   ],
 };
@@ -667,10 +721,10 @@ const ROUTE_DEMO: DemoScript = {
  * Key format: `${questId}:${guideStepIndex}` (0-indexed step)
  */
 export const DEMO_SCRIPTS: Record<string, DemoScript> = {
-  'q_hello_world:0': HELLO_WORLD_DEMO,     // "Worker Lifecycle" step
-  'q_method_call:2': METHOD_CALL_DEMO,     // "Deploy and Watch" step
-  'q_conditions:1':  CONDITIONS_DEMO,       // "Smart Mining Loop" step
-  'q_while_loop:1':  WHILE_LOOP_DEMO,      // "Filtering Bad Data" step
-  'q_for_loop:1':    ROUTE_DEMO,           // "Build a Long-Range Miner" step
-  'q_cluster_mining:1': FOR_LOOP_DEMO,      // "Build a Cluster Miner" step
+  'q_hello_world:0': HELLO_WORLD_DEMO, // "Worker Lifecycle" step
+  'q_method_call:2': METHOD_CALL_DEMO, // "Deploy and Watch" step
+  'q_conditions:1': CONDITIONS_DEMO, // "Smart Mining Loop" step
+  'q_while_loop:1': WHILE_LOOP_DEMO, // "Filtering Bad Data" step
+  'q_for_loop:1': ROUTE_DEMO, // "Build a Long-Range Miner" step
+  'q_cluster_mining:1': FOR_LOOP_DEMO, // "Build a Cluster Miner" step
 };

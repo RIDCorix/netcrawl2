@@ -23,11 +23,18 @@ export function AchievementToast() {
   }, [achievementToasts]);
 
   return (
-    <div style={{
-      position: 'fixed', bottom: 80, right: 16, zIndex: 60,
-      display: 'flex', flexDirection: 'column', gap: 8,
-      pointerEvents: 'none',
-    }}>
+    <div
+      style={{
+        position: 'fixed',
+        bottom: 80,
+        right: 16,
+        zIndex: 60,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        pointerEvents: 'none',
+      }}
+    >
       <AnimatePresence>
         {achievementToasts.map(toast => {
           const color = CATEGORY_COLORS[toast.category] || '#9ca3af';
@@ -39,7 +46,9 @@ export function AchievementToast() {
               exit={{ x: 320, opacity: 0 }}
               transition={{ type: 'spring', damping: 25, stiffness: 350 }}
               style={{
-                display: 'flex', alignItems: 'center', gap: 10,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
                 padding: '12px 16px',
                 background: 'var(--bg-glass-heavy)',
                 backdropFilter: 'blur(24px)',
@@ -51,19 +60,42 @@ export function AchievementToast() {
                 pointerEvents: 'auto',
               }}
             >
-              <div style={{
-                width: 32, height: 32, borderRadius: 8,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: `${color}15`,
-                border: `1px solid ${color}30`,
-              }}>
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: `${color}15`,
+                  border: `1px solid ${color}30`,
+                }}
+              >
                 <Trophy size={16} style={{ color }} />
               </div>
               <div>
-                <div style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--font-mono)', color, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                <div
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 700,
+                    fontFamily: 'var(--font-mono)',
+                    color,
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                  }}
+                >
                   Achievement Unlocked
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', marginTop: 1 }}>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 800,
+                    fontFamily: 'var(--font-mono)',
+                    color: 'var(--text-primary)',
+                    marginTop: 1,
+                  }}
+                >
                   {toast.name}
                 </div>
                 <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginTop: 1 }}>

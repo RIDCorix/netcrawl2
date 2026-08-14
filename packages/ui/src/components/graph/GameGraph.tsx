@@ -1,7 +1,12 @@
 import ReactFlow, {
-  Background, MiniMap, Node, Edge,
-  NodeTypes, EdgeTypes,
-  useNodesState, useEdgesState,
+  Background,
+  MiniMap,
+  Node,
+  Edge,
+  NodeTypes,
+  EdgeTypes,
+  useNodesState,
+  useEdgesState,
   BackgroundVariant,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
@@ -12,7 +17,14 @@ import { useT } from '../../hooks/useT';
 import { HubNode } from './nodes/HubNode';
 import { ResourceNode } from './nodes/ResourceNode';
 import { ComputeNode } from './nodes/ComputeNode';
-import { InfectedNode, LockedNode, EmptyNode, CacheNode, AuthNodeComponent, APINodeComponent } from './nodes/SimpleNodes';
+import {
+  InfectedNode,
+  LockedNode,
+  EmptyNode,
+  CacheNode,
+  AuthNodeComponent,
+  APINodeComponent,
+} from './nodes/SimpleNodes';
 import { WorkerEdge } from './edges/WorkerEdge';
 import { ErrorOffscreenIndicators } from './ErrorOffscreenIndicators';
 import { toRFNodes, toRFEdges } from './graphUtils';
@@ -50,7 +62,14 @@ export function GameGraph() {
   const edgeStyle = useGameStore(s => s.settings.edgeStyle);
   const showWorkerDots = useGameStore(s => s.settings.showWorkerDots);
   const t = useT();
-  const tn = useCallback((label: string) => { const k = `n.${label}`; const v = t(k); return v === k ? label : v; }, [t]);
+  const tn = useCallback(
+    (label: string) => {
+      const k = `n.${label}`;
+      const v = t(k);
+      return v === k ? label : v;
+    },
+    [t],
+  );
   const [nodes, setNodes] = useNodesState([]);
   const [edges, setEdges] = useEdgesState([]);
   const [isPanning, setIsPanning] = useState(false);
@@ -71,17 +90,24 @@ export function GameGraph() {
     for (const id of newIds) fadeInIdsRef.current.add(id);
 
     const unlockableNodeIds = new Set(
-      gameNodes
-        .filter(node => isNodeUnlockable(node, gameNodes, gameEdges, resources))
-        .map(node => node.id),
+      gameNodes.filter(node => isNodeUnlockable(node, gameNodes, gameEdges, resources)).map(node => node.id),
     );
 
-    return toRFNodes(gameNodes, selectedNodeId, showWorkerDots, edgeStyle, fadeInIdsRef.current, tn, routePath, unlockableNodeIds);
+    return toRFNodes(
+      gameNodes,
+      selectedNodeId,
+      showWorkerDots,
+      edgeStyle,
+      fadeInIdsRef.current,
+      tn,
+      routePath,
+      unlockableNodeIds,
+    );
   }, [gameNodes, gameEdges, resources, selectedNodeId, showWorkerDots, edgeStyle, tn, routePath]);
 
   const rfEdges = useMemo(
     () => toRFEdges(gameEdges, isEdgeSelecting, gameNodes, edgeStyle, routePath),
-    [gameEdges, isEdgeSelecting, gameNodes, edgeStyle, routePath]
+    [gameEdges, isEdgeSelecting, gameNodes, edgeStyle, routePath],
   );
 
   useEffect(() => {
@@ -91,33 +117,41 @@ export function GameGraph() {
 
   useEffect(() => {
     if (fadeInIdsRef.current.size === 0) return;
-    const timer = setTimeout(() => { fadeInIdsRef.current.clear(); }, 600);
+    const timer = setTimeout(() => {
+      fadeInIdsRef.current.clear();
+    }, 600);
     return () => clearTimeout(timer);
   }, [rfNodes]);
 
-  const onNodeClick = useCallback((_: any, node: Node) => {
-    if (isEdgeSelecting) return;
-    if (nodeSelectMode) {
-      const gn = gameNodes.find(n => n.id === node.id);
-      if (gn?.id === 'hub' || gn?.data?.unlocked) {
-        nodeSelectMode.onSelect(node.id);
+  const onNodeClick = useCallback(
+    (_: any, node: Node) => {
+      if (isEdgeSelecting) return;
+      if (nodeSelectMode) {
+        const gn = gameNodes.find(n => n.id === node.id);
+        if (gn?.id === 'hub' || gn?.data?.unlocked) {
+          nodeSelectMode.onSelect(node.id);
+        }
+        return;
       }
-      return;
-    }
-    selectNode(node.id === selectedNodeId ? null : node.id);
-  }, [selectedNodeId, selectNode, isEdgeSelecting, nodeSelectMode, gameNodes]);
+      selectNode(node.id === selectedNodeId ? null : node.id);
+    },
+    [selectedNodeId, selectNode, isEdgeSelecting, nodeSelectMode, gameNodes],
+  );
 
-  const onEdgeClick = useCallback((_: any, edge: Edge) => {
-    if (edgeSelectMode) {
-      const isUnlocked = (id: string) => {
-        const n = gameNodes.find(n => n.id === id);
-        return n?.id === 'hub' || !!n?.data?.unlocked;
-      };
-      if (isUnlocked(edge.source) && isUnlocked(edge.target)) {
-        edgeSelectMode.onSelect({ id: edge.id, source: edge.source, target: edge.target });
+  const onEdgeClick = useCallback(
+    (_: any, edge: Edge) => {
+      if (edgeSelectMode) {
+        const isUnlocked = (id: string) => {
+          const n = gameNodes.find(n => n.id === id);
+          return n?.id === 'hub' || !!n?.data?.unlocked;
+        };
+        if (isUnlocked(edge.source) && isUnlocked(edge.target)) {
+          edgeSelectMode.onSelect({ id: edge.id, source: edge.source, target: edge.target });
+        }
       }
-    }
-  }, [edgeSelectMode, gameNodes]);
+    },
+    [edgeSelectMode, gameNodes],
+  );
 
   return (
     <div style={{ width: '100%', height: '100%' }}>
@@ -154,7 +188,7 @@ export function GameGraph() {
             border: '1px solid var(--border-bright)',
             borderRadius: 'var(--radius-md)',
           }}
-          nodeColor={(node) => {
+          nodeColor={node => {
             if (node.type === 'hub') return '#00d4aa';
             if (node.type === 'infected') return '#ff4757';
             if (node.type === 'resource') return '#45aaf2';

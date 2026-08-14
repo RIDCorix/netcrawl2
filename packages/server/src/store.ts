@@ -557,7 +557,9 @@ function _loadStore() {
         } catch {}
       }
       console.error('[DB] State load failure:', primaryError);
-      throw new Error(`[DB] Cannot load durable state (${DATA_PATH}); primary and backup are unusable`);
+      throw Object.assign(new Error(`[DB] Cannot load durable state (${DATA_PATH}); primary and backup are unusable`), {
+        cause: primaryError,
+      });
     }
   } else {
     store = JSON.parse(JSON.stringify(INITIAL_STORE));

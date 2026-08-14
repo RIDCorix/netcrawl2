@@ -24,8 +24,16 @@ function fmt(n: number): string {
 
 // ── ThresholdBar ──────────────────────────────────────────────────────────────
 
-function ThresholdBar({ label, current, required, color }: {
-  label: string; current: number; required: number; color: string;
+function ThresholdBar({
+  label,
+  current,
+  required,
+  color,
+}: {
+  label: string;
+  current: number;
+  required: number;
+  color: string;
 }) {
   const p = pct(current, required);
   const done = p >= 100;
@@ -33,9 +41,12 @@ function ThresholdBar({ label, current, required, color }: {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: done ? '#4ade80' : 'var(--text-muted)' }}>
-          {done ? '✓ ' : ''}{label}
+          {done ? '✓ ' : ''}
+          {label}
         </span>
-        <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: done ? '#4ade80' : 'var(--text-secondary)' }}>
+        <span
+          style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: done ? '#4ade80' : 'var(--text-secondary)' }}
+        >
           {fmt(current)} / {fmt(required)}
         </span>
       </div>
@@ -54,7 +65,10 @@ function ThresholdBar({ label, current, required, color }: {
 // ── LayerCard ──────────────────────────────────────────────────────────────────
 
 function LayerCard({
-  layer, isActive, onEnter, switching,
+  layer,
+  isActive,
+  onEnter,
+  switching,
 }: {
   layer: LayerMeta;
   isActive: boolean;
@@ -77,9 +91,7 @@ function LayerCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
       style={{
-        background: isActive
-          ? `linear-gradient(135deg, ${layer.color}18, var(--bg-elevated))`
-          : 'var(--bg-elevated)',
+        background: isActive ? `linear-gradient(135deg, ${layer.color}18, var(--bg-elevated))` : 'var(--bg-elevated)',
         border: `1px solid ${isActive ? layer.color : layer.unlocked ? 'var(--border-bright)' : 'var(--border)'}`,
         borderRadius: 12,
         padding: '20px 24px',
@@ -96,98 +108,125 @@ function LayerCard({
     >
       {/* Active indicator */}
       {isActive && (
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 2,
-          background: layer.color,
-        }} />
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 2,
+            background: layer.color,
+          }}
+        />
       )}
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-        <div style={{
-          width: 48, height: 48,
-          borderRadius: 10,
-          background: layer.unlocked ? `${layer.color}22` : 'var(--bg-primary)',
-          border: `1px solid ${layer.unlocked ? layer.color + '55' : 'var(--border)'}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 22, flexShrink: 0,
-        }}>
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 10,
+            background: layer.unlocked ? `${layer.color}22` : 'var(--bg-primary)',
+            border: `1px solid ${layer.unlocked ? layer.color + '55' : 'var(--border)'}`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 22,
+            flexShrink: 0,
+          }}
+        >
           {layer.unlocked ? layer.emoji : '🔒'}
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{
-              fontSize: 14,
-              fontWeight: 800,
-              fontFamily: 'var(--font-mono)',
-              color: layer.unlocked ? layer.color : 'var(--text-muted)',
-              letterSpacing: '0.05em',
-            }}>
+            <span
+              style={{
+                fontSize: 14,
+                fontWeight: 800,
+                fontFamily: 'var(--font-mono)',
+                color: layer.unlocked ? layer.color : 'var(--text-muted)',
+                letterSpacing: '0.05em',
+              }}
+            >
               {t('ui.layer').replace('{id}', String(layer.id))}
             </span>
             {isActive && (
-              <span style={{
-                fontSize: 9,
-                fontWeight: 800,
-                fontFamily: 'var(--font-mono)',
-                color: layer.color,
-                background: `${layer.color}22`,
-                border: `1px solid ${layer.color}44`,
-                borderRadius: 4,
-                padding: '1px 5px',
-                letterSpacing: '0.08em',
-              }}>
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: 800,
+                  fontFamily: 'var(--font-mono)',
+                  color: layer.color,
+                  background: `${layer.color}22`,
+                  border: `1px solid ${layer.color}44`,
+                  borderRadius: 4,
+                  padding: '1px 5px',
+                  letterSpacing: '0.08em',
+                }}
+              >
                 {t('ui.active')}
               </span>
             )}
           </div>
-          <div style={{
-            fontSize: 16,
-            fontWeight: 700,
-            color: layer.unlocked ? 'var(--text-primary)' : 'var(--text-secondary)',
-            marginTop: 2,
-          }}>
+          <div
+            style={{
+              fontSize: 16,
+              fontWeight: 700,
+              color: layer.unlocked ? 'var(--text-primary)' : 'var(--text-secondary)',
+              marginTop: 2,
+            }}
+          >
             {layer.name}
           </div>
-          <div style={{
-            fontSize: 11,
-            fontFamily: 'var(--font-mono)',
-            color: 'var(--text-muted)',
-            marginTop: 2,
-          }}>
+          <div
+            style={{
+              fontSize: 11,
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--text-muted)',
+              marginTop: 2,
+            }}
+          >
             {layer.tagline}
           </div>
         </div>
       </div>
 
       {/* Description */}
-      <p style={{
-        fontSize: 12,
-        color: 'var(--text-secondary)',
-        lineHeight: 1.5,
-        margin: 0,
-      }}>
+      <p
+        style={{
+          fontSize: 12,
+          color: 'var(--text-secondary)',
+          lineHeight: 1.5,
+          margin: 0,
+        }}
+      >
         {layer.description}
       </p>
 
       {/* Unlock progress */}
       {!layer.unlocked && hasThresholds && (
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 8,
-          padding: '12px',
-          background: 'var(--bg-primary)',
-          borderRadius: 8,
-          border: '1px solid var(--border)',
-        }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            padding: '12px',
+            background: 'var(--bg-primary)',
+            borderRadius: 8,
+            border: '1px solid var(--border)',
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
             <Lock size={11} style={{ color: 'var(--text-muted)' }} />
-            <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
+            <span
+              style={{
+                fontSize: 11,
+                fontFamily: 'var(--font-mono)',
+                color: 'var(--text-muted)',
+                letterSpacing: '0.05em',
+              }}
+            >
               {t('ui.unlock_requirements')}
             </span>
           </div>
@@ -207,9 +246,7 @@ function LayerCard({
       {layer.unlocked && !isActive && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <CheckCircle size={12} style={{ color: '#4ade80' }} />
-          <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#4ade80' }}>
-            {t('ui.unlocked')}
-          </span>
+          <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#4ade80' }}>{t('ui.unlocked')}</span>
         </div>
       )}
 
@@ -221,7 +258,10 @@ function LayerCard({
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.97 }}
           style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
             background: layer.color,
             color: '#000',
             border: 'none',
@@ -251,9 +291,7 @@ export function LayerSelectScreen() {
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState<string | null>(null);
 
-  const hasActiveWorkers = workers.some(w =>
-    ['running', 'moving', 'harvesting'].includes(w.status)
-  );
+  const hasActiveWorkers = workers.some(w => ['running', 'moving', 'harvesting'].includes(w.status));
 
   async function handleEnterLayer(layerId: number) {
     setSwitchError(null);
@@ -298,7 +336,9 @@ export function LayerSelectScreen() {
             padding: '60px 24px 40px',
             overflowY: 'auto',
           }}
-          onClick={(e) => { if (e.target === e.currentTarget) closeLayerSelect(); }}
+          onClick={e => {
+            if (e.target === e.currentTarget) closeLayerSelect();
+          }}
         >
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -318,17 +358,26 @@ export function LayerSelectScreen() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <Globe size={20} style={{ color: 'var(--accent)' }} />
                 <div>
-                  <h1 style={{
-                    fontSize: 22,
-                    fontWeight: 800,
-                    fontFamily: 'var(--font-mono)',
-                    color: 'var(--text-primary)',
-                    margin: 0,
-                    letterSpacing: '0.08em',
-                  }}>
+                  <h1
+                    style={{
+                      fontSize: 22,
+                      fontWeight: 800,
+                      fontFamily: 'var(--font-mono)',
+                      color: 'var(--text-primary)',
+                      margin: 0,
+                      letterSpacing: '0.08em',
+                    }}
+                  >
                     {t('ui.network_layers')}
                   </h1>
-                  <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                  <p
+                    style={{
+                      margin: '2px 0 0',
+                      fontSize: 12,
+                      color: 'var(--text-muted)',
+                      fontFamily: 'var(--font-mono)',
+                    }}
+                  >
                     {t('ui.select_layer')}
                   </p>
                 </div>
@@ -343,7 +392,9 @@ export function LayerSelectScreen() {
                   padding: 6,
                   cursor: 'pointer',
                   color: 'var(--text-muted)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
                 <X size={16} />
@@ -356,7 +407,9 @@ export function LayerSelectScreen() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
                   background: 'rgba(245, 158, 11, 0.1)',
                   border: '1px solid rgba(245, 158, 11, 0.4)',
                   borderRadius: 8,
@@ -377,7 +430,9 @@ export function LayerSelectScreen() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
                   background: 'rgba(239, 68, 68, 0.1)',
                   border: '1px solid rgba(239, 68, 68, 0.4)',
                   borderRadius: 8,
@@ -393,13 +448,15 @@ export function LayerSelectScreen() {
             )}
 
             {/* Layer cards */}
-            <div style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 16,
-              justifyContent: 'flex-start',
-            }}>
-              {(layerMeta.length > 0 ? layerMeta : PLACEHOLDER_LAYERS).map((layer) => (
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 16,
+                justifyContent: 'flex-start',
+              }}
+            >
+              {(layerMeta.length > 0 ? layerMeta : PLACEHOLDER_LAYERS).map(layer => (
                 <LayerCard
                   key={layer.id}
                   layer={layer}
@@ -411,14 +468,16 @@ export function LayerSelectScreen() {
             </div>
 
             {/* Footer note */}
-            <p style={{
-              fontSize: 11,
-              fontFamily: 'var(--font-mono)',
-              color: 'var(--text-muted)',
-              textAlign: 'center',
-              margin: 0,
-              opacity: 0.6,
-            }}>
+            <p
+              style={{
+                fontSize: 11,
+                fontFamily: 'var(--font-mono)',
+                color: 'var(--text-muted)',
+                textAlign: 'center',
+                margin: 0,
+                opacity: 0.6,
+              }}
+            >
               {t('ui.layer_footer')}
             </p>
           </motion.div>

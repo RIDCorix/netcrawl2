@@ -227,7 +227,7 @@ export function infection(ctx: AudioContext, dest: GainNode): void {
   const shaper = ctx.createWaveShaper();
   const curve = new Float32Array(256);
   for (let i = 0; i < 256; i++) {
-    const x = (i / 128) - 1;
+    const x = i / 128 - 1;
     curve[i] = Math.tanh(x * 4);
   }
   shaper.curve = curve;

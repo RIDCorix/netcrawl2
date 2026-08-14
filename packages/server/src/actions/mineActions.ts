@@ -48,12 +48,17 @@ function restoreNodeData(nodeId: string, amount: number, uid?: string): void {
 
   const maxDataBuffer = Math.max(1, Number(node.data.maxDataBuffer ?? 1));
   const availableData = Math.min(maxDataBuffer, Math.max(0, Number(node.data.data ?? maxDataBuffer)));
-  saveGameState({
-    ...freshState,
-    nodes: freshState.nodes.map(n =>
-      n.id === nodeId ? { ...n, data: { ...n.data, data: Math.min(maxDataBuffer, availableData + amount), maxDataBuffer } } : n,
-    ),
-  }, uid);
+  saveGameState(
+    {
+      ...freshState,
+      nodes: freshState.nodes.map(n =>
+        n.id === nodeId
+          ? { ...n, data: { ...n.data, data: Math.min(maxDataBuffer, availableData + amount), maxDataBuffer } }
+          : n,
+      ),
+    },
+    uid,
+  );
 }
 
 /**

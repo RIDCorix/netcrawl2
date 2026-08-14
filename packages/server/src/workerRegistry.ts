@@ -11,7 +11,7 @@ const isMultiUser = () => process.env.NETCRAWL_MULTI_USER === 'true';
 const DEFAULT_USER = '__default__';
 
 function resolveUser(userId?: string): string {
-  return (isMultiUser() && userId) ? userId : DEFAULT_USER;
+  return isMultiUser() && userId ? userId : DEFAULT_USER;
 }
 
 // ── Worker Class Registry ───────────────────────────────────────────────────
@@ -70,8 +70,9 @@ export interface DeployRequest {
 export function enqueueDeploy(request: DeployRequest, userId?: string): void {
   const s = resolveStore(userId);
   s.runtime_commands ||= [];
-  const existing = s.runtime_commands.find(command =>
-    command.workerId === request.workerId && command.generation === (request.generation || 0) && !command.ackedAt,
+  const existing = s.runtime_commands.find(
+    command =>
+      command.workerId === request.workerId && command.generation === (request.generation || 0) && !command.ackedAt,
   );
   if (existing) return;
   s.runtime_commands.push({
@@ -99,10 +100,12 @@ export function leaseDeployQueue(sessionId: string, userId?: string, now = Date.
   return commands
     .filter(command => {
       const worker = s.workers[command.workerId];
-      return !command.ackedAt
-        && worker?.desiredState === 'running'
-        && worker.generation === command.generation
-        && (!command.lease || command.lease.sessionId === sessionId || command.lease.expiresAt <= now);
+      return (
+        !command.ackedAt &&
+        worker?.desiredState === 'running' &&
+        worker.generation === command.generation &&
+        (!command.lease || command.lease.sessionId === sessionId || command.lease.expiresAt <= now)
+      );
     })
     .map(command => {
       command.lease = { sessionId, expiresAt };
@@ -117,7 +120,12 @@ export function removeFromDeployQueue(workerId: string, userId?: string): boolea
   return resolveStore(userId).runtime_commands!.length !== before;
 }
 
-export function acknowledgeDeployCommand(commandId: string, sessionId: string, generation: number, userId?: string): 'ok' | 'duplicate' | 'stale' {
+export function acknowledgeDeployCommand(
+  commandId: string,
+  sessionId: string,
+  generation: number,
+  userId?: string,
+): 'ok' | 'duplicate' | 'stale' {
   const command = (resolveStore(userId).runtime_commands || []).find(c => c.id === commandId);
   if (!command || command.generation !== generation || command.lease?.sessionId !== sessionId) return 'stale';
   if (command.ackedAt) return 'duplicate';
@@ -127,25 +135,40 @@ export function acknowledgeDeployCommand(commandId: string, sessionId: string, g
 
 /** Compatibility adapter for SDK v1, whose ACK only identifies a worker. */
 export function acknowledgeLegacyDeploy(workerId: string, generation: number, userId?: string): void {
-  const command = (resolveStore(userId).runtime_commands || []).find(c => c.workerId === workerId && c.generation === generation && !c.ackedAt);
+  const command = (resolveStore(userId).runtime_commands || []).find(
+    c => c.workerId === workerId && c.generation === generation && !c.ackedAt,
+  );
   if (command) command.ackedAt = new Date().toISOString();
 }
 
 /** Requeue a worker's desired execution after a new Code Server claims it. */
-export function enqueueWorkerExecution(worker: { id: string; current_node: string; deployConfig?: any; generation?: number; executionToken?: string; holding?: any[] }, userId?: string): boolean {
+export function enqueueWorkerExecution(
+  worker: {
+    id: string;
+    current_node: string;
+    deployConfig?: any;
+    generation?: number;
+    executionToken?: string;
+    holding?: any[];
+  },
+  userId?: string,
+): boolean {
   const config = worker.deployConfig;
   if (!config?.classId || !worker.executionToken) return false;
-  enqueueDeploy({
-    id: worker.id,
-    workerId: worker.id,
-    nodeId: worker.current_node,
-    classId: config.classId,
-    equippedItems: config.equippedItems || {},
-    injectedFields: config.injectedFields || {},
-    createdAt: new Date().toISOString(),
-    generation: worker.generation || 0,
-    executionToken: worker.executionToken,
-    initialHolding: worker.holding || [],
-  }, userId);
+  enqueueDeploy(
+    {
+      id: worker.id,
+      workerId: worker.id,
+      nodeId: worker.current_node,
+      classId: config.classId,
+      equippedItems: config.equippedItems || {},
+      injectedFields: config.injectedFields || {},
+      createdAt: new Date().toISOString(),
+      generation: worker.generation || 0,
+      executionToken: worker.executionToken,
+      initialHolding: worker.holding || [],
+    },
+    userId,
+  );
   return true;
 }

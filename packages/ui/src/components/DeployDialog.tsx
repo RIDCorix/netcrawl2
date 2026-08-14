@@ -198,11 +198,14 @@ export function DeployDialog({
     }
   }, []);
 
-  const advanceTutorial = useCallback(async (to: string) => {
-    const response = await axios.post('/api/tutorial/chapter-zero/stage', { action: 'advance', to });
-    publishTutorialSession(response.data);
-    return response.data;
-  }, [publishTutorialSession]);
+  const advanceTutorial = useCallback(
+    async (to: string) => {
+      const response = await axios.post('/api/tutorial/chapter-zero/stage', { action: 'advance', to });
+      publishTutorialSession(response.data);
+      return response.data;
+    },
+    [publishTutorialSession],
+  );
 
   const completeEdgeSelect = useCallback(
     async (fieldName: string, edge: { id: string; source: string; target: string }) => {
@@ -218,7 +221,9 @@ export function DeployDialog({
           });
           publishTutorialSession(response.data);
         } catch {
-          setMessage(tutorialMode ? t('tutorial.chapter_zero.deploy.error_generic') : 'Error: unable to save the selected edge');
+          setMessage(
+            tutorialMode ? t('tutorial.chapter_zero.deploy.error_generic') : 'Error: unable to save the selected edge',
+          );
         }
       }
     },
@@ -313,7 +318,10 @@ export function DeployDialog({
     }
 
     try {
-      if (tutorialMode && tutorial?.stage !== (tutorial.phase === 'hello' ? 'hello_deploy_execute' : 'miner_deploy_execute')) {
+      if (
+        tutorialMode &&
+        tutorial?.stage !== (tutorial.phase === 'hello' ? 'hello_deploy_execute' : 'miner_deploy_execute')
+      ) {
         await advanceTutorial(tutorial.phase === 'hello' ? 'hello_deploy_execute' : 'miner_deploy_execute');
       }
       const ids: string[] = [];
@@ -417,59 +425,62 @@ export function DeployDialog({
     onClose();
   }, [onClose, setEdgeSelectMode, tutorialMode]);
 
-  const handleDialogKeyDown = useCallback((event: KeyboardEvent) => {
-    if (tutorialMode) {
-      if (event.key === 'Escape') {
+  const handleDialogKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      if (tutorialMode) {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        return;
+      }
+      if (selectingRouteRef.current && event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
+        cancelRouteSelect();
+        return;
       }
-      return;
-    }
-    if (selectingRouteRef.current && event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      cancelRouteSelect();
-      return;
-    }
 
-    if (event.key === 'Escape') {
-      const visibleListbox = Array.from(document.querySelectorAll<HTMLElement>('[role="listbox"]')).some(
-        element => element.getClientRects().length > 0,
-      );
-      if (visibleListbox) return;
+      if (event.key === 'Escape') {
+        const visibleListbox = Array.from(document.querySelectorAll<HTMLElement>('[role="listbox"]')).some(
+          element => element.getClientRects().length > 0,
+        );
+        if (visibleListbox) return;
 
-      event.preventDefault();
-      event.stopPropagation();
-      handleClose();
-      return;
-    }
-    if (event.key !== 'Tab') return;
+        event.preventDefault();
+        event.stopPropagation();
+        handleClose();
+        return;
+      }
+      if (event.key !== 'Tab') return;
 
-    const focusContainer = selectingRouteRef.current ? routePickerRef.current : dialogRef.current;
-    const focusable = Array.from(
-      focusContainer?.querySelectorAll<HTMLElement>(DIALOG_FOCUSABLE_SELECTOR) || [],
-    ).filter(element => element.getClientRects().length > 0 && element.getAttribute('aria-hidden') !== 'true');
+      const focusContainer = selectingRouteRef.current ? routePickerRef.current : dialogRef.current;
+      const focusable = Array.from(
+        focusContainer?.querySelectorAll<HTMLElement>(DIALOG_FOCUSABLE_SELECTOR) || [],
+      ).filter(element => element.getClientRects().length > 0 && element.getAttribute('aria-hidden') !== 'true');
 
-    if (focusable.length === 0) {
-      event.preventDefault();
-      focusContainer?.focus();
-      return;
-    }
+      if (focusable.length === 0) {
+        event.preventDefault();
+        focusContainer?.focus();
+        return;
+      }
 
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    const active = document.activeElement;
-    if (!focusContainer?.contains(active)) {
-      event.preventDefault();
-      (event.shiftKey ? last : first).focus();
-    } else if (event.shiftKey && active === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && active === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  }, [cancelRouteSelect, handleClose, tutorialMode]);
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (!focusContainer?.contains(active)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    },
+    [cancelRouteSelect, handleClose, tutorialMode],
+  );
 
   useEffect(() => {
     document.addEventListener('keydown', handleDialogKeyDown, true);
@@ -525,7 +536,9 @@ export function DeployDialog({
         ref={routePickerRef}
         role="dialog"
         aria-modal="true"
-        aria-label={routeSlot?.fieldType === 'route' ? `Build route: ${routeSlot?.name}` : `Select an edge: ${routeSlot?.name}`}
+        aria-label={
+          routeSlot?.fieldType === 'route' ? `Build route: ${routeSlot?.name}` : `Select an edge: ${routeSlot?.name}`
+        }
         tabIndex={-1}
         data-tutorial-dialog={tutorialMode ? 'true' : undefined}
         initial={{ opacity: 0 }}
@@ -636,23 +649,25 @@ export function DeployDialog({
             Done
           </button>
         )}
-        {!tutorialMode && <button
-          autoFocus={(routeSlot?.fieldType === 'edge' ? compatibleEdges : compatibleNodes).length === 0}
-          onClick={cancelRouteSelect}
-          style={{
-            padding: '6px 12px',
-            borderRadius: 'var(--radius-sm)',
-            background: 'var(--bg-elevated)',
-            border: '1px solid var(--border)',
-            color: 'var(--text-muted)',
-            fontSize: 11,
-            fontFamily: 'var(--font-mono)',
-            fontWeight: 700,
-            cursor: 'pointer',
-          }}
-        >
-          {t('common.cancel')}
-        </button>}
+        {!tutorialMode && (
+          <button
+            autoFocus={(routeSlot?.fieldType === 'edge' ? compatibleEdges : compatibleNodes).length === 0}
+            onClick={cancelRouteSelect}
+            style={{
+              padding: '6px 12px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-muted)',
+              fontSize: 11,
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            {t('common.cancel')}
+          </button>
+        )}
       </motion.div>
     );
   }

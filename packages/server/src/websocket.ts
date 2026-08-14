@@ -13,7 +13,7 @@ export function initWebSocket(server: http.Server) {
       console.log('[WS] Client disconnected');
     });
 
-    ws.on('error', (err) => {
+    ws.on('error', err => {
       console.error('[WS] Error:', err.message);
     });
   });

@@ -12,7 +12,17 @@ interface IconProps {
 }
 
 const I = ({ size = 24, style, color = 'currentColor', children }: IconProps & { children: React.ReactNode }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={style}>
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={style}
+  >
     {children}
   </svg>
 );
@@ -42,7 +52,16 @@ export const PickaxeDiamond = (p: IconProps) => (
     <path d="M15 9L3.5 20.5" />
     <path d="M13 5L19 11" />
     <path d="M12 6L18 12" />
-    <rect x="15.5" y="4.5" width="4" height="4" rx="0.5" fill={p.color || 'currentColor'} stroke="none" transform="rotate(45 17.5 6.5)" />
+    <rect
+      x="15.5"
+      y="4.5"
+      width="4"
+      height="4"
+      rx="0.5"
+      fill={p.color || 'currentColor'}
+      stroke="none"
+      transform="rotate(45 17.5 6.5)"
+    />
   </I>
 );
 
@@ -120,9 +139,27 @@ export const RamAdvanced = (p: IconProps) => (
     <line x1="19" y1="7" x2="19" y2="5" />
     {/* Memory chips */}
     <rect x="5" y="9.5" width="2.5" height="5" rx="0.5" fill={p.color || 'currentColor'} opacity="0.3" stroke="none" />
-    <rect x="8.5" y="9.5" width="2.5" height="5" rx="0.5" fill={p.color || 'currentColor'} opacity="0.3" stroke="none" />
+    <rect
+      x="8.5"
+      y="9.5"
+      width="2.5"
+      height="5"
+      rx="0.5"
+      fill={p.color || 'currentColor'}
+      opacity="0.3"
+      stroke="none"
+    />
     <rect x="13" y="9.5" width="2.5" height="5" rx="0.5" fill={p.color || 'currentColor'} opacity="0.3" stroke="none" />
-    <rect x="16.5" y="9.5" width="2.5" height="5" rx="0.5" fill={p.color || 'currentColor'} opacity="0.3" stroke="none" />
+    <rect
+      x="16.5"
+      y="9.5"
+      width="2.5"
+      height="5"
+      rx="0.5"
+      fill={p.color || 'currentColor'}
+      opacity="0.3"
+      stroke="none"
+    />
   </I>
 );
 
@@ -179,7 +216,17 @@ export const ChipPackBasic = (p: IconProps) => (
     <path d="M10 10V6" />
     <path d="M14 10V6" />
     <rect x="9" y="13" width="6" height="4" rx="1" fill={p.color || 'currentColor'} opacity="0.2" stroke="none" />
-    <text x="12" y="16.5" textAnchor="middle" fontSize="4" fill={p.color || 'currentColor'} stroke="none" fontWeight="bold">?</text>
+    <text
+      x="12"
+      y="16.5"
+      textAnchor="middle"
+      fontSize="4"
+      fill={p.color || 'currentColor'}
+      stroke="none"
+      fontWeight="bold"
+    >
+      ?
+    </text>
   </I>
 );
 
@@ -201,7 +248,17 @@ export const MemoryAllocator = (p: IconProps) => (
     <path d="M14.5 3.5L20.5 9.5" />
     <path d="M15 9L3.5 20.5" />
     {/* Circuit pattern on head */}
-    <rect x="14" y="3" width="8" height="8" rx="1" fill={p.color || 'currentColor'} opacity="0.15" stroke="none" transform="rotate(45 18 7)" />
+    <rect
+      x="14"
+      y="3"
+      width="8"
+      height="8"
+      rx="1"
+      fill={p.color || 'currentColor'}
+      opacity="0.15"
+      stroke="none"
+      transform="rotate(45 18 7)"
+    />
     <line x1="16" y1="5" x2="19" y2="5" opacity="0.5" />
     <line x1="16" y1="7" x2="19" y2="7" opacity="0.5" />
     <line x1="16" y1="9" x2="19" y2="9" opacity="0.5" />
@@ -215,7 +272,11 @@ export const FullstackPickaxe = (p: IconProps) => (
     <path d="M13 5L19 11" />
     <path d="M12 6L18 12" />
     {/* Star emblem */}
-    <path d="M17.5 6.5L18.2 5L18.9 6.5L20.5 6.5L19.3 7.5L19.7 9L17.5 7.8L15.3 9L15.7 7.5L14.5 6.5Z" fill={p.color || 'currentColor'} stroke="none" />
+    <path
+      d="M17.5 6.5L18.2 5L18.9 6.5L20.5 6.5L19.3 7.5L19.7 9L17.5 7.8L15.3 9L15.7 7.5L14.5 6.5Z"
+      fill={p.color || 'currentColor'}
+      stroke="none"
+    />
   </I>
 );
 
@@ -243,7 +304,12 @@ export const ChipSpeed = (p: IconProps) => (
 
 export const ChipDefense = (p: IconProps) => (
   <ChipBase {...p}>
-    <path d="M12 9L15 11V13.5C15 15 13.5 16 12 16.5C10.5 16 9 15 9 13.5V11L12 9Z" fill={p.color || 'currentColor'} opacity="0.2" stroke="none" />
+    <path
+      d="M12 9L15 11V13.5C15 15 13.5 16 12 16.5C10.5 16 9 15 9 13.5V11L12 9Z"
+      fill={p.color || 'currentColor'}
+      opacity="0.2"
+      stroke="none"
+    />
   </ChipBase>
 );
 

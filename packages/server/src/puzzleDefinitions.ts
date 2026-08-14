@@ -68,106 +68,170 @@ export const PUZZLE_TEMPLATES: PuzzleTemplate[] = [
 
   // ── Easy ───────────────────────────────────────────────────────────────
   {
-    id: 'add', name: 'Addition', description: 'Compute a + b',
-    difficulty: 'easy', rewardMultiplier: 1,
+    id: 'add',
+    name: 'Addition',
+    description: 'Compute a + b',
+    difficulty: 'easy',
+    rewardMultiplier: 1,
     generate: () => {
-      const a = randInt(1, 50); const b = randInt(1, 50);
+      const a = randInt(1, 50);
+      const b = randInt(1, 50);
       return { params: { a, b, op: 'add' }, answer: a + b, hint: `${a} + ${b}` };
     },
   },
   {
-    id: 'subtract', name: 'Subtraction', description: 'Compute a - b',
-    difficulty: 'easy', rewardMultiplier: 1,
+    id: 'subtract',
+    name: 'Subtraction',
+    description: 'Compute a - b',
+    difficulty: 'easy',
+    rewardMultiplier: 1,
     generate: () => {
-      const a = randInt(10, 100); const b = randInt(1, a);
+      const a = randInt(10, 100);
+      const b = randInt(1, a);
       return { params: { a, b, op: 'subtract' }, answer: a - b, hint: `${a} - ${b}` };
     },
   },
   {
-    id: 'multiply', name: 'Multiplication', description: 'Compute a * b',
-    difficulty: 'easy', rewardMultiplier: 1,
+    id: 'multiply',
+    name: 'Multiplication',
+    description: 'Compute a * b',
+    difficulty: 'easy',
+    rewardMultiplier: 1,
     generate: () => {
-      const a = randInt(2, 20); const b = randInt(2, 20);
+      const a = randInt(2, 20);
+      const b = randInt(2, 20);
       return { params: { a, b, op: 'multiply' }, answer: a * b, hint: `${a} * ${b}` };
     },
   },
   {
-    id: 'floor_div', name: 'Floor Division', description: 'Compute a // b (integer division)',
-    difficulty: 'easy', rewardMultiplier: 1,
+    id: 'floor_div',
+    name: 'Floor Division',
+    description: 'Compute a // b (integer division)',
+    difficulty: 'easy',
+    rewardMultiplier: 1,
     generate: () => {
-      const b = randInt(2, 15); const a = randInt(b, b * 20);
+      const b = randInt(2, 15);
+      const a = randInt(b, b * 20);
       return { params: { a, b, op: 'floor_divide' }, answer: Math.floor(a / b), hint: `${a} // ${b}` };
     },
   },
   {
-    id: 'modulo', name: 'Modulo', description: 'Compute a % b',
-    difficulty: 'easy', rewardMultiplier: 1,
+    id: 'modulo',
+    name: 'Modulo',
+    description: 'Compute a % b',
+    difficulty: 'easy',
+    rewardMultiplier: 1,
     generate: () => {
-      const b = randInt(2, 15); const a = randInt(b, b * 20);
+      const b = randInt(2, 15);
+      const a = randInt(b, b * 20);
       return { params: { a, b, op: 'modulo' }, answer: a % b, hint: `${a} % ${b}` };
     },
   },
 
   // ── Medium ─────────────────────────────────────────────────────────────
   {
-    id: 'max_of_three', name: 'Maximum', description: 'Find the maximum of three numbers',
-    difficulty: 'medium', rewardMultiplier: 2,
+    id: 'max_of_three',
+    name: 'Maximum',
+    description: 'Find the maximum of three numbers',
+    difficulty: 'medium',
+    rewardMultiplier: 2,
     generate: () => {
       const nums = [randInt(1, 100), randInt(1, 100), randInt(1, 100)];
       return { params: { numbers: nums, op: 'max' }, answer: Math.max(...nums), hint: `max(${nums.join(', ')})` };
     },
   },
   {
-    id: 'sum_list', name: 'Sum List', description: 'Sum all numbers in the list',
-    difficulty: 'medium', rewardMultiplier: 2,
+    id: 'sum_list',
+    name: 'Sum List',
+    description: 'Sum all numbers in the list',
+    difficulty: 'medium',
+    rewardMultiplier: 2,
     generate: () => {
       const len = randInt(3, 8);
       const nums = Array.from({ length: len }, () => randInt(1, 50));
-      return { params: { numbers: nums, op: 'sum' }, answer: nums.reduce((a, b) => a + b, 0), hint: `sum(${JSON.stringify(nums)})` };
+      return {
+        params: { numbers: nums, op: 'sum' },
+        answer: nums.reduce((a, b) => a + b, 0),
+        hint: `sum(${JSON.stringify(nums)})`,
+      };
     },
   },
   {
-    id: 'count_evens', name: 'Count Evens', description: 'Count even numbers in the list',
-    difficulty: 'medium', rewardMultiplier: 2,
+    id: 'count_evens',
+    name: 'Count Evens',
+    description: 'Count even numbers in the list',
+    difficulty: 'medium',
+    rewardMultiplier: 2,
     generate: () => {
       const len = randInt(4, 10);
       const nums = Array.from({ length: len }, () => randInt(1, 50));
       const count = nums.filter(n => n % 2 === 0).length;
-      return { params: { numbers: nums, op: 'count_evens' }, answer: count, hint: `count evens in ${JSON.stringify(nums)}` };
+      return {
+        params: { numbers: nums, op: 'count_evens' },
+        answer: count,
+        hint: `count evens in ${JSON.stringify(nums)}`,
+      };
     },
   },
   {
-    id: 'string_length', name: 'String Length', description: 'Return the length of the string',
-    difficulty: 'medium', rewardMultiplier: 2,
+    id: 'string_length',
+    name: 'String Length',
+    description: 'Return the length of the string',
+    difficulty: 'medium',
+    rewardMultiplier: 2,
     generate: () => {
-      const words = ['netcrawl', 'python', 'algorithm', 'network', 'compute', 'worker', 'deploy', 'resource', 'mining', 'firewall'];
+      const words = [
+        'netcrawl',
+        'python',
+        'algorithm',
+        'network',
+        'compute',
+        'worker',
+        'deploy',
+        'resource',
+        'mining',
+        'firewall',
+      ];
       const word = randChoice(words);
       return { params: { text: word, op: 'length' }, answer: word.length, hint: `len("${word}")` };
     },
   },
   {
-    id: 'power', name: 'Exponent', description: 'Compute base ** exp',
-    difficulty: 'medium', rewardMultiplier: 2,
+    id: 'power',
+    name: 'Exponent',
+    description: 'Compute base ** exp',
+    difficulty: 'medium',
+    rewardMultiplier: 2,
     generate: () => {
-      const base = randInt(2, 10); const exp = randInt(2, 4);
+      const base = randInt(2, 10);
+      const exp = randInt(2, 4);
       return { params: { base, exp, op: 'power' }, answer: Math.pow(base, exp), hint: `${base} ** ${exp}` };
     },
   },
 
   // ── Hard ───────────────────────────────────────────────────────────────
   {
-    id: 'fibonacci', name: 'Fibonacci', description: 'Return the n-th Fibonacci number (0-indexed)',
-    difficulty: 'hard', rewardMultiplier: 4,
+    id: 'fibonacci',
+    name: 'Fibonacci',
+    description: 'Return the n-th Fibonacci number (0-indexed)',
+    difficulty: 'hard',
+    rewardMultiplier: 4,
     generate: () => {
       const n = randInt(5, 15);
-      let a = 0, b = 1;
-      for (let i = 0; i < n; i++) { [a, b] = [b, a + b]; }
+      let a = 0,
+        b = 1;
+      for (let i = 0; i < n; i++) {
+        [a, b] = [b, a + b];
+      }
       return { params: { n, op: 'fibonacci' }, answer: a, hint: `fib(${n})` };
     },
   },
   {
-    id: 'sort_and_median', name: 'Median', description: 'Find the median of the list',
-    difficulty: 'hard', rewardMultiplier: 4,
+    id: 'sort_and_median',
+    name: 'Median',
+    description: 'Find the median of the list',
+    difficulty: 'hard',
+    rewardMultiplier: 4,
     generate: () => {
       const len = randChoice([5, 7, 9]); // odd length for clean median
       const nums = Array.from({ length: len }, () => randInt(1, 100));
@@ -177,21 +241,32 @@ export const PUZZLE_TEMPLATES: PuzzleTemplate[] = [
     },
   },
   {
-    id: 'unique_count', name: 'Unique Count', description: 'Count unique values in the list',
-    difficulty: 'hard', rewardMultiplier: 4,
+    id: 'unique_count',
+    name: 'Unique Count',
+    description: 'Count unique values in the list',
+    difficulty: 'hard',
+    rewardMultiplier: 4,
     generate: () => {
       const len = randInt(6, 12);
       const nums = Array.from({ length: len }, () => randInt(1, 20));
       const unique = new Set(nums).size;
-      return { params: { numbers: nums, op: 'unique_count' }, answer: unique, hint: `len(set(${JSON.stringify(nums)}))` };
+      return {
+        params: { numbers: nums, op: 'unique_count' },
+        answer: unique,
+        hint: `len(set(${JSON.stringify(nums)}))`,
+      };
     },
   },
   {
-    id: 'gcd', name: 'GCD', description: 'Find the greatest common divisor',
-    difficulty: 'hard', rewardMultiplier: 4,
+    id: 'gcd',
+    name: 'GCD',
+    description: 'Find the greatest common divisor',
+    difficulty: 'hard',
+    rewardMultiplier: 4,
     generate: () => {
-      const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b);
-      const a = randInt(10, 200); const b = randInt(10, 200);
+      const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+      const a = randInt(10, 200);
+      const b = randInt(10, 200);
       return { params: { a, b, op: 'gcd' }, answer: gcd(a, b), hint: `gcd(${a}, ${b})` };
     },
   },

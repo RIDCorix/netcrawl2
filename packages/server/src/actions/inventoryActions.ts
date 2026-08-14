@@ -29,11 +29,20 @@ interface DepositResult {
 }
 
 function tallyDeposit(items: Item[], uid: string | undefined): DepositResult {
-  let totalData = 0, totalRp = 0, penalty = 0;
+  let totalData = 0,
+    totalRp = 0,
+    penalty = 0;
   for (const item of items) {
-    if (item.type === 'bad_data') { penalty += item.count; incrementStat('total_bad_data_deposited', item.count, uid); }
-    else if (item.type === 'data_fragment') { totalData += item.count; incrementStat('total_data_deposited', item.count, uid); }
-    else if (item.type === 'rp_shard') { totalRp += item.count; incrementStat('total_rp_deposited', item.count, uid); }
+    if (item.type === 'bad_data') {
+      penalty += item.count;
+      incrementStat('total_bad_data_deposited', item.count, uid);
+    } else if (item.type === 'data_fragment') {
+      totalData += item.count;
+      incrementStat('total_data_deposited', item.count, uid);
+    } else if (item.type === 'rp_shard') {
+      totalRp += item.count;
+      incrementStat('total_rp_deposited', item.count, uid);
+    }
   }
   return { totalData, totalRp, penalty };
 }
@@ -90,10 +99,16 @@ export async function handleCollect(ctx: ActionContext, payload: any): Promise<a
 
   const alreadyFullOfStacks = currentHolding.length >= capacity;
   const hasRoomInExisting = freshItems.some(fi =>
-    currentHolding.some(h => h.type === fi.type && h.count < MAX_STACK_SIZE)
+    currentHolding.some(h => h.type === fi.type && h.count < MAX_STACK_SIZE),
   );
   if (alreadyFullOfStacks && !hasRoomInExisting) {
-    return { ok: false, error: 'inventory_full', reason: 'inventory_full', holdingCount: currentHolding.length, capacity };
+    return {
+      ok: false,
+      error: 'inventory_full',
+      reason: 'inventory_full',
+      holdingCount: currentHolding.length,
+      capacity,
+    };
   }
 
   const collected: Item[] = [];
@@ -101,18 +116,33 @@ export async function handleCollect(ctx: ActionContext, payload: any): Promise<a
   let budget = payload.count ?? Infinity;
 
   for (const floor of freshItems) {
-    if (budget <= 0) { remaining.push(floor); continue; }
-    if (payload.itemType && floor.type !== payload.itemType) { remaining.push(floor); continue; }
+    if (budget <= 0) {
+      remaining.push(floor);
+      continue;
+    }
+    if (payload.itemType && floor.type !== payload.itemType) {
+      remaining.push(floor);
+      continue;
+    }
     const wanted = Math.min(floor.count, budget);
     const absorbed = absorbInto(currentHolding, floor.type, wanted);
-    if (absorbed > 0) { collected.push({ type: floor.type, count: absorbed }); budget -= absorbed; }
+    if (absorbed > 0) {
+      collected.push({ type: floor.type, count: absorbed });
+      budget -= absorbed;
+    }
     const leftover = floor.count - absorbed;
     if (leftover > 0) remaining.push({ type: floor.type, count: leftover });
   }
 
   if (payload.itemType && collected.length === 0) return { ok: false, error: 'item_not_found' };
   if (collected.length === 0) {
-    return { ok: false, error: 'inventory_full', reason: 'inventory_full', holdingCount: currentHolding.length, capacity };
+    return {
+      ok: false,
+      error: 'inventory_full',
+      reason: 'inventory_full',
+      holdingCount: currentHolding.length,
+      capacity,
+    };
   }
 
   const newNodes = freshState.nodes.map(n => {
@@ -130,7 +160,11 @@ export async function handleDeposit(ctx: ActionContext): Promise<any> {
   const { workerId, uid, worker } = ctx;
   const currentNode = worker.current_node || worker.node_id;
   if (currentNode !== 'hub') {
-    return { ok: false, error: 'Must be at Hub to deposit. Use drop() to leave items on the ground, or move to Hub first.', reason: 'not_at_hub' };
+    return {
+      ok: false,
+      error: 'Must be at Hub to deposit. Use drop() to leave items on the ground, or move to Hub first.',
+      reason: 'not_at_hub',
+    };
   }
 
   setLock(workerId, ACTION_DELAY);
@@ -173,11 +207,16 @@ export async function handleDiscard(ctx: ActionContext, payload: any): Promise<a
     else holding[idx] = { ...stack, count: stack.count - discardCount };
     upsertWorker({ ...w6, holding }, uid);
     broadcastFullState(uid);
-    if (discarded.type === 'bad_data') { incrementStat('total_bad_data_discarded', discardCount, uid); checkQuests(uid); }
+    if (discarded.type === 'bad_data') {
+      incrementStat('total_bad_data_discarded', discardCount, uid);
+      checkQuests(uid);
+    }
     return { ok: true, discarded };
   } else {
     const discarded = w6.holding;
-    for (const item of discarded) { if (item.type === 'bad_data') incrementStat('total_bad_data_discarded', item.count, uid); }
+    for (const item of discarded) {
+      if (item.type === 'bad_data') incrementStat('total_bad_data_discarded', item.count, uid);
+    }
     upsertWorker({ ...w6, holding: [] }, uid);
     broadcastFullState(uid);
     checkQuests(uid);
@@ -218,16 +257,34 @@ export async function handleDrop(ctx: ActionContext, payload: any): Promise<any>
     saveGameState({ ...freshState, resources: newResources }, uid);
     upsertWorker({ ...w7, holding, status: 'running' }, uid);
     broadcastFullState(uid);
-    broadcast({
-      type: 'HUB_DEPOSIT',
-      payload: { workerId, ts: Date.now(), totalData: tally.totalData, totalRp: tally.totalRp, penalty: tally.penalty, goodCount: tally.totalData + tally.totalRp, badCount: tally.penalty },
-    }, uid);
+    broadcast(
+      {
+        type: 'HUB_DEPOSIT',
+        payload: {
+          workerId,
+          ts: Date.now(),
+          totalData: tally.totalData,
+          totalRp: tally.totalRp,
+          penalty: tally.penalty,
+          goodCount: tally.totalData + tally.totalRp,
+          badCount: tally.penalty,
+        },
+      },
+      uid,
+    );
     incrementStat('total_deposits', 1, uid);
     awardXp(XP_REWARDS.deposit_resources, uid);
     grantNodeXp('hub', 'deposit', uid);
     checkAchievements(uid);
     checkQuests(uid);
-    return { ok: true, dropped, nodeId: dropNodeId, deposited: true, totalData: tally.totalData, penalty: tally.penalty };
+    return {
+      ok: true,
+      dropped,
+      nodeId: dropNodeId,
+      deposited: true,
+      totalData: tally.totalData,
+      penalty: tally.penalty,
+    };
   }
 
   // Non-hub drop: check buffer
@@ -239,7 +296,8 @@ export async function handleDrop(ctx: ActionContext, payload: any): Promise<any>
     if (itemStacksFitBuffer(existingItemsPre, [...acceptedDrops, d], dropBufMax)) acceptedDrops.push(d);
     else rejectedDrops.push(d);
   }
-  if (acceptedDrops.length === 0) return { ok: false, error: 'Node buffer full', reason: 'node_buffer_full', maxBuffer: dropBufMax };
+  if (acceptedDrops.length === 0)
+    return { ok: false, error: 'Node buffer full', reason: 'node_buffer_full', maxBuffer: dropBufMax };
   for (const r of rejectedDrops) holding.push(r);
   upsertWorker({ ...w7, holding }, uid);
 

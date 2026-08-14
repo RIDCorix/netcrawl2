@@ -54,7 +54,7 @@ export function rotateWorkerGeneration(workerId: string, userId?: string): Worke
     generation: (worker.generation || 0) + 1,
     executionToken: '',
     pid: null,
-    status: worker.desiredState === 'running' ? 'deploying' as const : 'suspended' as const,
+    status: worker.desiredState === 'running' ? ('deploying' as const) : ('suspended' as const),
   };
   upsertWorker(next, userId);
   return next;
@@ -107,7 +107,7 @@ export function addWorkerLog(workerId: string, message: string, userId?: string)
 }
 
 export function getWorkerLogs(workerId: string, userId?: string): WorkerLogRow[] {
-  return resolveStore(userId).worker_logs
-    .filter(l => l.worker_id === workerId)
+  return resolveStore(userId)
+    .worker_logs.filter(l => l.worker_id === workerId)
     .slice(-200);
 }

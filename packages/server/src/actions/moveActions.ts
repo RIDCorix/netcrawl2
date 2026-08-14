@@ -23,7 +23,10 @@ export async function handleMove(ctx: ActionContext, payload: any): Promise<any>
   const moveEffects = getNodeChipEffects(targetNodeId, uid);
   const moveDelay = Math.round(MOVE_DELAY * (moveEffects['move_speed_mult'] || 1));
 
-  upsertWorker({ ...worker, status: 'moving', current_node: targetNodeId, previous_node: currentNode, move_id: Date.now() }, uid);
+  upsertWorker(
+    { ...worker, status: 'moving', current_node: targetNodeId, previous_node: currentNode, move_id: Date.now() },
+    uid,
+  );
   grantNodeXp(targetNodeId, 'pass_through', uid);
   broadcastFullState(uid);
 
@@ -59,7 +62,10 @@ export async function handleMoveEdge(ctx: ActionContext, payload: any): Promise<
   const moveEffectsE = getNodeChipEffects(targetNodeE, uid);
   const moveDelayE = Math.round(MOVE_DELAY * (moveEffectsE['move_speed_mult'] || 1));
 
-  upsertWorker({ ...worker, status: 'moving', current_node: targetNodeE, previous_node: currentNodeE, move_id: Date.now() }, uid);
+  upsertWorker(
+    { ...worker, status: 'moving', current_node: targetNodeE, previous_node: currentNodeE, move_id: Date.now() },
+    uid,
+  );
   grantNodeXp(targetNodeE, 'pass_through', uid);
   broadcastFullState(uid);
   setLock(workerId, moveDelayE);
