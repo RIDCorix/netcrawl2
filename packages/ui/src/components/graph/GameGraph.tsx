@@ -30,7 +30,7 @@ import { ErrorOffscreenIndicators } from './ErrorOffscreenIndicators';
 import { toRFNodes, toRFEdges } from './graphUtils';
 import { isNodeUnlockable } from '../../lib/unlockability';
 
-const NODE_TYPES: NodeTypes = {
+export const NODE_TYPES: NodeTypes = {
   hub: HubNode,
   resource: ResourceNode,
   infected: InfectedNode,
@@ -43,9 +43,86 @@ const NODE_TYPES: NodeTypes = {
   auth: AuthNodeComponent,
 };
 
-const EDGE_TYPES: EdgeTypes = {
+export const EDGE_TYPES: EdgeTypes = {
   worker: WorkerEdge,
 };
+
+type GraphCanvasProps = {
+  nodes: Node[];
+  edges: Edge[];
+  onNodeClick: (_: unknown, node: Node) => void;
+  onEdgeClick?: (_: unknown, edge: Edge) => void;
+  fitViewNodes?: Node[];
+  children?: React.ReactNode;
+};
+
+/** Shared React Flow presentation used by the main world and Compute Lab. */
+export function GraphCanvas({
+  nodes: inputNodes,
+  edges: inputEdges,
+  onNodeClick,
+  onEdgeClick,
+  fitViewNodes,
+  children,
+}: GraphCanvasProps) {
+  const [nodes, setNodes] = useNodesState([]);
+  const [edges, setEdges] = useEdgesState([]);
+  const [isPanning, setIsPanning] = useState(false);
+
+  useEffect(() => {
+    setNodes(inputNodes);
+    setEdges(inputEdges);
+  }, [inputNodes, inputEdges, setNodes, setEdges]);
+
+  return (
+    <div style={{ width: '100%', height: '100%' }}>
+      <ReactFlow
+        className={isPanning ? 'is-panning' : undefined}
+        nodes={nodes}
+        edges={edges}
+        onNodeClick={onNodeClick}
+        onEdgeClick={onEdgeClick}
+        nodeTypes={NODE_TYPES}
+        edgeTypes={EDGE_TYPES}
+        fitView
+        fitViewOptions={{ padding: 0.3, nodes: fitViewNodes ?? nodes, maxZoom: 1.2 }}
+        style={{ background: 'transparent' }}
+        proOptions={{ hideAttribution: true }}
+        minZoom={0.4}
+        maxZoom={2}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        elementsSelectable={false}
+        deleteKeyCode={null}
+        onlyRenderVisibleElements
+        onMoveStart={() => setIsPanning(true)}
+        onMoveEnd={() => setIsPanning(false)}
+      >
+        <Background variant={BackgroundVariant.Dots} gap={32} size={1} color="rgba(0, 212, 170, 0.06)" />
+        <MiniMap
+          style={{
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-bright)',
+            borderRadius: 'var(--radius-md)',
+          }}
+          nodeColor={node => {
+            if (node.type === 'hub') return '#00d4aa';
+            if (node.type === 'infected') return '#ff4757';
+            if (node.type === 'resource') return '#45aaf2';
+            if (node.type === 'cache') return '#a78bfa';
+            if (node.type === 'api') return '#f59e0b';
+            if (node.type === 'empty') return '#555';
+            return '#333';
+          }}
+          maskColor="rgba(0, 0, 0, 0.6)"
+          pannable
+          zoomable
+        />
+        {children}
+      </ReactFlow>
+    </div>
+  );
+}
 
 export function GameGraph() {
   // Subscribe only to graph inputs. The server updates tick/resources frequently;
@@ -70,9 +147,6 @@ export function GameGraph() {
     },
     [t],
   );
-  const [nodes, setNodes] = useNodesState([]);
-  const [edges, setEdges] = useEdgesState([]);
-  const [isPanning, setIsPanning] = useState(false);
   const isEdgeSelecting = !!edgeSelectMode;
 
   const knownNodeIdsRef = useRef<Set<string>>(new Set());
@@ -109,11 +183,6 @@ export function GameGraph() {
     () => toRFEdges(gameEdges, isEdgeSelecting, gameNodes, edgeStyle, routePath),
     [gameEdges, isEdgeSelecting, gameNodes, edgeStyle, routePath],
   );
-
-  useEffect(() => {
-    setNodes(rfNodes);
-    setEdges(rfEdges);
-  }, [rfNodes, rfEdges]);
 
   useEffect(() => {
     if (fadeInIdsRef.current.size === 0) return;
@@ -154,55 +223,14 @@ export function GameGraph() {
   );
 
   return (
-    <div style={{ width: '100%', height: '100%' }}>
-      <ReactFlow
-        className={isPanning ? 'is-panning' : undefined}
-        nodes={nodes}
-        edges={edges}
-        onNodeClick={onNodeClick}
-        onEdgeClick={onEdgeClick}
-        nodeTypes={NODE_TYPES}
-        edgeTypes={EDGE_TYPES}
-        fitView
-        fitViewOptions={{
-          padding: 0.3,
-          nodes: nodes.filter(n => n.id === 'hub' || n.data?.unlocked),
-          maxZoom: 1.2,
-        }}
-        style={{ background: 'transparent' }}
-        proOptions={{ hideAttribution: true }}
-        minZoom={0.4}
-        maxZoom={2}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        elementsSelectable={false}
-        deleteKeyCode={null}
-        onlyRenderVisibleElements
-        onMoveStart={() => setIsPanning(true)}
-        onMoveEnd={() => setIsPanning(false)}
-      >
-        <Background variant={BackgroundVariant.Dots} gap={32} size={1} color="rgba(0, 212, 170, 0.06)" />
-        <MiniMap
-          style={{
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border-bright)',
-            borderRadius: 'var(--radius-md)',
-          }}
-          nodeColor={node => {
-            if (node.type === 'hub') return '#00d4aa';
-            if (node.type === 'infected') return '#ff4757';
-            if (node.type === 'resource') return '#45aaf2';
-            if (node.type === 'cache') return '#a78bfa';
-            if (node.type === 'api') return '#f59e0b';
-            if (node.type === 'empty') return '#555';
-            return '#333';
-          }}
-          maskColor="rgba(0, 0, 0, 0.6)"
-          pannable
-          zoomable
-        />
-        <ErrorOffscreenIndicators gameNodes={gameNodes} />
-      </ReactFlow>
-    </div>
+    <GraphCanvas
+      nodes={rfNodes}
+      edges={rfEdges}
+      onNodeClick={onNodeClick}
+      onEdgeClick={onEdgeClick}
+      fitViewNodes={rfNodes.filter(n => n.id === 'hub' || n.data?.unlocked)}
+    >
+      <ErrorOffscreenIndicators gameNodes={gameNodes} />
+    </GraphCanvas>
   );
 }

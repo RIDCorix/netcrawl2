@@ -1,38 +1,78 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { useGameStore } from '../store/gameStore';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Edge, Node } from 'reactflow';
+import { useGameStore, type GameNode } from '../store/gameStore';
 import { useT } from '../hooks/useT';
+import { GraphCanvas } from './graph/GameGraph';
+import { getEdgeHandles } from './graph/graphUtils';
 
 const ADD_NODE_ID = 'e_op_add';
 
-const nodeStyle: CSSProperties = {
-  minWidth: 116,
-  minHeight: 76,
-  padding: 12,
-  borderRadius: 10,
-  border: '1px solid var(--border-bright)',
-  background: 'var(--bg-elevated)',
-  color: 'var(--text-primary)',
-  display: 'flex',
-  flexDirection: 'column',
-  justifyContent: 'center',
-  gap: 4,
-  fontFamily: 'var(--font-mono)',
-  textAlign: 'center',
-  flex: '0 0 auto',
-};
+const LAB_NODES = [
+  {
+    id: 'lab_start',
+    type: 'hub',
+    position: { x: 0, y: 150 },
+    label: 'START',
+    typeKey: 'compute_lab.type.start',
+    roleKey: 'compute_lab.role.start',
+  },
+  {
+    id: 'lab_operator',
+    type: 'compute',
+    position: { x: 260, y: 150 },
+    label: 'OPERATOR',
+    typeKey: 'compute_lab.type.operator',
+    roleKey: 'compute_lab.role.operator',
+    difficulty: 'easy',
+  },
+  {
+    id: 'lab_input_a',
+    type: 'resource',
+    position: { x: 520, y: 45 },
+    label: 'INPUT A',
+    typeKey: 'compute_lab.type.input',
+    roleKey: 'compute_lab.role.input',
+  },
+  {
+    id: 'lab_input_b',
+    type: 'resource',
+    position: { x: 520, y: 255 },
+    label: 'INPUT B',
+    typeKey: 'compute_lab.type.input',
+    roleKey: 'compute_lab.role.input',
+  },
+  {
+    id: 'lab_result',
+    type: 'cache',
+    position: { x: 780, y: 150 },
+    label: 'RESULT',
+    typeKey: 'compute_lab.type.result',
+    roleKey: 'compute_lab.role.result',
+  },
+] as const;
 
-/** A local, unlocked-map view. It never changes the active game layer. */
+const LAB_EDGES = [
+  ['lab_start', 'lab_operator'],
+  ['lab_operator', 'lab_input_a'],
+  ['lab_operator', 'lab_input_b'],
+  ['lab_input_a', 'lab_result'],
+  ['lab_input_b', 'lab_result'],
+] as const;
+
+/** An overlay-only, synthetic unlocked graph. It never changes game graph data. */
 export function ComputeLabScreen() {
   const { computeLabOpen, computeLabSourceNodeId, nodes, selectNode, closeComputeLab } = useGameStore();
+  const edgeStyle = useGameStore(s => s.settings.edgeStyle);
   const t = useT();
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const [zoom, setZoom] = useState(1);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const source = nodes.find(node => node.id === computeLabSourceNodeId);
   const available = source?.id === ADD_NODE_ID && source.type === 'compute' && source.data.unlocked === true;
 
   useEffect(() => {
     if (!computeLabOpen) return;
+    setSelectedNodeId(null);
     closeRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -61,14 +101,45 @@ export function ComputeLabScreen() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [computeLabOpen, closeComputeLab]);
 
+  const labNodes = useMemo<Node[]>(
+    () =>
+      LAB_NODES.map(node => ({
+        id: node.id,
+        type: node.type,
+        position: node.position,
+        selected: node.id === selectedNodeId,
+        data: {
+          label: node.label,
+          unlocked: true,
+          selected: node.id === selectedNodeId,
+          showWorkerDots: false,
+          edgeStyle,
+          difficulty: 'difficulty' in node ? node.difficulty : undefined,
+          resource: node.type === 'resource' ? 'data' : undefined,
+        },
+      })),
+    [edgeStyle, selectedNodeId],
+  );
+  const labEdges = useMemo<Edge[]>(() => {
+    const graphNodes: GameNode[] = LAB_NODES.map(node => ({
+      id: node.id,
+      type: node.type,
+      position: node.position,
+      data: { label: node.label, unlocked: true },
+    }));
+    return LAB_EDGES.map(([source, target]) => ({
+      id: `${source}-${target}`,
+      source,
+      target,
+      type: 'worker',
+      style: { stroke: 'var(--border-bright)', strokeWidth: 1.5 },
+      ...getEdgeHandles(source, target, graphNodes, edgeStyle),
+    }));
+  }, [edgeStyle]);
+  const onNodeClick = useCallback((_: unknown, node: Node) => setSelectedNodeId(node.id), []);
+
   if (!computeLabOpen) return null;
-  const entries = [
-    ['START', t('compute_lab.start_deploy')],
-    ['OPERATOR', '+'],
-    ['INPUT A', t('compute_lab.read_only')],
-    ['INPUT B', t('compute_lab.read_only')],
-    ['RESULT', t('compute_lab.read_only')],
-  ];
+  const selectedNode = LAB_NODES.find(node => node.id === selectedNodeId);
 
   return (
     <div
@@ -87,7 +158,6 @@ export function ComputeLabScreen() {
         gap: 18,
       }}
     >
-      <style>{`@media (max-width: 680px) { .compute-lab-chain { flex-direction: column !important; align-items: stretch !important; } .compute-lab-arrow { transform: rotate(90deg); } }`}</style>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <div>
           <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--accent)' }}>
@@ -95,79 +165,51 @@ export function ComputeLabScreen() {
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('compute_lab.subtitle')}</div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            aria-label={t('compute_lab.zoom_out')}
-            onClick={() => setZoom(z => Math.max(0.75, z - 0.1))}
-            style={{ minWidth: 44, minHeight: 44 }}
-          >
-            −
-          </button>
-          <button
-            aria-label={t('compute_lab.zoom_in')}
-            onClick={() => setZoom(z => Math.min(1.35, z + 0.1))}
-            style={{ minWidth: 44, minHeight: 44 }}
-          >
-            +
-          </button>
-          <button ref={closeRef} onClick={closeComputeLab} style={{ minWidth: 44, minHeight: 44 }}>
-            {t('compute_lab.exit')}
-          </button>
-        </div>
+        <button ref={closeRef} onClick={closeComputeLab} style={{ minWidth: 44, minHeight: 44 }}>
+          {t('compute_lab.exit')}
+        </button>
       </header>
       {!available ? (
         <main role="status" style={{ flex: 1, display: 'grid', placeItems: 'center', color: 'var(--text-muted)' }}>
           {t('compute_lab.locked')}
         </main>
       ) : (
-        <main
-          tabIndex={0}
-          style={{ flex: 1, overflow: 'auto', display: 'flex', alignItems: 'center', outline: 'none' }}
-        >
-          <div
-            className="compute-lab-chain"
-            style={{
-              margin: 'auto',
-              transform: `scale(${zoom})`,
-              transformOrigin: 'center',
-              transition: 'transform .15s',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-            }}
-          >
-            {entries.map(([label, value], index) => (
-              <div key={label} style={{ display: 'contents' }}>
-                {index > 0 && (
-                  <span
-                    className="compute-lab-arrow"
-                    aria-hidden="true"
-                    style={{ color: 'var(--accent)', fontSize: 24 }}
-                  >
-                    →
-                  </span>
-                )}
-                {label === 'START' ? (
-                  <button
-                    title={value}
-                    onClick={() => {
-                      selectNode(ADD_NODE_ID);
-                      closeComputeLab();
-                    }}
-                    style={{ ...nodeStyle, borderColor: 'var(--accent)', cursor: 'pointer' }}
-                  >
-                    <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>{label}</span>
-                    <strong>{value}</strong>
-                  </button>
-                ) : (
-                  <div role="img" aria-label={`${label}: ${value}`} title={value} style={nodeStyle}>
-                    <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>{label}</span>
-                    <strong>{value}</strong>
-                  </div>
-                )}
+        <main style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+          <GraphCanvas nodes={labNodes} edges={labEdges} onNodeClick={onNodeClick} />
+          {selectedNode && (
+            <aside
+              aria-live="polite"
+              style={{
+                position: 'absolute',
+                right: 16,
+                top: 16,
+                width: 'min(300px, calc(100% - 32px))',
+                padding: 16,
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border-bright)',
+                borderRadius: 'var(--radius-md)',
+                boxShadow: '0 8px 28px rgba(0, 0, 0, .45)',
+              }}
+            >
+              <div style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontWeight: 800 }}>
+                {selectedNode.label}
               </div>
-            ))}
-          </div>
+              <div style={{ marginTop: 6, color: 'var(--text-secondary)', fontSize: 13 }}>
+                {t(selectedNode.typeKey)} · {t(selectedNode.roleKey)}
+              </div>
+              {selectedNode.id === 'lab_start' && (
+                <button
+                  onClick={() => {
+                    selectNode(ADD_NODE_ID);
+                    closeComputeLab();
+                  }}
+                  style={{ minWidth: 44, minHeight: 44, marginTop: 14 }}
+                >
+                  {t('compute_lab.start_deploy')}
+                </button>
+              )}
+            </aside>
+          )}
         </main>
       )}
       <footer style={{ color: 'var(--text-muted)', fontSize: 12 }}>

@@ -11,8 +11,14 @@ const store = readFileSync(new URL('../packages/ui/src/store/gameStore.ts', impo
 for (const source of [screen, detail, app]) assert.doesNotMatch(source, /layer\/switch|switchActiveLayer/);
 assert.match(detail, /node\.id === 'e_op_add' && node\.data\.unlocked/);
 assert.match(screen, /source\?\.id === ADD_NODE_ID.*source\.type === 'compute'.*source\.data\.unlocked === true/);
+assert.match(screen, /<GraphCanvas nodes=\{labNodes\} edges=\{labEdges\} onNodeClick=\{onNodeClick\}/);
+assert.match(screen, /LAB_NODES/);
+assert.match(screen, /unlocked: true/);
+assert.match(screen, /selectedNode\.id === 'lab_start'/);
 assert.match(screen, /selectNode\(ADD_NODE_ID\);\s*closeComputeLab\(\)/);
-assert.match(screen, /label === 'START'/);
+assert.doesNotMatch(screen, /compute-lab-chain|compute-lab-arrow|\[zoom, setZoom\]/);
+assert.match(screen, /setSelectedNodeId\(node\.id\)/);
+assert.match(screen, /aria-live="polite"/);
 assert.doesNotMatch(screen, /computeLab\.sessions|task\?\.params|Mastered|Resume/);
 assert.doesNotMatch(store, /computeLab:/);
 assert.match(screen, /role="dialog"/);
