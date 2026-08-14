@@ -64,20 +64,36 @@ assert.match(
   /\.chapter0-voicearrival\.chapter0-screen-fading\s*>\s*\*\s*\{[^}]*opacity:\s*0/s,
   'voice-arrival fade must target scene content only',
 );
-assert.match(
-  nodeWrapper,
-  /data-tutorial-target=\{nodeId\}/,
-  'map nodes must expose a stable tutorial target marker',
-);
+assert.match(nodeWrapper, /data-tutorial-target=\{nodeId\}/, 'map nodes must expose a stable tutorial target marker');
 assert.match(repl, /DeployTutorialGuide/, 'the tutorial guide must remain visible');
-assert.match(repl, /HANDOFF_DISMISSAL_KEY = 'netcrawl-chapter-zero-handoff-dismissed'/, 'handoff acknowledgement must have durable storage');
+assert.match(
+  repl,
+  /HANDOFF_DISMISSAL_KEY = 'netcrawl-chapter-zero-handoff-dismissed'/,
+  'handoff acknowledgement must have durable storage',
+);
 assert.match(repl, /useState\(loadHandoffDismissal\)/, 'handoff acknowledgement must load when the game opens');
-assert.match(repl, /state\.stage === 'handoff' && handoffDismissed/, 'an acknowledged handoff must not render its completion card again');
-assert.match(repl, /localStorage\.setItem\(HANDOFF_DISMISSAL_KEY, 'true'\)/, 'continuing from the completion card must persist the acknowledgement');
+assert.match(
+  repl,
+  /state\.stage === 'handoff' && handoffDismissed/,
+  'an acknowledged handoff must not render its completion card again',
+);
+assert.match(
+  repl,
+  /localStorage\.setItem\(HANDOFF_DISMISSAL_KEY, 'true'\)/,
+  'continuing from the completion card must persist the acknowledgement',
+);
 for (const stage of [
-  'hello_preview', 'hello_deploy_open', 'hello_deploy_confirm', 'hello_deploy_execute', 'hello_log',
-  'miner_preview', 'miner_deploy_open', 'miner_edge_select', 'miner_pickaxe_equip',
-  'miner_deploy_confirm', 'miner_deploy_execute',
+  'hello_preview',
+  'hello_deploy_open',
+  'hello_deploy_confirm',
+  'hello_deploy_execute',
+  'hello_log',
+  'miner_preview',
+  'miner_deploy_open',
+  'miner_edge_select',
+  'miner_pickaxe_equip',
+  'miner_deploy_confirm',
+  'miner_deploy_execute',
 ]) {
   assert.match(repl, new RegExp(`'${stage}'`), `${stage} must be part of the v4 client stage order`);
 }
@@ -88,19 +104,39 @@ assert.match(deployGuide, /minerCompletedLoops/, 'guide must show completed on_l
 assert.match(deployGuide, /miner-retry/, 'guide must offer terminal Miner recovery');
 assert.match(deployGuide, /hello_log/, 'guide must own the HelloWorker log checkpoint');
 assert.match(deployGuide, /helloWorkerId/, 'guide must target the verified HelloWorker');
-assert.doesNotMatch(deployDialog, /__hello_worker__|__no_equipment__/, 'tutorial deployment must not use sentinel values');
+assert.doesNotMatch(
+  deployDialog,
+  /__hello_worker__|__no_equipment__/,
+  'tutorial deployment must not use sentinel values',
+);
 assert.match(deployDialog, /data-tutorial-dialog/, 'tutorial dialog must expose an allowlisted surface');
-assert.match(deployDialog, /data-tutorial-allowed=\{tutorialMode \? true : undefined\}/, 'tutorial navigation must be explicitly allowlisted');
+assert.match(
+  deployDialog,
+  /data-tutorial-allowed=\{tutorialMode \? true : undefined\}/,
+  'tutorial navigation must be explicitly allowlisted',
+);
 assert.match(equipSlot, /data-tutorial-allowed/, 'tutorial equipment controls must be explicitly allowlisted');
 assert.match(deployDialog, /TUTORIAL_STEP_BY_STAGE/, 'a refresh must restore the committed deployment step');
-assert.match(deployDialog, /const restoredStep = TUTORIAL_STEP_BY_STAGE\[tutorial\.stage\]/, 'the restored deployment step must be derived from server state');
+assert.match(
+  deployDialog,
+  /const restoredStep = TUTORIAL_STEP_BY_STAGE\[tutorial\.stage\]/,
+  'the restored deployment step must be derived from server state',
+);
 assert.match(deployDialog, /selectedEdgeId/, 'a resumed deployment must restore its selected edge');
 assert.match(deployDialog, /selectedPickaxeType/, 'a resumed deployment must restore its selected pickaxe');
 assert.match(deployDialog, /tutorial\?: TutorialDeployDescriptor/, 'tutorial dialog must use an explicit descriptor');
 assert.doesNotMatch(deployDialog, /tutorialMode\?: boolean/, 'tutorial mode must not be a boolean contract');
-assert.match(nodePanel, /RESUMABLE_TUTORIAL_DEPLOY_STAGES/, 'a refresh must restore an in-progress tutorial deployment dialog');
+assert.match(
+  nodePanel,
+  /RESUMABLE_TUTORIAL_DEPLOY_STAGES/,
+  'a refresh must restore an in-progress tutorial deployment dialog',
+);
 assert.match(nodePanel, /if \(resumeDeploy\) selectNode\('hub'\)/, 'a resumed deployment must restore its Hub target');
-assert.match(nodePanel, /setDeployOpen\(resumeDeploy\)/, 'only committed deployment stages may resume the tutorial dialog');
+assert.match(
+  nodePanel,
+  /setDeployOpen\(resumeDeploy\)/,
+  'only committed deployment stages may resume the tutorial dialog',
+);
 assert.match(app, /ChapterZeroInteractionGuard/, 'application shell must install the tutorial interaction guard');
 assert.match(app, /stopImmediatePropagation/, 'interaction guard must block unrelated state mutations');
 assert.match(app, /focusin/, 'interaction guard must retain focus within the allowed surface');
@@ -134,9 +170,21 @@ assert.match(
   /const setupGate = stage === 'hello_preview' && !codeServerUp/,
   'the setup gate must use the live-server signal',
 );
-assert.match(deployGuide, /requestAnimationFrame\(\(\) => \{\s*window\.dispatchEvent\(new CustomEvent\('chapter-zero-deploy-mode'/s, 'the deploy descriptor must publish after sibling subscriptions mount');
-assert.match(questGuideDialog, /data-code-server-status=\{codeServerUp \? 'connected' : 'waiting'\}/, 'Dev Setup must expose live connection status');
-assert.match(questGuideDialog, /quest\.q_setup\.connection_connected/, 'Dev Setup must render its connected status copy');
+assert.match(
+  deployGuide,
+  /requestAnimationFrame\(\(\) => \{\s*window\.dispatchEvent\(new CustomEvent\('chapter-zero-deploy-mode'/s,
+  'the deploy descriptor must publish after sibling subscriptions mount',
+);
+assert.match(
+  questGuideDialog,
+  /data-code-server-status=\{codeServerUp \? 'connected' : 'waiting'\}/,
+  'Dev Setup must expose live connection status',
+);
+assert.match(
+  questGuideDialog,
+  /quest\.q_setup\.connection_connected/,
+  'Dev Setup must render its connected status copy',
+);
 assert.doesNotMatch(
   connectDialog,
   /localStorage\.getItem\(['"]netcrawl-token['"]\)/,
@@ -165,7 +213,9 @@ assert.match(
 for (const previewStage of ['hello_preview', 'miner_preview']) {
   assert.match(
     styles,
-    new RegExp(`\\[data-tutorial-stage="${previewStage}"\\] \\.chapter0-deploy-guide-inner[\\s\\S]{0,160}pointer-events:\\s*none`),
+    new RegExp(
+      `\\[data-tutorial-stage=['"]${previewStage}['"]\\] \\.chapter0-deploy-guide-inner[\\s\\S]{0,160}pointer-events:\\s*none`,
+    ),
     `${previewStage} guide must not intercept clicks meant for its highlighted map target`,
   );
 }
@@ -191,12 +241,24 @@ assert.ok(
     app.includes('isAllowed(event.target, event.type)'),
   'tutorial interaction guard must allow map-pane panning events without allowlisting node descendants',
 );
-assert.match(nodePanel, /data-tutorial-target=\{chapterZeroDeploy \? 'deploy'/, 'Hub deploy must be a stable tutorial target');
+assert.match(
+  nodePanel,
+  /data-tutorial-target=\{chapterZeroDeploy \? 'deploy'/,
+  'Hub deploy must be a stable tutorial target',
+);
 assert.match(nodePanel, /!chapterZeroDeploy\.setupGate/, 'Hub deploy must stay locked during code-server setup');
 assert.match(workerPanel, /data-tutorial-worker-log/, 'HelloWorker logs must be a stable tutorial target');
 for (const locale of [en, zhTW, ja]) {
-  assert.match(locale, /tutorial\.chapter_zero\.deploy\.hello_preview_title/, 'all locales need the Hello preview copy');
-  assert.match(locale, /tutorial\.chapter_zero\.deploy\.miner_preview_title/, 'all locales need the miner preview copy');
+  assert.match(
+    locale,
+    /tutorial\.chapter_zero\.deploy\.hello_preview_title/,
+    'all locales need the Hello preview copy',
+  );
+  assert.match(
+    locale,
+    /tutorial\.chapter_zero\.deploy\.miner_preview_title/,
+    'all locales need the miner preview copy',
+  );
   assert.match(locale, /tutorial\.chapter_zero\.deploy\.continue_to_miner/, 'all locales need the log checkpoint CTA');
   assert.match(locale, /quest\.q_setup\.connection_connected/, 'all locales need Dev Setup connection status copy');
 }
@@ -211,15 +273,27 @@ assert.match(
   /border:\s*['"]2px solid var\(--accent\)['"]/,
   'the Hub node must retain a slightly larger accent border',
 );
-assert.match(deployDialog, /if \(advancing \|\| !canGoNext\(\)\) return;/, 'stage advance must ignore duplicate clicks');
-assert.match(deployDialog, /disabled=\{advancing \|\| !canGoNext\(\)\}/, 'stage advance control must lock while saving');
+assert.match(
+  deployDialog,
+  /if \(advancing \|\| !canGoNext\(\)\) return;/,
+  'stage advance must ignore duplicate clicks',
+);
+assert.match(
+  deployDialog,
+  /disabled=\{advancing \|\| !canGoNext\(\)\}/,
+  'stage advance control must lock while saving',
+);
 assert.match(tutorialOverlay, /skipToConnection/, 'the first tutorial step must expose a connection-step skip action');
-assert.match(tutorialOverlay, /selectQuest\('q_setup'\)/, 'skipping the first tutorial step must open code server setup');
+assert.match(
+  tutorialOverlay,
+  /selectQuest\('q_setup'\)/,
+  'skipping the first tutorial step must open code server setup',
+);
 const deployCopy = zhTW.slice(
   zhTW.indexOf("'tutorial.chapter_zero.deploy.hub_prompt'"),
   zhTW.indexOf("'tutorial.chapter_zero.deploy.edge_selecting'"),
 );
-assert.match(deployCopy, /高亮的基地/,'zh-TW deploy prompt must use the localized map term');
+assert.match(deployCopy, /高亮的基地/, 'zh-TW deploy prompt must use the localized map term');
 assert.doesNotMatch(deployCopy, /Hub/, 'zh-TW deploy copy must not use the English Hub label');
 
 console.log('Chapter Zero UI structure, highlight, transition, and playback contracts passed');

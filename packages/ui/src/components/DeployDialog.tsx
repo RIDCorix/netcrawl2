@@ -190,15 +190,21 @@ export function DeployDialog({
     if (!tutorialMode || !deployState) return;
     const edge = gameEdges.find(candidate => candidate.id === deployState.selectedEdgeId);
     if (edge && routeSlots[0]) {
-      setRoutes(current => current[routeSlots[0].name] ? current : {
-        ...current,
-        [routeSlots[0].name]: [{ id: edge.id, source: edge.source, target: edge.target }],
-      });
+      setRoutes(current =>
+        current[routeSlots[0].name]
+          ? current
+          : {
+              ...current,
+              [routeSlots[0].name]: [{ id: edge.id, source: edge.source, target: edge.target }],
+            },
+      );
     }
     if (deployState.selectedPickaxeType && classItemSlots[0]) {
-      setEquippedPerUnit(current => current[0]?.[classItemSlots[0].name] ? current : [
-        { ...(current[0] || {}), [classItemSlots[0].name]: deployState.selectedPickaxeType! },
-      ]);
+      setEquippedPerUnit(current =>
+        current[0]?.[classItemSlots[0].name]
+          ? current
+          : [{ ...(current[0] || {}), [classItemSlots[0].name]: deployState.selectedPickaxeType! }],
+      );
     }
   }, [classItemSlots, gameEdges, routeSlots, tutorial, tutorialMode]);
 

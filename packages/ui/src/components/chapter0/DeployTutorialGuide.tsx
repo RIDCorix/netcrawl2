@@ -138,7 +138,14 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
 
   // The shell guard consumes an authoritative descriptor, never a boolean.
   useEffect(() => {
-    const detail = { active: true, phase, stage, session, setupGate: setupGate || setupGateTransition, setupGateTransition };
+    const detail = {
+      active: true,
+      phase,
+      stage,
+      session,
+      setupGate: setupGate || setupGateTransition,
+      setupGateTransition,
+    };
     // Sibling panels subscribe in their own effects. Publish after the first
     // frame so a refresh cannot miss the descriptor and strand a persisted
     // deployment stage behind the interaction guard.
@@ -147,9 +154,11 @@ export function DeployTutorialGuide({ stage, session, onDismiss }: Props) {
     });
     return () => {
       cancelAnimationFrame(frame);
-      window.dispatchEvent(new CustomEvent('chapter-zero-deploy-mode', {
-        detail: { ...detail, active: false },
-      }));
+      window.dispatchEvent(
+        new CustomEvent('chapter-zero-deploy-mode', {
+          detail: { ...detail, active: false },
+        }),
+      );
     };
   }, [phase, session, setupGate, setupGateTransition, stage]);
 

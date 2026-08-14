@@ -41,7 +41,13 @@ type TutorialStage =
   | 'miner_deploy_execute'
   | 'handoff';
 
-type TutorialDescriptor = { active: true; phase: 'hello' | 'miner'; stage: TutorialStage; setupGate?: boolean; session?: any } | null;
+type TutorialDescriptor = {
+  active: true;
+  phase: 'hello' | 'miner';
+  stage: TutorialStage;
+  setupGate?: boolean;
+  session?: { world?: { deployTutorial?: { selectedEdgeId?: string | null; selectedPickaxeType?: string | null } } };
+} | null;
 
 // These stages have already committed to the deployment dialog on the server.
 // Reopen it after a refresh so the interaction guard cannot strand a player
@@ -92,7 +98,9 @@ export function NodeDetailPanel() {
   }, []);
 
   useEffect(() => {
-    const resumeDeploy = Boolean(chapterZeroDeploy && RESUMABLE_TUTORIAL_DEPLOY_STAGES.includes(chapterZeroDeploy.stage));
+    const resumeDeploy = Boolean(
+      chapterZeroDeploy && RESUMABLE_TUTORIAL_DEPLOY_STAGES.includes(chapterZeroDeploy.stage),
+    );
     if (resumeDeploy) selectNode('hub');
     setDeployOpen(resumeDeploy);
   }, [chapterZeroDeploy, selectNode]);
