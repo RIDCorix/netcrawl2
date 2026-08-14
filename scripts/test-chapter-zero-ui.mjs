@@ -221,7 +221,7 @@ for (const previewStage of ['hello_preview', 'miner_preview']) {
 }
 assert.match(
   deployGuide,
-  /setupGate: setupGate \|\| setupGateTransition, setupGateTransition/,
+  /setupGate:\s*setupGate \|\| setupGateTransition,[\s\S]{0,80}setupGateTransition,/,
   'setup cleanup must keep the guard on the transition allowlist until it finishes',
 );
 assert.match(
