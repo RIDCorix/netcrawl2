@@ -18,6 +18,7 @@ import { questRoutes } from './questRoutes.js';
 import { layerRoutes } from './layerRoutes.js';
 import { devRoutes } from './devRoutes.js';
 import { runtimeRoutes } from './runtimeRoutes.js';
+import { computeLabRoutes } from './computeLabRoutes.js';
 import { getUserId } from './helpers.js';
 
 export const router: Router = Router();
@@ -64,6 +65,7 @@ router.use('/', questRoutes);
 router.use('/', layerRoutes);
 router.use('/', devRoutes);
 router.use('/', runtimeRoutes);
+router.use('/', computeLabRoutes);
 
 // Worker action dispatcher (POST /api/worker/action)
 router.post('/worker/action', async (req: Request, res: Response) => {

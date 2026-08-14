@@ -2,46 +2,21 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const screen = readFileSync(new URL('../packages/ui/src/components/ComputeLabScreen.tsx', import.meta.url), 'utf8');
-const detail = readFileSync(
-  new URL('../packages/ui/src/components/nodeDetail/NodeTypeInfo.tsx', import.meta.url),
-  'utf8',
-);
-const app = readFileSync(new URL('../packages/ui/src/App.tsx', import.meta.url), 'utf8');
-const store = readFileSync(new URL('../packages/ui/src/store/gameStore.ts', import.meta.url), 'utf8');
-const panel = readFileSync(new URL('../packages/ui/src/components/NodeDetailPanel.tsx', import.meta.url), 'utf8');
-const locales = ['en', 'ja', 'zh-TW'].map(locale =>
-  readFileSync(new URL(`../packages/ui/src/i18n/${locale}.ts`, import.meta.url), 'utf8'),
-);
-for (const source of [screen, detail, app]) assert.doesNotMatch(source, /layer\/switch|switchActiveLayer/);
-assert.match(detail, /node\.id === 'e_op_add' && node\.data\.unlocked/);
-assert.match(screen, /source\?\.id === ADD_NODE_ID.*source\.type === 'compute'.*source\.data\.unlocked === true/);
-assert.match(screen, /<GraphCanvasComponent nodes=\{labNodes\} edges=\{labEdges\} onNodeClick=\{onNodeClick\}/);
-assert.match(screen, /LAB_NODES/);
-assert.match(screen, /label: t\(node\.labelKey\)/);
-assert.match(screen, /unlocked: true/);
-assert.match(screen, /rate: node\.type === 'resource' \? 0 : undefined/);
-assert.match(screen, /selectedNode\?\.id === 'lab_start'/);
-assert.match(screen, /<NodeDetailPanel/);
-assert.match(screen, /nodeOverride=\{selectedGameNode\}/);
-assert.match(screen, /inspectionOnly/);
-assert.match(screen, /deployTargetNodeId=\{selectedNode\?\.id === 'lab_start' \? ADD_NODE_ID : undefined\}/);
-assert.match(panel, /nodeId=\{deployTargetNodeId \?\? node\.id\}/);
-assert.match(panel, /hasNodeOverride = Object\.prototype\.hasOwnProperty\.call\(props, 'nodeOverride'\)/);
-assert.match(panel, /inspectionOnly \? !!deployTargetNodeId : node\.id === 'hub' \|\| node\.data\.unlocked/);
-assert.match(panel, /!inspectionOnly && node\.data\.unlocked && node\.type === 'resource'/);
-assert.match(screen, /if \(deployOpen\) return/);
-assert.match(screen, /onDeployOpenChange=\{setDeployOpen\}/);
-assert.doesNotMatch(screen, /compute-lab-chain|compute-lab-arrow|\[zoom, setZoom\]/);
-assert.match(screen, /setSelectedNodeId\(node\.id\)/);
-assert.doesNotMatch(screen, /<aside/);
-assert.doesNotMatch(screen, /computeLab\.sessions|task\?\.params|Mastered|Resume/);
-assert.doesNotMatch(store, /computeLab:/);
+const server = readFileSync(new URL('../packages/server/src/routes/computeLabRoutes.ts', import.meta.url), 'utf8');
+const runner = readFileSync(new URL('../packages/sdk-python/netcrawl/compute_lab_runner.py', import.meta.url), 'utf8');
+
 assert.match(screen, /role="dialog"/);
 assert.match(screen, /aria-modal="true"/);
-assert.match(screen, /event\.key === 'Escape'/);
-assert.match(screen, /minHeight: 44/);
-assert.match(app, /<ComputeLabScreen \/>/);
-for (const key of ['start', 'operator', 'input_a', 'input_b', 'result']) {
-  for (const locale of locales) assert.match(locale, new RegExp(`compute_lab\\.node\\.${key}`));
-}
-console.log('compute lab UI contract passed');
+assert.match(screen, /textarea/);
+assert.match(screen, /compute-lab\/tasks/);
+assert.match(screen, /compute-lab\/runs/);
+assert.match(screen, /SUBMIT LAST RUN|compute_lab\.submit/);
+assert.match(screen, /type="range"/);
+assert.doesNotMatch(screen, /GraphCanvas|LAB_NODES|NodeDetailPanel|worker\.goto/);
+assert.match(server, /compute-lab\/tasks/);
+assert.match(server, /compute-lab\/submissions/);
+assert.match(server, /getActivePuzzleParams/);
+assert.match(runner, /sys\.settrace/);
+assert.match(runner, /InstrumentExpressions/);
+assert.match(runner, /attribute access is not allowed/);
+console.log('focused Compute Lab contract passed');

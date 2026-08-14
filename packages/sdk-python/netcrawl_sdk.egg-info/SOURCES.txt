@@ -4,6 +4,7 @@ netcrawl/__init__.py
 netcrawl/app.py
 netcrawl/base.py
 netcrawl/client.py
+netcrawl/compute_lab_runner.py
 netcrawl/fields.py
 netcrawl/icons.py
 netcrawl/models.py
@@ -24,5 +25,6 @@ netcrawl_sdk.egg-info/SOURCES.txt
 netcrawl_sdk.egg-info/dependency_links.txt
 netcrawl_sdk.egg-info/requires.txt
 netcrawl_sdk.egg-info/top_level.txt
+tests/test_lifecycle.py
 tests/test_route_injection.py
 tests/test_spawner_output.py

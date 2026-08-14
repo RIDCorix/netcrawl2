@@ -1,172 +1,141 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Edge, Node } from 'reactflow';
-import { useGameStore, type GameNode } from '../store/gameStore';
+import { useEffect, useRef, useState } from 'react';
+import { useGameStore } from '../store/gameStore';
+import { apiFetch } from '../lib/api';
 import { useT } from '../hooks/useT';
-import { GraphCanvas } from './graph/GameGraph';
-import { getEdgeHandles } from './graph/graphUtils';
-import { NodeDetailPanel } from './NodeDetailPanel';
 
-const ADD_NODE_ID = 'e_op_add';
+type Frame = {
+  sequence: number;
+  phase: string;
+  line?: number;
+  locals?: Record<string, unknown>;
+  changed?: string[];
+  expression?: { source: string; value: unknown };
+  value?: unknown;
+  error?: { message: string };
+};
+type Run = { id: string; revision: number; status: string; frames: Frame[]; returnValue?: unknown };
+type Task = {
+  taskId: string;
+  params: Record<string, unknown>;
+  hint: string;
+  difficulty: string;
+  functionSignature: string;
+};
+const TERMINAL = new Set(['trace_ready', 'syntax', 'runtime', 'timeout', 'limit', 'disconnected']);
 
-const LAB_NODES = [
-  {
-    id: 'lab_start',
-    type: 'hub',
-    position: { x: 0, y: 150 },
-    labelKey: 'compute_lab.node.start',
-    typeKey: 'compute_lab.type.start',
-    roleKey: 'compute_lab.role.start',
-  },
-  {
-    id: 'lab_operator',
-    type: 'compute',
-    position: { x: 260, y: 150 },
-    labelKey: 'compute_lab.node.operator',
-    typeKey: 'compute_lab.type.operator',
-    roleKey: 'compute_lab.role.operator',
-    difficulty: 'easy',
-  },
-  {
-    id: 'lab_input_a',
-    type: 'resource',
-    position: { x: 520, y: 45 },
-    labelKey: 'compute_lab.node.input_a',
-    typeKey: 'compute_lab.type.input',
-    roleKey: 'compute_lab.role.input',
-  },
-  {
-    id: 'lab_input_b',
-    type: 'resource',
-    position: { x: 520, y: 255 },
-    labelKey: 'compute_lab.node.input_b',
-    typeKey: 'compute_lab.type.input',
-    roleKey: 'compute_lab.role.input',
-  },
-  {
-    id: 'lab_result',
-    type: 'cache',
-    position: { x: 780, y: 150 },
-    labelKey: 'compute_lab.node.result',
-    typeKey: 'compute_lab.type.result',
-    roleKey: 'compute_lab.role.result',
-  },
-] as const;
-
-const LAB_EDGES = [
-  ['lab_start', 'lab_operator'],
-  ['lab_operator', 'lab_input_a'],
-  ['lab_operator', 'lab_input_b'],
-  ['lab_input_a', 'lab_result'],
-  ['lab_input_b', 'lab_result'],
-] as const;
-
-/** An overlay-only, synthetic unlocked graph. It never changes game graph data. */
-export function ComputeLabScreen({
-  GraphCanvasComponent = GraphCanvas,
-}: {
-  GraphCanvasComponent?: typeof GraphCanvas;
-} = {}) {
-  const { computeLabOpen, computeLabSourceNodeId, nodes, closeComputeLab } = useGameStore();
-  const edgeStyle = useGameStore(s => s.settings.edgeStyle);
+/** Focused code workspace. Its only visual model is program state, never map geography. */
+export function ComputeLabScreen() {
+  const { computeLabOpen, computeLabSourceNodeId, nodes, closeComputeLab, codeServerConnected } = useGameStore();
   const t = useT();
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [deployOpen, setDeployOpen] = useState(false);
-  const source = nodes.find(node => node.id === computeLabSourceNodeId);
-  const available = source?.id === ADD_NODE_ID && source.type === 'compute' && source.data.unlocked === true;
+  const sourceNode = nodes.find(node => node.id === computeLabSourceNodeId);
+  const available = sourceNode?.type === 'compute' && sourceNode.data.unlocked === true;
+  const [task, setTask] = useState<Task | null>(null);
+  const [source, setSource] = useState(
+    'def solve(params):\n    # Return the answer for this task.\n    return params["a"] + params["b"]\n',
+  );
+  const [revision, setRevision] = useState(0);
+  const [run, setRun] = useState<Run | null>(null);
+  const [frameIndex, setFrameIndex] = useState(0);
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
-    if (!computeLabOpen) return;
-    setSelectedNodeId(null);
-    setDeployOpen(false);
+    if (!computeLabOpen || !available || !sourceNode) return;
+    const key = `netcrawl-compute-lab:${sourceNode.id}`;
+    const saved = localStorage.getItem(key);
+    if (saved) setSource(saved);
     closeRef.current?.focus();
-  }, [computeLabOpen]);
+    apiFetch('/api/compute-lab/tasks', { method: 'POST', body: JSON.stringify({ nodeId: sourceNode.id }) })
+      .then(async response => ({ response, body: await response.json() }))
+      .then(({ response, body }) => {
+        if (!response.ok) throw new Error(body.error || 'Unable to load task');
+        setTask(body);
+        setMessage('');
+      })
+      .catch(error => setMessage(error.message));
+  }, [computeLabOpen, available, sourceNode?.id]);
+
+  useEffect(() => {
+    if (!sourceNode || !computeLabOpen) return;
+    localStorage.setItem(`netcrawl-compute-lab:${sourceNode.id}`, source);
+  }, [source, sourceNode?.id, computeLabOpen]);
+
+  useEffect(() => {
+    if (!run || TERMINAL.has(run.status)) return;
+    const timer = window.setInterval(() => {
+      apiFetch(`/api/compute-lab/runs/${run.id}`)
+        .then(response => response.json())
+        .then(body => {
+          if (body.run) {
+            setRun(body.run);
+            setFrameIndex(Math.max(0, body.run.frames.length - 1));
+          }
+        })
+        .catch(() => setMessage('Connection lost. Your draft is still saved.'));
+    }, 350);
+    return () => window.clearInterval(timer);
+  }, [run?.id, run?.status]);
 
   useEffect(() => {
     if (!computeLabOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (deployOpen) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         closeComputeLab();
       }
       if (event.key === 'Tab') {
-        const focusable = Array.from(
-          dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), [tabindex="0"]') || [],
+        const items = Array.from(
+          dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), textarea:not([disabled])') || [],
         );
-        const current = focusable.indexOf(document.activeElement as HTMLElement);
-        const next = event.shiftKey
-          ? current <= 0
-            ? focusable.length - 1
-            : current - 1
-          : current === focusable.length - 1
-            ? 0
-            : current + 1;
-        if (focusable.length) {
+        const current = items.indexOf(document.activeElement as HTMLElement);
+        if (items.length) {
           event.preventDefault();
-          focusable[next].focus();
+          items[(current + (event.shiftKey ? items.length - 1 : 1)) % items.length].focus();
         }
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [computeLabOpen, closeComputeLab, deployOpen]);
-
-  const labNodes = useMemo<Node[]>(
-    () =>
-      LAB_NODES.map(node => ({
-        id: node.id,
-        type: node.type,
-        position: node.position,
-        selected: node.id === selectedNodeId,
-        data: {
-          label: t(node.labelKey),
-          unlocked: true,
-          selected: node.id === selectedNodeId,
-          showWorkerDots: false,
-          edgeStyle,
-          difficulty: 'difficulty' in node ? node.difficulty : undefined,
-          resource: node.type === 'resource' ? 'data' : undefined,
-          rate: node.type === 'resource' ? 0 : undefined,
-        },
-      })),
-    [edgeStyle, selectedNodeId, t],
-  );
-  const labEdges = useMemo<Edge[]>(() => {
-    const graphNodes: GameNode[] = LAB_NODES.map(node => ({
-      id: node.id,
-      type: node.type,
-      position: node.position,
-      data: { label: t(node.labelKey), unlocked: true },
-    }));
-    return LAB_EDGES.map(([source, target]) => ({
-      id: `${source}-${target}`,
-      source,
-      target,
-      type: 'worker',
-      style: { stroke: 'var(--border-bright)', strokeWidth: 1.5 },
-      ...getEdgeHandles(source, target, graphNodes, edgeStyle),
-    }));
-  }, [edgeStyle, t]);
-  const onNodeClick = useCallback((_: unknown, node: Node) => setSelectedNodeId(node.id), []);
+  }, [computeLabOpen, closeComputeLab]);
 
   if (!computeLabOpen) return null;
-  const selectedNode = LAB_NODES.find(node => node.id === selectedNodeId);
-  const selectedGameNode: GameNode | null = selectedNode
-    ? {
-        id: selectedNode.id,
-        type: selectedNode.type,
-        position: selectedNode.position,
-        data: {
-          label: t(selectedNode.labelKey),
-          unlocked: true,
-          difficulty: 'difficulty' in selectedNode ? selectedNode.difficulty : undefined,
-          resource: selectedNode.type === 'resource' ? 'data' : undefined,
-          rate: selectedNode.type === 'resource' ? 0 : undefined,
-        },
-      }
-    : null;
+  const stale = Boolean(run && run.revision !== revision);
+  const frame = run?.frames[frameIndex];
+  const updateSource = (value: string) => {
+    setSource(value);
+    setRevision(current => current + 1);
+  };
+  const startRun = async () => {
+    if (!task || !sourceNode) return;
+    setMessage('');
+    const response = await apiFetch('/api/compute-lab/runs', {
+      method: 'POST',
+      body: JSON.stringify({ taskId: task.taskId, source, revision, nodeId: sourceNode.id }),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      setMessage(body.error || 'Run failed to start');
+      return;
+    }
+    setRun({ id: body.runId, revision, status: body.status, frames: [] });
+    setFrameIndex(0);
+  };
+  const submit = async () => {
+    if (!task || !run || stale) return;
+    const response = await apiFetch('/api/compute-lab/submissions', {
+      method: 'POST',
+      body: JSON.stringify({ taskId: task.taskId, runId: run.id }),
+    });
+    const body = await response.json();
+    setMessage(
+      body.correct
+        ? `Correct · +${body.reward?.amount || 0} ${body.reward?.type || ''}`
+        : body.correct === false
+          ? `Not yet: expected ${body.expected}, got ${body.got}`
+          : body.error || 'Submission failed',
+    );
+  };
 
   return (
     <div
@@ -178,43 +147,142 @@ export function ComputeLabScreen({
         position: 'fixed',
         inset: 0,
         zIndex: 1000,
-        background: 'rgba(3, 8, 15, .96)',
+        overflow: 'auto',
+        background: 'rgba(3, 8, 15, .98)',
         padding: 'max(18px, 4vw)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 18,
+        color: 'var(--text-primary)',
       }}
     >
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+      <header
+        style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', marginBottom: 16 }}
+      >
         <div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--accent)' }}>
-            {t('compute_lab.title')}
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('compute_lab.subtitle')}</div>
+          <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>{t('compute_lab.title')}</strong>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('compute_lab.workspace_subtitle')}</div>
         </div>
         <button ref={closeRef} onClick={closeComputeLab} style={{ minWidth: 44, minHeight: 44 }}>
           {t('compute_lab.exit')}
         </button>
       </header>
       {!available ? (
-        <main role="status" style={{ flex: 1, display: 'grid', placeItems: 'center', color: 'var(--text-muted)' }}>
-          {t('compute_lab.locked')}
-        </main>
+        <main role="status">{t('compute_lab.locked')}</main>
       ) : (
-        <main style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-          <GraphCanvasComponent nodes={labNodes} edges={labEdges} onNodeClick={onNodeClick} />
-          <NodeDetailPanel
-            nodeOverride={selectedGameNode}
-            onCloseOverride={() => setSelectedNodeId(null)}
-            inspectionOnly
-            deployTargetNodeId={selectedNode?.id === 'lab_start' ? ADD_NODE_ID : undefined}
-            onDeployOpenChange={setDeployOpen}
-          />
+        <main style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 1fr) minmax(300px, 1fr)', gap: 18 }}>
+          <section style={{ display: 'grid', gap: 12 }}>
+            <div>
+              <strong>{t('compute_lab.challenge')}</strong>
+              <p style={{ color: 'var(--text-muted)' }}>{task?.hint || t('compute_lab.loading')}</p>
+              <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(task?.params || {}, null, 2)}</pre>
+            </div>
+            <label htmlFor="compute-lab-editor">
+              <strong>{task?.functionSignature || 'def solve(params):'}</strong>
+            </label>
+            <textarea
+              id="compute-lab-editor"
+              value={source}
+              onChange={event => updateSource(event.target.value)}
+              spellCheck={false}
+              style={{
+                minHeight: 300,
+                resize: 'vertical',
+                fontFamily: 'var(--font-mono)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text-primary)',
+                padding: 14,
+              }}
+            />
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button onClick={startRun} disabled={!task || !codeServerConnected} style={{ minHeight: 44 }}>
+                {t('compute_lab.run')}
+              </button>
+              <button
+                onClick={submit}
+                disabled={!run || run.status !== 'trace_ready' || stale}
+                style={{ minHeight: 44 }}
+              >
+                {t('compute_lab.submit')}
+              </button>
+            </div>
+            {!codeServerConnected && <div role="status">{t('compute_lab.runner_offline')}</div>}
+            {message && <div role="status">{message}</div>}
+          </section>
+          <section
+            aria-label={t('compute_lab.trace')}
+            style={{ border: '1px solid var(--border-bright)', padding: 14, minHeight: 400 }}
+          >
+            <strong>{t('compute_lab.trace')}</strong>
+            <div style={{ color: 'var(--text-muted)', margin: '8px 0' }}>
+              {run ? `${run.status} · ${frameIndex + 1}/${run.frames.length}` : t('compute_lab.run_to_trace')}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <button onClick={() => setFrameIndex(0)} disabled={!run?.frames.length}>
+                |&lt;
+              </button>
+              <button onClick={() => setFrameIndex(current => Math.max(0, current - 1))} disabled={!run?.frames.length}>
+                ‹
+              </button>
+              <input
+                aria-label="Trace step"
+                type="range"
+                min="0"
+                max={Math.max(0, (run?.frames.length || 1) - 1)}
+                value={frameIndex}
+                onChange={event => setFrameIndex(Number(event.target.value))}
+                disabled={!run?.frames.length}
+              />
+              <button
+                onClick={() => setFrameIndex(current => Math.min((run?.frames.length || 1) - 1, current + 1))}
+                disabled={!run?.frames.length}
+              >
+                ›
+              </button>
+              <button
+                onClick={() => setFrameIndex(Math.max(0, (run?.frames.length || 1) - 1))}
+                disabled={!run?.frames.length}
+              >
+                &gt;|
+              </button>
+            </div>
+            {frame ? (
+              <>
+                <div>
+                  <strong>{frame.phase.toUpperCase()}</strong>
+                  {frame.line ? ` · line ${frame.line}` : ''}
+                </div>
+                {frame.expression && (
+                  <div>
+                    eval:{' '}
+                    <code>
+                      {frame.expression.source} → {JSON.stringify(frame.expression.value)}
+                    </code>
+                  </div>
+                )}
+                {frame.value !== undefined && (
+                  <div>
+                    return: <code>{JSON.stringify(frame.value)}</code>
+                  </div>
+                )}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
+                  {Object.entries(frame.locals || {}).map(([name, value]) => (
+                    <code
+                      key={name}
+                      style={{
+                        border: `1px solid ${frame.changed?.includes(name) ? 'var(--accent)' : 'var(--border-bright)'}`,
+                        padding: 6,
+                      }}
+                    >
+                      {name}: {JSON.stringify(value)}
+                    </code>
+                  ))}
+                </div>
+                {frame.error && <div role="alert">{frame.error.message}</div>}
+              </>
+            ) : (
+              <p>{t('compute_lab.run_to_trace')}</p>
+            )}
+          </section>
         </main>
       )}
-      <footer style={{ color: 'var(--text-muted)', fontSize: 12 }}>
-        {available ? t('compute_lab.return_hint') : t('compute_lab.locked_hint')}
-      </footer>
     </div>
   );
 }

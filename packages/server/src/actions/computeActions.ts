@@ -25,12 +25,32 @@ function puzzleKey(userId: string | undefined, nodeId: string) {
   return `${userId || 'local'}:${nodeId}`;
 }
 
+/** Returns only the current task input for the matching user/node/task tuple. */
+export function getActivePuzzleParams(
+  nodeId: string,
+  taskId: string,
+  uid?: string,
+): Record<string, unknown> | undefined {
+  const puzzle = activePuzzles.get(puzzleKey(uid, nodeId));
+  return puzzle?.taskId === taskId ? puzzle.params : undefined;
+}
+
 export async function handleCompute(ctx: ActionContext): Promise<any> {
   const { workerId, worker, nodes, uid } = ctx;
   const computeNode = worker.current_node || worker.node_id;
   const node = nodes.find(n => n.id === computeNode);
   if (!node || node.type !== 'compute') return { ok: false, error: 'Not at a compute node' };
 
+  return getComputeTask(computeNode, node, uid, workerId);
+}
+
+/** Shared authoritative task lifecycle for workers and the focused Compute Lab. */
+export async function getComputeTask(
+  computeNode: string,
+  node: any,
+  uid?: string,
+  workerId = `lab:${computeNode}`,
+): Promise<any> {
   const key = puzzleKey(uid, computeNode);
   const cooldownUntil = puzzleCooldowns.get(key) || 0;
   if (Date.now() < cooldownUntil) {
@@ -48,7 +68,14 @@ export async function handleCompute(ctx: ActionContext): Promise<any> {
   setLock(workerId, ACTION_DELAY);
   await getLock(workerId);
 
-  return { ok: true, taskId: puzzle.taskId, params: puzzle.params, hint: puzzle.hint, difficulty: puzzle.difficulty };
+  return {
+    ok: true,
+    taskId: puzzle.taskId,
+    params: puzzle.params,
+    hint: puzzle.hint,
+    difficulty: puzzle.difficulty,
+    functionSignature: 'def solve(params):',
+  };
 }
 
 export async function handleSubmit(ctx: ActionContext, payload: any): Promise<any> {
@@ -60,6 +87,18 @@ export async function handleSubmit(ctx: ActionContext, payload: any): Promise<an
   const sNode = nodes.find(n => n.id === submitNode);
   if (!sNode || sNode.type !== 'compute') return { ok: false, error: 'Not at a compute node' };
 
+  return submitComputeAnswer(submitNode, sNode, submitTaskId, submitAnswer, uid, workerId);
+}
+
+/** Shared authoritative scoring lifecycle. The Lab never receives a client answer. */
+export async function submitComputeAnswer(
+  submitNode: string,
+  sNode: any,
+  submitTaskId: string,
+  submitAnswer: any,
+  uid?: string,
+  workerId = `lab:${submitNode}`,
+): Promise<any> {
   const key = puzzleKey(uid, submitNode);
   const puzzle = activePuzzles.get(key);
   if (!puzzle || puzzle.taskId !== submitTaskId)

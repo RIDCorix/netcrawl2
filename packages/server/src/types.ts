@@ -232,7 +232,7 @@ export interface WorkerRow {
 
 export interface RuntimeCommand {
   id: string;
-  type: 'start' | 'stop';
+  type: 'start' | 'stop' | 'compute_lab_run';
   workerId: string;
   generation: number;
   executionToken: string;
@@ -243,6 +243,10 @@ export interface RuntimeCommand {
   createdAt: string;
   ackedAt?: string;
   lease?: { sessionId: string; expiresAt: number };
+  runId?: string;
+  source?: string;
+  params?: Record<string, unknown>;
+  limits?: Record<string, number>;
 }
 
 export interface WorkerActionResult {

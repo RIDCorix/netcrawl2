@@ -9,6 +9,10 @@ import os
 import time
 import importlib.util
 import uuid
+import json
+import subprocess
+import tempfile
+import sys
 from dataclasses import dataclass
 from typing import Type
 
@@ -89,9 +93,37 @@ class NetCrawl:
         try:
             result = self._get(f"/api/runtime/commands?sessionId={self._session_id}")
             for req in result.get("commands", []):
-                self._handle_deploy(req)
+                if req.get("type") == "compute_lab_run":
+                    self._handle_compute_lab_run(req)
+                else:
+                    self._handle_deploy(req)
         except Exception as e:
             pass  # Server might be temporarily unreachable
+
+    def _handle_compute_lab_run(self, command: dict) -> None:
+        """Execute a Lab script in an isolated child and report ordered trace frames."""
+        command_id = command["id"]
+        run_id = command["runId"]
+        try:
+            self._post(f"/api/runtime/commands/{command_id}/ack", {"sessionId": self._session_id, "generation": 0})
+            payload = json.dumps({"source": command["source"], "params": command.get("params", {}), "limits": command.get("limits", {})})
+            with tempfile.TemporaryDirectory(prefix="netcrawl-lab-") as cwd:
+                result = subprocess.run(
+                    [sys.executable, "-m", "netcrawl.compute_lab_runner"], input=payload, text=True, capture_output=True,
+                    cwd=cwd, env={"PATH": os.environ.get("PATH", ""), "PYTHONPATH": os.pathsep.join(p for p in sys.path if p)},
+                    timeout=max(1, command.get("limits", {}).get("timeoutMs", 2000) / 1000),
+                )
+            output = json.loads(result.stdout)
+            for frame in output.get("frames", []):
+                self._post(f"/api/runtime/compute-lab-runs/{run_id}/events", {"sessionId": self._session_id, "frame": frame})
+            body = {"sessionId": self._session_id, "status": output["status"], "returnValue": output.get("returnValue")}
+            if output.get("error"):
+                body["frame"] = {"sequence": len(output.get("frames", [])), "phase": "error", "error": output["error"]}
+            self._post(f"/api/runtime/compute-lab-runs/{run_id}/complete", body)
+        except subprocess.TimeoutExpired:
+            self._post(f"/api/runtime/compute-lab-runs/{run_id}/complete", {"sessionId": self._session_id, "status": "timeout"})
+        except Exception as exc:
+            self._post(f"/api/runtime/compute-lab-runs/{run_id}/complete", {"sessionId": self._session_id, "status": "runtime", "frame": {"sequence": 0, "phase": "error", "error": {"message": str(exc), "kind": "runtime"}}})
 
     def _handle_deploy(self, deploy_req: dict) -> None:
         """Spawn a worker subprocess for a deploy request."""

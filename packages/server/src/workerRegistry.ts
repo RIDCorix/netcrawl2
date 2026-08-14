@@ -99,6 +99,12 @@ export function leaseDeployQueue(sessionId: string, userId?: string, now = Date.
   const expiresAt = now + 15_000;
   return commands
     .filter(command => {
+      if (command.type === 'compute_lab_run') {
+        return (
+          !command.ackedAt &&
+          (!command.lease || command.lease.sessionId === sessionId || command.lease.expiresAt <= now)
+        );
+      }
       const worker = s.workers[command.workerId];
       return (
         !command.ackedAt &&
@@ -111,6 +117,27 @@ export function leaseDeployQueue(sessionId: string, userId?: string, now = Date.
       command.lease = { sessionId, expiresAt };
       return command;
     });
+}
+
+export function enqueueComputeLabRun(
+  command: { runId: string; source: string; params: Record<string, unknown>; limits: Record<string, number> },
+  userId?: string,
+) {
+  const s = resolveStore(userId);
+  s.runtime_commands ||= [];
+  s.runtime_commands.push({
+    id: randomUUID(),
+    type: 'compute_lab_run',
+    workerId: '',
+    generation: 0,
+    executionToken: '',
+    nodeId: '',
+    classId: '',
+    injectedFields: {},
+    initialHolding: [],
+    createdAt: new Date().toISOString(),
+    ...command,
+  });
 }
 
 export function removeFromDeployQueue(workerId: string, userId?: string): boolean {

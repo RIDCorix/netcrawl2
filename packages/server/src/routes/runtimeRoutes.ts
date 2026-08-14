@@ -58,10 +58,17 @@ runtimeRoutes.post('/runtime/commands/:commandId/ack', (req: Request, res: Respo
   const uid = getUserId(req);
   const { sessionId, generation, workerId, pid, error } = req.body || {};
   if (!isValidCodeServerLease(sessionId, uid)) return res.status(409).json({ ok: false, reason: 'stale_execution' });
+  const commandId = String(req.params.commandId);
+  const command = leaseDeployQueue(sessionId, uid).find(command => command.id === commandId);
+  if (command?.type === 'compute_lab_run') {
+    const decision = acknowledgeDeployCommand(commandId, sessionId, 0, uid);
+    if (decision === 'stale') return res.status(409).json({ ok: false, reason: 'stale_execution' });
+    return res.json({ ok: true, duplicate: decision === 'duplicate' });
+  }
   const worker = getWorker(workerId, uid);
   if (!worker || worker.generation !== Number(generation))
     return res.status(409).json({ ok: false, reason: 'stale_execution' });
-  const decision = acknowledgeDeployCommand(String(req.params.commandId), sessionId, Number(generation), uid);
+  const decision = acknowledgeDeployCommand(commandId, sessionId, Number(generation), uid);
   if (decision === 'stale') return res.status(409).json({ ok: false, reason: 'stale_execution' });
   if (decision === 'duplicate') return res.json({ ok: true, duplicate: true });
   if (error) {
