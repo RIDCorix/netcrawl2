@@ -32,6 +32,8 @@ function run(command, args, options = {}) {
   });
 }
 
+const failures = [];
+
 try {
   await run('uv', ['sync', '--frozen', '--project', projectDir]);
   if (sdkWheel) {
@@ -56,7 +58,21 @@ try {
     },
   );
   console.log(`Fresh workspace artifact lifecycle passed for ${expectedVersion}`);
+} catch (error) {
+  failures.push(error);
 } finally {
-  await new Promise(resolvePromise => server.close(resolvePromise));
-  rmSync(testDir, { recursive: true, force: true });
+  try {
+    await new Promise(resolvePromise => server.close(resolvePromise));
+  } catch (error) {
+    failures.push(error);
+  }
+  for (const path of [testDir, join(process.cwd(), 'packages/server/.test-dist')]) {
+    try {
+      rmSync(path, { recursive: true, force: true });
+    } catch (error) {
+      failures.push(error);
+    }
+  }
+  for (const failure of failures) console.error(failure);
+  process.exit(failures.length === 0 ? 0 : 1);
 }
