@@ -18,7 +18,6 @@ import { checkAchievements } from '../achievements.js';
 import { checkQuests } from '../quests.js';
 import { XP_REWARDS } from '../levelSystem.js';
 import { getUserId } from './helpers.js';
-import { publicComputeLabState } from '../domain/computeLab.js';
 
 export const stateRoutes = Router();
 
@@ -37,7 +36,6 @@ stateRoutes.get('/state', (req: Request, res: Response) => {
     workers,
     workerClasses,
     codeServerConnected,
-    computeLab: publicComputeLabState(uid),
   });
 });
 

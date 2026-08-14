@@ -1,4 +1,4 @@
-/* Compute Lab contract: durable, user-isolated, answer-safe and replay-safe. */
+/* Compute Lab contract: local unlock view; transient, user-isolated puzzles. */
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -14,7 +14,6 @@ const { getGameState, saveGameState } = await import('../packages/server/.test-d
 const { upsertWorker } = await import('../packages/server/.test-dist/domain/workers.js');
 const { resolveStore } = await import('../packages/server/.test-dist/store.js');
 const { takeAutosave, restoreAutosave } = await import('../packages/server/.test-dist/domain/autosave.js');
-const { getAddLabSession } = await import('../packages/server/.test-dist/domain/computeLab.js');
 const { server, port } = await startServer({ port: 0, dataDir: testDir });
 const base = `http://127.0.0.1:${port}`;
 
@@ -71,87 +70,65 @@ try {
   });
   assert.equal(a.status, 201);
   assert.equal(b.status, 201);
-  // Authenticated state reads initialize each isolated durable Store.
   assert.equal((await request('/api/state', a.body.token)).status, 200);
   assert.equal((await request('/api/state', b.body.token)).status, 200);
   prepareUser(a.body.user.id, 'worker-a');
   prepareUser(b.body.user.id, 'worker-b');
+
+  const state = await request('/api/state', a.body.token);
+  assert.equal(state.body.computeLab, undefined, 'Lab must not be server-projected');
+  assert.equal(
+    JSON.stringify(resolveStore(a.body.user.id)).includes('compute_lab'),
+    false,
+    'Lab state must not persist',
+  );
 
   const taskA = await request('/api/worker/action', a.body.token, {
     workerId: 'worker-a',
     action: 'compute',
     payload: {},
   });
-  assert.equal(taskA.body.ok, true);
-  assert.equal(taskA.body.params.op, 'add');
-  assert.equal(taskA.body.answer, undefined, 'compute response must never expose answer');
   const taskB = await request('/api/worker/action', b.body.token, {
     workerId: 'worker-b',
     action: 'compute',
     payload: {},
   });
-  assert.equal(taskB.body.ok, true);
-  assert.notEqual(taskA.body.taskId, taskB.body.taskId, 'sessions are per user');
+  assert.equal(taskA.body.ok, true, JSON.stringify(taskA.body));
+  assert.equal(taskA.body.params.op, 'add');
+  assert.notEqual(taskA.body.taskId, taskB.body.taskId, 'users must not share transient tasks');
 
   const wrong = await request('/api/worker/action', a.body.token, {
     workerId: 'worker-a',
     action: 'submit',
     payload: { taskId: taskA.body.taskId, answer: -1 },
   });
-  assert.deepEqual(wrong.body, { ok: true, correct: false });
-  const resumed = await request('/api/worker/action', a.body.token, {
-    workerId: 'worker-a',
-    action: 'compute',
-    payload: {},
-  });
-  assert.equal(resumed.body.taskId, taskA.body.taskId, 'wrong answer keeps the durable task');
+  assert.equal(wrong.body.correct, false);
+  assert.notEqual(wrong.body.expected, undefined, 'existing compute wrong-answer contract remains unchanged');
 
-  const stateBefore = getGameState(a.body.user.id);
-  const solved = await request('/api/worker/action', a.body.token, {
-    workerId: 'worker-a',
-    action: 'submit',
-    payload: { taskId: taskA.body.taskId, answer: taskA.body.params.a + taskA.body.params.b },
-  });
-  assert.equal(solved.body.correct, true);
-  assert.equal(solved.body.masteryUnlocked, true);
-  const replay = await request('/api/worker/action', a.body.token, {
-    workerId: 'worker-a',
-    action: 'submit',
-    payload: { taskId: taskA.body.taskId, answer: taskA.body.params.a + taskA.body.params.b },
-  });
-  assert.deepEqual(replay.body, solved.body, 'replay returns stored completion without a second reward');
-  const stateAfter = getGameState(a.body.user.id);
-  assert.equal(stateAfter.resources.rp, stateBefore.resources.rp + solved.body.reward.amount);
-  assert.equal(stateAfter.nodes.find(node => node.id === 'e_op_add').data.solveCount, 1);
-
-  const nextTask = await request('/api/worker/action', a.body.token, {
-    workerId: 'worker-a',
-    action: 'compute',
-    payload: {},
-  });
-  const nextAnswer = nextTask.body.params.a + nextTask.body.params.b;
-  const concurrent = await Promise.all([
-    request('/api/worker/action', a.body.token, {
-      workerId: 'worker-a',
-      action: 'submit',
-      payload: { taskId: nextTask.body.taskId, answer: nextAnswer },
-    }),
-    request('/api/worker/action', a.body.token, {
-      workerId: 'worker-a',
-      action: 'submit',
-      payload: { taskId: nextTask.body.taskId, answer: nextAnswer },
-    }),
-  ]);
-  assert.deepEqual(concurrent[0].body, concurrent[1].body, 'concurrent submits share one completion result');
-  assert.equal(getGameState(a.body.user.id).nodes.find(node => node.id === 'e_op_add').data.solveCount, 2);
+  const before = getGameState(b.body.user.id);
+  const answer = taskB.body.params.a + taskB.body.params.b;
+  const submitted = await Promise.all(
+    [1, 2].map(() =>
+      request('/api/worker/action', b.body.token, {
+        workerId: 'worker-b',
+        action: 'submit',
+        payload: { taskId: taskB.body.taskId, answer },
+      }),
+    ),
+  );
+  assert.equal(submitted.filter(result => result.body.correct === true).length, 1, 'one submit wins');
+  assert.equal(
+    getGameState(b.body.user.id).nodes.find(node => node.id === 'e_op_add').data.solveCount,
+    (before.nodes.find(node => node.id === 'e_op_add').data.solveCount || 0) + 1,
+  );
 
   takeAutosave(a.body.user.id);
-  resolveStore(a.body.user.id).compute_lab.sessions = {};
   assert.equal(restoreAutosave(a.body.user.id), true);
-  assert.equal(getAddLabSession(a.body.user.id).status, 'mastered', 'autosave restore retains Lab progress');
-  const publicState = await request('/api/state', a.body.token);
-  assert.equal(JSON.stringify(publicState.body).includes('"answer"'), false, 'state projection must not leak answers');
-  assert.equal(publicState.body.computeLab.sessions[0].status, 'mastered');
+  assert.equal(
+    JSON.stringify(resolveStore(a.body.user.id)).includes('compute_lab'),
+    false,
+    'autosave must omit Lab state',
+  );
   console.log('compute lab contract passed');
 } finally {
   await new Promise(resolve => server.close(resolve));

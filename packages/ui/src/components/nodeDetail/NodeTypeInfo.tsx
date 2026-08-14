@@ -9,7 +9,6 @@ import { SectionLabel } from '../ui/primitives';
 import { getDialogsForNode, type NodeDialogConfig } from '../NodeInfoDialog';
 import { useT } from '../../hooks/useT';
 import { InvCell } from '../ui/InvCell';
-import { useGameStore } from '../../store/gameStore';
 
 // ── Resource Node ───────────────────────────────────────────────────────────
 
@@ -67,9 +66,6 @@ export function ComputeNodeInfo({
   const difficultyColor =
     node.data.difficulty === 'easy' ? '#4ade80' : node.data.difficulty === 'medium' ? '#60a5fa' : '#f59e0b';
   const dialogs = getDialogsForNode(node.type, node.data);
-  const labStatus = useGameStore(
-    state => state.computeLab.sessions.find(s => s.sourceNodeId === node.id && s.operatorId === 'add')?.status,
-  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -115,7 +111,7 @@ export function ComputeNodeInfo({
         ComputeNode. Call <span style={{ color: 'var(--accent)' }}>node.get_task()</span> and{' '}
         <span style={{ color: 'var(--accent)' }}>node.submit(task_id, answer)</span>.
       </div>
-      {node.id === 'e_op_add' && (
+      {node.id === 'e_op_add' && node.data.unlocked && (
         <button
           onClick={() => onOpenLab(node.id)}
           style={{
@@ -130,11 +126,7 @@ export function ComputeNodeInfo({
             fontFamily: 'var(--font-mono)',
           }}
         >
-          {labStatus === 'mastered'
-            ? t('compute_lab.open_mastered')
-            : labStatus === 'active'
-              ? t('compute_lab.resume')
-              : t('compute_lab.enter')}
+          {t('compute_lab.enter')}
         </button>
       )}
       {dialogs.length > 0 && (

@@ -184,17 +184,6 @@ export interface LevelSummary {
   }>;
 }
 
-export interface ComputeLabSession {
-  sourceNodeId: string;
-  operatorId: string;
-  status: 'available' | 'active' | 'mastered';
-  task?: { taskId: string; params: Record<string, any>; hint: string; difficulty: string };
-  lastAttempt?: { taskId: string; correct: boolean; at: number };
-  completedTaskId?: string;
-  completionResult?: { ok: true; correct: true; reward: { type: string; amount: number }; masteryUnlocked: boolean };
-  masteredAt?: number;
-}
-
 export interface Settings {
   edgeStyle: 'straight' | 'smoothstep' | 'bezier';
   showTrafficDots: boolean;
@@ -316,7 +305,6 @@ export interface GameState {
   // Ephemeral hub deposit flash effects (pushed via WS HUB_DEPOSIT).
   // Each entry auto-expires after the animation duration.
   hubDeposits: Array<{ id: number; ts: number; goodCount: number; badCount: number }>;
-  computeLab: { sessions: ComputeLabSession[] };
   computeLabOpen: boolean;
   computeLabSourceNodeId: string | null;
 }
@@ -429,7 +417,6 @@ export const useGameStore = create<GameState & GameActions>(set => ({
   pendingUnlocks: [],
   workerLogs: {},
   hubDeposits: [],
-  computeLab: { sessions: [] },
   computeLabOpen: false,
   computeLabSourceNodeId: null,
 
@@ -566,7 +553,6 @@ export const useGameStore = create<GameState & GameActions>(set => ({
       workerClasses: stableArray(state.workerClasses, data.workerClasses) ?? state.workerClasses,
       codeServerConnected: data.codeServerConnected ?? state.codeServerConnected,
       unlockedRecipes: stableArray(state.unlockedRecipes, data.unlockedRecipes) ?? state.unlockedRecipes,
-      computeLab: stableObject(state.computeLab, data.computeLab) ?? state.computeLab,
       // Detect newly unlocked recipes and add to pendingUnlocks
       pendingUnlocks: (() => {
         if (!data.unlockedRecipes) return state.pendingUnlocks;

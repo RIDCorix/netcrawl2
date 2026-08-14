@@ -19,7 +19,6 @@ import { LAYER_DEFS } from './layerDefinitions.js';
 import { broadcast } from './websocket.js';
 import { getAchievementSummary } from './achievements.js';
 import { getQuestSummary } from './quests.js';
-import { publicComputeLabState } from './domain/computeLab.js';
 
 export function broadcastFullState(userId?: string) {
   // Resolve userId: explicit param > global fallback
@@ -82,7 +81,6 @@ export function broadcastFullState(userId?: string) {
         codeServerConnected: isCodeServerConnected(effectiveUserId),
         workerClasses: getAllWorkerClasses(effectiveUserId),
         unlockedRecipes: getUnlockedRecipes(effectiveUserId),
-        computeLab: publicComputeLabState(effectiveUserId),
       },
     },
     effectiveUserId,

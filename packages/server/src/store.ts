@@ -61,7 +61,6 @@ const INITIAL_STORE: Store = {
     unlockedLayers: [0],
     snapshots: {},
   },
-  compute_lab: { sessions: {} },
   runtime_commands: [],
   worker_action_results: {},
 };
@@ -273,7 +272,10 @@ function _loadStore() {
       if (!store.next_log_id) store.next_log_id = 1;
       if (!store.runtime_commands) store.runtime_commands = [];
       if (!store.worker_action_results) store.worker_action_results = {};
-      if (!store.compute_lab) store.compute_lab = { sessions: {} };
+      // Compute Lab is now a local unlocked-map view. Remove obsolete session
+      // state on load so the next persistence write also cleans legacy saves.
+      delete (store as Store & { compute_lab?: unknown }).compute_lab;
+      if (store.autosave) delete (store.autosave as typeof store.autosave & { compute_lab?: unknown }).compute_lab;
       if (!store.game_state.playerInventory) {
         store.game_state.playerInventory = JSON.parse(JSON.stringify(INITIAL_PLAYER_INVENTORY));
       }

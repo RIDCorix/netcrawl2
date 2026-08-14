@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useT } from '../hooks/useT';
 
+const ADD_NODE_ID = 'e_op_add';
+
 const nodeStyle: CSSProperties = {
   minWidth: 116,
   minHeight: 76,
@@ -19,14 +21,15 @@ const nodeStyle: CSSProperties = {
   flex: '0 0 auto',
 };
 
-/** Local overlay only: it never switches layers, moves workers, or pauses ticks. */
+/** A local, unlocked-map view. It never changes the active game layer. */
 export function ComputeLabScreen() {
-  const { computeLabOpen, computeLabSourceNodeId, computeLab, closeComputeLab } = useGameStore();
+  const { computeLabOpen, computeLabSourceNodeId, nodes, selectNode, closeComputeLab } = useGameStore();
   const t = useT();
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
-  const session = computeLab.sessions.find(s => s.sourceNodeId === computeLabSourceNodeId && s.operatorId === 'add');
+  const source = nodes.find(node => node.id === computeLabSourceNodeId);
+  const available = source?.id === ADD_NODE_ID && source.type === 'compute' && source.data.unlocked === true;
 
   useEffect(() => {
     if (!computeLabOpen) return;
@@ -59,21 +62,12 @@ export function ComputeLabScreen() {
   }, [computeLabOpen, closeComputeLab]);
 
   if (!computeLabOpen) return null;
-  const task = session?.task;
-  const params = task?.params || {};
-  const status = session?.status || 'available';
-  const result =
-    status === 'mastered'
-      ? t('compute_lab.mastered')
-      : session?.lastAttempt && !session.lastAttempt.correct
-        ? t('compute_lab.retry')
-        : t('compute_lab.waiting');
   const entries = [
-    ['START', t('compute_lab.request')],
+    ['START', t('compute_lab.start_deploy')],
     ['OPERATOR', '+'],
-    ['INPUT A', task ? String(params.a ?? '—') : '—'],
-    ['INPUT B', task ? String(params.b ?? '—') : '—'],
-    ['RESULT', result],
+    ['INPUT A', t('compute_lab.read_only')],
+    ['INPUT B', t('compute_lab.read_only')],
+    ['RESULT', t('compute_lab.read_only')],
   ];
 
   return (
@@ -121,14 +115,13 @@ export function ComputeLabScreen() {
           </button>
         </div>
       </header>
-      {!session ? (
-        <div role="status" style={{ color: 'var(--text-muted)' }}>
-          {t('compute_lab.empty')}
-        </div>
+      {!available ? (
+        <main role="status" style={{ flex: 1, display: 'grid', placeItems: 'center', color: 'var(--text-muted)' }}>
+          {t('compute_lab.locked')}
+        </main>
       ) : (
         <main
           tabIndex={0}
-          aria-live="polite"
           style={{ flex: 1, overflow: 'auto', display: 'flex', alignItems: 'center', outline: 'none' }}
         >
           <div
@@ -154,17 +147,31 @@ export function ComputeLabScreen() {
                     →
                   </span>
                 )}
-                <button tabIndex={0} title={String(value)} style={nodeStyle}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>{label}</span>
-                  <strong>{value}</strong>
-                </button>
+                {label === 'START' ? (
+                  <button
+                    title={value}
+                    onClick={() => {
+                      selectNode(ADD_NODE_ID);
+                      closeComputeLab();
+                    }}
+                    style={{ ...nodeStyle, borderColor: 'var(--accent)', cursor: 'pointer' }}
+                  >
+                    <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>{label}</span>
+                    <strong>{value}</strong>
+                  </button>
+                ) : (
+                  <div role="img" aria-label={`${label}: ${value}`} title={value} style={nodeStyle}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>{label}</span>
+                    <strong>{value}</strong>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         </main>
       )}
       <footer style={{ color: 'var(--text-muted)', fontSize: 12 }}>
-        {status === 'active' ? t('compute_lab.worker_hint') : t('compute_lab.return_hint')}
+        {available ? t('compute_lab.return_hint') : t('compute_lab.locked_hint')}
       </footer>
     </div>
   );
