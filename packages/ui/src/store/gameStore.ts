@@ -51,6 +51,24 @@ export interface Resources {
   credits: number;
 }
 
+/** Public, server-authoritative trace snapshot delivered over the game WebSocket. */
+export interface ComputeLabRunSnapshot {
+  id: string;
+  revision: number;
+  status: string;
+  frames: Array<{
+    sequence: number;
+    phase: string;
+    line?: number;
+    locals?: Record<string, unknown>;
+    changed?: string[];
+    expression?: { source: string; value: unknown };
+    value?: unknown;
+    error?: { message: string };
+  }>;
+  returnValue?: unknown;
+}
+
 export type ChipRarity = 'common' | 'uncommon' | 'rare' | 'legendary';
 
 export interface Chip {
@@ -307,6 +325,7 @@ export interface GameState {
   hubDeposits: Array<{ id: number; ts: number; goodCount: number; badCount: number }>;
   computeLabOpen: boolean;
   computeLabSourceNodeId: string | null;
+  computeLabRuns: Record<string, ComputeLabRunSnapshot>;
 }
 
 interface GameActions {
@@ -351,6 +370,7 @@ interface GameActions {
   removeHubDeposit: (id: number) => void;
   openComputeLab: (sourceNodeId: string) => void;
   closeComputeLab: () => void;
+  upsertComputeLabRun: (run: ComputeLabRunSnapshot) => void;
   // Recipe unlock reveal
   revealRecipe: (recipeId: string) => void;
 }
@@ -419,6 +439,7 @@ export const useGameStore = create<GameState & GameActions>(set => ({
   hubDeposits: [],
   computeLabOpen: false,
   computeLabSourceNodeId: null,
+  computeLabRuns: {},
 
   setState: partial => set(state => ({ ...state, ...partial })),
   setConnected: connected => set({ connected }),
@@ -524,6 +545,12 @@ export const useGameStore = create<GameState & GameActions>(set => ({
 
   openComputeLab: sourceNodeId => set({ computeLabOpen: true, computeLabSourceNodeId: sourceNodeId }),
   closeComputeLab: () => set({ computeLabOpen: false, computeLabSourceNodeId: null }),
+  upsertComputeLabRun: run =>
+    set(state => {
+      const previous = state.computeLabRuns[run.id];
+      if (previous && JSON.stringify(previous) === JSON.stringify(run)) return state;
+      return { computeLabRuns: { ...state.computeLabRuns, [run.id]: run } };
+    }),
 
   revealRecipe: recipeId =>
     set(state => ({

@@ -1,19 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { useGameStore } from '../store/gameStore';
+import { type ComputeLabRunSnapshot, useGameStore } from '../store/gameStore';
 import { apiFetch } from '../lib/api';
 import { useT } from '../hooks/useT';
 
-type Frame = {
-  sequence: number;
-  phase: string;
-  line?: number;
-  locals?: Record<string, unknown>;
-  changed?: string[];
-  expression?: { source: string; value: unknown };
-  value?: unknown;
-  error?: { message: string };
-};
-type Run = { id: string; revision: number; status: string; frames: Frame[]; returnValue?: unknown };
+type Run = ComputeLabRunSnapshot;
 type Task = {
   taskId: string;
   params: Record<string, unknown>;
@@ -25,7 +15,16 @@ const TERMINAL = new Set(['trace_ready', 'syntax', 'runtime', 'timeout', 'limit'
 
 /** Focused code workspace. Its only visual model is program state, never map geography. */
 export function ComputeLabScreen() {
-  const { computeLabOpen, computeLabSourceNodeId, nodes, closeComputeLab, codeServerConnected } = useGameStore();
+  const {
+    computeLabOpen,
+    computeLabSourceNodeId,
+    nodes,
+    closeComputeLab,
+    codeServerConnected,
+    connected,
+    computeLabRuns,
+    upsertComputeLabRun,
+  } = useGameStore();
   const t = useT();
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -36,9 +35,11 @@ export function ComputeLabScreen() {
     'def solve(params):\n    # Return the answer for this task.\n    return params["a"] + params["b"]\n',
   );
   const [revision, setRevision] = useState(0);
-  const [run, setRun] = useState<Run | null>(null);
+  const [runId, setRunId] = useState<string | null>(null);
   const [frameIndex, setFrameIndex] = useState(0);
   const [message, setMessage] = useState<{ key: string; vars?: Record<string, string | number> } | null>(null);
+  const wasConnected = useRef(connected);
+  const run = runId ? (computeLabRuns[runId] as Run | undefined) : undefined;
 
   useEffect(() => {
     if (!computeLabOpen || !available || !sourceNode) return;
@@ -62,20 +63,16 @@ export function ComputeLabScreen() {
   }, [source, sourceNode?.id, computeLabOpen]);
 
   useEffect(() => {
-    if (!run || TERMINAL.has(run.status)) return;
-    const timer = window.setInterval(() => {
-      apiFetch(`/api/compute-lab/runs/${run.id}`)
-        .then(response => response.json())
-        .then(body => {
-          if (body.run) {
-            setRun(body.run);
-            setFrameIndex(Math.max(0, body.run.frames.length - 1));
-          }
-        })
-        .catch(() => setMessage({ key: 'compute_lab.connection_lost' }));
-    }, 350);
-    return () => window.clearInterval(timer);
-  }, [run?.id, run?.status]);
+    const reconnected = !wasConnected.current && connected;
+    wasConnected.current = connected;
+    if (!runId || (run && !reconnected)) return;
+    apiFetch(`/api/compute-lab/runs/${runId}`)
+      .then(response => response.json())
+      .then(body => {
+        if (body.run) upsertComputeLabRun(body.run);
+      })
+      .catch(() => setMessage({ key: 'compute_lab.connection_lost' }));
+  }, [connected, run, runId, upsertComputeLabRun]);
 
   useEffect(() => {
     if (!computeLabOpen) return;
@@ -120,7 +117,10 @@ export function ComputeLabScreen() {
       });
       return;
     }
-    setRun({ id: body.runId, revision, status: body.status, frames: [] });
+    if (!useGameStore.getState().computeLabRuns[body.runId]) {
+      upsertComputeLabRun({ id: body.runId, revision, status: body.status, frames: [] });
+    }
+    setRunId(body.runId);
     setFrameIndex(0);
   };
   const submit = async () => {

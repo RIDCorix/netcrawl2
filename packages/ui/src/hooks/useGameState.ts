@@ -2,6 +2,44 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { WS_URL, apiFetch } from '../lib/api';
 
+export function applyGameMessage(msg: { type?: string; payload?: any }) {
+  if (msg.type === 'STATE_UPDATE') {
+    useGameStore.getState().updateFromServer(msg.payload);
+  } else if (msg.type === 'COMPUTE_LAB_RUN') {
+    useGameStore.getState().upsertComputeLabRun(msg.payload);
+  } else if (msg.type === 'ACHIEVEMENT_UNLOCKED') {
+    useGameStore.getState().addAchievementToast(msg.payload);
+  } else if (msg.type === 'QUEST_AVAILABLE' || msg.type === 'QUEST_COMPLETED') {
+    useGameStore.getState().addQuestToast({
+      ...msg.payload,
+      type: msg.type === 'QUEST_AVAILABLE' ? 'available' : 'completed',
+    });
+  } else if (msg.type === 'LEVEL_UP') {
+    useGameStore.getState().addLevelUpToast(msg.payload);
+  } else if (msg.type === 'LAYER_UNLOCKED') {
+    useGameStore.getState().addLayerUnlockToast(msg.payload);
+  } else if (msg.type === 'HUB_DEPOSIT') {
+    const { goodCount, badCount } = msg.payload;
+    if ((goodCount || 0) > 0 || (badCount || 0) > 0) {
+      useGameStore.getState().pushHubDeposit({ goodCount: goodCount || 0, badCount: badCount || 0 });
+    }
+  } else if (msg.type === 'WORKER_LOG') {
+    const { workerId, message, level, ts } = msg.payload;
+    useGameStore.getState().appendWorkerLog(workerId, {
+      message,
+      level,
+      created_at: new Date(ts || Date.now()).toISOString(),
+    });
+    if (level !== 'debug') {
+      const state = useGameStore.getState();
+      const workers = state.workers.map((w: any) =>
+        w.id === workerId ? { ...w, lastLog: { message, level, ts } } : w,
+      );
+      useGameStore.setState({ workers });
+    }
+  }
+}
+
 export function useGameState() {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -30,45 +68,7 @@ export function useGameState() {
     ws.onmessage = event => {
       try {
         const msg = JSON.parse(event.data);
-        if (msg.type === 'STATE_UPDATE') {
-          updateFromServer(msg.payload);
-        } else if (msg.type === 'ACHIEVEMENT_UNLOCKED') {
-          useGameStore.getState().addAchievementToast(msg.payload);
-        } else if (msg.type === 'QUEST_AVAILABLE' || msg.type === 'QUEST_COMPLETED') {
-          useGameStore.getState().addQuestToast({
-            ...msg.payload,
-            type: msg.type === 'QUEST_AVAILABLE' ? 'available' : 'completed',
-          });
-        } else if (msg.type === 'LEVEL_UP') {
-          useGameStore.getState().addLevelUpToast(msg.payload);
-        } else if (msg.type === 'LAYER_UNLOCKED') {
-          useGameStore.getState().addLayerUnlockToast(msg.payload);
-        } else if (msg.type === 'HUB_DEPOSIT') {
-          const { goodCount, badCount } = msg.payload;
-          if ((goodCount || 0) > 0 || (badCount || 0) > 0) {
-            useGameStore.getState().pushHubDeposit({
-              goodCount: goodCount || 0,
-              badCount: badCount || 0,
-            });
-          }
-        } else if (msg.type === 'WORKER_LOG') {
-          // Push the log into the per-worker log store (used by log panels — no HTTP polling).
-          const { workerId, message, level, ts } = msg.payload;
-          useGameStore.getState().appendWorkerLog(workerId, {
-            message,
-            level,
-            created_at: new Date(ts || Date.now()).toISOString(),
-          });
-          // Update the worker's lastLog for the speech bubble.
-          // Skip debug logs — they should only appear in the log panel, not the bubble.
-          if (level !== 'debug') {
-            const state = useGameStore.getState();
-            const workers = state.workers.map((w: any) =>
-              w.id === workerId ? { ...w, lastLog: { message, level, ts } } : w,
-            );
-            useGameStore.setState({ workers });
-          }
-        }
+        applyGameMessage(msg);
       } catch (err) {
         console.error('[WS] Parse error:', err);
       }

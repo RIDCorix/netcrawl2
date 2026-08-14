@@ -1,7 +1,7 @@
 /* Real Code Server integration: a loop trace is run through the runtime queue. */
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -9,6 +9,8 @@ process.env.NETCRAWL_BUNDLED = 'true';
 const testDir = mkdtempSync(join(tmpdir(), 'netcrawl-compute-lab-runtime-'));
 const workspace = resolve(process.env.NETCRAWL_WORKSPACE_DIR || '../netcrawl-workspace');
 const sdkPath = resolve('packages/sdk-python');
+const uv = process.env.NETCRAWL_UV_BINARY || 'uv';
+assert.equal(existsSync(workspace), true, `NETCRAWL_WORKSPACE_DIR must point to netcrawl-workspace: ${workspace}`);
 const { startServer } = await import('../packages/server/.test-dist/index.js');
 const { getGameState, saveGameState } = await import('../packages/server/.test-dist/domain/gameState.js');
 const { server } = await startServer({ port: 4800, dataDir: testDir });
@@ -29,10 +31,14 @@ saveGameState({
   nodes: state.nodes.map(node => (node.id === 'e_op_add' ? { ...node, data: { ...node.data, unlocked: true } } : node)),
 });
 
-const runner = spawn('uv', ['run', 'main.py'], {
+const runner = spawn(uv, ['run', 'main.py'], {
   cwd: workspace,
   env: { ...process.env, PYTHONPATH: sdkPath, PYTHONUNBUFFERED: '1' },
   stdio: 'ignore',
+});
+let runnerError;
+runner.once('error', error => {
+  runnerError = error;
 });
 
 let failure;
@@ -40,6 +46,7 @@ try {
   let connected = false;
   for (let attempt = 0; attempt < 30; attempt++) {
     await sleep(250);
+    if (runnerError) throw runnerError;
     connected = (await request('/state')).body.codeServerConnected === true;
     if (connected) break;
   }
