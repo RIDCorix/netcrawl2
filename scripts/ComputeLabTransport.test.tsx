@@ -91,6 +91,17 @@ await act(async () => {
   });
 });
 
+// A reconnect GET can return an older running snapshot after the terminal WebSocket
+// message. The reducer must preserve the newer trace rather than regress the UI.
+useGameStore.getState().upsertComputeLabRun({
+  id: 'run-1',
+  revision: 0,
+  status: 'running',
+  frames: [{ sequence: 0, phase: 'line', line: 2, locals: { a: 3 }, changed: ['a'] }],
+});
+assert.equal(useGameStore.getState().computeLabRuns['run-1'].status, 'trace_ready');
+assert.equal(useGameStore.getState().computeLabRuns['run-1'].frames.length, 3);
+
 function text(node: unknown): string {
   if (typeof node === 'string' || typeof node === 'number') return String(node);
   if (Array.isArray(node)) return node.map(text).join('');

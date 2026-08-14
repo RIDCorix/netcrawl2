@@ -69,6 +69,25 @@ export interface ComputeLabRunSnapshot {
   returnValue?: unknown;
 }
 
+const TERMINAL_COMPUTE_LAB_STATUSES = new Set(['trace_ready', 'syntax', 'runtime', 'timeout', 'limit', 'disconnected']);
+
+function maxFrameSequence(run: ComputeLabRunSnapshot): number {
+  return run.frames.reduce((maximum, frame) => Math.max(maximum, frame.sequence), -1);
+}
+
+/** Reject late HTTP/reconnect snapshots so a live WebSocket trace cannot regress. */
+export function shouldReplaceComputeLabRun(previous: ComputeLabRunSnapshot, incoming: ComputeLabRunSnapshot): boolean {
+  if (incoming.revision !== previous.revision) return incoming.revision > previous.revision;
+
+  const previousSequence = maxFrameSequence(previous);
+  const incomingSequence = maxFrameSequence(incoming);
+  if (incomingSequence !== previousSequence) return incomingSequence > previousSequence;
+
+  const previousTerminal = TERMINAL_COMPUTE_LAB_STATUSES.has(previous.status);
+  const incomingTerminal = TERMINAL_COMPUTE_LAB_STATUSES.has(incoming.status);
+  return incomingTerminal && !previousTerminal;
+}
+
 export type ChipRarity = 'common' | 'uncommon' | 'rare' | 'legendary';
 
 export interface Chip {
@@ -548,7 +567,7 @@ export const useGameStore = create<GameState & GameActions>(set => ({
   upsertComputeLabRun: run =>
     set(state => {
       const previous = state.computeLabRuns[run.id];
-      if (previous && JSON.stringify(previous) === JSON.stringify(run)) return state;
+      if (previous && !shouldReplaceComputeLabRun(previous, run)) return state;
       return { computeLabRuns: { ...state.computeLabRuns, [run.id]: run } };
     }),
 
