@@ -2,10 +2,11 @@
 
 import { Router, Request, Response } from 'express';
 import { randomUUID } from 'crypto';
-import { getWorkers, getWorker, upsertWorker, releaseWorkerFlop } from '../domain/workers.js';
+import { getWorkers, getWorker, upsertWorker, releaseWorkerFlop, resetAllWorkers } from '../domain/workers.js';
 import { FLOP_COSTS } from '../types.js';
 import { getUserId } from './helpers.js';
 import { returnWorkerItems } from './helpers.js';
+import { broadcastFullState } from '../broadcastHelper.js';
 import {
   claimCodeServerLease,
   isValidCodeServerLease,
@@ -87,6 +88,13 @@ runtimeRoutes.post('/runtime/commands/:commandId/ack', (req: Request, res: Respo
 });
 
 runtimeRoutes.post('/runtime/disconnect', (req: Request, res: Response) => {
-  const released = releaseCodeServerLease(req.body?.sessionId, getUserId(req));
+  const uid = getUserId(req);
+  const released = releaseCodeServerLease(req.body?.sessionId, uid);
+  if (released) {
+    // SDK 1.2.2 shuts down through this leased endpoint before making its
+    // unfenced legacy disconnect call. Reconcile only for the current lease.
+    resetAllWorkers(uid);
+    broadcastFullState(uid);
+  }
   res.json({ ok: true, released });
 });

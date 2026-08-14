@@ -13,7 +13,7 @@ process.env.NETCRAWL_BUNDLED = 'true';
 
 const testDir = mkdtempSync(join(tmpdir(), 'netcrawl-deploy-route-'));
 const { startServer } = await import('../packages/server/.test-dist/index.js');
-const { getWorker, upsertWorker } = await import('../packages/server/.test-dist/domain/workers.js');
+const { getWorker, getWorkers, upsertWorker } = await import('../packages/server/.test-dist/domain/workers.js');
 const { addToPlayerInventory, getPlayerInventory } = await import('../packages/server/.test-dist/domain/inventory.js');
 const { getGameState, saveGameState } = await import('../packages/server/.test-dist/domain/gameState.js');
 const { getQuestSummary } = await import('../packages/server/.test-dist/quests.js');
@@ -33,6 +33,14 @@ async function request(path, token, body) {
   });
   return { status: response.status, body: await response.json() };
 }
+
+function runtimeSnapshot(userId) {
+  return getWorkers(userId)
+    .map(({ id, status, pid, generation, executionToken }) => ({ id, status, pid, generation, executionToken }))
+    .sort((left, right) => left.id.localeCompare(right.id));
+}
+
+const cloneValue = value => JSON.parse(JSON.stringify(value));
 
 async function firstWebSocketEvent(token) {
   return new Promise((resolve, reject) => {
@@ -540,6 +548,108 @@ try {
   });
   assert.deepEqual(duplicateAction.body, liveAction.body);
 
+  // The same long-lived credential cannot rotate the execution fence through
+  // reset unless it proves that it belongs to the target's current execution.
+  const rejectedCodeServerResets = [
+    {},
+    { generation: command.generation },
+    { executionToken: command.executionToken },
+    { generation: command.generation - 1, executionToken: command.executionToken },
+    { generation: command.generation, executionToken: 'wrong-execution-token' },
+  ];
+  for (const fence of rejectedCodeServerResets) {
+    const before = cloneValue(getWorker(workerId, userA));
+    const rejected = await request('/api/worker/reset', codeServerCredential.body.token, { workerId, ...fence });
+    assert.equal(rejected.status, 200);
+    assert.equal(rejected.body.ok, false);
+    assert.equal(rejected.body.reason, 'stale_execution');
+    assert.deepEqual(getWorker(workerId, userA), before);
+  }
+
+  const generationBeforeReset = getWorker(workerId, userA).generation;
+  const executionTokenBeforeReset = getWorker(workerId, userA).executionToken;
+  const currentReset = await request('/api/worker/reset', codeServerCredential.body.token, {
+    workerId,
+    generation: generationBeforeReset,
+    executionToken: executionTokenBeforeReset,
+  });
+  assert.equal(currentReset.status, 200);
+  assert.equal(currentReset.body.ok, true);
+  assert.equal(getWorker(workerId, userA).generation, generationBeforeReset + 1);
+  assert.notEqual(getWorker(workerId, userA).executionToken, executionTokenBeforeReset);
+
+  // Legacy deploy ACKs have no execution proof. Dedicated Code Server
+  // credentials must fail closed, while browser compatibility is covered above.
+  upsertWorker({ ...getWorker(workerId, userA), status: 'deploying', pid: null }, userA);
+  const beforeLegacyAck = cloneValue(getWorker(workerId, userA));
+  const rejectedLegacyAck = await request('/api/deploy-ack', codeServerCredential.body.token, {
+    workerId,
+    pid: 6060,
+  });
+  assert.equal(rejectedLegacyAck.status, 200);
+  assert.equal(rejectedLegacyAck.body.ok, false);
+  assert.equal(rejectedLegacyAck.body.reason, 'stale_execution');
+  assert.deepEqual(getWorker(workerId, userA), beforeLegacyAck);
+
+  const currentFence = {
+    generation: getWorker(workerId, userA).generation,
+    executionToken: getWorker(workerId, userA).executionToken,
+  };
+  upsertWorker({ ...getWorker(workerId, userA), status: 'running', pid: 6061 }, userA);
+  const rejectedCodeServerDisconnects = [
+    {},
+    { generation: currentFence.generation },
+    { executionToken: currentFence.executionToken },
+    { generation: currentFence.generation - 1, executionToken: currentFence.executionToken },
+    { generation: currentFence.generation, executionToken: 'wrong-execution-token' },
+  ];
+  for (const fence of rejectedCodeServerDisconnects) {
+    const before = runtimeSnapshot(userA);
+    const rejected = await request('/api/code-server/disconnect', codeServerCredential.body.token, fence);
+    assert.equal(rejected.status, 200);
+    assert.equal(rejected.body.ok, false);
+    assert.equal(rejected.body.reason, 'stale_execution');
+    assert.deepEqual(runtimeSnapshot(userA), before);
+  }
+  const currentDisconnect = await request('/api/code-server/disconnect', codeServerCredential.body.token, currentFence);
+  assert.equal(currentDisconnect.status, 200);
+  assert.equal(currentDisconnect.body.ok, true);
+  assert.equal(getWorker(workerId, userA).status, 'deploying');
+  assert.equal(getWorker(workerId, userA).pid, null);
+
+  // Published Python SDK 1.2.2 first releases its protocol-v2 session, then
+  // sends an empty legacy disconnect. The leased call remains its successful,
+  // state-changing shutdown path; the unfenced follow-up is a harmless reject.
+  const sdkRegistration = await request('/api/runtime/register', codeServerCredential.body.token, {
+    protocolVersion: 2,
+    sessionId: runtimeSession,
+    classes: [reloadedWorkerClass],
+    activeExecutions: [],
+  });
+  assert.equal(sdkRegistration.status, 200);
+  upsertWorker({ ...getWorker(workerId, userA), status: 'running', pid: 6062 }, userA);
+  const beforeStaleSessionDisconnect = runtimeSnapshot(userA);
+  const staleSessionDisconnect = await request('/api/runtime/disconnect', codeServerCredential.body.token, {
+    sessionId: 'stale-runtime-session',
+  });
+  assert.equal(staleSessionDisconnect.status, 200);
+  assert.equal(staleSessionDisconnect.body.released, false);
+  assert.deepEqual(runtimeSnapshot(userA), beforeStaleSessionDisconnect);
+  const sdkDisconnect = await request('/api/runtime/disconnect', codeServerCredential.body.token, {
+    sessionId: runtimeSession,
+  });
+  assert.equal(sdkDisconnect.status, 200);
+  assert.equal(sdkDisconnect.body.ok, true);
+  assert.equal(sdkDisconnect.body.released, true);
+  assert.equal(getWorker(workerId, userA).status, 'deploying');
+  assert.equal(getWorker(workerId, userA).pid, null);
+  const afterSdkDisconnect = runtimeSnapshot(userA);
+  const legacyDisconnect = await request('/api/code-server/disconnect', codeServerCredential.body.token, {});
+  assert.equal(legacyDisconnect.status, 200);
+  assert.equal(legacyDisconnect.body.ok, false);
+  assert.equal(legacyDisconnect.body.reason, 'stale_execution');
+  assert.deepEqual(runtimeSnapshot(userA), afterSdkDisconnect);
+
   // Claiming Operators must persist the reward and unlock While rather than
   // leaving the player with no active mainline quest.
   incrementStat('total_puzzles_solved', 1, userA);
@@ -568,7 +678,7 @@ try {
   assert.equal(recovered.current_node, getWorker(workerId, userA)?.current_node);
   assert.equal(recovered.executionToken, '');
 
-  console.log('Deploy/lifecycle integration: 150 assertions passed');
+  console.log('Deploy/lifecycle integration: execution fencing passed');
 } catch (error) {
   console.error(error);
   process.exitCode = 1;

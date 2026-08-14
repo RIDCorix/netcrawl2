@@ -25,8 +25,27 @@ import { broadcastFullState } from '../broadcastHelper.js';
 import { checkQuests } from '../quests.js';
 import { getUserId, returnWorkerItems, getWorkspacePath } from './helpers.js';
 import { rebuildInjectedEquipment } from '../deployEquipment.js';
+import type { AuthenticatedRequest } from '../auth.js';
 
 export const workerRoutes = Router();
+
+const staleExecution = (res: Response) =>
+  res.json({ ok: false, reason: 'stale_execution', error: 'Worker execution is no longer current' });
+
+function hasExecutionFence(
+  generation: unknown,
+  executionToken: unknown,
+  worker: { generation?: number; executionToken?: string },
+): boolean {
+  return (
+    generation !== undefined &&
+    generation !== null &&
+    typeof executionToken === 'string' &&
+    executionToken.length > 0 &&
+    worker.generation === Number(generation) &&
+    worker.executionToken === executionToken
+  );
+}
 
 // POST /api/recall
 workerRoutes.post('/recall', (req: Request, res: Response) => {
@@ -52,13 +71,19 @@ workerRoutes.post('/recall', (req: Request, res: Response) => {
 // POST /api/worker/reset
 workerRoutes.post('/worker/reset', (req: Request, res: Response) => {
   const uid = getUserId(req);
-  const { workerId } = req.body;
+  const { workerId, generation: requestGeneration, executionToken: requestExecutionToken } = req.body;
   if (!workerId) return res.status(400).json({ error: 'workerId required' });
 
   const worker = getWorker(workerId, uid);
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
+  if (
+    (req as AuthenticatedRequest).user?.purpose === 'code-server' &&
+    !hasExecutionFence(requestGeneration, requestExecutionToken, worker)
+  ) {
+    return staleExecution(res);
+  }
   if (['running', 'moving', 'harvesting', 'idle'].includes(worker.status)) {
-    killWorker(workerId);
+    killWorker(workerId, uid);
   }
 
   const config = worker.deployConfig || {
@@ -314,6 +339,13 @@ workerRoutes.post('/worker-classes/register', (req: Request, res: Response) => {
 // POST /api/code-server/disconnect
 workerRoutes.post('/code-server/disconnect', (req: Request, res: Response) => {
   const uid = getUserId(req);
+  const { generation, executionToken } = req.body || {};
+  if (
+    (req as AuthenticatedRequest).user?.purpose === 'code-server' &&
+    !getWorkers(uid).some(worker => hasExecutionFence(generation, executionToken, worker))
+  ) {
+    return staleExecution(res);
+  }
   resetAllWorkers(uid);
   broadcastFullState(uid);
   console.log('[NetCrawl] Code server disconnected — all workers reset to suspended');

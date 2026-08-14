@@ -20,6 +20,7 @@ import { checkQuests } from '../quests.js';
 import { XP_REWARDS } from '../levelSystem.js';
 import { getUserId, returnWorkerItems } from './helpers.js';
 import { decideDeployAck, isPickaxeItemType, resolvePickaxeSelection } from '../deployEquipment.js';
+import type { AuthenticatedRequest } from '../auth.js';
 
 export const deployRoutes = Router();
 
@@ -187,6 +188,10 @@ deployRoutes.post('/deploy-ack', (req: Request, res: Response) => {
 
   const worker = getWorker(workerId, uid);
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
+
+  if ((req as AuthenticatedRequest).user?.purpose === 'code-server' && !commandId) {
+    return res.json({ ok: false, reason: 'stale_execution', error: 'Worker execution is no longer current' });
+  }
 
   if (commandId) {
     const commandAck = acknowledgeDeployCommand(commandId, sessionId, Number(generation), uid);
