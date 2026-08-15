@@ -129,4 +129,14 @@ const submit = renderer!.root.findAllByType('button').find(button => button.chil
 assert.equal(submit.props.disabled, true, 'editing after a trace must disable submit');
 assert.equal(useGameStore.getState().computeLabRuns['run-1'].frames.length, 3, 'WS snapshot is stored by run id');
 renderer!.unmount();
+
+// An intentionally empty draft is still a saved player choice. Reopening must
+// not replace it with the task's starter source.
+storage.set('netcrawl-compute-lab:e_op_add', '');
+await act(async () => {
+  renderer = TestRenderer.create(<ComputeLabScreen />);
+  await Promise.resolve();
+});
+assert.equal(renderer!.root.findByType('textarea').props.value, '', 'an empty saved draft survives reopening');
+renderer!.unmount();
 console.log('Compute Lab WebSocket transport and mounted replay controls passed');

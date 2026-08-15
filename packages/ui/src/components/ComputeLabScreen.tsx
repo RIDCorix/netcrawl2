@@ -43,14 +43,14 @@ export function ComputeLabScreen() {
     if (!computeLabOpen || !available || !sourceNode) return;
     const key = `netcrawl-compute-lab:${sourceNode.id}`;
     const saved = localStorage.getItem(key);
-    if (saved) setSource(saved);
+    if (saved !== null) setSource(saved);
     closeRef.current?.focus();
     apiFetch('/api/compute-lab/tasks', { method: 'POST', body: JSON.stringify({ nodeId: sourceNode.id }) })
       .then(async response => ({ response, body: await response.json() }))
       .then(({ response, body }) => {
         if (!response.ok) throw new Error(body.error || 'Unable to load task');
         setTask(body);
-        if (!saved) setSource(body.starterSource);
+        if (saved === null) setSource(body.starterSource);
         setMessage(null);
       })
       .catch(() => setMessage({ key: 'compute_lab.task_load_failed' }));
