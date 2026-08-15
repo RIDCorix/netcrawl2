@@ -14,6 +14,8 @@ export interface PuzzleTemplate {
   name: string;
   description: string;
   difficulty: PuzzleDifficulty;
+  /** Ordered player-visible inputs for ProblemSolver.solution(). */
+  inputNames: string[];
   /** Generate a random puzzle instance */
   generate: () => { params: Record<string, any>; answer: number | string; hint: string };
   /** Reward multiplier (base reward * this) */
@@ -36,6 +38,7 @@ export const PUZZLE_TEMPLATES: PuzzleTemplate[] = [
   // ── Data Types ─────────────────────────────────────────────────────────
   {
     id: 'typeof',
+    inputNames: ['value'],
     name: 'Data Types',
     description: 'Return the Python type name of the given value',
     difficulty: 'easy',
@@ -69,6 +72,7 @@ export const PUZZLE_TEMPLATES: PuzzleTemplate[] = [
   // ── Easy ───────────────────────────────────────────────────────────────
   {
     id: 'add',
+    inputNames: ['a', 'b'],
     name: 'Addition',
     description: 'Compute a + b',
     difficulty: 'easy',
@@ -81,6 +85,7 @@ export const PUZZLE_TEMPLATES: PuzzleTemplate[] = [
   },
   {
     id: 'subtract',
+    inputNames: ['a', 'b'],
     name: 'Subtraction',
     description: 'Compute a - b',
     difficulty: 'easy',
@@ -93,6 +98,7 @@ export const PUZZLE_TEMPLATES: PuzzleTemplate[] = [
   },
   {
     id: 'multiply',
+    inputNames: ['a', 'b'],
     name: 'Multiplication',
     description: 'Compute a * b',
     difficulty: 'easy',
@@ -105,6 +111,7 @@ export const PUZZLE_TEMPLATES: PuzzleTemplate[] = [
   },
   {
     id: 'floor_div',
+    inputNames: ['a', 'b'],
     name: 'Floor Division',
     description: 'Compute a // b (integer division)',
     difficulty: 'easy',
@@ -117,6 +124,7 @@ export const PUZZLE_TEMPLATES: PuzzleTemplate[] = [
   },
   {
     id: 'modulo',
+    inputNames: ['a', 'b'],
     name: 'Modulo',
     description: 'Compute a % b',
     difficulty: 'easy',
@@ -131,6 +139,7 @@ export const PUZZLE_TEMPLATES: PuzzleTemplate[] = [
   // ── Medium ─────────────────────────────────────────────────────────────
   {
     id: 'max_of_three',
+    inputNames: ['numbers'],
     name: 'Maximum',
     description: 'Find the maximum of three numbers',
     difficulty: 'medium',
@@ -142,6 +151,7 @@ export const PUZZLE_TEMPLATES: PuzzleTemplate[] = [
   },
   {
     id: 'sum_list',
+    inputNames: ['numbers'],
     name: 'Sum List',
     description: 'Sum all numbers in the list',
     difficulty: 'medium',
@@ -158,6 +168,7 @@ export const PUZZLE_TEMPLATES: PuzzleTemplate[] = [
   },
   {
     id: 'count_evens',
+    inputNames: ['numbers'],
     name: 'Count Evens',
     description: 'Count even numbers in the list',
     difficulty: 'medium',
@@ -175,6 +186,7 @@ export const PUZZLE_TEMPLATES: PuzzleTemplate[] = [
   },
   {
     id: 'string_length',
+    inputNames: ['text'],
     name: 'String Length',
     description: 'Return the length of the string',
     difficulty: 'medium',
@@ -198,6 +210,7 @@ export const PUZZLE_TEMPLATES: PuzzleTemplate[] = [
   },
   {
     id: 'power',
+    inputNames: ['base', 'exp'],
     name: 'Exponent',
     description: 'Compute base ** exp',
     difficulty: 'medium',
@@ -212,6 +225,7 @@ export const PUZZLE_TEMPLATES: PuzzleTemplate[] = [
   // ── Hard ───────────────────────────────────────────────────────────────
   {
     id: 'fibonacci',
+    inputNames: ['n'],
     name: 'Fibonacci',
     description: 'Return the n-th Fibonacci number (0-indexed)',
     difficulty: 'hard',
@@ -228,6 +242,7 @@ export const PUZZLE_TEMPLATES: PuzzleTemplate[] = [
   },
   {
     id: 'sort_and_median',
+    inputNames: ['numbers'],
     name: 'Median',
     description: 'Find the median of the list',
     difficulty: 'hard',
@@ -242,6 +257,7 @@ export const PUZZLE_TEMPLATES: PuzzleTemplate[] = [
   },
   {
     id: 'unique_count',
+    inputNames: ['numbers'],
     name: 'Unique Count',
     description: 'Count unique values in the list',
     difficulty: 'hard',
@@ -259,6 +275,7 @@ export const PUZZLE_TEMPLATES: PuzzleTemplate[] = [
   },
   {
     id: 'gcd',
+    inputNames: ['a', 'b'],
     name: 'GCD',
     description: 'Find the greatest common divisor',
     difficulty: 'hard',
@@ -278,6 +295,7 @@ export const PUZZLE_TEMPLATES: PuzzleTemplate[] = [
   // promotion node that unlocks Layer 1 (Chapter 2).
   {
     id: 'calculator',
+    inputNames: ['a', 'b', 'c', 'op1', 'op2'],
     name: 'Calculator',
     description: 'Evaluate a short infix expression with + − × ÷ and precedence',
     difficulty: 'hard',

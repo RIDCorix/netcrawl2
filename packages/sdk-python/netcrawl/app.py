@@ -106,7 +106,7 @@ class NetCrawl:
         run_id = command["runId"]
         try:
             self._post(f"/api/runtime/commands/{command_id}/ack", {"sessionId": self._session_id, "generation": 0})
-            payload = json.dumps({"source": command["source"], "params": command.get("params", {}), "limits": command.get("limits", {})})
+            payload = json.dumps({"source": command["source"], "params": command.get("params", {}), "parameterNames": command.get("parameterNames", []), "limits": command.get("limits", {})})
             with tempfile.TemporaryDirectory(prefix="netcrawl-lab-") as cwd:
                 result = subprocess.run(
                     [sys.executable, "-m", "netcrawl.compute_lab_runner"], input=payload, text=True, capture_output=True,
@@ -118,7 +118,7 @@ class NetCrawl:
                 self._post(f"/api/runtime/compute-lab-runs/{run_id}/events", {"sessionId": self._session_id, "frame": frame})
             body = {"sessionId": self._session_id, "status": output["status"], "returnValue": output.get("returnValue")}
             if output.get("error"):
-                body["frame"] = {"sequence": len(output.get("frames", [])), "phase": "error", "error": output["error"]}
+                body["frame"] = {"sequence": len(output.get("frames", [])), "phase": "limit" if output["status"] == "limit" else "error", "line": output["error"].get("line"), "error": output["error"]}
             self._post(f"/api/runtime/compute-lab-runs/{run_id}/complete", body)
         except subprocess.TimeoutExpired:
             self._post(f"/api/runtime/compute-lab-runs/{run_id}/complete", {"sessionId": self._session_id, "status": "timeout"})

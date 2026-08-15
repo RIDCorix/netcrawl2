@@ -15,6 +15,7 @@ export const ja: Record<string, string> = {
   'compute_lab.runner_offline': '実行するには Code Server を接続または開始してください。下書きは保存されます。',
   'compute_lab.trace': '実行トレース',
   'compute_lab.run_to_trace': '関数を実行すると、各ステップを確認できます。',
+  'compute_lab.limit_reached': 'プログラムは 300 ステップを超えたため、最初の 300 ステップだけを表示しています。',
   'compute_lab.start_deploy': 'ワーカーをデプロイ',
   'compute_lab.read_only': '読み取り専用',
   'compute_lab.locked': 'このコンピュート・ラボは未解除か利用できません。',

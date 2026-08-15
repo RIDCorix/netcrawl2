@@ -15,6 +15,7 @@ export const en: Record<string, string> = {
   'compute_lab.runner_offline': 'Connect or start your Code Server to run this draft. Your draft is saved.',
   'compute_lab.trace': 'EXECUTION TRACE',
   'compute_lab.run_to_trace': 'Run your function to inspect every execution step.',
+  'compute_lab.limit_reached': 'Your program ran for more than 300 steps; only the first 300 are shown.',
   'compute_lab.start_deploy': 'DEPLOY WORKER',
   'compute_lab.read_only': 'READ ONLY',
   'compute_lab.locked': 'This Compute Lab is locked or unavailable.',

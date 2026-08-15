@@ -15,6 +15,7 @@ export const zhTW: Record<string, string> = {
   'compute_lab.runner_offline': '請連接或啟動 Code Server 才能執行；草稿已保存。',
   'compute_lab.trace': '執行追蹤',
   'compute_lab.run_to_trace': '執行函式後可逐步查看每一步。',
+  'compute_lab.limit_reached': '程式已超過 300 步，只顯示前 300 步。',
   'compute_lab.start_deploy': '部署 Worker',
   'compute_lab.read_only': '僅供閱讀',
   'compute_lab.locked': '此運算實驗室尚未解鎖或無法使用。',

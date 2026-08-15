@@ -97,7 +97,14 @@ export function finishComputeLabRun(
   const run = getComputeLabRun(runId, userId);
   if (!run || ['trace_ready', 'syntax', 'runtime', 'timeout', 'limit', 'disconnected'].includes(run.status))
     return undefined;
-  if (result.frame) acceptComputeLabFrame(runId, result.frame, userId);
+  if (result.frame) {
+    const expectedPhase = result.status === 'limit' ? 'limit' : 'error';
+    if (result.frame.sequence !== run.frames.length || result.frame.phase !== expectedPhase || !result.frame.error)
+      return undefined;
+    // A single terminal status marker is not a replayable execution event, so it
+    // remains visible after maxEvents without permitting additional trace steps.
+    run.frames.push(result.frame);
+  }
   run.status = result.status;
   run.returnValue = result.returnValue;
   run.updatedAt = Date.now();

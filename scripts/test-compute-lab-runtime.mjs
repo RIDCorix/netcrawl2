@@ -55,12 +55,13 @@ try {
   const task = await request('/compute-lab/tasks', { nodeId: 'e_op_add' });
   assert.equal(task.status, 200);
   const source = [
-    'def solve(params):',
-    '    values = [params["a"], params["b"]]',
-    '    total = 0',
-    '    for value in values:',
-    '        total = total + value',
-    '    return total',
+    'class ProblemSolver:',
+    '    def solution(self, a, b):',
+    '        values = [a, b]',
+    '        total = 0',
+    '        for value in values:',
+    '            total = total + value',
+    '        return total',
     '',
   ].join('\n');
   const started = await request('/compute-lab/runs', {
@@ -92,6 +93,31 @@ try {
   assert.equal(frames[0].sequence, 0, 'replay starts at the first frame');
   assert.equal(frames.at(-1).sequence, frames.length - 1, 'replay can select the terminal frame');
   assert.equal(snapshot.body.run.returnValue, task.body.params.a + task.body.params.b);
+
+  const waitForTerminal = async runId => {
+    for (let attempt = 0; attempt < 40; attempt++) {
+      await sleep(250);
+      const next = await request(`/compute-lab/runs/${runId}`);
+      if (['trace_ready', 'syntax', 'runtime', 'timeout', 'limit', 'disconnected'].includes(next.body.run?.status)) return next.body.run;
+    }
+    throw new Error(`run ${runId} did not finish`);
+  };
+  const invalid = await request('/compute-lab/runs', {
+    nodeId: 'e_op_add', taskId: task.body.taskId, revision: 2,
+    source: 'class ProblemSolver:\n    def solution(self, b, a):\n        return a + b\n',
+  });
+  assert.equal(invalid.status, 202);
+  assert.equal((await waitForTerminal(invalid.body.runId)).status, 'syntax', 'wrong parameter order fails before execution');
+
+  const loop = await request('/compute-lab/runs', {
+    nodeId: 'e_op_add', taskId: task.body.taskId, revision: 3,
+    source: 'class ProblemSolver:\n    def solution(self, a, b):\n        total = 0\n        for i in range(100):\n            total = total + i\n        return total\n',
+  });
+  assert.equal(loop.status, 202);
+  const limited = await waitForTerminal(loop.body.runId);
+  assert.equal(limited.status, 'limit');
+  assert.equal(limited.frames.length, 301, 'the terminal limit marker follows 300 execution events');
+  assert.equal(limited.frames.at(-1).phase, 'limit');
 
   const submission = await request('/compute-lab/submissions', { taskId: task.body.taskId, runId: started.body.runId });
   assert.equal(submission.status, 200);

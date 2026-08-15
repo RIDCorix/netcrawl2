@@ -7,9 +7,9 @@ type Run = ComputeLabRunSnapshot;
 type Task = {
   taskId: string;
   params: Record<string, unknown>;
-  hint: string;
   difficulty: string;
   functionSignature: string;
+  starterSource: string;
 };
 const TERMINAL = new Set(['trace_ready', 'syntax', 'runtime', 'timeout', 'limit', 'disconnected']);
 
@@ -31,9 +31,7 @@ export function ComputeLabScreen() {
   const sourceNode = nodes.find(node => node.id === computeLabSourceNodeId);
   const available = sourceNode?.type === 'compute' && sourceNode.data.unlocked === true;
   const [task, setTask] = useState<Task | null>(null);
-  const [source, setSource] = useState(
-    'def solve(params):\n    # Return the answer for this task.\n    return params["a"] + params["b"]\n',
-  );
+  const [source, setSource] = useState('');
   const [revision, setRevision] = useState(0);
   const [runId, setRunId] = useState<string | null>(null);
   const [frameIndex, setFrameIndex] = useState(0);
@@ -52,6 +50,7 @@ export function ComputeLabScreen() {
       .then(({ response, body }) => {
         if (!response.ok) throw new Error(body.error || 'Unable to load task');
         setTask(body);
+        if (!saved) setSource(body.starterSource);
         setMessage(null);
       })
       .catch(() => setMessage({ key: 'compute_lab.task_load_failed' }));
@@ -96,6 +95,11 @@ export function ComputeLabScreen() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [computeLabOpen, closeComputeLab]);
 
+  useEffect(() => {
+    if (run && ['syntax', 'runtime', 'limit', 'timeout', 'disconnected'].includes(run.status))
+      setFrameIndex(Math.max(0, run.frames.length - 1));
+  }, [run?.status, run?.frames.length]);
+
   if (!computeLabOpen) return null;
   const stale = Boolean(run && run.revision !== revision);
   const frame = run?.frames[frameIndex];
@@ -123,6 +127,7 @@ export function ComputeLabScreen() {
     setRunId(body.runId);
     setFrameIndex(0);
   };
+
   const submit = async () => {
     if (!task || !run || stale) return;
     const response = await apiFetch('/api/compute-lab/submissions', {
@@ -176,11 +181,10 @@ export function ComputeLabScreen() {
           <section style={{ display: 'grid', gap: 12 }}>
             <div>
               <strong>{t('compute_lab.challenge')}</strong>
-              <p style={{ color: 'var(--text-muted)' }}>{task?.hint || t('compute_lab.loading')}</p>
               <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(task?.params || {}, null, 2)}</pre>
             </div>
             <label htmlFor="compute-lab-editor">
-              <strong>{task?.functionSignature || 'def solve(params):'}</strong>
+              <pre style={{ whiteSpace: 'pre-wrap' }}>{task?.functionSignature || 'class ProblemSolver:'}</pre>
             </label>
             <textarea
               id="compute-lab-editor"
@@ -281,6 +285,7 @@ export function ComputeLabScreen() {
                   ))}
                 </div>
                 {frame.error && <div role="alert">{frame.error.message}</div>}
+                {run?.status === 'limit' && frame.phase === 'limit' && <div role="alert">{t('compute_lab.limit_reached')}</div>}
               </>
             ) : (
               <p>{t('compute_lab.run_to_trace')}</p>

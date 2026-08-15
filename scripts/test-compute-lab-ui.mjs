@@ -20,10 +20,13 @@ assert.match(screen, /type="range"/);
 assert.doesNotMatch(screen, /GraphCanvas|LAB_NODES|NodeDetailPanel|worker\.goto/);
 assert.match(server, /compute-lab\/tasks/);
 assert.match(server, /compute-lab\/submissions/);
-assert.match(server, /getActivePuzzleParams/);
+assert.match(server, /getActiveComputeLabTask/);
 assert.match(runner, /sys\.settrace/);
 assert.match(runner, /InstrumentExpressions/);
 assert.match(runner, /attribute access is not allowed/);
+assert.match(runner, /ProblemSolver/);
+assert.match(screen, /starterSource/);
+assert.match(screen, /limit_reached/);
 for (const key of [
   'task_load_failed',
   'connection_lost',

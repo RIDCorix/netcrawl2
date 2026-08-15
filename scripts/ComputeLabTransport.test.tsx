@@ -37,9 +37,9 @@ Object.defineProperty(globalThis, 'fetch', {
       JSON.stringify({
         taskId: 'task-1',
         params: { a: 3, b: 4 },
-        hint: 'Add the inputs.',
         difficulty: 'easy',
-        functionSignature: 'def solve(params):',
+        functionSignature: 'class ProblemSolver:\n    def solution(self, a, b):',
+        starterSource: 'class ProblemSolver:\n    def solution(self, a, b):\n        return a + b\n',
       }),
       { status: 200 },
     );
@@ -123,7 +123,7 @@ await act(async () => {
 assert.match(text(renderer!.toJSON()), /RETURN/);
 assert.match(text(renderer!.toJSON()), /return: 7/);
 await act(async () => {
-  renderer!.root.findByType('textarea').props.onChange({ target: { value: 'def solve(params):\n    return 0\n' } });
+  renderer!.root.findByType('textarea').props.onChange({ target: { value: 'class ProblemSolver:\n    def solution(self, a, b):\n        return 0\n' } });
 });
 const submit = renderer!.root.findAllByType('button').find(button => button.children.includes('SUBMIT LAST RUN'))!;
 assert.equal(submit.props.disabled, true, 'editing after a trace must disable submit');

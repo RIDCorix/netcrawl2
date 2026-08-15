@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { getGameState } from '../domain/gameState.js';
-import { getActivePuzzleParams, getComputeTask, submitComputeAnswer } from '../actions/computeActions.js';
+import { getActiveComputeLabTask, getComputeTask, submitComputeAnswer } from '../actions/computeActions.js';
 import { getUserId, sendError } from './helpers.js';
 import { isCodeServerConnected, isValidCodeServerLease } from '../codeServerTracker.js';
 import { enqueueComputeLabRun } from '../workerRegistry.js';
@@ -27,7 +27,10 @@ computeLabRoutes.post('/compute-lab/tasks', async (req: Request, res: Response) 
   if (!node) return sendError(res, 403, 'Compute node is locked or unavailable', 'locked_node');
   const task = await getComputeTask(nodeId, node, uid);
   if (!task.ok) return res.status(task.reason === 'cooldown' ? 429 : 400).json(task);
-  res.json({ ...task, limits: TRACE_LIMITS });
+  const labTask = getActiveComputeLabTask(nodeId, task.taskId, uid);
+  if (!labTask) return sendError(res, 409, 'Task expired; get a new task before running', 'invalid_task');
+  const { hint: _hint, params: _params, ...publicTask } = task;
+  res.json({ ...publicTask, ...labTask, limits: TRACE_LIMITS });
 });
 
 computeLabRoutes.post('/compute-lab/runs', (req: Request, res: Response) => {
@@ -39,8 +42,8 @@ computeLabRoutes.post('/compute-lab/runs', (req: Request, res: Response) => {
     return sendError(res, 400, 'taskId, source, and integer revision required', 'invalid_run');
   if (!isCodeServerConnected(uid))
     return sendError(res, 409, 'Connect a Code Server before running code', 'disconnected');
-  const params = getActivePuzzleParams(String(nodeId), String(taskId), uid);
-  if (!params) return sendError(res, 409, 'Task expired; get a new task before running', 'invalid_task');
+  const task = getActiveComputeLabTask(String(nodeId), String(taskId), uid);
+  if (!task) return sendError(res, 409, 'Task expired; get a new task before running', 'invalid_task');
   const run = createComputeLabRun({
     userId: uid,
     nodeId: String(nodeId),
@@ -49,7 +52,7 @@ computeLabRoutes.post('/compute-lab/runs', (req: Request, res: Response) => {
     revision,
     sessionId: '',
   });
-  enqueueComputeLabRun({ runId: run.id, source, params, limits: TRACE_LIMITS }, uid);
+  enqueueComputeLabRun({ runId: run.id, source, ...task, limits: TRACE_LIMITS }, uid);
   res.status(202).json({ ok: true, runId: run.id, status: run.status });
 });
 

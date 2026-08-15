@@ -35,6 +35,15 @@ export function getActivePuzzleParams(
   return puzzle?.taskId === taskId ? puzzle.params : undefined;
 }
 
+export function getActiveComputeLabTask(nodeId: string, taskId: string, uid?: string) {
+  const puzzle = activePuzzles.get(puzzleKey(uid, nodeId));
+  if (!puzzle || puzzle.taskId !== taskId) return undefined;
+  const template = PUZZLE_TEMPLATES.find(candidate => candidate.id === puzzle.templateId);
+  if (!template) return undefined;
+  const params = Object.fromEntries(template.inputNames.map(name => [name, puzzle.params[name]]));
+  return { params, parameterNames: template.inputNames };
+}
+
 export async function handleCompute(ctx: ActionContext): Promise<any> {
   const { workerId, worker, nodes, uid } = ctx;
   const computeNode = worker.current_node || worker.node_id;
@@ -74,7 +83,8 @@ export async function getComputeTask(
     params: puzzle.params,
     hint: puzzle.hint,
     difficulty: puzzle.difficulty,
-    functionSignature: 'def solve(params):',
+    functionSignature: `class ProblemSolver:\n    def solution(self, ${PUZZLE_TEMPLATES.find(t => t.id === puzzle.templateId)?.inputNames.join(', ') || ''}):`,
+    starterSource: `class ProblemSolver:\n    def solution(self, ${PUZZLE_TEMPLATES.find(t => t.id === puzzle.templateId)?.inputNames.join(', ') || ''}):\n        # Return the answer for this task.\n        pass\n`,
   };
 }
 

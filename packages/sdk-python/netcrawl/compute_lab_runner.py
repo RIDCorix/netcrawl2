@@ -13,29 +13,42 @@ class ValidationError(Exception):
         self.line = line
 
 
-ALLOWED_BUILTINS = {"abs", "all", "any", "bool", "dict", "enumerate", "float", "int", "len", "list", "max", "min", "range", "reversed", "round", "sorted", "str", "sum", "type"}
+ALLOWED_BUILTINS = {"abs", "all", "any", "bool", "dict", "enumerate", "float", "int", "len", "list", "max", "min", "range", "reversed", "round", "sorted", "str", "sum"}
 ALLOWED_NODES = {
-    "Module", "FunctionDef", "arguments", "arg", "Return", "Assign", "AugAssign", "AnnAssign", "For", "While", "If", "IfExp", "Break", "Continue", "Pass",
-    "Name", "Load", "Store", "Constant", "List", "Tuple", "Dict", "Set", "Subscript", "Slice", "BinOp", "UnaryOp", "BoolOp", "Compare", "Call", "keyword", "Attribute",
+    "Module", "ClassDef", "FunctionDef", "arguments", "arg", "Return", "Assign", "AugAssign", "AnnAssign", "For", "While", "If", "IfExp", "Break", "Continue", "Pass",
+    "Name", "Load", "Store", "Constant", "List", "Tuple", "Dict", "Set", "Subscript", "Slice", "BinOp", "UnaryOp", "BoolOp", "Compare", "Call", "keyword",
     "Add", "Sub", "Mult", "Div", "FloorDiv", "Mod", "Pow", "USub", "UAdd", "Not", "And", "Or", "Eq", "NotEq", "Lt", "LtE", "Gt", "GtE", "In", "NotIn",
-    "ListComp", "GeneratorExp", "comprehension",
+    "ListComp", "GeneratorExp", "comprehension", "JoinedStr", "FormattedValue",
 }
 
 
 class Validator(ast.NodeVisitor):
+    def __init__(self, parameter_names: list[str]):
+        self.parameter_names = parameter_names
     def visit(self, node: ast.AST):
         if type(node).__name__ not in ALLOWED_NODES:
             raise ValidationError(f"{type(node).__name__} is not allowed in Compute Lab", getattr(node, "lineno", None))
         return super().visit(node)
 
     def visit_Module(self, node: ast.Module):
-        if len(node.body) != 1 or not isinstance(node.body[0], ast.FunctionDef) or node.body[0].name != "solve":
-            raise ValidationError("Define exactly one function: def solve(params):")
+        if len(node.body) != 1 or not isinstance(node.body[0], ast.ClassDef) or node.body[0].name != "ProblemSolver":
+            raise ValidationError("Define exactly one class: class ProblemSolver:")
         self.visit(node.body[0])
 
+    def visit_ClassDef(self, node: ast.ClassDef):
+        if node.bases or node.keywords or node.decorator_list or len(node.body) != 1:
+            raise ValidationError("ProblemSolver must contain exactly one solution method", node.lineno)
+        method = node.body[0]
+        if not isinstance(method, ast.FunctionDef) or method.name != "solution":
+            raise ValidationError("ProblemSolver must define exactly one method: solution", getattr(method, "lineno", node.lineno))
+        self.visit(method)
+
     def visit_FunctionDef(self, node: ast.FunctionDef):
-        if len(node.args.args) != 1 or node.args.args[0].arg != "params" or node.decorator_list:
-            raise ValidationError("solve must have exactly one parameter named params", node.lineno)
+        names = [argument.arg for argument in node.args.args]
+        if (node.name != "solution" or node.decorator_list or node.args.posonlyargs or node.args.vararg or
+                node.args.kwonlyargs or node.args.kwarg or node.args.defaults or node.args.kw_defaults or
+                names != ["self", *self.parameter_names]):
+            raise ValidationError(f"solution must be def solution(self, {', '.join(self.parameter_names)})", node.lineno)
         for statement in node.body:
             self.visit(statement)
 
@@ -68,17 +81,23 @@ class InstrumentExpressions(ast.NodeTransformer):
         node = self.generic_visit(node)
         return self._wrap(node)
 
+    def visit_Call(self, node: ast.Call):
+        node = self.generic_visit(node)
+        return self._wrap(node)
+
+    def visit_Subscript(self, node: ast.Subscript):
+        node = self.generic_visit(node)
+        return self._wrap(node)
+
     def _wrap(self, node: ast.expr):
         text = ast.get_source_segment(self.source, node) or "expression"
-        wrapped = ast.Call(func=ast.Name(id="__lab_eval", ctx=ast.Load()), args=[ast.Constant(text), ast.Lambda(args=ast.arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], defaults=[]), body=node)], keywords=[])
+        wrapped = ast.Call(func=ast.Name(id="_lab_eval", ctx=ast.Load()), args=[ast.Constant(text), ast.Lambda(args=ast.arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], defaults=[]), body=node)], keywords=[])
         return ast.copy_location(wrapped, node)
 
 
 def json_value(value: Any, depth: int = 0, max_depth: int = 4) -> Any:
     if depth >= max_depth:
         return {"truncated": True, "reason": "max_depth", "type": type(value).__name__}
-    if isinstance(value, type):
-        return value.__name__
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     if isinstance(value, (list, tuple)):
@@ -91,16 +110,23 @@ def json_value(value: Any, depth: int = 0, max_depth: int = 4) -> Any:
 def execute(payload: dict) -> dict:
     source = payload.get("source", "")
     params = payload.get("params", {})
+    parameter_names = payload.get("parameterNames", [])
     max_events = int(payload.get("limits", {}).get("maxEvents", 300))
     try:
+        if (not isinstance(params, dict) or not isinstance(parameter_names, list) or
+                any(not isinstance(name, str) or not name.isidentifier() for name in parameter_names) or
+                len(set(parameter_names)) != len(parameter_names) or
+                set(params) != set(parameter_names)):
+            raise ValidationError("parameterNames must be unique Python identifiers matching params")
         tree = ast.parse(source, mode="exec")
-        Validator().visit(tree)
+        Validator(parameter_names).visit(tree)
     except (SyntaxError, ValidationError) as exc:
-        return {"status": "syntax", "frames": [], "error": {"message": str(exc), "line": getattr(exc, "lineno", None), "kind": "syntax"}}
+        return {"status": "syntax", "frames": [], "error": {"message": str(exc), "line": getattr(exc, "line", getattr(exc, "lineno", None)), "kind": "syntax"}}
 
     frames: list[dict] = []
     previous: dict[str, Any] = {}
     active_frame = None
+    solution_code = None
 
     def emit(phase: str, line: int | None = None, **extra: Any):
         nonlocal previous
@@ -108,14 +134,14 @@ def execute(payload: dict) -> dict:
             raise RuntimeError("__lab_limit__")
         # CPython 3.14 exposes a FrameLocalsProxy; materialize it before
         # serializing so the debugger receives actual variable bindings.
-        locals_snapshot = json_value(dict(active_frame.f_locals)) if active_frame else {}
+        locals_snapshot = json_value({key: value for key, value in dict(active_frame.f_locals).items() if key != "self"}) if active_frame else {}
         changed = sorted(key for key, value in locals_snapshot.items() if previous.get(key) != value)
         previous = dict(locals_snapshot)
         frames.append({"sequence": len(frames), "phase": phase, "line": line, "locals": locals_snapshot, "changed": changed, **extra})
 
     def tracer(frame, event, arg):
         nonlocal active_frame
-        if frame.f_code.co_name != "solve":
+        if frame.f_code is not solution_code:
             return tracer
         active_frame = frame
         if event == "line":
@@ -129,23 +155,25 @@ def execute(payload: dict) -> dict:
         emit("eval", active_frame.f_lineno if active_frame else None, expression={"source": text, "value": json_value(value)})
         return value
 
-    namespace = {"__builtins__": {name: getattr(builtins, name) for name in ALLOWED_BUILTINS}, "__lab_eval": trace_eval}
+    namespace = {"__builtins__": {**{name: getattr(builtins, name) for name in ALLOWED_BUILTINS}, "__build_class__": builtins.__build_class__}, "_lab_eval": trace_eval, "__name__": "__compute_lab__"}
     try:
         instrumented = InstrumentExpressions(source).visit(tree)
         ast.fix_missing_locations(instrumented)
         exec(compile(instrumented, "<compute-lab>", "exec"), namespace)
+        solver = namespace["ProblemSolver"]()
+        solution_code = solver.solution.__code__
         sys.settrace(tracer)
-        value = namespace["solve"](params)
+        value = solver.solution(**params)
         sys.settrace(None)
         return {"status": "trace_ready", "frames": frames, "returnValue": json_value(value)}
     except RuntimeError as exc:
         sys.settrace(None)
         if str(exc) == "__lab_limit__":
-            return {"status": "limit", "frames": frames, "error": {"message": "Trace event limit reached", "kind": "limit"}}
-        return {"status": "runtime", "frames": frames, "error": {"message": str(exc), "kind": "runtime"}}
+            return {"status": "limit", "frames": frames, "error": {"message": "Trace event limit reached", "line": active_frame.f_lineno if active_frame else None, "kind": "limit"}}
+        return {"status": "runtime", "frames": frames, "error": {"message": str(exc), "line": active_frame.f_lineno if active_frame else None, "kind": "runtime"}}
     except Exception as exc:
         sys.settrace(None)
-        return {"status": "runtime", "frames": frames, "error": {"message": str(exc), "kind": type(exc).__name__}}
+        return {"status": "runtime", "frames": frames, "error": {"message": str(exc), "line": active_frame.f_lineno if active_frame else None, "kind": type(exc).__name__}}
 
 
 if __name__ == "__main__":
