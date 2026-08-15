@@ -13,10 +13,10 @@ class ValidationError(Exception):
         self.line = line
 
 
-ALLOWED_BUILTINS = {"abs", "all", "any", "bool", "dict", "enumerate", "float", "int", "len", "list", "max", "min", "range", "reversed", "round", "sorted", "str", "sum"}
+ALLOWED_BUILTINS = {"abs", "all", "any", "bool", "dict", "enumerate", "float", "int", "len", "list", "max", "min", "range", "reversed", "round", "sorted", "str", "sum", "type"}
 ALLOWED_NODES = {
     "Module", "FunctionDef", "arguments", "arg", "Return", "Assign", "AugAssign", "AnnAssign", "For", "While", "If", "IfExp", "Break", "Continue", "Pass",
-    "Name", "Load", "Store", "Constant", "List", "Tuple", "Dict", "Set", "Subscript", "Slice", "BinOp", "UnaryOp", "BoolOp", "Compare", "Call", "keyword",
+    "Name", "Load", "Store", "Constant", "List", "Tuple", "Dict", "Set", "Subscript", "Slice", "BinOp", "UnaryOp", "BoolOp", "Compare", "Call", "keyword", "Attribute",
     "Add", "Sub", "Mult", "Div", "FloorDiv", "Mod", "Pow", "USub", "UAdd", "Not", "And", "Or", "Eq", "NotEq", "Lt", "LtE", "Gt", "GtE", "In", "NotIn",
     "ListComp", "GeneratorExp", "comprehension",
 }
@@ -77,6 +77,8 @@ class InstrumentExpressions(ast.NodeTransformer):
 def json_value(value: Any, depth: int = 0, max_depth: int = 4) -> Any:
     if depth >= max_depth:
         return {"truncated": True, "reason": "max_depth", "type": type(value).__name__}
+    if isinstance(value, type):
+        return value.__name__
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     if isinstance(value, (list, tuple)):
