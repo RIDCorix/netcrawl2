@@ -598,6 +598,7 @@ class WorkerClass(metaclass=WorkerMeta):
             "class_id": cls.class_id,
             "class_name": cls.class_name,
             "class_icon": cls.class_icon,
+            "capabilities": list(getattr(cls, "capabilities", [])),
             "fields": {
                 name: field.schema()
                 for name, field in cls._fields.items()

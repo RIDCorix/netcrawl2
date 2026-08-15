@@ -336,8 +336,18 @@ If you have enough data, click **Unlock** in the node detail panel. Start with a
 
   q_operators: [
     {
-      title: 'Comparison Operators',
-      content: `Python has operators for comparing values:
+      title: 'Solve in Compute Lab',
+      content: `Your first Compute puzzle is a pure function: the Lab calls it with the displayed parameters and submits its return value for you.
+
+\`\`\`python
+class ProblemSolver:
+    def solution(self, a, b):
+        return a + b
+\`\`\`
+
+For the first Operator Academy challenge, use \`a + b\`. You do not deploy a Worker, choose a route, or use an item for this solve.
+
+Python also has operators for comparing values:
 
 | Operator | Meaning | Example |
 |----------|---------|---------|
@@ -368,7 +378,7 @@ if (node.isInfected) {
 }
 \`\`\`
 
-**Goal:** Head east from the Hub to the **Operator Academy** and solve **1 compute puzzle** using the operator requested by its prompt. The quest completes when the server records one solved puzzle.`,
+**Goal:** Head east from the Hub to the **Operator Academy**, click **Enter Compute Lab**, and solve **1 compute puzzle**. The quest completes when the server records one solved puzzle.`,
     },
   ],
 

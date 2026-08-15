@@ -56,6 +56,12 @@ deployRoutes.post('/deploy', async (req: Request, res: Response) => {
   const state = getGameState(uid);
   const node = state.nodes.find((n: any) => n.id === nodeId);
   if (!node) return res.status(404).json({ error: 'Node not found' });
+  if (node.type === 'compute') {
+    if ((node.data?.solveCount || 0) <= 0)
+      return res.status(403).json({ error: 'Solve this node in Compute Lab before automating it', reason: 'compute_lab_required' });
+    if (!workerClass.capabilities?.includes('compute_automation'))
+      return res.status(403).json({ error: 'Select a Compute automation worker', reason: 'compute_worker_required' });
+  }
 
   const flopCost = FLOP_COSTS.worker;
   if (!allocateFlop(flopCost, uid)) {

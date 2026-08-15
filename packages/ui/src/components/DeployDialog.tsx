@@ -60,11 +60,13 @@ export function DeployDialog({
   nodeName,
   onClose,
   tutorial,
+  eligibility,
 }: {
   nodeId: string;
   nodeName: string;
   onClose: () => void;
   tutorial?: TutorialDeployDescriptor;
+  eligibility?: string;
 }) {
   const {
     workers,
@@ -80,9 +82,10 @@ export function DeployDialog({
   const tutorialMode = !!tutorial;
   const expectedTutorialClass = tutorial?.phase === 'hello' ? 'helloworker' : 'miner';
   const workerClasses = storeWorkerClasses as WorkerClassEntry[];
+  const eligibleWorkerClasses = eligibility ? workerClasses.filter(c => c.capabilities?.includes(eligibility)) : workerClasses;
   const tutorialWorkerClasses = tutorialMode
     ? workerClasses.filter(c => c.class_id === expectedTutorialClass)
-    : workerClasses;
+    : eligibleWorkerClasses;
   const dialogRef = useRef<HTMLDivElement>(null);
   const routePickerRef = useRef<HTMLDivElement>(null);
   const selectingRouteRef = useRef<string | null>(null);

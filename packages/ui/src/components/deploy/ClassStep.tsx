@@ -19,6 +19,7 @@ export interface WorkerClassEntry {
   docstring: string;
   file: string;
   language: string;
+  capabilities?: string[];
 }
 
 interface ClassStepProps {

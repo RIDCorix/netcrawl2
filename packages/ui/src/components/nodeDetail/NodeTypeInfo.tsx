@@ -107,11 +107,10 @@ export function ComputeNodeInfo({
           marginTop: 4,
         }}
       >
-        Send a worker here, then <span style={{ color: 'var(--accent)' }}>node = self.get_current_node()</span> to get a
-        ComputeNode. Call <span style={{ color: 'var(--accent)' }}>node.get_task()</span> and{' '}
-        <span style={{ color: 'var(--accent)' }}>node.submit(task_id, answer)</span>.
+        Write the requested <span style={{ color: 'var(--accent)' }}>ProblemSolver.solution(...)</span> function and return
+        the answer. The Lab submits the result for this first solve.
       </div>
-      {node.id === 'e_op_add' && node.data.unlocked && (
+      {node.data.unlocked && (
         <button
           onClick={() => onOpenLab(node.id)}
           style={{

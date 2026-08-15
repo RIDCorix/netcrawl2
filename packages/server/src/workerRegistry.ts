@@ -20,6 +20,7 @@ export interface WorkerClassEntry {
   class_id: string;
   class_name: string;
   class_icon: string;
+  capabilities?: string[];
   fields: Record<string, { type: string; field: string; description: string }>;
   docstring: string;
   file: string;

@@ -171,6 +171,7 @@ export function NodeDetailPanel(props: NodeDetailPanelProps = {}) {
     node &&
     (inspectionOnly ? !!deployTargetNodeId : node.id === 'hub' || node.data.unlocked) &&
     !node.data.infected &&
+    !(node.type === 'compute' && (node.data.solveCount || 0) <= 0) &&
     (!chapterZeroDeploy || inspectionOnly || (node.id === 'hub' && !chapterZeroDeploy.setupGate));
 
   const handleDeployOpen = async () => {
