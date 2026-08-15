@@ -3,6 +3,7 @@ export const zhTW: Record<string, string> = {
   'compute_lab.subtitle': '撰寫函式並查看真實執行過程。',
   'compute_lab.workspace_subtitle': '專注解題工作台 · Run 需要 Code Server 連線。',
   'compute_lab.challenge': '題目輸入',
+  'compute_lab.task_description': '任務：{description}',
   'compute_lab.loading': '正在載入題目…',
   'compute_lab.task_load_failed': '無法載入這個題目，請再試一次。',
   'compute_lab.connection_lost': '連線中斷；草稿仍已保存。',

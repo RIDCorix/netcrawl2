@@ -41,7 +41,7 @@ export function getActiveComputeLabTask(nodeId: string, taskId: string, uid?: st
   const template = PUZZLE_TEMPLATES.find(candidate => candidate.id === puzzle.templateId);
   if (!template) return undefined;
   const params = Object.fromEntries(template.inputNames.map(name => [name, puzzle.params[name]]));
-  return { params, parameterNames: template.inputNames };
+  return { description: template.description, params, parameterNames: template.inputNames };
 }
 
 export async function handleCompute(ctx: ActionContext): Promise<any> {

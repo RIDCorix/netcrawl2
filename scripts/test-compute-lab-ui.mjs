@@ -29,6 +29,8 @@ assert.match(runner, /InstrumentExpressions/);
 assert.match(runner, /attribute access is not allowed/);
 assert.match(runner, /ProblemSolver/);
 assert.match(screen, /starterSource/);
+assert.match(screen, /task\?\.description/);
+assert.match(screen, /compute_lab\.task_description/);
 assert.match(screen, /limit_reached/);
 assert.match(nodeDetail, /eligibility=\{node\.type === 'compute' \? 'compute_automation' : undefined\}/);
 assert.match(nodeTypeInfo, /AUTOMATE WITH WORKER|compute_lab\.automate/);

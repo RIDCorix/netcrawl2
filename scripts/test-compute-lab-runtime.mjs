@@ -63,6 +63,11 @@ try {
 
   const task = await request('/compute-lab/tasks', { nodeId: 'e_op_add' });
   assert.equal(task.status, 200);
+  assert.equal(typeof task.body.description, 'string');
+  assert.ok(task.body.description.length > 0);
+  assert.equal('hint' in task.body, false);
+  assert.equal('answer' in task.body, false);
+  assert.equal('op' in task.body, false);
   const source = [
     'class ProblemSolver:',
     '    def solution(self, a, b):',

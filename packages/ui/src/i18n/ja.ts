@@ -3,6 +3,7 @@ export const ja: Record<string, string> = {
   'compute_lab.subtitle': '関数を書き、実際の実行を確認します。',
   'compute_lab.workspace_subtitle': '集中型パズル作業台 · 実行には Code Server 接続が必要です。',
   'compute_lab.challenge': '問題の入力',
+  'compute_lab.task_description': '課題：{description}',
   'compute_lab.loading': '問題を読み込み中…',
   'compute_lab.task_load_failed': '問題を読み込めませんでした。もう一度試してください。',
   'compute_lab.connection_lost': '接続が切れました。下書きは保存されています。',

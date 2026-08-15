@@ -3,6 +3,7 @@ export const en: Record<string, string> = {
   'compute_lab.subtitle': 'Write a function and inspect its real execution.',
   'compute_lab.workspace_subtitle': 'Focused puzzle workspace · Code Server status controls Run.',
   'compute_lab.challenge': 'CHALLENGE INPUT',
+  'compute_lab.task_description': 'Task: {description}',
   'compute_lab.loading': 'Loading task…',
   'compute_lab.task_load_failed': 'Unable to load this challenge. Try again.',
   'compute_lab.connection_lost': 'Connection lost. Your draft is still saved.',

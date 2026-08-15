@@ -6,6 +6,7 @@ import { useT } from '../hooks/useT';
 type Run = ComputeLabRunSnapshot;
 type Task = {
   taskId: string;
+  description: string;
   params: Record<string, unknown>;
   difficulty: string;
   functionSignature: string;
@@ -181,6 +182,7 @@ export function ComputeLabScreen() {
           <section style={{ display: 'grid', gap: 12 }}>
             <div>
               <strong>{t('compute_lab.challenge')}</strong>
+              <p>{t('compute_lab.task_description', { description: task?.description || '' })}</p>
               <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(task?.params || {}, null, 2)}</pre>
             </div>
             <label htmlFor="compute-lab-editor">
