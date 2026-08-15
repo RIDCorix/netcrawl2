@@ -5,6 +5,15 @@ def run(source, params={"a": 2, "b": 3}, names=["a", "b"], max_events=300):
     return execute({"source": source, "params": params, "parameterNames": names, "limits": {"maxEvents": max_events}})
 
 
+def test_type_builtin_is_allowed_for_typeof_puzzle_solution():
+    result = run("""class ProblemSolver:
+    def solution(self, value):
+        return type(value)
+""", {"value": [1, 2, 3]}, ["value"])
+    assert result["status"] == "trace_ready"
+    assert result["returnValue"] == "list"
+
+
 def test_problem_solver_trace_has_named_inputs_and_expression_frames():
     result = run("""class ProblemSolver:
     def solution(self, a, b):
