@@ -1,7 +1,7 @@
 import { getAllActiveUserIds, setCurrentUser } from './store.js';
 import { getGameState, saveGameState } from './domain/gameState.js';
 import { getWorkers, resetAllWorkers } from './domain/workers.js';
-import { incrementStat } from './domain/achievements.js';
+import { incrementStat, setStat } from './domain/achievements.js';
 import { takeAutosave } from './domain/autosave.js';
 import { broadcast } from './websocket.js';
 import { broadcastFullState } from './broadcastHelper.js';
@@ -9,6 +9,7 @@ import { getNeighborIds } from './graphUtils.js';
 import { checkAchievements } from './achievements.js';
 import { tickAPINodes } from './apiNodeEngine.js';
 import { checkCodeServerDisconnected } from './codeServerTracker.js';
+import { checkQuests } from './quests.js';
 
 const isMultiUser = () => process.env.NETCRAWL_MULTI_USER === 'true';
 
@@ -40,6 +41,8 @@ function tickUser(userId?: string) {
   if (checkCodeServerDisconnected(userId)) {
     console.log(`[Tick] Code server disconnected${userId ? ` for user ${userId}` : ''} — resetting workers`);
     resetAllWorkers(userId);
+    setStat('code_server_connected', 0, userId);
+    checkQuests(userId);
     broadcastFullState(userId);
   }
 

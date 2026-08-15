@@ -279,6 +279,8 @@ workerRoutes.post('/autosave/restore', (req: Request, res: Response) => {
   const ok = restoreAutosave(uid);
   if (!ok) return res.status(404).json({ error: 'no_autosave' });
   invalidateCodeServerLease(uid);
+  setStat('code_server_connected', 0, uid);
+  checkQuests(uid);
   resetAllWorkers(uid);
   broadcastFullState(uid);
   res.json({ ok: true });
@@ -391,6 +393,9 @@ workerRoutes.post('/code-server/disconnect', (req: Request, res: Response) => {
     return staleExecution(res);
   }
   resetAllWorkers(uid);
+  invalidateCodeServerLease(uid);
+  setStat('code_server_connected', 0, uid);
+  checkQuests(uid);
   broadcastFullState(uid);
   console.log('[NetCrawl] Code server disconnected — all workers reset to suspended');
   res.json({ ok: true });

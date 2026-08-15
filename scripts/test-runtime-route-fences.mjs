@@ -99,6 +99,13 @@ try {
   const setupQuest = getQuestList(userId).find(quest => quest.id === 'q_setup');
   assert.equal(setupQuest?.objectives[0].current, 1, 'v2 registration must persist the Dev Setup connection objective');
 
+  const runtimeDisconnect = await request('/api/runtime/disconnect', codeServerToken, 'POST', {
+    sessionId: 'runtime-fence-quest-session',
+  });
+  assert.equal(runtimeDisconnect.status, 200);
+  const disconnectedAgainSetupQuest = getQuestList(userId).find(quest => quest.id === 'q_setup');
+  assert.equal(disconnectedAgainSetupQuest?.objectives[0].current, 0, 'v2 disconnect must reset Dev Setup to 0/1');
+
   assert.equal(
     (await request('/api/worker-classes/register', codeServerToken, 'POST', { classes: [workerClass] })).status,
     200,

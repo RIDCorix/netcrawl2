@@ -110,6 +110,8 @@ runtimeRoutes.post('/runtime/disconnect', (req: Request, res: Response) => {
   // SDK 1.2.3 shuts down through this leased endpoint. Reconcile only for a
   // matching session whose lease has not expired.
   resetAllWorkers(uid);
+  setStat('code_server_connected', 0, uid);
+  checkQuests(uid);
   broadcastFullState(uid);
   res.json({ ok: true, released: true });
 });
