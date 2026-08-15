@@ -5,7 +5,10 @@ const screen = readFileSync(new URL('../packages/ui/src/components/ComputeLabScr
 const server = readFileSync(new URL('../packages/server/src/routes/computeLabRoutes.ts', import.meta.url), 'utf8');
 const deployRoutes = readFileSync(new URL('../packages/server/src/routes/deployRoutes.ts', import.meta.url), 'utf8');
 const nodeDetail = readFileSync(new URL('../packages/ui/src/components/NodeDetailPanel.tsx', import.meta.url), 'utf8');
-const nodeTypeInfo = readFileSync(new URL('../packages/ui/src/components/nodeDetail/NodeTypeInfo.tsx', import.meta.url), 'utf8');
+const nodeTypeInfo = readFileSync(
+  new URL('../packages/ui/src/components/nodeDetail/NodeTypeInfo.tsx', import.meta.url),
+  'utf8',
+);
 const runner = readFileSync(new URL('../packages/sdk-python/netcrawl/compute_lab_runner.py', import.meta.url), 'utf8');
 const locales = ['en', 'ja', 'zh-TW'].map(locale =>
   readFileSync(new URL(`../packages/ui/src/i18n/${locale}.ts`, import.meta.url), 'utf8'),
@@ -35,6 +38,10 @@ assert.match(screen, /starterSource/);
 assert.match(screen, /task\?\.description/);
 assert.match(screen, /compute_lab\.task_description/);
 assert.match(screen, /limit_reached/);
+assert.match(screen, /EXPRESSION_CARD_REGISTRY/);
+assert.match(screen, /compute-lab-generic-expression/);
+assert.match(screen, /frame\.control/);
+assert.match(screen, /compute_lab\.old_trace/);
 assert.match(nodeDetail, /eligibility=\{node\.type === 'compute' \? 'compute_automation' : undefined\}/);
 assert.match(nodeTypeInfo, /AUTOMATE WITH WORKER|compute_lab\.automate/);
 assert.match(nodeTypeInfo, /from workers\.solver import Solver/);
@@ -50,6 +57,10 @@ for (const key of [
   'node_solve_count',
   'operators_progress',
   'operators_completed',
+  'expression_fallback',
+  'source_location',
+  'control',
+  'old_trace',
 ]) {
   for (const locale of locales) assert.match(locale, new RegExp(`compute_lab\\.${key}`));
 }

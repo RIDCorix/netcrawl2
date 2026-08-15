@@ -58,11 +58,25 @@ export interface ComputeLabRunSnapshot {
   status: string;
   frames: Array<{
     sequence: number;
-    phase: string;
+    phase: 'line' | 'eval' | 'control' | 'return' | 'error' | 'limit';
     line?: number;
     locals?: Record<string, unknown>;
     changed?: string[];
-    expression?: { source: string; value: unknown };
+    expression?: {
+      node_type: string;
+      source: string;
+      location: { lineno: number; col_offset: number; end_lineno: number; end_col_offset: number };
+      value: unknown;
+    };
+    control?: {
+      node_type: string;
+      location: { lineno: number; col_offset: number; end_lineno: number; end_col_offset: number };
+      event: 'enter' | 'iteration' | 'test' | 'branch' | 'exit';
+      iteration?: number;
+      test?: boolean;
+      branch?: 'body' | 'else';
+      target?: string;
+    };
     value?: unknown;
     error?: { message: string };
   }>;

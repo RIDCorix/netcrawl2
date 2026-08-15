@@ -21,6 +21,17 @@ ALLOWED_NODES = {
     "ListComp", "GeneratorExp", "comprehension", "JoinedStr", "FormattedValue",
 }
 
+# These are deliberate semantic exclusions, not instrumentation gaps. Names and
+# constants are shown through their containing expression and locals snapshot;
+# assignment targets must never be evaluated a second time.
+REQUIRED_EXPRESSION_EXCLUSIONS = frozenset({"Name", "Constant"})
+EXCLUDED_EXPRESSION_TYPES = REQUIRED_EXPRESSION_EXCLUSIONS
+ALLOWED_EXPRESSION_TYPES = frozenset(
+    name for name in ALLOWED_NODES
+    if isinstance(getattr(ast, name, None), type) and issubclass(getattr(ast, name), ast.expr)
+)
+INSTRUMENTED_EXPRESSION_TYPES = ALLOWED_EXPRESSION_TYPES - EXCLUDED_EXPRESSION_TYPES
+
 
 class Validator(ast.NodeVisitor):
     def __init__(self, parameter_names: list[str]):
@@ -53,8 +64,8 @@ class Validator(ast.NodeVisitor):
             self.visit(statement)
 
     def visit_Name(self, node: ast.Name):
-        if node.id.startswith("__"):
-            raise ValidationError("dunder names are not allowed", node.lineno)
+        if node.id.startswith("__") or node.id.startswith("_lab_"):
+            raise ValidationError("reserved names are not allowed", node.lineno)
 
     def visit_Attribute(self, node: ast.Attribute):
         raise ValidationError("attribute access is not allowed", node.lineno)
@@ -69,30 +80,77 @@ class InstrumentExpressions(ast.NodeTransformer):
     def __init__(self, source: str):
         self.source = source
 
-    def visit_BinOp(self, node: ast.BinOp):
-        node = self.generic_visit(node)
-        return self._wrap(node)
+    def visit(self, node: ast.AST):
+        transformed = super().visit(node)
+        if not isinstance(transformed, ast.expr):
+            return transformed
+        if type(transformed).__name__ in EXCLUDED_EXPRESSION_TYPES:
+            return transformed
+        context = getattr(transformed, "ctx", ast.Load())
+        if isinstance(context, (ast.Store, ast.Del)):
+            return transformed
+        return self._wrap(transformed)
 
-    def visit_UnaryOp(self, node: ast.UnaryOp):
+    def visit_If(self, node: ast.If):
         node = self.generic_visit(node)
-        return self._wrap(node)
+        node.test = self._control_test(node, node.test)
+        return node
 
-    def visit_Compare(self, node: ast.Compare):
+    def visit_While(self, node: ast.While):
         node = self.generic_visit(node)
-        return self._wrap(node)
+        node.test = self._control_test(node, node.test)
+        return [self._control_event(node, "enter"), node, self._control_event(node, "exit")]
 
-    def visit_Call(self, node: ast.Call):
+    def visit_For(self, node: ast.For):
         node = self.generic_visit(node)
-        return self._wrap(node)
-
-    def visit_Subscript(self, node: ast.Subscript):
-        node = self.generic_visit(node)
-        return self._wrap(node)
+        target = ast.get_source_segment(self.source, node.target) or "target"
+        node.body.insert(0, self._control_event(node, "iteration", target=target))
+        return [self._control_event(node, "enter", target=target), node, self._control_event(node, "exit", target=target)]
 
     def _wrap(self, node: ast.expr):
-        text = ast.get_source_segment(self.source, node) or "expression"
-        wrapped = ast.Call(func=ast.Name(id="_lab_eval", ctx=ast.Load()), args=[ast.Constant(text), ast.Lambda(args=ast.arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], defaults=[]), body=node)], keywords=[])
+        wrapped = ast.Call(
+            func=ast.Name(id="_lab_eval", ctx=ast.Load()),
+            args=[self._metadata(node), self._thunk(node)],
+            keywords=[],
+        )
         return ast.copy_location(wrapped, node)
+
+    def _metadata(self, node: ast.AST) -> ast.Dict:
+        location = {
+            "lineno": getattr(node, "lineno", None),
+            "col_offset": getattr(node, "col_offset", None),
+            "end_lineno": getattr(node, "end_lineno", None),
+            "end_col_offset": getattr(node, "end_col_offset", None),
+        }
+        values: dict[str, Any] = {
+            "node_type": type(node).__name__,
+            "source": ast.get_source_segment(self.source, node) or "expression",
+            "location": location,
+        }
+        return ast.parse(repr(values), mode="eval").body
+
+    @staticmethod
+    def _thunk(expression: ast.expr) -> ast.Lambda:
+        return ast.Lambda(
+            args=ast.arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], defaults=[]),
+            body=expression,
+        )
+
+    def _control_test(self, statement: ast.If | ast.While, test: ast.expr) -> ast.Call:
+        call = ast.Call(
+            func=ast.Name(id="_lab_control_test", ctx=ast.Load()),
+            args=[self._metadata(statement), self._thunk(test)],
+            keywords=[],
+        )
+        return ast.copy_location(call, test)
+
+    def _control_event(self, statement: ast.For | ast.While, event: str, **fields: str) -> ast.Expr:
+        call = ast.Call(
+            func=ast.Name(id="_lab_control", ctx=ast.Load()),
+            args=[self._metadata(statement), ast.Constant(event)],
+            keywords=[ast.keyword(arg=key, value=ast.Constant(value)) for key, value in fields.items()],
+        )
+        return ast.copy_location(ast.Expr(value=call), statement)
 
 
 def json_value(value: Any, depth: int = 0, max_depth: int = 4) -> Any:
@@ -113,7 +171,7 @@ def execute(payload: dict) -> dict:
     source = payload.get("source", "")
     params = payload.get("params", {})
     parameter_names = payload.get("parameterNames", [])
-    max_events = int(payload.get("limits", {}).get("maxEvents", 300))
+    max_events = int(payload.get("limits", {}).get("maxEvents", 1200))
     try:
         if (not isinstance(params, dict) or not isinstance(parameter_names, list) or
                 any(not isinstance(name, str) or not name.isidentifier() for name in parameter_names) or
@@ -129,6 +187,7 @@ def execute(payload: dict) -> dict:
     previous: dict[str, Any] = {}
     active_frame = None
     solution_code = None
+    loop_iterations: dict[tuple[str, int | None, int | None], int] = {}
 
     def emit(phase: str, line: int | None = None, **extra: Any):
         nonlocal previous
@@ -152,12 +211,42 @@ def execute(payload: dict) -> dict:
             emit("return", frame.f_lineno, value=json_value(arg))
         return tracer
 
-    def trace_eval(text: str, thunk):
+    def trace_eval(metadata: dict, thunk):
         value = thunk()
-        emit("eval", active_frame.f_lineno if active_frame else None, expression={"source": text, "value": json_value(value)})
+        emit(
+            "eval",
+            active_frame.f_lineno if active_frame else metadata["location"]["lineno"],
+            expression={**metadata, "value": json_value(value)},
+        )
         return value
 
-    namespace = {"__builtins__": {**{name: getattr(builtins, name) for name in ALLOWED_BUILTINS}, "__build_class__": builtins.__build_class__}, "_lab_eval": trace_eval, "__name__": "__compute_lab__"}
+    def trace_control(metadata: dict, event: str, **fields: Any):
+        key = (metadata["node_type"], metadata["location"]["lineno"], metadata["location"]["col_offset"])
+        control = {"node_type": metadata["node_type"], "location": metadata["location"], "event": event, **fields}
+        if event == "enter":
+            loop_iterations[key] = 0
+        elif event == "iteration":
+            loop_iterations[key] = loop_iterations.get(key, 0) + 1
+            control["iteration"] = loop_iterations[key]
+        emit("control", metadata["location"]["lineno"], control=control)
+
+    def trace_control_test(metadata: dict, thunk):
+        value = thunk()
+        truth = bool(value)
+        trace_control(metadata, "test", test=truth)
+        if metadata["node_type"] == "If":
+            trace_control(metadata, "branch", branch="body" if truth else "else")
+        elif truth:
+            trace_control(metadata, "iteration")
+        return truth
+
+    namespace = {
+        "__builtins__": {**{name: getattr(builtins, name) for name in ALLOWED_BUILTINS}, "__build_class__": builtins.__build_class__},
+        "_lab_eval": trace_eval,
+        "_lab_control": trace_control,
+        "_lab_control_test": trace_control_test,
+        "__name__": "__compute_lab__",
+    }
     try:
         instrumented = InstrumentExpressions(source).visit(tree)
         ast.fix_missing_locations(instrumented)

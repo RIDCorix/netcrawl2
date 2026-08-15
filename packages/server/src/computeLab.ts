@@ -1,18 +1,44 @@
 import { randomUUID } from 'crypto';
 import { broadcast } from './websocket.js';
 
-export const TRACE_LIMITS = { maxEvents: 300, maxValueDepth: 4, maxValueBytes: 4096, timeoutMs: 2000 };
+export const TRACE_LIMITS = { maxEvents: 1200, maxValueDepth: 4, maxValueBytes: 4096, timeoutMs: 2000 };
 
-export type ComputeLabFrame = {
+export type SourceLocation = {
+  lineno: number;
+  col_offset: number;
+  end_lineno: number;
+  end_col_offset: number;
+};
+
+type ComputeLabFrameBase = {
   sequence: number;
-  phase: 'line' | 'eval' | 'return' | 'error' | 'limit';
   line?: number;
   locals?: Record<string, unknown>;
   changed?: string[];
-  expression?: { source: string; value: unknown };
-  value?: unknown;
-  error?: { message: string; line?: number; kind?: string };
 };
+
+export type ComputeLabFrame = ComputeLabFrameBase &
+  (
+    | { phase: 'line' }
+    | {
+        phase: 'eval';
+        expression: { node_type: string; source: string; location: SourceLocation; value: unknown };
+      }
+    | {
+        phase: 'control';
+        control: {
+          node_type: 'For' | 'While' | 'If' | string;
+          location: SourceLocation;
+          event: 'enter' | 'iteration' | 'test' | 'branch' | 'exit';
+          iteration?: number;
+          test?: boolean;
+          branch?: 'body' | 'else';
+          target?: string;
+        };
+      }
+    | { phase: 'return'; value: unknown }
+    | { phase: 'error' | 'limit'; error: { message: string; line?: number; kind?: string } }
+  );
 
 export type ComputeLabRun = {
   id: string;
@@ -99,7 +125,12 @@ export function finishComputeLabRun(
     return undefined;
   if (result.frame) {
     const expectedPhase = result.status === 'limit' ? 'limit' : 'error';
-    if (result.frame.sequence !== run.frames.length || result.frame.phase !== expectedPhase || !result.frame.error)
+    if (
+      result.frame.sequence !== run.frames.length ||
+      result.frame.phase !== expectedPhase ||
+      !('error' in result.frame) ||
+      !result.frame.error
+    )
       return undefined;
     // A single terminal status marker is not a replayable execution event, so it
     // remains visible after maxEvents without permitting additional trace steps.

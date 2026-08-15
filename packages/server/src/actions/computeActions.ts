@@ -19,6 +19,22 @@ import { generatePuzzle, PuzzleInstance, DIFFICULTY_CONFIG, PUZZLE_TEMPLATES } f
 // ── Per-node puzzle state (in-memory) ───────────────────────────────────────
 const activePuzzles = new Map<string, PuzzleInstance>();
 const puzzleCooldowns = new Map<string, number>();
+const ADD_LAB_DESCRIPTION = 'Sum two values by scanning a list, then verify every item';
+const ADD_LAB_STARTER = `class ProblemSolver:
+    def solution(self, a, b):
+        nums = [a, b]
+        total = 0
+        for value in nums:
+            if value > 0:
+                total = total + value
+        if total == a + b or len(nums) == 0:
+            index = 0
+        else:
+            index = len(nums)
+        while index < len(nums) and nums[index] >= 0:
+            index = index + 1
+        return total
+`;
 
 /** Transient puzzles must not cross user boundaries in multi-user mode. */
 function puzzleKey(userId: string | undefined, nodeId: string) {
@@ -41,7 +57,11 @@ export function getActiveComputeLabTask(nodeId: string, taskId: string, uid?: st
   const template = PUZZLE_TEMPLATES.find(candidate => candidate.id === puzzle.templateId);
   if (!template) return undefined;
   const params = Object.fromEntries(template.inputNames.map(name => [name, puzzle.params[name]]));
-  return { description: template.description, params, parameterNames: template.inputNames };
+  return {
+    description: template.id === 'add' ? ADD_LAB_DESCRIPTION : template.description,
+    params,
+    parameterNames: template.inputNames,
+  };
 }
 
 export async function handleCompute(ctx: ActionContext): Promise<any> {
@@ -77,14 +97,19 @@ export async function getComputeTask(
   setLock(workerId, ACTION_DELAY);
   await getLock(workerId);
 
+  const template = PUZZLE_TEMPLATES.find(t => t.id === puzzle.templateId);
+  const signature = `class ProblemSolver:\n    def solution(self, ${template?.inputNames.join(', ') || ''}):`;
   return {
     ok: true,
     taskId: puzzle.taskId,
     params: puzzle.params,
     hint: puzzle.hint,
     difficulty: puzzle.difficulty,
-    functionSignature: `class ProblemSolver:\n    def solution(self, ${PUZZLE_TEMPLATES.find(t => t.id === puzzle.templateId)?.inputNames.join(', ') || ''}):`,
-    starterSource: `class ProblemSolver:\n    def solution(self, ${PUZZLE_TEMPLATES.find(t => t.id === puzzle.templateId)?.inputNames.join(', ') || ''}):\n        # Return the answer for this task.\n        pass\n`,
+    functionSignature: signature,
+    starterSource:
+      template?.id === 'add'
+        ? ADD_LAB_STARTER
+        : `${signature}\n        # Return the answer for this task.\n        pass\n`,
   };
 }
 

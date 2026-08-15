@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { delimiter, join, resolve } from 'node:path';
 
 process.env.NETCRAWL_BUNDLED = 'true';
 const testDir = mkdtempSync(join(tmpdir(), 'netcrawl-compute-lab-runtime-'));
 const workspace = resolve(process.env.NETCRAWL_WORKSPACE_DIR || '../netcrawl-workspace');
+const candidateSdk = resolve('packages/sdk-python');
 const uv = process.env.NETCRAWL_UV_BINARY || 'uv';
 assert.equal(existsSync(workspace), true, `NETCRAWL_WORKSPACE_DIR must point to netcrawl-workspace: ${workspace}`);
 const { startServer } = await import('../packages/server/.test-dist/index.js');
@@ -31,13 +32,35 @@ saveGameState({
   ...state,
   nodes: state.nodes.map(node => (node.id === 'e_op_add' ? { ...node, data: { ...node.data, unlocked: true } } : node)),
 });
-registerWorkerClass({ class_id: 'plain', class_name: 'Plain', class_icon: 'Bot', fields: {}, docstring: '', file: '', language: 'python' });
-registerWorkerClass({ class_id: 'solver', class_name: 'Solver', class_icon: 'Bot', capabilities: ['compute_automation'], fields: {}, docstring: '', file: '', language: 'python' });
+registerWorkerClass({
+  class_id: 'plain',
+  class_name: 'Plain',
+  class_icon: 'Bot',
+  fields: {},
+  docstring: '',
+  file: '',
+  language: 'python',
+});
+registerWorkerClass({
+  class_id: 'solver',
+  class_name: 'Solver',
+  class_icon: 'Bot',
+  capabilities: ['compute_automation'],
+  fields: {},
+  docstring: '',
+  file: '',
+  language: 'python',
+});
 setQuestStatus('q_operators', 'available');
 
 const runner = spawn(uv, ['run', 'main.py'], {
   cwd: workspace,
-  env: { ...process.env, NETCRAWL_SERVER: `http://127.0.0.1:${port}`, PYTHONUNBUFFERED: '1' },
+  env: {
+    ...process.env,
+    NETCRAWL_SERVER: `http://127.0.0.1:${port}`,
+    PYTHONUNBUFFERED: '1',
+    PYTHONPATH: [candidateSdk, process.env.PYTHONPATH].filter(Boolean).join(delimiter),
+  },
   stdio: 'ignore',
 });
 let runnerError;
@@ -70,16 +93,10 @@ try {
   assert.equal('hint' in task.body, false);
   assert.equal('answer' in task.body, false);
   assert.equal('op' in task.body, false);
-  const source = [
-    'class ProblemSolver:',
-    '    def solution(self, a, b):',
-    '        values = [a, b]',
-    '        total = 0',
-    '        for value in values:',
-    '            total = total + value',
-    '        return total',
-    '',
-  ].join('\n');
+  assert.match(task.body.description, /Sum two values by scanning a list/);
+  assert.match(task.body.starterSource, /for value in nums/);
+  assert.match(task.body.starterSource, /while index < len\(nums\) and nums\[index\] >= 0/);
+  const source = task.body.starterSource;
   const started = await request('/compute-lab/runs', {
     nodeId: 'e_op_add',
     taskId: task.body.taskId,
@@ -102,6 +119,9 @@ try {
     frames.some(frame => frame.phase === 'eval'),
     'loop must emit an eval frame',
   );
+  assert.ok(frames.some(frame => frame.phase === 'control' && frame.control?.node_type === 'For'));
+  assert.ok(frames.some(frame => frame.phase === 'control' && frame.control?.node_type === 'While'));
+  assert.ok(frames.some(frame => frame.phase === 'control' && frame.control?.node_type === 'If'));
   assert.ok(
     frames.some(frame => frame.phase === 'return'),
     'loop must emit a return frame',
@@ -114,25 +134,35 @@ try {
     for (let attempt = 0; attempt < 40; attempt++) {
       await sleep(250);
       const next = await request(`/compute-lab/runs/${runId}`);
-      if (['trace_ready', 'syntax', 'runtime', 'timeout', 'limit', 'disconnected'].includes(next.body.run?.status)) return next.body.run;
+      if (['trace_ready', 'syntax', 'runtime', 'timeout', 'limit', 'disconnected'].includes(next.body.run?.status))
+        return next.body.run;
     }
     throw new Error(`run ${runId} did not finish`);
   };
   const invalid = await request('/compute-lab/runs', {
-    nodeId: 'e_op_add', taskId: task.body.taskId, revision: 2,
+    nodeId: 'e_op_add',
+    taskId: task.body.taskId,
+    revision: 2,
     source: 'class ProblemSolver:\n    def solution(self, b, a):\n        return a + b\n',
   });
   assert.equal(invalid.status, 202);
-  assert.equal((await waitForTerminal(invalid.body.runId)).status, 'syntax', 'wrong parameter order fails before execution');
+  assert.equal(
+    (await waitForTerminal(invalid.body.runId)).status,
+    'syntax',
+    'wrong parameter order fails before execution',
+  );
 
   const loop = await request('/compute-lab/runs', {
-    nodeId: 'e_op_add', taskId: task.body.taskId, revision: 3,
-    source: 'class ProblemSolver:\n    def solution(self, a, b):\n        total = 0\n        for i in range(100):\n            total = total + i\n        return total\n',
+    nodeId: 'e_op_add',
+    taskId: task.body.taskId,
+    revision: 3,
+    source:
+      'class ProblemSolver:\n    def solution(self, a, b):\n        total = 0\n        for i in range(1000):\n            total = total + i\n        return total\n',
   });
   assert.equal(loop.status, 202);
   const limited = await waitForTerminal(loop.body.runId);
   assert.equal(limited.status, 'limit');
-  assert.equal(limited.frames.length, 301, 'the terminal limit marker follows 300 execution events');
+  assert.equal(limited.frames.length, 1201, 'the terminal limit marker follows 1,200 execution events');
   assert.equal(limited.frames.at(-1).phase, 'limit');
 
   const submission = await request('/compute-lab/submissions', { taskId: task.body.taskId, runId: started.body.runId });

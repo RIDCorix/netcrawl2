@@ -84,8 +84,44 @@ await act(async () => {
       returnValue: 7,
       frames: [
         { sequence: 0, phase: 'line', line: 2, locals: { a: 3 }, changed: ['a'] },
-        { sequence: 1, phase: 'eval', line: 3, locals: { a: 3, b: 4 }, expression: { source: 'a + b', value: 7 } },
-        { sequence: 2, phase: 'return', line: 4, locals: { result: 7 }, value: 7 },
+        {
+          sequence: 1,
+          phase: 'eval',
+          line: 3,
+          locals: { a: 3, b: 4 },
+          expression: {
+            node_type: 'BinOp',
+            source: 'a + b',
+            location: { lineno: 3, col_offset: 15, end_lineno: 3, end_col_offset: 20 },
+            value: 7,
+          },
+        },
+        {
+          sequence: 2,
+          phase: 'control',
+          line: 3,
+          locals: { a: 3, b: 4, value: 3 },
+          control: {
+            node_type: 'For',
+            event: 'iteration',
+            iteration: 1,
+            target: 'value',
+            location: { lineno: 3, col_offset: 8, end_lineno: 3, end_col_offset: 20 },
+          },
+        },
+        {
+          sequence: 3,
+          phase: 'eval',
+          line: 3,
+          locals: { a: 3, b: 4 },
+          expression: {
+            node_type: 'UnregisteredExpr',
+            source: 'a + b',
+            location: { lineno: 3, col_offset: 15, end_lineno: 3, end_col_offset: 20 },
+            value: 7,
+          },
+        },
+        { sequence: 4, phase: 'return', line: 4, locals: { result: 7 }, value: 7 },
       ],
     },
   });
@@ -100,7 +136,7 @@ useGameStore.getState().upsertComputeLabRun({
   frames: [{ sequence: 0, phase: 'line', line: 2, locals: { a: 3 }, changed: ['a'] }],
 });
 assert.equal(useGameStore.getState().computeLabRuns['run-1'].status, 'trace_ready');
-assert.equal(useGameStore.getState().computeLabRuns['run-1'].frames.length, 3);
+assert.equal(useGameStore.getState().computeLabRuns['run-1'].frames.length, 5);
 
 function text(node: unknown): string {
   if (typeof node === 'string' || typeof node === 'number') return String(node);
@@ -120,14 +156,28 @@ assert.match(text(renderer!.toJSON()), /a \+ b/);
 await act(async () => {
   renderer!.root.findByProps({ type: 'range' }).props.onChange({ target: { value: '2' } });
 });
+assert.match(text(renderer!.toJSON()), /Control flow · For · iteration/);
+assert.match(text(renderer!.toJSON()), /iteration 1/);
+assert.match(text(renderer!.toJSON()), /value → 3/);
+await act(async () => {
+  renderer!.root.findByProps({ type: 'range' }).props.onChange({ target: { value: '3' } });
+});
+assert.equal(renderer!.root.findAllByProps({ 'data-testid': 'compute-lab-generic-expression' }).length, 1);
+assert.match(text(renderer!.toJSON()), /Expression \(generic view\) · UnregisteredExpr/);
+assert.match(text(renderer!.toJSON()), /3:15–3:20/);
+await act(async () => {
+  renderer!.root.findByProps({ type: 'range' }).props.onChange({ target: { value: '4' } });
+});
 assert.match(text(renderer!.toJSON()), /RETURN/);
 assert.match(text(renderer!.toJSON()), /return: 7/);
 await act(async () => {
-  renderer!.root.findByType('textarea').props.onChange({ target: { value: 'class ProblemSolver:\n    def solution(self, a, b):\n        return 0\n' } });
+  renderer!.root
+    .findByType('textarea')
+    .props.onChange({ target: { value: 'class ProblemSolver:\n    def solution(self, a, b):\n        return 0\n' } });
 });
 const submit = renderer!.root.findAllByType('button').find(button => button.children.includes('SUBMIT LAST RUN'))!;
 assert.equal(submit.props.disabled, true, 'editing after a trace must disable submit');
-assert.equal(useGameStore.getState().computeLabRuns['run-1'].frames.length, 3, 'WS snapshot is stored by run id');
+assert.equal(useGameStore.getState().computeLabRuns['run-1'].frames.length, 5, 'WS snapshot is stored by run id');
 renderer!.unmount();
 
 // An intentionally empty draft is still a saved player choice. Reopening must

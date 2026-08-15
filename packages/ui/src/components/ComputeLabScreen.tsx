@@ -18,6 +18,89 @@ type SubmissionSuccess = {
 };
 const TERMINAL = new Set(['trace_ready', 'syntax', 'runtime', 'timeout', 'limit', 'disconnected']);
 
+type TraceExpression = NonNullable<Run['frames'][number]['expression']>;
+type ExpressionCardProps = {
+  expression: TraceExpression;
+  source: string;
+  stale: boolean;
+  t: ReturnType<typeof useT>;
+};
+
+function sourceExcerpt(source: string, location: TraceExpression['location']) {
+  const lines = source.split('\n');
+  if (location.lineno !== location.end_lineno) return null;
+  const line = lines[location.lineno - 1];
+  if (line === undefined) return null;
+  return {
+    before: line.slice(0, location.col_offset),
+    selected: line.slice(location.col_offset, location.end_col_offset),
+    after: line.slice(location.end_col_offset),
+  };
+}
+
+function ExpressionSource({ expression, source, stale, t }: ExpressionCardProps) {
+  const excerpt = stale ? null : sourceExcerpt(source, expression.location);
+  if (stale)
+    return (
+      <div>
+        <small>{t('compute_lab.old_trace')}</small>
+        <pre style={{ whiteSpace: 'pre-wrap' }}>{expression.source}</pre>
+      </div>
+    );
+  return excerpt ? (
+    <pre style={{ whiteSpace: 'pre-wrap' }}>
+      {excerpt.before}
+      <mark>{excerpt.selected}</mark>
+      {excerpt.after}
+    </pre>
+  ) : (
+    <pre style={{ whiteSpace: 'pre-wrap' }}>{expression.source}</pre>
+  );
+}
+
+function RegisteredExpressionCard(props: ExpressionCardProps) {
+  return (
+    <div style={{ border: '1px solid var(--accent)', padding: 10, marginTop: 10 }}>
+      <strong>
+        {props.t('compute_lab.expression')} · {props.expression.node_type}
+      </strong>
+      <ExpressionSource {...props} />
+      <code>→ {JSON.stringify(props.expression.value)}</code>
+    </div>
+  );
+}
+
+function GenericExpressionCard(props: ExpressionCardProps) {
+  const { expression, t } = props;
+  const location = expression.location;
+  return (
+    <div
+      data-testid="compute-lab-generic-expression"
+      style={{ border: '1px dashed var(--accent)', padding: 10, marginTop: 10 }}
+    >
+      <strong>
+        {t('compute_lab.expression_fallback')} · {expression.node_type}
+      </strong>
+      <ExpressionSource {...props} />
+      <div>
+        <code>{JSON.stringify(expression.value)}</code>
+      </div>
+      <small>
+        {t('compute_lab.source_location')}: {location.lineno}:{location.col_offset}–{location.end_lineno}:
+        {location.end_col_offset}
+      </small>
+    </div>
+  );
+}
+
+const EXPRESSION_CARD_REGISTRY: Record<string, (props: ExpressionCardProps) => JSX.Element> = {
+  BinOp: RegisteredExpressionCard,
+  BoolOp: RegisteredExpressionCard,
+  Call: RegisteredExpressionCard,
+  Compare: RegisteredExpressionCard,
+  Subscript: RegisteredExpressionCard,
+};
+
 /** Focused code workspace. Its only visual model is program state, never map geography. */
 export function ComputeLabScreen() {
   const {
@@ -110,6 +193,9 @@ export function ComputeLabScreen() {
   if (!computeLabOpen) return null;
   const stale = Boolean(run && run.revision !== revision);
   const frame = run?.frames[frameIndex];
+  const ExpressionCard = frame?.expression
+    ? EXPRESSION_CARD_REGISTRY[frame.expression.node_type] || GenericExpressionCard
+    : null;
   const updateSource = (value: string) => {
     setSource(value);
     setRevision(current => current + 1);
@@ -291,12 +377,22 @@ export function ComputeLabScreen() {
                   <strong>{frame.phase.toUpperCase()}</strong>
                   {frame.line ? ` · line ${frame.line}` : ''}
                 </div>
-                {frame.expression && (
-                  <div>
-                    eval:{' '}
-                    <code>
-                      {frame.expression.source} → {JSON.stringify(frame.expression.value)}
-                    </code>
+                {frame.expression && ExpressionCard && (
+                  <ExpressionCard expression={frame.expression} source={source} stale={stale} t={t} />
+                )}
+                {frame.control && (
+                  <div style={{ border: '1px solid var(--border-bright)', padding: 10, marginTop: 10 }}>
+                    <strong>
+                      {t('compute_lab.control')} · {frame.control.node_type} · {frame.control.event}
+                    </strong>
+                    {frame.control.iteration !== undefined && <div>iteration {frame.control.iteration}</div>}
+                    {frame.control.test !== undefined && <div>test → {String(frame.control.test)}</div>}
+                    {frame.control.branch && <div>branch → {frame.control.branch}</div>}
+                    {frame.control.target && (
+                      <div>
+                        {frame.control.target} → {JSON.stringify(frame.locals?.[frame.control.target])}
+                      </div>
+                    )}
                   </div>
                 )}
                 {frame.value !== undefined && (
@@ -318,7 +414,9 @@ export function ComputeLabScreen() {
                   ))}
                 </div>
                 {frame.error && <div role="alert">{frame.error.message}</div>}
-                {run?.status === 'limit' && frame.phase === 'limit' && <div role="alert">{t('compute_lab.limit_reached')}</div>}
+                {run?.status === 'limit' && frame.phase === 'limit' && (
+                  <div role="alert">{t('compute_lab.limit_reached')}</div>
+                )}
               </>
             ) : (
               <p>{t('compute_lab.run_to_trace')}</p>
