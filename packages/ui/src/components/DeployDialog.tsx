@@ -398,8 +398,11 @@ export function DeployDialog({
       }
       onClose();
     } catch (err: any) {
-      const reason = err.response?.data?.error || err.message;
-      setMessage(tutorialMode ? t('tutorial.chapter_zero.deploy.error_api', { reason }) : 'Error: ' + reason);
+      const reason = err.response?.data?.reason;
+      const error = reason === 'compute_lab_required' || reason === 'compute_worker_required'
+        ? t(`compute_lab.deploy_error.${reason}`)
+        : err.response?.data?.error || err.message;
+      setMessage(tutorialMode ? t('tutorial.chapter_zero.deploy.error_api', { reason: error }) : error);
       setDeploying(false);
     }
   };

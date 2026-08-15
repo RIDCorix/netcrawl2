@@ -155,7 +155,13 @@ export async function submitComputeAnswer(
     checkQuests(uid);
     checkLayerUnlocks(uid);
 
-    return { ok: true, correct: true, reward: { type: rewardType, amount: reward } };
+    const updatedNode = getGameState(uid).nodes.find(node => node.id === submitNode);
+    return {
+      ok: true,
+      correct: true,
+      reward: { type: rewardType, amount: reward },
+      nodeSolveCount: updatedNode?.data?.solveCount || 0,
+    };
   } else {
     return { ok: true, correct: false, expected: puzzle.answer, got: submitAnswer };
   }

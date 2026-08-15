@@ -57,10 +57,14 @@ export function ComputeNodeInfo({
   node,
   onOpenDialog,
   onOpenLab,
+  onOpenAutomation,
+  hasAutomationWorker,
 }: {
   node: GameNode;
   onOpenDialog: (cfg: NodeDialogConfig) => void;
   onOpenLab: (sourceNodeId: string) => void;
+  onOpenAutomation: () => void;
+  hasAutomationWorker: boolean;
 }) {
   const t = useT();
   const difficultyColor =
@@ -127,6 +131,23 @@ export function ComputeNodeInfo({
         >
           {t('compute_lab.enter')}
         </button>
+      )}
+      {(node.data.solveCount || 0) > 0 && (
+        <div style={{ display: 'grid', gap: 6 }}>
+          <button onClick={onOpenAutomation} style={{ minHeight: 44 }}>
+            {t('compute_lab.automate')}
+          </button>
+          {!hasAutomationWorker && (
+            <div role="status" style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+              {t('compute_lab.automation_setup')}
+              <pre style={{ whiteSpace: 'pre-wrap', margin: '6px 0 0' }}>{'from workers.solver import Solver\napp.register(Solver)\n# restart: uv run main.py'}</pre>
+            </div>
+          )}
+          <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+            {t('compute_lab.automation_compare')}
+            <pre style={{ whiteSpace: 'pre-wrap', margin: '6px 0 0' }}>{'ProblemSolver.solution(a, b): return a + b\n\ntask = node.get_task()\nanswer = task.parameters["a"] + task.parameters["b"]\nnode.submit(task.task_id, answer)'}</pre>
+          </div>
+        </div>
       )}
       {dialogs.length > 0 && (
         <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>

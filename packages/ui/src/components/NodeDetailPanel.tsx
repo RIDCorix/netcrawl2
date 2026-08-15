@@ -87,7 +87,7 @@ type NodeDetailPanelProps = {
 
 export function NodeDetailPanel(props: NodeDetailPanelProps = {}) {
   const { nodeOverride, onCloseOverride, inspectionOnly = false, deployTargetNodeId, onDeployOpenChange } = props;
-  const { selectedNodeId: gameSelectedNodeId, nodes, edges, resources, selectNode, openComputeLab } = useGameStore();
+  const { selectedNodeId: gameSelectedNodeId, nodes, edges, resources, workerClasses, selectNode, openComputeLab } = useGameStore();
   const [deployOpen, setDeployOpen] = useState(false);
   const [chapterZeroDeploy, setChapterZeroDeploy] = useState<TutorialDescriptor>(null);
   const [openingDeploy, setOpeningDeploy] = useState(false);
@@ -427,7 +427,13 @@ export function NodeDetailPanel(props: NodeDetailPanelProps = {}) {
 
             {/* Compute node info */}
             {node.type === 'compute' && node.data.unlocked && (
-              <ComputeNodeInfo node={node} onOpenDialog={setActiveDialog} onOpenLab={openComputeLab} />
+              <ComputeNodeInfo
+                node={node}
+                onOpenDialog={setActiveDialog}
+                onOpenLab={openComputeLab}
+                onOpenAutomation={() => setDeployOpen(true)}
+                hasAutomationWorker={workerClasses.some((entry: any) => entry.capabilities?.includes('compute_automation'))}
+              />
             )}
 
             {/* Cache node info */}
@@ -579,6 +585,7 @@ export function NodeDetailPanel(props: NodeDetailPanelProps = {}) {
             nodeName={tn(node.data.label)}
             onClose={() => setDeployOpen(false)}
             tutorial={chapterZeroDeploy && node.id === 'hub' ? chapterZeroDeploy : undefined}
+            eligibility={node.type === 'compute' ? 'compute_automation' : undefined}
           />
         )}
       </AnimatePresence>

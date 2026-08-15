@@ -13,8 +13,9 @@ const uv = process.env.NETCRAWL_UV_BINARY || 'uv';
 assert.equal(existsSync(workspace), true, `NETCRAWL_WORKSPACE_DIR must point to netcrawl-workspace: ${workspace}`);
 const { startServer } = await import('../packages/server/.test-dist/index.js');
 const { getGameState, saveGameState } = await import('../packages/server/.test-dist/domain/gameState.js');
-const { server } = await startServer({ port: 4800, dataDir: testDir });
-const base = 'http://127.0.0.1:4800/api';
+const { registerWorkerClass } = await import('../packages/server/.test-dist/workerRegistry.js');
+const { server, port } = await startServer({ port: 0, dataDir: testDir });
+const base = `http://127.0.0.1:${port}/api`;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const request = async (path, body) => {
   const response = await fetch(`${base}${path}`, {
@@ -30,10 +31,12 @@ saveGameState({
   ...state,
   nodes: state.nodes.map(node => (node.id === 'e_op_add' ? { ...node, data: { ...node.data, unlocked: true } } : node)),
 });
+registerWorkerClass({ class_id: 'plain', class_name: 'Plain', class_icon: 'Bot', fields: {}, docstring: '', file: '', language: 'python' });
+registerWorkerClass({ class_id: 'solver', class_name: 'Solver', class_icon: 'Bot', capabilities: ['compute_automation'], fields: {}, docstring: '', file: '', language: 'python' });
 
 const runner = spawn(uv, ['run', 'main.py'], {
   cwd: workspace,
-  env: { ...process.env, PYTHONPATH: sdkPath, PYTHONUNBUFFERED: '1' },
+  env: { ...process.env, NETCRAWL_SERVER: `http://127.0.0.1:${port}`, PYTHONPATH: sdkPath, PYTHONUNBUFFERED: '1' },
   stdio: 'ignore',
 });
 let runnerError;
@@ -51,6 +54,13 @@ try {
     if (connected) break;
   }
   assert.equal(connected, true, 'uv run main.py must register a live Code Server');
+
+  const beforeDeploy = getGameState();
+  const beforeLab = await request('/deploy', { nodeId: 'e_op_add', classId: 'solver' });
+  assert.equal(beforeLab.status, 403);
+  assert.equal(beforeLab.body.reason, 'compute_lab_required');
+  assert.deepEqual(getGameState().flop, beforeDeploy.flop, 'lab gate must not allocate FLOP');
+  assert.deepEqual(getGameState().inventory, beforeDeploy.inventory, 'lab gate must not mutate inventory');
 
   const task = await request('/compute-lab/tasks', { nodeId: 'e_op_add' });
   assert.equal(task.status, 200);
@@ -122,6 +132,18 @@ try {
   const submission = await request('/compute-lab/submissions', { taskId: task.body.taskId, runId: started.body.runId });
   assert.equal(submission.status, 200);
   assert.equal(submission.body.correct, true);
+  assert.ok(submission.body.nodeSolveCount > 0, 'submission returns the updated node solve count');
+
+  const beforeCapability = getGameState();
+  const wrongClass = await request('/deploy', { nodeId: 'e_op_add', classId: 'plain' });
+  assert.equal(wrongClass.status, 403);
+  assert.equal(wrongClass.body.reason, 'compute_worker_required');
+  assert.deepEqual(getGameState().flop, beforeCapability.flop, 'capability gate must not allocate FLOP');
+  assert.deepEqual(getGameState().inventory, beforeCapability.inventory, 'capability gate must not mutate inventory');
+
+  const qualified = await request('/deploy', { nodeId: 'e_op_add', classId: 'solver' });
+  assert.equal(qualified.status, 200, JSON.stringify(qualified.body));
+  assert.equal(qualified.body.status, 'queued');
   console.log(`Compute Lab runtime integration passed (${frames.length} replayable frames)`);
 } catch (error) {
   failure = error;
