@@ -7,6 +7,8 @@ import { FLOP_COSTS } from '../types.js';
 import { getUserId } from './helpers.js';
 import { returnWorkerItems } from './helpers.js';
 import { broadcastFullState } from '../broadcastHelper.js';
+import { setStat } from '../domain/achievements.js';
+import { checkQuests } from '../quests.js';
 import {
   claimCodeServerLease,
   isValidCodeServerLease,
@@ -36,6 +38,11 @@ runtimeRoutes.post('/runtime/register', (req: Request, res: Response) => {
     }
   }
 
+  // Runtime v2 registration is the live Code Server connection. Keep the
+  // durable quest objective in sync with the connection state exposed to UI.
+  setStat('code_server_connected', 1, uid);
+  checkQuests(uid);
+
   for (const worker of getWorkers(uid)) {
     if (worker.desiredState !== 'running') continue;
     const fresh = worker.executionToken
@@ -44,6 +51,7 @@ runtimeRoutes.post('/runtime/register', (req: Request, res: Response) => {
     if (fresh !== worker) upsertWorker(fresh, uid);
     enqueueWorkerExecution(fresh, uid);
   }
+  broadcastFullState(uid);
   res.json({ ok: true, sessionId: lease.sessionId, leaseExpiresAt: lease.expiresAt });
 });
 

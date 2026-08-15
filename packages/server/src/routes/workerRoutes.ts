@@ -22,7 +22,7 @@ import {
 } from '../domain/workers.js';
 import { addToPlayerInventory } from '../domain/inventory.js';
 import { getAutosave, restoreAutosave } from '../domain/autosave.js';
-import { incrementStat } from '../domain/achievements.js';
+import { setStat } from '../domain/achievements.js';
 import { awardXp } from '../domain/level.js';
 import {
   type WorkerClassEntry,
@@ -313,7 +313,7 @@ workerRoutes.post('/worker-classes/register', (req: Request, res: Response) => {
     registerWorkerClass({ ...entry, language: 'python' }, uid);
   }
 
-  incrementStat('code_server_connected', 1, uid);
+  setStat('code_server_connected', 1, uid);
   checkQuests(uid);
 
   // Reconcile desired executions; asset ownership remains with the durable

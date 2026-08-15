@@ -15,6 +15,13 @@ export function incrementStat(key: string, amount: number = 1, userId?: string):
   return s[key];
 }
 
+/** Record a stat whose current value represents a durable boolean condition. */
+export function setStat(key: string, value: number, userId?: string): number {
+  const s = resolveStore(userId).achievement_state.stats;
+  s[key] = value;
+  return s[key];
+}
+
 export function setStatMax(key: string, value: number, userId?: string): number {
   const s = resolveStore(userId).achievement_state.stats;
   s[key] = Math.max(s[key] || 0, value);

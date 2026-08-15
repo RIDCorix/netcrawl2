@@ -16,6 +16,9 @@ const testDir = mkdtempSync(join(tmpdir(), 'netcrawl-runtime-route-fences-'));
 const { startServer } = await import(serverModule('index.js'));
 const { router, runtimeCredentialPaths } = await import(serverModule('routes/index.js'));
 const { getWorkers } = await import(serverModule('domain/workers.js'));
+const { getQuestList } = await import(serverModule('quests.js'));
+const { getQuestState } = await import(serverModule('domain/questState.js'));
+const { setQuestStatus } = await import(serverModule('domain/questState.js'));
 const { server, port } = await startServer({ port: 0, dataDir: testDir });
 const base = `http://127.0.0.1:${port}`;
 
@@ -70,6 +73,13 @@ try {
   assert.equal(credential.status, 200);
   const codeServerToken = credential.body.token;
 
+  // Start with an eligible but disconnected Dev Setup quest, then prove the
+  // v2 registration itself completes its durable objective. This is the same
+  // registration path used by the current Code Server protocol, rather than
+  // the legacy class endpoint.
+  getQuestState(userId).chapterZero.stage = 'handoff';
+  setQuestStatus('q_setup', 'available', userId);
+
   const workerClass = {
     class_id: 'runtime_fence_probe',
     class_name: 'Runtime Fence Probe',
@@ -77,6 +87,18 @@ try {
     file: 'runtime_fence_probe.py',
     language: 'python',
   };
+  const disconnectedSetupQuest = getQuestList(userId).find(quest => quest.id === 'q_setup');
+  assert.equal(disconnectedSetupQuest?.objectives[0].current, 0, 'disconnected Dev Setup must remain at 0/1');
+  assert.equal(disconnectedSetupQuest?.status, 'available', 'disconnected Dev Setup must remain incomplete');
+  const runtimeRegistration = await request('/api/runtime/register', codeServerToken, 'POST', {
+    protocolVersion: 2,
+    sessionId: 'runtime-fence-quest-session',
+    classes: [workerClass],
+  });
+  assert.equal(runtimeRegistration.status, 200);
+  const setupQuest = getQuestList(userId).find(quest => quest.id === 'q_setup');
+  assert.equal(setupQuest?.objectives[0].current, 1, 'v2 registration must persist the Dev Setup connection objective');
+
   assert.equal(
     (await request('/api/worker-classes/register', codeServerToken, 'POST', { classes: [workerClass] })).status,
     200,
