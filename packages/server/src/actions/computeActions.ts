@@ -11,7 +11,7 @@ import { grantNodeXp } from '../domain/nodeXp.js';
 import { checkLayerUnlocks } from '../domain/layers.js';
 import { XP_REWARDS } from '../levelSystem.js';
 import { checkAchievements } from '../achievements.js';
-import { checkQuests } from '../quests.js';
+import { checkQuests, getQuestList } from '../quests.js';
 import { broadcastFullState } from '../broadcastHelper.js';
 import { setLock, getLock } from './actionLock.js';
 import { generatePuzzle, PuzzleInstance, DIFFICULTY_CONFIG, PUZZLE_TEMPLATES } from '../puzzleDefinitions.js';
@@ -156,11 +156,19 @@ export async function submitComputeAnswer(
     checkLayerUnlocks(uid);
 
     const updatedNode = getGameState(uid).nodes.find(node => node.id === submitNode);
+    const operatorsQuest = getQuestList(uid).find(quest => quest.id === 'q_operators');
+    const operatorsObjective = operatorsQuest?.objectives[0];
     return {
       ok: true,
       correct: true,
       reward: { type: rewardType, amount: reward },
       nodeSolveCount: updatedNode?.data?.solveCount || 0,
+      quest: {
+        id: 'q_operators',
+        current: operatorsObjective?.current || 0,
+        target: operatorsObjective?.target || 1,
+        completed: operatorsQuest?.status === 'completed' || operatorsQuest?.status === 'claimed',
+      },
     };
   } else {
     return { ok: true, correct: false, expected: puzzle.answer, got: submitAnswer };

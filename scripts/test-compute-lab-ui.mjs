@@ -17,6 +17,9 @@ assert.match(screen, /textarea/);
 assert.match(screen, /compute-lab\/tasks/);
 assert.match(screen, /compute-lab\/runs/);
 assert.match(screen, /compute_lab\.submit_correct/);
+assert.match(screen, /submissionSuccess/);
+assert.match(screen, /compute_lab\.operators_progress/);
+assert.match(screen, /compute_lab\.operators_completed/);
 assert.match(screen, /compute_lab\.task_load_failed/);
 assert.match(screen, /SUBMIT LAST RUN|compute_lab\.submit/);
 assert.match(screen, /type="range"/);
@@ -44,6 +47,9 @@ for (const key of [
   'submit_correct',
   'submit_wrong',
   'submit_failed',
+  'node_solve_count',
+  'operators_progress',
+  'operators_completed',
 ]) {
   for (const locale of locales) assert.match(locale, new RegExp(`compute_lab\\.${key}`));
 }

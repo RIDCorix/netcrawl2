@@ -13,6 +13,7 @@ assert.equal(existsSync(workspace), true, `NETCRAWL_WORKSPACE_DIR must point to 
 const { startServer } = await import('../packages/server/.test-dist/index.js');
 const { getGameState, saveGameState } = await import('../packages/server/.test-dist/domain/gameState.js');
 const { registerWorkerClass } = await import('../packages/server/.test-dist/workerRegistry.js');
+const { setQuestStatus } = await import('../packages/server/.test-dist/domain/questState.js');
 const { server, port } = await startServer({ port: 0, dataDir: testDir });
 const base = `http://127.0.0.1:${port}/api`;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -32,6 +33,7 @@ saveGameState({
 });
 registerWorkerClass({ class_id: 'plain', class_name: 'Plain', class_icon: 'Bot', fields: {}, docstring: '', file: '', language: 'python' });
 registerWorkerClass({ class_id: 'solver', class_name: 'Solver', class_icon: 'Bot', capabilities: ['compute_automation'], fields: {}, docstring: '', file: '', language: 'python' });
+setQuestStatus('q_operators', 'available');
 
 const runner = spawn(uv, ['run', 'main.py'], {
   cwd: workspace,
@@ -137,6 +139,11 @@ try {
   assert.equal(submission.status, 200);
   assert.equal(submission.body.correct, true);
   assert.ok(submission.body.nodeSolveCount > 0, 'submission returns the updated node solve count');
+  assert.deepEqual(
+    submission.body.quest,
+    { id: 'q_operators', current: 1, target: 1, completed: true },
+    'submission returns the completed Operators quest snapshot',
+  );
 
   const beforeCapability = getGameState();
   const wrongClass = await request('/deploy', { nodeId: 'e_op_add', classId: 'plain' });

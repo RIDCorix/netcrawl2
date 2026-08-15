@@ -12,6 +12,10 @@ type Task = {
   functionSignature: string;
   starterSource: string;
 };
+type SubmissionSuccess = {
+  nodeSolveCount: number;
+  quest: { current: number; target: number; completed: boolean };
+};
 const TERMINAL = new Set(['trace_ready', 'syntax', 'runtime', 'timeout', 'limit', 'disconnected']);
 
 /** Focused code workspace. Its only visual model is program state, never map geography. */
@@ -37,6 +41,7 @@ export function ComputeLabScreen() {
   const [runId, setRunId] = useState<string | null>(null);
   const [frameIndex, setFrameIndex] = useState(0);
   const [message, setMessage] = useState<{ key: string; vars?: Record<string, string | number> } | null>(null);
+  const [submissionSuccess, setSubmissionSuccess] = useState<SubmissionSuccess | null>(null);
   const wasConnected = useRef(connected);
   const run = runId ? (computeLabRuns[runId] as Run | undefined) : undefined;
 
@@ -53,6 +58,7 @@ export function ComputeLabScreen() {
         setTask(body);
         if (saved === null) setSource(body.starterSource);
         setMessage(null);
+        setSubmissionSuccess(null);
       })
       .catch(() => setMessage({ key: 'compute_lab.task_load_failed' }));
   }, [computeLabOpen, available, sourceNode?.id]);
@@ -111,6 +117,7 @@ export function ComputeLabScreen() {
   const startRun = async () => {
     if (!task || !sourceNode) return;
     setMessage(null);
+    setSubmissionSuccess(null);
     const response = await apiFetch('/api/compute-lab/runs', {
       method: 'POST',
       body: JSON.stringify({ taskId: task.taskId, source, revision, nodeId: sourceNode.id }),
@@ -136,6 +143,18 @@ export function ComputeLabScreen() {
       body: JSON.stringify({ taskId: task.taskId, runId: run.id }),
     });
     const body = await response.json();
+    if (body.correct) {
+      setSubmissionSuccess({
+        nodeSolveCount: Number(body.nodeSolveCount || 0),
+        quest: {
+          current: Number(body.quest?.current || 0),
+          target: Number(body.quest?.target || 1),
+          completed: body.quest?.completed === true,
+        },
+      });
+    } else {
+      setSubmissionSuccess(null);
+    }
     setMessage(
       body.correct
         ? {
@@ -216,6 +235,18 @@ export function ComputeLabScreen() {
             </div>
             {!codeServerConnected && <div role="status">{t('compute_lab.runner_offline')}</div>}
             {message && <div role="status">{t(message.key, message.vars)}</div>}
+            {submissionSuccess && (
+              <div role="status">
+                <div>{t('compute_lab.node_solve_count', { count: submissionSuccess.nodeSolveCount })}</div>
+                <div>
+                  {t('compute_lab.operators_progress', {
+                    current: submissionSuccess.quest.current,
+                    target: submissionSuccess.quest.target,
+                  })}
+                </div>
+                {submissionSuccess.quest.completed && <div>{t('compute_lab.operators_completed')}</div>}
+              </div>
+            )}
           </section>
           <section
             aria-label={t('compute_lab.trace')}
