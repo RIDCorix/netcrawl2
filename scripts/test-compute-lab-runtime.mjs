@@ -8,7 +8,6 @@ import { join, resolve } from 'node:path';
 process.env.NETCRAWL_BUNDLED = 'true';
 const testDir = mkdtempSync(join(tmpdir(), 'netcrawl-compute-lab-runtime-'));
 const workspace = resolve(process.env.NETCRAWL_WORKSPACE_DIR || '../netcrawl-workspace');
-const sdkPath = resolve('packages/sdk-python');
 const uv = process.env.NETCRAWL_UV_BINARY || 'uv';
 assert.equal(existsSync(workspace), true, `NETCRAWL_WORKSPACE_DIR must point to netcrawl-workspace: ${workspace}`);
 const { startServer } = await import('../packages/server/.test-dist/index.js');
@@ -36,7 +35,7 @@ registerWorkerClass({ class_id: 'solver', class_name: 'Solver', class_icon: 'Bot
 
 const runner = spawn(uv, ['run', 'main.py'], {
   cwd: workspace,
-  env: { ...process.env, NETCRAWL_SERVER: `http://127.0.0.1:${port}`, PYTHONPATH: sdkPath, PYTHONUNBUFFERED: '1' },
+  env: { ...process.env, NETCRAWL_SERVER: `http://127.0.0.1:${port}`, PYTHONUNBUFFERED: '1' },
   stdio: 'ignore',
 });
 let runnerError;
