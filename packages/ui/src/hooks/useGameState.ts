@@ -1,39 +1,47 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { useGameStore } from '../store/gameStore';
+import { type ComputeLabRunSnapshot, type GameState, useGameStore } from '../store/gameStore';
 import { WS_URL, apiFetch } from '../lib/api';
 
-export function applyGameMessage(msg: { type?: string; payload?: any }) {
+type GameMessage = { type?: string; payload?: unknown };
+
+export function applyGameMessage(msg: GameMessage) {
+  const state = useGameStore.getState();
   if (msg.type === 'STATE_UPDATE') {
-    useGameStore.getState().updateFromServer(msg.payload);
+    state.updateFromServer(msg.payload as Partial<GameState>);
   } else if (msg.type === 'COMPUTE_LAB_RUN') {
-    useGameStore.getState().upsertComputeLabRun(msg.payload);
+    state.upsertComputeLabRun(msg.payload as ComputeLabRunSnapshot);
   } else if (msg.type === 'ACHIEVEMENT_UNLOCKED') {
-    useGameStore.getState().addAchievementToast(msg.payload);
+    state.addAchievementToast(msg.payload as Parameters<typeof state.addAchievementToast>[0]);
   } else if (msg.type === 'QUEST_AVAILABLE' || msg.type === 'QUEST_COMPLETED') {
-    useGameStore.getState().addQuestToast({
-      ...msg.payload,
+    state.addQuestToast({
+      ...(msg.payload as Omit<Parameters<typeof state.addQuestToast>[0], 'type'>),
       type: msg.type === 'QUEST_AVAILABLE' ? 'available' : 'completed',
     });
   } else if (msg.type === 'LEVEL_UP') {
-    useGameStore.getState().addLevelUpToast(msg.payload);
+    state.addLevelUpToast(msg.payload as Parameters<typeof state.addLevelUpToast>[0]);
   } else if (msg.type === 'LAYER_UNLOCKED') {
-    useGameStore.getState().addLayerUnlockToast(msg.payload);
+    state.addLayerUnlockToast(msg.payload as Parameters<typeof state.addLayerUnlockToast>[0]);
   } else if (msg.type === 'HUB_DEPOSIT') {
-    const { goodCount, badCount } = msg.payload;
+    const { goodCount, badCount } = msg.payload as { goodCount?: number; badCount?: number };
     if ((goodCount || 0) > 0 || (badCount || 0) > 0) {
-      useGameStore.getState().pushHubDeposit({ goodCount: goodCount || 0, badCount: badCount || 0 });
+      state.pushHubDeposit({ goodCount: goodCount || 0, badCount: badCount || 0 });
     }
   } else if (msg.type === 'WORKER_LOG') {
-    const { workerId, message, level, ts } = msg.payload;
-    useGameStore.getState().appendWorkerLog(workerId, {
+    const { workerId, message, level, ts } = msg.payload as {
+      workerId: string;
+      message: string;
+      level: string;
+      ts?: number;
+    };
+    const timestamp = ts ?? Date.now();
+    state.appendWorkerLog(workerId, {
       message,
       level,
-      created_at: new Date(ts || Date.now()).toISOString(),
+      created_at: new Date(timestamp).toISOString(),
     });
     if (level !== 'debug') {
-      const state = useGameStore.getState();
-      const workers = state.workers.map((w: any) =>
-        w.id === workerId ? { ...w, lastLog: { message, level, ts } } : w,
+      const workers = state.workers.map(w =>
+        w.id === workerId ? { ...w, lastLog: { message, level, ts: timestamp } } : w,
       );
       useGameStore.setState({ workers });
     }

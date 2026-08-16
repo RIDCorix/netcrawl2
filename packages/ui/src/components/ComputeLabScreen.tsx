@@ -16,8 +16,6 @@ type SubmissionSuccess = {
   nodeSolveCount: number;
   quest: { current: number; target: number; completed: boolean };
 };
-const TERMINAL = new Set(['trace_ready', 'syntax', 'runtime', 'timeout', 'limit', 'disconnected']);
-
 type TraceExpression = Extract<Run['frames'][number], { phase: 'eval' }>['expression'];
 type ExpressionCardProps = {
   expression: TraceExpression;

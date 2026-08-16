@@ -82,7 +82,9 @@ export function DeployDialog({
   const tutorialMode = !!tutorial;
   const expectedTutorialClass = tutorial?.phase === 'hello' ? 'helloworker' : 'miner';
   const workerClasses = storeWorkerClasses as WorkerClassEntry[];
-  const eligibleWorkerClasses = eligibility ? workerClasses.filter(c => c.capabilities?.includes(eligibility)) : workerClasses;
+  const eligibleWorkerClasses = eligibility
+    ? workerClasses.filter(c => c.capabilities?.includes(eligibility))
+    : workerClasses;
   const tutorialWorkerClasses = tutorialMode
     ? workerClasses.filter(c => c.class_id === expectedTutorialClass)
     : eligibleWorkerClasses;
@@ -399,9 +401,10 @@ export function DeployDialog({
       onClose();
     } catch (err: any) {
       const reason = err.response?.data?.reason;
-      const error = reason === 'compute_lab_required' || reason === 'compute_worker_required'
-        ? t(`compute_lab.deploy_error.${reason}`)
-        : err.response?.data?.error || err.message;
+      const error =
+        reason === 'compute_lab_required' || reason === 'compute_worker_required'
+          ? t(`compute_lab.deploy_error.${reason}`)
+          : err.response?.data?.error || err.message;
       setMessage(tutorialMode ? t('tutorial.chapter_zero.deploy.error_api', { reason: error }) : error);
       setDeploying(false);
     }

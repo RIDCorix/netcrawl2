@@ -121,7 +121,13 @@ export function leaseDeployQueue(sessionId: string, userId?: string, now = Date.
 }
 
 export function enqueueComputeLabRun(
-  command: { runId: string; source: string; params: Record<string, unknown>; parameterNames: string[]; limits: Record<string, number> },
+  command: {
+    runId: string;
+    source: string;
+    params: Record<string, unknown>;
+    parameterNames: string[];
+    limits: Record<string, number>;
+  },
   userId?: string,
 ) {
   const s = resolveStore(userId);

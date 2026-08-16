@@ -3,6 +3,7 @@
  */
 
 import type { ActionContext } from './helpers.js';
+import type { GameNode } from '../types.js';
 import { ACTION_DELAY } from './helpers.js';
 import { getGameState, saveGameState } from '../domain/gameState.js';
 import { incrementStat } from '../domain/achievements.js';
@@ -76,10 +77,10 @@ export async function handleCompute(ctx: ActionContext): Promise<any> {
 /** Shared authoritative task lifecycle for workers and the focused Compute Lab. */
 export async function getComputeTask(
   computeNode: string,
-  node: any,
+  node: GameNode,
   uid?: string,
   workerId = `lab:${computeNode}`,
-): Promise<any> {
+) {
   const key = puzzleKey(uid, computeNode);
   const cooldownUntil = puzzleCooldowns.get(key) || 0;
   if (Date.now() < cooldownUntil) {
@@ -128,12 +129,12 @@ export async function handleSubmit(ctx: ActionContext, payload: any): Promise<an
 /** Shared authoritative scoring lifecycle. The Lab never receives a client answer. */
 export async function submitComputeAnswer(
   submitNode: string,
-  sNode: any,
+  sNode: GameNode,
   submitTaskId: string,
-  submitAnswer: any,
+  submitAnswer: unknown,
   uid?: string,
   workerId = `lab:${submitNode}`,
-): Promise<any> {
+) {
   const key = puzzleKey(uid, submitNode);
   const puzzle = activePuzzles.get(key);
   if (!puzzle || puzzle.taskId !== submitTaskId)

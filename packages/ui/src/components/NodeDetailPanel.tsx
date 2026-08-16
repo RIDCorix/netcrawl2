@@ -87,7 +87,15 @@ type NodeDetailPanelProps = {
 
 export function NodeDetailPanel(props: NodeDetailPanelProps = {}) {
   const { nodeOverride, onCloseOverride, inspectionOnly = false, deployTargetNodeId, onDeployOpenChange } = props;
-  const { selectedNodeId: gameSelectedNodeId, nodes, edges, resources, workerClasses, selectNode, openComputeLab } = useGameStore();
+  const {
+    selectedNodeId: gameSelectedNodeId,
+    nodes,
+    edges,
+    resources,
+    workerClasses,
+    selectNode,
+    openComputeLab,
+  } = useGameStore();
   const [deployOpen, setDeployOpen] = useState(false);
   const [chapterZeroDeploy, setChapterZeroDeploy] = useState<TutorialDescriptor>(null);
   const [openingDeploy, setOpeningDeploy] = useState(false);
@@ -432,7 +440,9 @@ export function NodeDetailPanel(props: NodeDetailPanelProps = {}) {
                 onOpenDialog={setActiveDialog}
                 onOpenLab={openComputeLab}
                 onOpenAutomation={() => setDeployOpen(true)}
-                hasAutomationWorker={workerClasses.some((entry: any) => entry.capabilities?.includes('compute_automation'))}
+                hasAutomationWorker={workerClasses.some((entry: { capabilities?: string[] }) =>
+                  entry.capabilities?.includes('compute_automation'),
+                )}
               />
             )}
 

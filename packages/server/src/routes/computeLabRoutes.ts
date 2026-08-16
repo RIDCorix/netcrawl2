@@ -26,7 +26,7 @@ computeLabRoutes.post('/compute-lab/tasks', async (req: Request, res: Response) 
   const node = unlockedCompute(nodeId, uid);
   if (!node) return sendError(res, 403, 'Compute node is locked or unavailable', 'locked_node');
   const task = await getComputeTask(nodeId, node, uid);
-  if (!task.ok) return res.status(task.reason === 'cooldown' ? 429 : 400).json(task);
+  if (!task.ok || !task.taskId) return res.status(task.reason === 'cooldown' ? 429 : 400).json(task);
   const labTask = getActiveComputeLabTask(nodeId, task.taskId, uid);
   if (!labTask) return sendError(res, 409, 'Task expired; get a new task before running', 'invalid_task');
   const { hint: _hint, params: _params, ...publicTask } = task;

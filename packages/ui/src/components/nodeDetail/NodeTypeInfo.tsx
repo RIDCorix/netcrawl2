@@ -111,8 +111,8 @@ export function ComputeNodeInfo({
           marginTop: 4,
         }}
       >
-        Write the requested <span style={{ color: 'var(--accent)' }}>ProblemSolver.solution(...)</span> function and return
-        the answer. The Lab submits the result for this first solve.
+        Write the requested <span style={{ color: 'var(--accent)' }}>ProblemSolver.solution(...)</span> function and
+        return the answer. The Lab submits the result for this first solve.
       </div>
       {node.data.unlocked && (
         <button
@@ -140,12 +140,18 @@ export function ComputeNodeInfo({
           {!hasAutomationWorker && (
             <div role="status" style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
               {t('compute_lab.automation_setup')}
-              <pre style={{ whiteSpace: 'pre-wrap', margin: '6px 0 0' }}>{'from workers.solver import Solver\napp.register(Solver)\n# restart: uv run main.py'}</pre>
+              <pre style={{ whiteSpace: 'pre-wrap', margin: '6px 0 0' }}>
+                {'from workers.solver import Solver\napp.register(Solver)\n# restart: uv run main.py'}
+              </pre>
             </div>
           )}
           <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
             {t('compute_lab.automation_compare')}
-            <pre style={{ whiteSpace: 'pre-wrap', margin: '6px 0 0' }}>{'ProblemSolver.solution(a, b): return a + b\n\ntask = node.get_task()\nanswer = task.parameters["a"] + task.parameters["b"]\nnode.submit(task.task_id, answer)'}</pre>
+            <pre style={{ whiteSpace: 'pre-wrap', margin: '6px 0 0' }}>
+              {
+                'ProblemSolver.solution(a, b): return a + b\n\ntask = node.get_task()\nanswer = task.parameters["a"] + task.parameters["b"]\nnode.submit(task.task_id, answer)'
+              }
+            </pre>
           </div>
         </div>
       )}
