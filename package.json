@@ -30,7 +30,8 @@
     "test:sdk-js": "pnpm --filter @netcrawl/sdk exec tsc && node scripts/test-sdk-js-timeouts.mjs",
     "test:quest-view-close": "node scripts/test-quest-view-close.mjs",
     "test:sdk-python": "uv run --project packages/sdk-python --extra dev pytest -q packages/sdk-python/tests",
-    "test:sdk-python-artifact": "pnpm --filter @netcrawl/server exec tsc --declaration false --outDir .test-dist && node scripts/test-python-sdk-artifact-lifecycle.mjs"
+    "test:sdk-python-artifact": "pnpm --filter @netcrawl/server exec tsc --declaration false --outDir .test-dist && node scripts/test-python-sdk-artifact-lifecycle.mjs",
+    "test:ci-watchdog": "pnpm --filter @netcrawl/server exec tsc --declaration false --outDir .test-dist && node scripts/test-ci-watchdog.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

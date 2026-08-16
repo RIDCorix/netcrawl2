@@ -10,11 +10,13 @@ import { initWebSocket, broadcast } from './websocket.js';
 import { router } from './routes/index.js';
 import { startGameTick } from './gameTick.js';
 import { initUserStore, setAuthDataDir, verifyToken } from './auth.js';
+import { CiWatchdog } from './ciWatchdog.js';
 
 export interface ServerOptions {
   port?: number;
   dataDir?: string;
   staticDir?: string;
+  ciWatchdog?: CiWatchdog;
 }
 
 export async function startServer(options: ServerOptions = {}): Promise<{
@@ -36,6 +38,7 @@ export async function startServer(options: ServerOptions = {}): Promise<{
   }
 
   const app: Express = express();
+  const ciWatchdog = options.ciWatchdog ?? new CiWatchdog({ enabled: process.env.NETCRAWL_CI_WATCHDOG === 'true' });
 
   // Middleware
   const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(s => s.trim());
@@ -55,6 +58,12 @@ export async function startServer(options: ServerOptions = {}): Promise<{
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
+  app.get('/health/ci-watchdog', (_req, res) => {
+    const health = ciWatchdog.getHealth();
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(health.statusCode).json(health.body);
+  });
+
   // Serve static UI files (for Electron / production)
   if (options.staticDir) {
     app.use(express.static(options.staticDir));
@@ -71,6 +80,7 @@ export async function startServer(options: ServerOptions = {}): Promise<{
 
   // Create HTTP server for WebSocket
   const server = http.createServer(app);
+  server.on('close', () => ciWatchdog.stop());
   const wss = initWebSocket(server);
 
   // Send visible state on WS connect
@@ -118,6 +128,7 @@ export async function startServer(options: ServerOptions = {}): Promise<{
       const actualPort = (server.address() as any).port;
       console.log(`[NetCrawl Server] Running on http://localhost:${actualPort}`);
       console.log(`[NetCrawl Server] WebSocket on ws://localhost:${actualPort}/ws`);
+      ciWatchdog.start();
       resolve({ server, app, port: actualPort });
     });
   });

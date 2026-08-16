@@ -24,6 +24,7 @@ railway init
 railway variables set NETCRAWL_MULTI_USER=true
 railway variables set JWT_SECRET=$(openssl rand -hex 32)
 railway variables set NETCRAWL_DATA_DIR=/app/data
+railway variables set NETCRAWL_CI_WATCHDOG=true
 railway variables set PORT=4800
 
 # Deploy
@@ -66,6 +67,7 @@ railway up
 | `NETCRAWL_DATA_DIR` | `/app/data` | Yes |
 | `PORT` | `4800` | No (Railway auto-assigns) |
 | `ALLOWED_ORIGINS` | Your Vercel URL | Recommended |
+| `NETCRAWL_CI_WATCHDOG` | `true` | Yes |
 
 ### Vercel (UI)
 | Variable | Value | Required |
@@ -80,3 +82,26 @@ pnpm dev
 ```
 
 When `VITE_API_URL` is not set, the UI uses relative URLs (Vite proxy) and skips the login page.
+
+## External CI Watchdog
+
+The Railway server checks the public `RIDCorix/netcrawl2` repository immediately
+after startup and every five minutes. `GET /health/ci-watchdog` returns 200 only
+when `test.yml` is active and the current `master` commit has a recent completed,
+successful Test Suite push run. Pending, failed, disabled, stale, malformed, and
+unreachable GitHub states return 503. Responses are never cached.
+
+After deploying with `NETCRAWL_CI_WATCHDOG=true`, Corix must create one standard
+HTTP(S) monitor in UptimeRobot's free plan:
+
+1. Point it at the Railway service URL plus `/health/ci-watchdog`.
+2. Use a five-minute monitoring interval.
+3. Attach Corix's verified email and mobile-push alert contacts.
+4. Keep the monitor active. During planned maintenance, pause it explicitly and
+   restore it immediately afterward.
+
+UptimeRobot's repeated request is also the liveness signal for the Railway
+watchdog itself: if the server, its polling loop, or GitHub verification stops,
+the endpoint becomes unavailable or stale and UptimeRobot alerts outside the
+GitHub Actions control plane. Do not place alert credentials in this repository,
+Railway logs, or issue comments.
