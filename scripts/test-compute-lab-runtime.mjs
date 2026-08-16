@@ -78,6 +78,80 @@ const legacyResponse = await request(`/runtime/compute-lab-runs/${routeContractR
 assert.equal(legacyResponse.status, 400);
 assert.equal(legacyResponse.body.reason, 'invalid_trace_frame');
 assert.equal(routeContractRun.status, 'runtime');
+
+const createRouteContractRun = revision =>
+  createComputeLabRun({
+    nodeId: 'contract-node',
+    taskId: 'contract-task',
+    revision,
+    source: 'return 1',
+    sessionId: 'contract-session',
+  });
+const terminalEventRun = createRouteContractRun(9);
+const terminalEventResponse = await request(`/runtime/compute-lab-runs/${terminalEventRun.id}/events`, {
+  sessionId: 'contract-session',
+  frame: { sequence: 0, phase: 'error', error: { message: 'runner error' } },
+});
+assert.equal(terminalEventResponse.status, 400);
+assert.equal(terminalEventResponse.body.reason, 'invalid_trace_frame');
+assert.equal(terminalEventRun.status, 'runtime');
+assert.equal(terminalEventRun.frames.at(-1).error.kind, 'invalid_trace_frame');
+
+const inconsistentCompletionRun = createRouteContractRun(10);
+const inconsistentCompletionResponse = await request(
+  `/runtime/compute-lab-runs/${inconsistentCompletionRun.id}/complete`,
+  {
+    sessionId: 'contract-session',
+    status: 'trace_ready',
+    frame: { sequence: 0, phase: 'error', error: { message: 'runner error' } },
+  },
+);
+assert.equal(inconsistentCompletionResponse.status, 400);
+assert.equal(inconsistentCompletionResponse.body.reason, 'invalid_trace_frame');
+assert.equal(inconsistentCompletionRun.status, 'runtime');
+assert.equal(inconsistentCompletionRun.frames.at(-1).error.kind, 'invalid_trace_frame');
+
+const incompatibleCompletions = [
+  { status: 'syntax' },
+  { status: 'runtime', phase: 'limit' },
+  { status: 'limit', phase: 'error' },
+  { status: 'timeout', phase: 'error' },
+];
+for (const [index, completion] of incompatibleCompletions.entries()) {
+  const run = createRouteContractRun(11 + index);
+  const response = await request(`/runtime/compute-lab-runs/${run.id}/complete`, {
+    sessionId: 'contract-session',
+    status: completion.status,
+    ...(completion.phase
+      ? { frame: { sequence: 0, phase: completion.phase, error: { message: 'incompatible marker' } } }
+      : {}),
+  });
+  assert.equal(response.status, 400);
+  assert.equal(response.body.reason, 'invalid_trace_frame');
+  assert.equal(run.status, 'runtime');
+  assert.equal(run.frames.at(-1).error.kind, 'invalid_trace_frame');
+}
+
+const legalCompletions = [
+  { status: 'trace_ready' },
+  { status: 'syntax', phase: 'error' },
+  { status: 'runtime', phase: 'error' },
+  { status: 'limit', phase: 'limit' },
+  { status: 'timeout' },
+];
+for (const [index, completion] of legalCompletions.entries()) {
+  const run = createRouteContractRun(20 + index);
+  const response = await request(`/runtime/compute-lab-runs/${run.id}/complete`, {
+    sessionId: 'contract-session',
+    status: completion.status,
+    ...(completion.phase
+      ? { frame: { sequence: 0, phase: completion.phase, error: { message: `${completion.status} marker` } } }
+      : {}),
+  });
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  assert.equal(run.status, completion.status);
+  assert.equal(run.frames.at(-1)?.phase, completion.phase);
+}
 assert.equal(releaseCodeServerLease('contract-session'), true);
 
 const state = getGameState();

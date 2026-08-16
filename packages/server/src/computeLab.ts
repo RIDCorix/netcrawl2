@@ -262,6 +262,7 @@ export function acceptComputeLabFrame(runId: string, input: unknown, userId?: st
     return { ok: false, reason: 'stale_execution' };
   const frame = normalizeComputeLabFrame(input);
   if (!frame) return rejectInvalidFrame(run);
+  if (frame.phase === 'error' || frame.phase === 'limit') return rejectInvalidFrame(run);
   if (frame.sequence !== run.frames.length) return { ok: false, reason: 'stale_execution' };
   if (run.frames.length >= TRACE_LIMITS.maxEvents) {
     run.status = 'limit';
@@ -284,12 +285,21 @@ export function finishComputeLabRun(
   const run = getComputeLabRun(runId, userId);
   if (!run || ['trace_ready', 'syntax', 'runtime', 'timeout', 'limit', 'disconnected'].includes(run.status))
     return { ok: false, reason: 'stale_execution' };
-  if (result.frame !== undefined) {
-    const frame = normalizeComputeLabFrame(result.frame);
-    if (!frame) return rejectInvalidFrame(run);
-    const expectedPhase = result.status === 'limit' ? 'limit' : 'error';
-    if (frame.sequence !== run.frames.length || frame.phase !== expectedPhase || !('error' in frame) || !frame.error)
-      return rejectInvalidFrame(run);
+  const frame = result.frame === undefined ? undefined : normalizeComputeLabFrame(result.frame);
+  if (result.frame !== undefined && !frame) return rejectInvalidFrame(run);
+  const expectedPhase =
+    result.status === 'syntax' || result.status === 'runtime'
+      ? 'error'
+      : result.status === 'limit'
+        ? 'limit'
+        : undefined;
+  if (
+    (expectedPhase === undefined && frame !== undefined) ||
+    (expectedPhase !== undefined &&
+      (!frame || frame.sequence !== run.frames.length || frame.phase !== expectedPhase || !('error' in frame)))
+  )
+    return rejectInvalidFrame(run);
+  if (frame) {
     // A single terminal status marker is not a replayable execution event, so it
     // remains visible after maxEvents without permitting additional trace steps.
     run.frames.push(frame);
