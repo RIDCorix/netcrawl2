@@ -13,6 +13,10 @@ const uv = process.env.NETCRAWL_UV_BINARY || 'uv';
 assert.equal(existsSync(workspace), true, `NETCRAWL_WORKSPACE_DIR must point to netcrawl-workspace: ${workspace}`);
 const { startServer } = await import('../packages/server/.test-dist/index.js');
 const { getGameState, saveGameState } = await import('../packages/server/.test-dist/domain/gameState.js');
+const { claimCodeServerLease, releaseCodeServerLease } =
+  await import('../packages/server/.test-dist/codeServerTracker.js');
+const { acceptComputeLabFrame, createComputeLabRun, normalizeComputeLabFrame } =
+  await import('../packages/server/.test-dist/computeLab.js');
 const { registerWorkerClass } = await import('../packages/server/.test-dist/workerRegistry.js');
 const { setQuestStatus } = await import('../packages/server/.test-dist/domain/questState.js');
 const { server, port } = await startServer({ port: 0, dataDir: testDir });
@@ -26,6 +30,55 @@ const request = async (path, body) => {
   });
   return { status: response.status, body: await response.json() };
 };
+
+const contractRun = createComputeLabRun({
+  nodeId: 'contract-node',
+  taskId: 'contract-task',
+  revision: 7,
+  source: 'return 1',
+  sessionId: 'contract-session',
+});
+const legacyFrame = acceptComputeLabFrame(contractRun.id, { sequence: 0, phase: 'eval', source: '1', value: 1 });
+assert.equal(legacyFrame.ok, false);
+assert.equal(legacyFrame.reason, 'invalid_trace_frame');
+assert.equal(contractRun.status, 'runtime', 'an unsupported legacy frame terminates the run observably');
+assert.deepEqual(contractRun.frames, [
+  {
+    sequence: 0,
+    phase: 'error',
+    error: { message: 'Unsupported trace frame received', kind: 'invalid_trace_frame' },
+  },
+]);
+assert.equal(
+  normalizeComputeLabFrame({
+    sequence: 0,
+    phase: 'control',
+    control: {
+      node_type: 'While',
+      location: { lineno: 1, col_offset: 0, end_lineno: 1, end_col_offset: 8 },
+      event: 'test',
+    },
+  }),
+  undefined,
+  'each control event requires its discriminated payload',
+);
+const routeContractRun = createComputeLabRun({
+  nodeId: 'contract-node',
+  taskId: 'contract-task',
+  revision: 8,
+  source: 'return 1',
+  sessionId: 'contract-session',
+});
+const contractLease = claimCodeServerLease('contract-session');
+assert.equal(contractLease.ok, true);
+const legacyResponse = await request(`/runtime/compute-lab-runs/${routeContractRun.id}/events`, {
+  sessionId: 'contract-session',
+  frame: { sequence: 0, phase: 'eval', source: '1', value: 1 },
+});
+assert.equal(legacyResponse.status, 400);
+assert.equal(legacyResponse.body.reason, 'invalid_trace_frame');
+assert.equal(routeContractRun.status, 'runtime');
+assert.equal(releaseCodeServerLease('contract-session'), true);
 
 const state = getGameState();
 saveGameState({

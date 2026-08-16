@@ -18,7 +18,7 @@ type SubmissionSuccess = {
 };
 const TERMINAL = new Set(['trace_ready', 'syntax', 'runtime', 'timeout', 'limit', 'disconnected']);
 
-type TraceExpression = NonNullable<Run['frames'][number]['expression']>;
+type TraceExpression = Extract<Run['frames'][number], { phase: 'eval' }>['expression'];
 type ExpressionCardProps = {
   expression: TraceExpression;
   source: string;
@@ -28,13 +28,41 @@ type ExpressionCardProps = {
 
 function sourceExcerpt(source: string, location: TraceExpression['location']) {
   const lines = source.split('\n');
-  if (location.lineno !== location.end_lineno) return null;
-  const line = lines[location.lineno - 1];
-  if (line === undefined) return null;
+  const startLine = lines[location.lineno - 1];
+  const endLine = lines[location.end_lineno - 1];
+  if (startLine === undefined || endLine === undefined) return null;
+
+  // CPython reports UTF-8 byte offsets; JavaScript slices UTF-16 code units.
+  // Convert each endpoint independently and retain intervening newlines so
+  // multiline expressions can be highlighted as one source range.
+  const byteColumnToCodeUnit = (line: string, byteColumn: number) => {
+    let bytes = 0;
+    let codeUnits = 0;
+    for (const character of line) {
+      if (bytes >= byteColumn) break;
+      bytes += new TextEncoder().encode(character).length;
+      codeUnits += character.length;
+    }
+    return bytes === byteColumn ? codeUnits : null;
+  };
+  const startColumn = byteColumnToCodeUnit(startLine, location.col_offset);
+  const endColumn = byteColumnToCodeUnit(endLine, location.end_col_offset);
+  if (startColumn === null || endColumn === null) return null;
+
+  const selectedLines = lines.slice(location.lineno - 1, location.end_lineno);
+  if (selectedLines.length === 1) {
+    return {
+      before: startLine.slice(0, startColumn),
+      selected: startLine.slice(startColumn, endColumn),
+      after: startLine.slice(endColumn),
+    };
+  }
+  selectedLines[0] = selectedLines[0].slice(startColumn);
+  selectedLines[selectedLines.length - 1] = selectedLines[selectedLines.length - 1].slice(0, endColumn);
   return {
-    before: line.slice(0, location.col_offset),
-    selected: line.slice(location.col_offset, location.end_col_offset),
-    after: line.slice(location.end_col_offset),
+    before: startLine.slice(0, startColumn),
+    selected: selectedLines.join('\n'),
+    after: endLine.slice(endColumn),
   };
 }
 
@@ -121,6 +149,7 @@ export function ComputeLabScreen() {
   const [task, setTask] = useState<Task | null>(null);
   const [source, setSource] = useState('');
   const [revision, setRevision] = useState(0);
+  const [draftNodeId, setDraftNodeId] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const [frameIndex, setFrameIndex] = useState(0);
   const [message, setMessage] = useState<{ key: string; vars?: Record<string, string | number> } | null>(null);
@@ -130,26 +159,41 @@ export function ComputeLabScreen() {
 
   useEffect(() => {
     if (!computeLabOpen || !available || !sourceNode) return;
+    let cancelled = false;
     const key = `netcrawl-compute-lab:${sourceNode.id}`;
     const saved = localStorage.getItem(key);
-    if (saved !== null) setSource(saved);
+    const savedRevision = Number(localStorage.getItem(`${key}:revision`));
+    setTask(null);
+    setRunId(null);
+    setFrameIndex(0);
+    setRevision(Number.isSafeInteger(savedRevision) && savedRevision >= 0 ? savedRevision : 0);
+    setDraftNodeId(sourceNode.id);
+    setSource(saved ?? '');
     closeRef.current?.focus();
     apiFetch('/api/compute-lab/tasks', { method: 'POST', body: JSON.stringify({ nodeId: sourceNode.id }) })
       .then(async response => ({ response, body: await response.json() }))
       .then(({ response, body }) => {
+        if (cancelled) return;
         if (!response.ok) throw new Error(body.error || 'Unable to load task');
         setTask(body);
         if (saved === null) setSource(body.starterSource);
         setMessage(null);
         setSubmissionSuccess(null);
       })
-      .catch(() => setMessage({ key: 'compute_lab.task_load_failed' }));
+      .catch(() => {
+        if (!cancelled) setMessage({ key: 'compute_lab.task_load_failed' });
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [computeLabOpen, available, sourceNode?.id]);
 
   useEffect(() => {
-    if (!sourceNode || !computeLabOpen) return;
-    localStorage.setItem(`netcrawl-compute-lab:${sourceNode.id}`, source);
-  }, [source, sourceNode?.id, computeLabOpen]);
+    if (!sourceNode || !computeLabOpen || draftNodeId !== sourceNode.id) return;
+    const key = `netcrawl-compute-lab:${sourceNode.id}`;
+    localStorage.setItem(key, source);
+    localStorage.setItem(`${key}:revision`, String(revision));
+  }, [source, revision, sourceNode?.id, computeLabOpen, draftNodeId]);
 
   useEffect(() => {
     const reconnected = !wasConnected.current && connected;
@@ -191,11 +235,16 @@ export function ComputeLabScreen() {
   }, [run?.status, run?.frames.length]);
 
   if (!computeLabOpen) return null;
-  const stale = Boolean(run && run.revision !== revision);
+  const stale = Boolean(
+    run &&
+    (!sourceNode || !task || run.nodeId !== sourceNode.id || run.taskId !== task.taskId || run.revision !== revision),
+  );
   const frame = run?.frames[frameIndex];
-  const ExpressionCard = frame?.expression
-    ? EXPRESSION_CARD_REGISTRY[frame.expression.node_type] || GenericExpressionCard
-    : null;
+  const expression = frame?.phase === 'eval' ? frame.expression : undefined;
+  const control = frame?.phase === 'control' ? frame.control : undefined;
+  const returnValue = frame?.phase === 'return' ? frame.value : undefined;
+  const frameError = frame?.phase === 'error' || frame?.phase === 'limit' ? frame.error : undefined;
+  const ExpressionCard = expression ? EXPRESSION_CARD_REGISTRY[expression.node_type] || GenericExpressionCard : null;
   const updateSource = (value: string) => {
     setSource(value);
     setRevision(current => current + 1);
@@ -216,7 +265,14 @@ export function ComputeLabScreen() {
       return;
     }
     if (!useGameStore.getState().computeLabRuns[body.runId]) {
-      upsertComputeLabRun({ id: body.runId, revision, status: body.status, frames: [] });
+      upsertComputeLabRun({
+        id: body.runId,
+        nodeId: sourceNode.id,
+        taskId: task.taskId,
+        revision,
+        status: body.status,
+        frames: [],
+      });
     }
     setRunId(body.runId);
     setFrameIndex(0);
@@ -342,6 +398,11 @@ export function ComputeLabScreen() {
             <div style={{ color: 'var(--text-muted)', margin: '8px 0' }}>
               {run ? `${run.status} · ${frameIndex + 1}/${run.frames.length}` : t('compute_lab.run_to_trace')}
             </div>
+            {stale && (
+              <div role="status" data-testid="compute-lab-stale-trace" style={{ marginBottom: 10 }}>
+                {t('compute_lab.old_trace')}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
               <button onClick={() => setFrameIndex(0)} disabled={!run?.frames.length}>
                 |&lt;
@@ -377,27 +438,43 @@ export function ComputeLabScreen() {
                   <strong>{frame.phase.toUpperCase()}</strong>
                   {frame.line ? ` · line ${frame.line}` : ''}
                 </div>
-                {frame.expression && ExpressionCard && (
-                  <ExpressionCard expression={frame.expression} source={source} stale={stale} t={t} />
+                {expression && ExpressionCard && (
+                  <ExpressionCard expression={expression} source={source} stale={stale} t={t} />
                 )}
-                {frame.control && (
+                {control && (
                   <div style={{ border: '1px solid var(--border-bright)', padding: 10, marginTop: 10 }}>
                     <strong>
-                      {t('compute_lab.control')} · {frame.control.node_type} · {frame.control.event}
+                      {t('compute_lab.control')} · {control.node_type} ·{' '}
+                      {t(`compute_lab.control_event.${control.event}`)}
                     </strong>
-                    {frame.control.iteration !== undefined && <div>iteration {frame.control.iteration}</div>}
-                    {frame.control.test !== undefined && <div>test → {String(frame.control.test)}</div>}
-                    {frame.control.branch && <div>branch → {frame.control.branch}</div>}
-                    {frame.control.target && (
+                    {control.event === 'iteration' && (
+                      <div>{t('compute_lab.control_detail.iteration', { iteration: control.iteration })}</div>
+                    )}
+                    {control.event === 'test' && (
                       <div>
-                        {frame.control.target} → {JSON.stringify(frame.locals?.[frame.control.target])}
+                        {t('compute_lab.control_detail.test')} → {t(`compute_lab.boolean.${String(control.test)}`)}
                       </div>
                     )}
+                    {control.event === 'branch' && (
+                      <div>
+                        {t('compute_lab.control_detail.branch')} → {t(`compute_lab.control_branch.${control.branch}`)}
+                      </div>
+                    )}
+                    {control.event === 'iteration' &&
+                      control.targetBindings &&
+                      Object.keys(control.targetBindings).length > 0 && (
+                        <div>
+                          {t('compute_lab.control_detail.bindings')} →{' '}
+                          {Object.entries(control.targetBindings)
+                            .map(([name, value]) => `${name}: ${JSON.stringify(value)}`)
+                            .join(', ')}
+                        </div>
+                      )}
                   </div>
                 )}
-                {frame.value !== undefined && (
+                {returnValue !== undefined && (
                   <div>
-                    return: <code>{JSON.stringify(frame.value)}</code>
+                    return: <code>{JSON.stringify(returnValue)}</code>
                   </div>
                 )}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
@@ -413,7 +490,13 @@ export function ComputeLabScreen() {
                     </code>
                   ))}
                 </div>
-                {frame.error && <div role="alert">{frame.error.message}</div>}
+                {frameError && (
+                  <div role="alert">
+                    {frameError.kind === 'invalid_trace_frame'
+                      ? t('compute_lab.invalid_trace_frame')
+                      : frameError.message}
+                  </div>
+                )}
                 {run?.status === 'limit' && frame.phase === 'limit' && (
                   <div role="alert">{t('compute_lab.limit_reached')}</div>
                 )}

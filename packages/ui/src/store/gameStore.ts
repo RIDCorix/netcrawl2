@@ -51,35 +51,65 @@ export interface Resources {
   credits: number;
 }
 
+export interface ComputeLabSourceLocation {
+  lineno: number;
+  col_offset: number;
+  end_lineno: number;
+  end_col_offset: number;
+}
+
+interface ComputeLabFrameBase {
+  sequence: number;
+  line?: number;
+  locals?: Record<string, unknown>;
+  changed?: string[];
+}
+
+type ComputeLabControl = {
+  node_type: string;
+  location: ComputeLabSourceLocation;
+} & (
+  | { event: 'enter' | 'exit' }
+  | { event: 'iteration'; iteration: number; target?: string; targetBindings?: Record<string, unknown> }
+  | { event: 'test'; test: boolean }
+  | { event: 'branch'; branch: 'body' | 'else' | 'none' }
+);
+
+export type ComputeLabFrame = ComputeLabFrameBase &
+  (
+    | { phase: 'line' }
+    | {
+        phase: 'eval';
+        expression: {
+          node_type: string;
+          source: string;
+          location: ComputeLabSourceLocation;
+          value: unknown;
+        };
+      }
+    | { phase: 'control'; control: ComputeLabControl }
+    | { phase: 'return'; value: unknown }
+    | { phase: 'error' | 'limit'; error: { message: string; line?: number; kind?: string } }
+  );
+
+export type ComputeLabRunStatus =
+  | 'queued'
+  | 'running'
+  | 'trace_ready'
+  | 'syntax'
+  | 'runtime'
+  | 'timeout'
+  | 'limit'
+  | 'disconnected';
+
 /** Public, server-authoritative trace snapshot delivered over the game WebSocket. */
 export interface ComputeLabRunSnapshot {
   id: string;
+  nodeId: string;
+  taskId: string;
   revision: number;
-  status: string;
-  frames: Array<{
-    sequence: number;
-    phase: 'line' | 'eval' | 'control' | 'return' | 'error' | 'limit';
-    line?: number;
-    locals?: Record<string, unknown>;
-    changed?: string[];
-    expression?: {
-      node_type: string;
-      source: string;
-      location: { lineno: number; col_offset: number; end_lineno: number; end_col_offset: number };
-      value: unknown;
-    };
-    control?: {
-      node_type: string;
-      location: { lineno: number; col_offset: number; end_lineno: number; end_col_offset: number };
-      event: 'enter' | 'iteration' | 'test' | 'branch' | 'exit';
-      iteration?: number;
-      test?: boolean;
-      branch?: 'body' | 'else';
-      target?: string;
-    };
-    value?: unknown;
-    error?: { message: string };
-  }>;
+  status: ComputeLabRunStatus;
+  frames: ComputeLabFrame[];
   returnValue?: unknown;
 }
 
@@ -91,7 +121,12 @@ function maxFrameSequence(run: ComputeLabRunSnapshot): number {
 
 /** Reject late HTTP/reconnect snapshots so a live WebSocket trace cannot regress. */
 export function shouldReplaceComputeLabRun(previous: ComputeLabRunSnapshot, incoming: ComputeLabRunSnapshot): boolean {
-  if (incoming.revision !== previous.revision) return incoming.revision > previous.revision;
+  if (
+    incoming.nodeId !== previous.nodeId ||
+    incoming.taskId !== previous.taskId ||
+    incoming.revision !== previous.revision
+  )
+    return false;
 
   const previousSequence = maxFrameSequence(previous);
   const incomingSequence = maxFrameSequence(incoming);

@@ -1,5 +1,7 @@
 import ast
 
+import pytest
+
 from netcrawl.compute_lab_runner import (
     ALLOWED_EXPRESSION_TYPES,
     ALLOWED_NODES,
@@ -56,6 +58,56 @@ def test_contract_and_attribute_access_fail_before_execution():
     def solution(self, a, b):
         return a + b
 """)["status"] == "syntax"
+
+
+@pytest.mark.parametrize(
+    "signature",
+    [
+        "self, a: (1).bit_length(), b",
+        "self, a: (1).bit_length(), /, b",
+        "self, a, b, *rest: (1).bit_length()",
+        "self, a, b, *, extra: (1).bit_length()",
+        "self, a, b, **options: (1).bit_length()",
+        "self, a, b) -> (1).bit_length(",
+    ],
+)
+def test_annotations_are_rejected_across_the_complete_signature_surface(signature):
+    result = run(f"""class ProblemSolver:
+    def solution({signature}):
+        return a + b
+""")
+    assert result["status"] == "syntax"
+    assert result["error"]["message"] == "solution annotations are not allowed"
+    assert result["error"]["line"] == 2
+
+
+@pytest.mark.parametrize(
+    ("signature", "params", "names"),
+    [
+        ("self, _lab_input, b", {"_lab_input": 2, "b": 3}, ["_lab_input", "b"]),
+        ("self, _lab_input, /, a, b", {"a": 2, "b": 3}, ["a", "b"]),
+        ("self, a, b, *_lab_rest", {"a": 2, "b": 3}, ["a", "b"]),
+        ("self, a, b, *, _lab_extra", {"a": 2, "b": 3}, ["a", "b"]),
+        ("self, a, b, **_lab_options", {"a": 2, "b": 3}, ["a", "b"]),
+    ],
+)
+def test_reserved_helper_names_are_rejected_in_parameter_names_and_every_ast_arg_surface(
+    signature, params, names
+):
+    result = run(
+        f"""class ProblemSolver:
+    def solution({signature}):
+        return 0
+""",
+        params,
+        names,
+    )
+    assert result["status"] == "syntax"
+    assert result["error"]["message"] == (
+        "parameterNames must be unique Python identifiers matching params"
+        if any(name.startswith("_lab_") for name in names)
+        else "reserved names are not allowed"
+    )
 
 
 def test_f_string_and_bool_short_circuit_preserve_semantics():
@@ -139,3 +191,33 @@ def test_for_exit_is_emitted_after_break():
 """)
     controls = [frame["control"] for frame in result["frames"] if frame["phase"] == "control"]
     assert [control["event"] for control in controls] == ["enter", "iteration", "exit"]
+
+
+def test_if_without_else_reports_no_selected_branch():
+    result = run("""class ProblemSolver:
+    def solution(self, a, b):
+        if a < 0:
+            return a
+        return b
+""")
+    branches = [
+        frame["control"]["branch"]
+        for frame in result["frames"]
+        if frame["phase"] == "control" and frame["control"]["event"] == "branch"
+    ]
+    assert branches == ["none"]
+
+
+def test_for_destructuring_reports_structured_target_bindings():
+    result = run("""class ProblemSolver:
+    def solution(self, a, b):
+        for left, right in [(a, b)]:
+            return left + right
+""")
+    iteration = next(
+        frame["control"]
+        for frame in result["frames"]
+        if frame["phase"] == "control" and frame["control"]["event"] == "iteration"
+    )
+    assert iteration["target"] == "left, right"
+    assert iteration["targetBindings"] == {"left": 2, "right": 3}

@@ -55,6 +55,15 @@ class Validator(ast.NodeVisitor):
         self.visit(method)
 
     def visit_FunctionDef(self, node: ast.FunctionDef):
+        arguments = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
+        if node.args.vararg is not None:
+            arguments.append(node.args.vararg)
+        if node.args.kwarg is not None:
+            arguments.append(node.args.kwarg)
+        if any(argument.arg.startswith("_lab_") for argument in arguments):
+            raise ValidationError("reserved names are not allowed", node.lineno)
+        if node.returns is not None or any(argument.annotation is not None for argument in arguments):
+            raise ValidationError("solution annotations are not allowed", node.lineno)
         names = [argument.arg for argument in node.args.args]
         if (node.name != "solution" or node.decorator_list or node.args.posonlyargs or node.args.vararg or
                 node.args.kwonlyargs or node.args.kwarg or node.args.defaults or node.args.kw_defaults or
@@ -104,8 +113,24 @@ class InstrumentExpressions(ast.NodeTransformer):
     def visit_For(self, node: ast.For):
         node = self.generic_visit(node)
         target = ast.get_source_segment(self.source, node.target) or "target"
-        node.body.insert(0, self._control_event(node, "iteration", target=target))
-        return [self._control_event(node, "enter", target=target), node, self._control_event(node, "exit", target=target)]
+        node.body.insert(
+            0,
+            self._control_event(
+                node,
+                "iteration",
+                target=target,
+                target_names=self._target_names(node.target),
+            ),
+        )
+        return [self._control_event(node, "enter"), node, self._control_event(node, "exit")]
+
+    @classmethod
+    def _target_names(cls, target: ast.expr) -> list[str]:
+        if isinstance(target, ast.Name):
+            return [target.id]
+        if isinstance(target, (ast.Tuple, ast.List)):
+            return [name for element in target.elts for name in cls._target_names(element)]
+        return []
 
     def _wrap(self, node: ast.expr):
         wrapped = ast.Call(
@@ -139,16 +164,16 @@ class InstrumentExpressions(ast.NodeTransformer):
     def _control_test(self, statement: ast.If | ast.While, test: ast.expr) -> ast.Call:
         call = ast.Call(
             func=ast.Name(id="_lab_control_test", ctx=ast.Load()),
-            args=[self._metadata(statement), self._thunk(test)],
+            args=[self._metadata(statement), self._thunk(test), ast.Constant(bool(statement.orelse))],
             keywords=[],
         )
         return ast.copy_location(call, test)
 
-    def _control_event(self, statement: ast.For | ast.While, event: str, **fields: str) -> ast.Expr:
+    def _control_event(self, statement: ast.For | ast.While, event: str, **fields: Any) -> ast.Expr:
         call = ast.Call(
             func=ast.Name(id="_lab_control", ctx=ast.Load()),
             args=[self._metadata(statement), ast.Constant(event)],
-            keywords=[ast.keyword(arg=key, value=ast.Constant(value)) for key, value in fields.items()],
+            keywords=[ast.keyword(arg=key, value=ast.parse(repr(value), mode="eval").body) for key, value in fields.items()],
         )
         return ast.copy_location(ast.Expr(value=call), statement)
 
@@ -175,6 +200,7 @@ def execute(payload: dict) -> dict:
     try:
         if (not isinstance(params, dict) or not isinstance(parameter_names, list) or
                 any(not isinstance(name, str) or not name.isidentifier() for name in parameter_names) or
+                any(name.startswith("_lab_") for name in parameter_names) or
                 len(set(parameter_names)) != len(parameter_names) or
                 set(params) != set(parameter_names)):
             raise ValidationError("parameterNames must be unique Python identifiers matching params")
@@ -222,20 +248,26 @@ def execute(payload: dict) -> dict:
 
     def trace_control(metadata: dict, event: str, **fields: Any):
         key = (metadata["node_type"], metadata["location"]["lineno"], metadata["location"]["col_offset"])
+        target_names = fields.pop("target_names", [])
         control = {"node_type": metadata["node_type"], "location": metadata["location"], "event": event, **fields}
         if event == "enter":
             loop_iterations[key] = 0
         elif event == "iteration":
             loop_iterations[key] = loop_iterations.get(key, 0) + 1
             control["iteration"] = loop_iterations[key]
+            control["targetBindings"] = {
+                name: json_value(active_frame.f_locals[name])
+                for name in target_names
+                if active_frame is not None and name in active_frame.f_locals
+            }
         emit("control", metadata["location"]["lineno"], control=control)
 
-    def trace_control_test(metadata: dict, thunk):
+    def trace_control_test(metadata: dict, thunk, has_else: bool):
         value = thunk()
         truth = bool(value)
         trace_control(metadata, "test", test=truth)
         if metadata["node_type"] == "If":
-            trace_control(metadata, "branch", branch="body" if truth else "else")
+            trace_control(metadata, "branch", branch="body" if truth else "else" if has_else else "none")
         elif truth:
             trace_control(metadata, "iteration")
         return truth

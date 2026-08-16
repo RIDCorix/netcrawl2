@@ -66,9 +66,13 @@ computeLabRoutes.post('/runtime/compute-lab-runs/:runId/events', (req: Request, 
   const uid = getUserId(req);
   if (!isValidCodeServerLease(req.body?.sessionId, uid))
     return sendError(res, 409, 'Code Server lease expired', 'stale_execution');
-  const run = acceptComputeLabFrame(String(req.params.runId), req.body?.frame, uid);
-  if (!run) return sendError(res, 409, 'Run is stale or frame is out of sequence', 'stale_execution');
-  res.json({ ok: true, status: run.status });
+  const accepted = acceptComputeLabFrame(String(req.params.runId), req.body?.frame, uid);
+  if (!accepted.ok) {
+    if (accepted.reason === 'invalid_trace_frame')
+      return sendError(res, 400, 'Unsupported trace frame', 'invalid_trace_frame');
+    return sendError(res, 409, 'Run is stale or frame is out of sequence', 'stale_execution');
+  }
+  res.json({ ok: true, status: accepted.run.status });
 });
 
 computeLabRoutes.post('/runtime/compute-lab-runs/:runId/complete', (req: Request, res: Response) => {
@@ -78,13 +82,17 @@ computeLabRoutes.post('/runtime/compute-lab-runs/:runId/complete', (req: Request
   const status = req.body?.status;
   if (!['trace_ready', 'syntax', 'runtime', 'timeout', 'limit'].includes(status))
     return sendError(res, 400, 'Invalid run status', 'invalid_run');
-  const run = finishComputeLabRun(
+  const finished = finishComputeLabRun(
     String(req.params.runId),
     { status, returnValue: req.body?.returnValue, frame: req.body?.frame },
     uid,
   );
-  if (!run) return sendError(res, 409, 'Run is stale', 'stale_execution');
-  res.json({ ok: true, run: publicRun(run) });
+  if (!finished.ok) {
+    if (finished.reason === 'invalid_trace_frame')
+      return sendError(res, 400, 'Unsupported trace frame', 'invalid_trace_frame');
+    return sendError(res, 409, 'Run is stale', 'stale_execution');
+  }
+  res.json({ ok: true, run: publicRun(finished.run) });
 });
 
 computeLabRoutes.post('/compute-lab/submissions', async (req: Request, res: Response) => {
