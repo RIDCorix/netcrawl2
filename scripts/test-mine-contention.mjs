@@ -65,6 +65,16 @@ async function withLowestRoll(action) {
   }
 }
 
+async function withNominalRoll(action) {
+  const originalRandom = Math.random;
+  Math.random = () => 0.5;
+  try {
+    return await action();
+  } finally {
+    Math.random = originalRandom;
+  }
+}
+
 try {
   const registrationA = await request('/api/auth/register', '', {
     email: 'queue-a@example.test', password: 'password-a', displayName: 'Queue A',
@@ -87,17 +97,18 @@ try {
 
   const completionOrder = [];
   const startedAt = Date.now();
-  const mineResults = workerIds.map((workerId, index) =>
-    request('/api/worker/action', tokenA, { workerId, action: 'mine', payload: {} }).then(result => {
-      completionOrder.push(index);
-      return result;
-    }),
-  );
-  const otherUserResult = request('/api/worker/action', tokenB, {
-    workerId: 'other-user-miner', action: 'mine', payload: {},
+  const [results, isolated] = await withNominalRoll(() => {
+    const mineResults = workerIds.map((workerId, index) =>
+      request('/api/worker/action', tokenA, { workerId, action: 'mine', payload: {} }).then(result => {
+        completionOrder.push(index);
+        return result;
+      }),
+    );
+    const otherUserResult = request('/api/worker/action', tokenB, {
+      workerId: 'other-user-miner', action: 'mine', payload: {},
+    });
+    return Promise.all([Promise.all(mineResults), otherUserResult]);
   });
-
-  const [results, isolated] = await Promise.all([Promise.all(mineResults), otherUserResult]);
   const elapsed = Date.now() - startedAt;
   assert.ok(results.every(result => result.status === 200 && result.body.ok), JSON.stringify(results));
   assert.equal(isolated.status, 200);

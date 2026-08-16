@@ -234,6 +234,55 @@ try {
 
   {
     let releaseWorkflow;
+    let fetchCount = 0;
+    const github = makeGitHubFetch();
+    const timers = [];
+    const cleared = [];
+    const watchdog = new CiWatchdog({
+      enabled: true,
+      now: () => startTime,
+      fetch: async input => {
+        fetchCount += 1;
+        if (fetchCount === 1) {
+          await new Promise(resolve => {
+            releaseWorkflow = resolve;
+          });
+        }
+        return github.fetchFn(input);
+      },
+      setTimeout: (callback, delay) => {
+        const timer = { callback, delay };
+        timers.push(timer);
+        return timer;
+      },
+      clearTimeout: timer => cleared.push(timer),
+    });
+    watchdog.start();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(fetchCount, 1, 'first generation must have one in-flight provider request');
+
+    watchdog.stop();
+    watchdog.start();
+    assert.equal(fetchCount, 1, 'restarted generation must share the in-flight check');
+    releaseWorkflow();
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await new Promise(resolve => setImmediate(resolve));
+    }
+
+    assert.equal(timers.length, 1, 'only the restarted generation may schedule a timer');
+    watchdog.stop();
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      await new Promise(resolve => setImmediate(resolve));
+    }
+    assert.equal(
+      timers.filter(timer => !cleared.includes(timer)).length,
+      0,
+      'stop after restart must leave no orphan timer',
+    );
+  }
+
+  {
+    let releaseWorkflow;
     let calls = 0;
     const github = makeGitHubFetch();
     const watchdog = new CiWatchdog({

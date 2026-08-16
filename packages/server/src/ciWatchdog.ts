@@ -73,6 +73,7 @@ export class CiWatchdog {
   readonly pollIntervalMs: number;
   private readonly pendingGraceMs: number;
   private started = false;
+  private generation = 0;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private inFlight: Promise<CiWatchdogSnapshot> | null = null;
   private snapshot: CiWatchdogSnapshot;
@@ -95,12 +96,14 @@ export class CiWatchdog {
   start(): void {
     if (this.started) return;
     this.started = true;
+    const generation = ++this.generation;
     if (!this.enabled) return;
-    void this.pollAndSchedule();
+    void this.pollAndSchedule(generation);
   }
 
   stop(): void {
     this.started = false;
+    this.generation += 1;
     if (this.timer !== null) {
       this.clearTimeoutFn(this.timer);
       this.timer = null;
@@ -140,13 +143,15 @@ export class CiWatchdog {
     return this.inFlight;
   }
 
-  private async pollAndSchedule(): Promise<void> {
+  private async pollAndSchedule(generation: number): Promise<void> {
     await this.poll();
-    if (!this.started) return;
-    this.timer = this.setTimeoutFn(() => {
-      this.timer = null;
-      void this.pollAndSchedule();
+    if (!this.started || generation !== this.generation) return;
+    const timer = this.setTimeoutFn(() => {
+      if (this.timer === timer) this.timer = null;
+      if (!this.started || generation !== this.generation) return;
+      void this.pollAndSchedule(generation);
     }, this.pollIntervalMs);
+    this.timer = timer;
   }
 
   private emptySnapshot(status: CiWatchdogStatus, reason: string): CiWatchdogSnapshot {
