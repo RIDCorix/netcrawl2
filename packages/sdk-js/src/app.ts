@@ -15,9 +15,14 @@ import { randomUUID } from 'node:crypto';
  * protocol-compatible with. The server gates registration on both, so a runtime
  * that predates a command shape is refused rather than handed a command it
  * would take down whatever path it does have.
+ *
+ * The release tracks `MIN_PYTHON_SDK_VERSION` — it is what this runtime must
+ * clear to register, not a claim about the Lab. Nothing here runs a Lab or emits
+ * a trace frame, so the frame shape that moved the floor to 1.4.2 does not apply
+ * to this SDK; the number does.
  */
 export const RUNTIME_PROTOCOL_VERSION = 3;
-export const RUNTIME_SDK_VERSION = '1.4.1';
+export const RUNTIME_SDK_VERSION = '1.4.2';
 
 type WorkerClassConstructor = typeof WorkerClass & {
   new (

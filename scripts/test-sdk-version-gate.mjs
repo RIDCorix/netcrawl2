@@ -123,6 +123,28 @@ try {
     `packages/sdk-python is ${pythonSdkVersion}, which its own server would refuse`,
   );
 
+  // ── The floor is not below the frame shape the UI reads ───────────────────
+  /*
+   * R-50: `detail.loop` was added to the runner without moving the release
+   * number, so the 1.4.1 on PyPI and the deployed UI disagreed about the frame
+   * while both reporting 1.4.1 — the compare below returned 0, the runtime was
+   * admitted, and the loop track was absent with nothing anywhere failing.
+   *
+   * `sinceVersion` names the release that first emits the declared shape. Holding
+   * the floor at or above it is what makes the rest of this file load-bearing for
+   * frames too: the starter's specifier and lock are then forced to that release,
+   * and a release that was never published cannot be locked. So a shape change
+   * that skips its publish now fails here instead of reaching a player.
+   */
+  const frameContract = JSON.parse(readFileSync(resolve('packages/sdk-python/frame_contract.json'), 'utf8'));
+  assert.ok(
+    compareSdkVersions(MIN_PYTHON_SDK_VERSION, frameContract.sinceVersion) >= 0,
+    `this server accepts netcrawl-sdk ${MIN_PYTHON_SDK_VERSION}, but the Lab UI reads the frame shape that ` +
+      `frame_contract.json declares from ${frameContract.sinceVersion}. Every player between those two versions ` +
+      'gets a Lab that draws nothing and reports nothing — raise MIN_PYTHON_SDK_VERSION to ' +
+      `${frameContract.sinceVersion}.`,
+  );
+
   // ── The starter workspace resolves to a version this server accepts ───────
   const workspace = resolve(process.env.NETCRAWL_WORKSPACE_DIR || '../netcrawl-workspace');
   assert.equal(
