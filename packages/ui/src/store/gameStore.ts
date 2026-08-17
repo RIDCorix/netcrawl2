@@ -77,6 +77,8 @@ export interface ComputeLabFrame {
   source?: string;
   location?: ComputeLabSourceLocation;
   locals?: Record<string, unknown>;
+  /** The player's word for each held value's type, parallel to `locals`. */
+  types?: Record<string, string>;
   changed?: string[];
   stack?: ComputeLabCallStackEntry[];
   detail?: Record<string, unknown>;

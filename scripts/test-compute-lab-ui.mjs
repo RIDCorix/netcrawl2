@@ -28,6 +28,7 @@ const nodeTypeInfo = readFileSync(
   new URL('../packages/ui/src/components/nodeDetail/NodeTypeInfo.tsx', import.meta.url),
   'utf8',
 );
+const styles = readFileSync(new URL('../packages/ui/src/styles.css', import.meta.url), 'utf8');
 const runner = readFileSync(new URL('../packages/sdk-python/netcrawl/compute_lab_runner.py', import.meta.url), 'utf8');
 const daemon = readFileSync(new URL('../packages/sdk-python/netcrawl/app.py', import.meta.url), 'utf8');
 const localeNames = ['en', 'ja', 'zh-TW'];
@@ -281,7 +282,39 @@ const REQUIRED_KEYS = [
   'stack.title',
   'stack.more',
   'stack.repeat',
+  // R-33 #36: every string the stage can say exists in every locale the build
+  // ships, not only in the two the issue happened to name.
+  'stage.variables',
+  'stage.loops',
+  'stage.no_variables',
+  'stage.more',
+  'stage.fewer',
+  'stage.expand_value',
+  'stage.collapse_value',
+  'stage.truncated',
+  'stage.changed',
+  'stage.churning',
+  'stage.frozen',
+  'stage.depth',
+  'stage.inner_ran',
+  'stage.iteration',
+  'stage.iteration_of',
+  'stage.length_unknown',
+  'stage.scrub_loop',
+  'stage.unwatched',
+  'play',
+  'pause',
+  'pace_read',
+  'pace_fast',
+  'announcement',
+  'announce_loop',
+  'announce_loop_open',
+  'announce_changed',
+  'announce_unchanged',
 ];
+// R-33 §3: the five ways a track ends are five words. A state a locale cannot
+// say is a state that reads as colour alone in that locale.
+for (const end of ['finished', 'early', 'running', 'cut', 'broke']) REQUIRED_KEYS.push(`stage.end.${end}`);
 for (const key of REQUIRED_KEYS)
   for (const [index, locale] of locales.entries())
     assert.ok(translation(locale, `compute_lab.${key}`), `${localeNames[index]} is missing compute_lab.${key}`);
@@ -298,6 +331,32 @@ for (const quoted of runnerKinds) {
     );
 }
 assert.equal(runnerKinds.length, 7, 'seven semantic kinds; a new construct is an arrangement of these, not an eighth');
+
+
+// ── R-33: the stage keys on `kind`, and every state also carries a word ─────
+const stageModel = readFileSync(new URL('../packages/ui/src/components/computeLab/stageModel.ts', import.meta.url), 'utf8');
+const stage = readFileSync(new URL('../packages/ui/src/components/computeLab/stage.tsx', import.meta.url), 'utf8');
+for (const parserWord of ['node_type', 'BinOp', 'BoolOp', 'Compare', 'Subscript', 'ast.For', 'ast.While'])
+  for (const [name, file] of [['stageModel', stageModel], ['stage', stage]])
+    assert.doesNotMatch(file, new RegExp(parserWord), `the ${name} may key on kind, never on syntax: ${parserWord}`);
+assert.match(stageModel, /frame\.kind === 'repetition'/, 'a track exists because execution repeated, not because a `for` was written');
+assert.match(stageModel, /frame\.kind !== 'block_exit'/, 'a track closes on the scope closing, whatever opened it');
+assert.doesNotMatch(
+  stage,
+  /kind === 'For'|isFor|isWhile|LOOP_KINDS/,
+  'there is no per-construct branch in the stage, which is what makes an unanticipated repeat draw a track',
+);
+// #24: no invented total. An unmeasurable loop has no end number anywhere.
+assert.match(stage, /measured \? extent : t\('compute_lab\.stage\.length_unknown'\)/, '#24: an unknown length is stated in words, never as a number');
+assert.match(stage, /if \(target > observed\) return;/, '#26: the unwatched remainder is inert, not clamped');
+// #33: motion is a layer over an already-correct screen, removable with nothing lost.
+assert.match(stage, /usePrefersReducedMotion/);
+assert.match(styles, /prefers-reduced-motion: reduce\) \{\s*\n\s*\[data-testid='compute-lab-stage'\]/, '#33: reduced motion is enforced in CSS too, not only in a hook');
+// #37: the announcement says the step, the loop position and what changed.
+for (const part of ['{step}', '{action}', '{loop}', '{changed}'])
+  assert.ok(translation(locales[0], 'compute_lab.announcement').includes(part), `#37: the announcement must carry ${part}`);
+assert.match(screen, /data-testid="compute-lab-announcement"/);
+assert.match(screen, /role="status" data-testid="compute-lab-announcement"/, '#37: the announcement is a live region');
 
 console.log(
   `focused Compute Lab contract passed (${runnerKinds.length} semantic kinds, ${TERMINAL_STATUSES.length} explained terminal states)`,

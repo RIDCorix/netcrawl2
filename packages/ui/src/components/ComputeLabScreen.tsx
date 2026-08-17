@@ -1,7 +1,18 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { type ComputeLabRunSnapshot, useGameStore } from '../store/gameStore';
 import { apiFetch } from '../lib/api';
 import { useT } from '../hooks/useT';
+import { LoopTracks, VariableBoxes, useChurningVariables, usePrefersReducedMotion } from './computeLab/stage';
+import {
+  type LoopInstance,
+  indexLoops,
+  iterationAt,
+  orderedVariables,
+  pythonValue,
+  reduceExpression,
+  trackEnd,
+  visibleLoops,
+} from './computeLab/stageModel';
 
 type Run = ComputeLabRunSnapshot;
 type Task = {
@@ -66,9 +77,18 @@ function sourceExcerpt(source: string, location: SourceLocation) {
   };
 }
 
+/**
+ * The player's own line, with the sub-expressions that have already been
+ * evaluated replaced by what they produced.
+ *
+ * This is the whole of "the expression animates", and it costs nothing on the
+ * wire: the runner already emits one `value` frame per evaluated sub-expression,
+ * each carrying its own range, so stepping through them reduces the line
+ * inside-out in the player's own text until only the value that decided it is
+ * left. A trace the draft has moved past reduces nothing and says so.
+ */
 function StepSource({ frame, source, stale, t }: StepCardProps) {
   if (frame.source === undefined || frame.location === undefined) return null;
-  const excerpt = stale ? null : sourceExcerpt(source, frame.location);
   if (stale)
     return (
       <div>
@@ -76,6 +96,7 @@ function StepSource({ frame, source, stale, t }: StepCardProps) {
         <pre style={{ whiteSpace: 'pre-wrap' }}>{frame.source}</pre>
       </div>
     );
+  const excerpt = sourceExcerpt(source, frame.location);
   return excerpt ? (
     <pre style={{ whiteSpace: 'pre-wrap' }}>
       {excerpt.before}
@@ -84,6 +105,43 @@ function StepSource({ frame, source, stale, t }: StepCardProps) {
     </pre>
   ) : (
     <pre style={{ whiteSpace: 'pre-wrap' }}>{frame.source}</pre>
+  );
+}
+
+function ReducingExpression({
+  frames,
+  index,
+  source,
+  stale,
+  t,
+}: {
+  frames: readonly TraceFrame[];
+  index: number;
+  source: string;
+  stale: boolean;
+  t: ReturnType<typeof useT>;
+}) {
+  const frame = frames[index];
+  const reduction = stale
+    ? null
+    : reduceExpression(frames, index, source, value => pythonValue(value, t('compute_lab.stage.truncated')));
+  if (!reduction) return <StepSource frame={frame} source={source} stale={stale} t={t} />;
+  return (
+    <pre data-testid="compute-lab-expression" style={{ whiteSpace: 'pre-wrap', margin: '6px 0' }}>
+      {reduction.before}
+      <mark>
+        {reduction.segments.map((segment, position) =>
+          segment.reduced ? (
+            <strong key={position} style={{ fontStyle: 'normal', textDecoration: 'underline' }}>
+              {segment.text}
+            </strong>
+          ) : (
+            <Fragment key={position}>{segment.text}</Fragment>
+          ),
+        )}
+      </mark>
+      {reduction.after}
+    </pre>
   );
 }
 
@@ -109,7 +167,13 @@ function word(t: ReturnType<typeof useT>, namespace: string, name: string, fallb
  * unfamiliar one is still shown rather than dropped.
  */
 function formatDetail(t: ReturnType<typeof useT>, value: unknown) {
-  return typeof value === 'string' ? word(t, 'value', value, value) : JSON.stringify(value);
+  // Anything that is not one of the runner's own words is one of the player's
+  // values, and it is spelled the way they wrote it. `True` is not `true`, and
+  // showing them the transport's spelling of their own data is the same mistake
+  // as showing them a parser class name.
+  return typeof value === 'string'
+    ? word(t, 'value', value, value)
+    : pythonValue(value, t('compute_lab.stage.truncated'));
 }
 
 /**
@@ -147,10 +211,45 @@ function CallStack({ stack, t }: { stack: NonNullable<TraceFrame['stack']>; t: R
   );
 }
 
-/** The whole trace. One card, every construct, anticipated or not. */
-function StepCard(props: StepCardProps) {
-  const { frame, t } = props;
-  const detail = Object.entries(frame.detail || {});
+/**
+ * Details the stage's geometry has already drawn.
+ *
+ * `iteration` and `bindings` are the marker and the box attached to it; `loop`
+ * and `extent` are how the track knows which instance it is and how long. Naming
+ * them again in a list would be the same fact twice, and one of them would be in
+ * the runner's spelling rather than the picture's.
+ */
+const GEOMETRY_DETAILS = new Set(['iteration', 'bindings']);
+/**
+ * Which loop instance a frame belongs to, and how long that loop is. Both are
+ * the track's own bookkeeping and neither is a sentence, so they are never shown
+ * as text whether or not a track was drawn.
+ */
+const TRACK_IDENTITY_DETAILS = new Set(['loop', 'extent']);
+
+/**
+ * A runner older than this build sends `repetition` with no instance id, so no
+ * track can be drawn for it. Its iteration and bindings then stay in the list,
+ * because dropping a fact on the grounds that a picture *would have* carried it
+ * loses the fact when the picture is not there.
+ */
+function detailIsDrawn(frame: TraceFrame, name: string) {
+  return TRACK_IDENTITY_DETAILS.has(name) || (typeof frame.detail?.loop === 'number' && GEOMETRY_DETAILS.has(name));
+}
+
+/**
+ * The whole trace. One card, every construct, anticipated or not.
+ *
+ * The card became the stage's caption rather than surviving beside it — two
+ * views of one step is exactly the confusion this phase exists to remove. Its
+ * parts did not disappear: the semantic word is here, the source range still
+ * drives the highlight, the values landed in the boxes and the geometry, and a
+ * construct nobody anticipated still arrives with a word, a highlight and a
+ * value, which is the whole of criterion #14.
+ */
+function StepCard(props: StepCardProps & { frames: readonly TraceFrame[]; index: number }) {
+  const { frame, t, frames, index, source, stale } = props;
+  const detail = Object.entries(frame.detail || {}).filter(([name]) => !detailIsDrawn(frame, name));
   return (
     <div data-testid="compute-lab-step" style={{ border: '1px solid var(--accent)', padding: 10, marginTop: 10 }}>
       <strong>
@@ -158,10 +257,10 @@ function StepCard(props: StepCardProps) {
         {frame.source === undefined ? '' : ` ${frame.source}`}
       </strong>
       {frame.stack && frame.stack.length > 0 && <CallStack stack={frame.stack} t={t} />}
-      <StepSource {...props} />
+      <ReducingExpression frames={frames} index={index} source={source} stale={stale} t={t} />
       {Object.prototype.hasOwnProperty.call(frame, 'value') && (
         <div>
-          <code>→ {typeof frame.value === 'string' ? frame.value : JSON.stringify(frame.value)}</code>
+          <code>→ {pythonValue(frame.value, t('compute_lab.stage.truncated'))}</code>
         </div>
       )}
       {detail.length > 0 && (
@@ -181,6 +280,8 @@ function StepCard(props: StepCardProps) {
 }
 
 const TERMINAL_STATUSES = ['trace_ready', 'syntax', 'runtime', 'timeout', 'limit', 'disconnected'] as const;
+/** A stable empty trace, so the loop index is not rebuilt on every unrelated render. */
+const EMPTY_FRAMES: readonly TraceFrame[] = [];
 
 function lastIndexOfKind(frames: readonly TraceFrame[], kind: string) {
   for (let index = frames.length - 1; index >= 0; index--) if (frames[index].kind === kind) return index;
@@ -241,6 +342,14 @@ export function ComputeLabScreen() {
   const [draftNodeId, setDraftNodeId] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const [frameIndex, setFrameIndex] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  // R-21 asked for "a pace the player chooses", and one fixed speed is not a
+  // choice: one slow enough to read a step, one fast enough to cross a loop.
+  const [pace, setPace] = useState<'read' | 'fast'>('read');
+  // Set where the step changes, not derived after it: adjacency is a property of
+  // *the move*, and a screen that re-renders for some other reason must not
+  // quietly re-arm motion the move had already ruled out.
+  const [adjacentStep, setAdjacentStep] = useState(false);
   const [message, setMessage] = useState<{ key: string; vars?: Record<string, string | number> } | null>(null);
   const [submissionSuccess, setSubmissionSuccess] = useState<SubmissionSuccess | null>(null);
   const [cooldownUntil, setCooldownUntil] = useState(0);
@@ -309,8 +418,13 @@ export function ComputeLabScreen() {
         closeComputeLab();
       }
       if (event.key === 'Tab') {
+        // The scrubbers are part of the trace, not decoration on it: a
+        // keyboard-only player who can reach RUN but not the thing that moves
+        // through the run cannot read their own program.
         const items = Array.from(
-          dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), textarea:not([disabled])') || [],
+          dialogRef.current?.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), textarea:not([disabled]), input:not([disabled]), [role="slider"]',
+          ) || [],
         );
         const current = items.indexOf(document.activeElement as HTMLElement);
         if (items.length) {
@@ -324,8 +438,33 @@ export function ComputeLabScreen() {
   }, [computeLabOpen, closeComputeLab]);
 
   useEffect(() => {
-    if (run && (TERMINAL_STATUSES as readonly string[]).includes(run.status)) setFrameIndex(landingFrame(run.frames));
+    if (!run || !(TERMINAL_STATUSES as readonly string[]).includes(run.status)) return;
+    // Arriving at a finished run is not a transition the player made, so it cuts.
+    setAdjacentStep(false);
+    setFrameIndex(landingFrame(run.frames));
   }, [run?.status, run?.frames.length]);
+
+  // Playback is the only thing that produces a run of *adjacent* transitions,
+  // which is the only thing the stage animates. It never queues: any seek stops
+  // it, so there is no catch-up to sit through.
+  const frameCount = run?.frames.length || 0;
+  useEffect(() => {
+    if (!playing || frameCount === 0) return;
+    const timer = setInterval(
+      () => {
+        setAdjacentStep(true);
+        setFrameIndex(current => {
+          if (current >= frameCount - 1) {
+            setPlaying(false);
+            return current;
+          }
+          return current + 1;
+        });
+      },
+      pace === 'read' ? 700 : 90,
+    );
+    return () => clearInterval(timer);
+  }, [playing, pace, frameCount]);
 
   // A cooldown the player cannot see counting down is indistinguishable from a
   // button that is broken.
@@ -339,6 +478,14 @@ export function ComputeLabScreen() {
     return () => clearInterval(timer);
   }, [cooldownUntil]);
 
+  const frames = run?.frames || EMPTY_FRAMES;
+  // Built once per trace, not once per step: the state at step 900 costs a
+  // binary search, never a walk over the 899 steps in front of it.
+  const loops = useMemo(() => indexLoops(frames), [frames]);
+  const reducedMotion = usePrefersReducedMotion();
+  const animated = adjacentStep && !reducedMotion;
+  const churning = useChurningVariables(frames, frameIndex);
+
   if (!computeLabOpen) return null;
   const stale = Boolean(
     run &&
@@ -348,6 +495,42 @@ export function ComputeLabScreen() {
   const frameError = frame?.error;
   const terminal = run && (TERMINAL_STATUSES as readonly string[]).includes(run.status) ? run.status : undefined;
   const stoppedAt = terminal === 'limit' || terminal === 'timeout' ? lastRepetition(run?.frames || []) : undefined;
+  // Every seek stops playback, so a drag lands on its destination and stays
+  // there — nothing catches up behind it.
+  const seek = (target: number) => {
+    setPlaying(false);
+    const landing = Math.min(Math.max(0, target), Math.max(0, frames.length - 1));
+    setAdjacentStep(Math.abs(landing - frameIndex) === 1);
+    setFrameIndex(landing);
+  };
+  const chain = visibleLoops(loops, frameIndex);
+  const endOf = (instance: LoopInstance) => trackEnd(instance, run?.status, terminal !== undefined);
+  // The boxes are the state *at the moment it broke*, not the current state of
+  // anything, and a run that ended in an error must never be able to look like
+  // a run that finished.
+  const frozen = terminal === 'runtime';
+  const boxes = frame ? orderedVariables(frames, frameIndex, t('compute_lab.stage.truncated')) : [];
+  const innermost = chain[chain.length - 1];
+  const innermostIteration = innermost ? Math.max(1, iterationAt(innermost, frameIndex)) : 0;
+  const announcement = !frame
+    ? ''
+    : t('compute_lab.announcement', {
+        step: frameIndex + 1,
+        total: frames.length,
+        action: `${word(t, 'step', frame.kind, t('compute_lab.step.unknown'))} ${frame.source || ''}`.trim(),
+        loop: !innermost
+          ? ''
+          : innermost.extent
+            ? t('compute_lab.announce_loop', {
+                loop: innermost.source,
+                iteration: innermostIteration,
+                extent: innermost.extent,
+              })
+            : t('compute_lab.announce_loop_open', { loop: innermost.source, iteration: innermostIteration }),
+        changed: (frame.changed || []).length
+          ? t('compute_lab.announce_changed', { names: (frame.changed || []).join(', ') })
+          : t('compute_lab.announce_unchanged'),
+      });
   const updateSource = (value: string) => {
     setSource(value);
     setRevision(current => current + 1);
@@ -546,11 +729,13 @@ export function ComputeLabScreen() {
                 {t('compute_lab.old_trace')}
               </div>
             )}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-              <button onClick={() => setFrameIndex(0)} disabled={!run?.frames.length}>
+            {/* The timeline reaches steps outside every loop, so it stays even
+                once the tracks give the run a spatial index of its own. */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+              <button onClick={() => seek(0)} disabled={!run?.frames.length}>
                 |&lt;
               </button>
-              <button onClick={() => setFrameIndex(current => Math.max(0, current - 1))} disabled={!run?.frames.length}>
+              <button onClick={() => seek(frameIndex - 1)} disabled={!run?.frames.length}>
                 ‹
               </button>
               <input
@@ -559,37 +744,66 @@ export function ComputeLabScreen() {
                 min="0"
                 max={Math.max(0, (run?.frames.length || 1) - 1)}
                 value={frameIndex}
-                onChange={event => setFrameIndex(Number(event.target.value))}
+                onChange={event => seek(Number(event.target.value))}
                 disabled={!run?.frames.length}
               />
-              <button
-                onClick={() => setFrameIndex(current => Math.min((run?.frames.length || 1) - 1, current + 1))}
-                disabled={!run?.frames.length}
-              >
+              <button onClick={() => seek(frameIndex + 1)} disabled={!run?.frames.length}>
                 ›
               </button>
+              <button onClick={() => seek(Math.max(0, (run?.frames.length || 1) - 1))} disabled={!run?.frames.length}>
+                &gt;|
+              </button>
               <button
-                onClick={() => setFrameIndex(Math.max(0, (run?.frames.length || 1) - 1))}
+                data-testid="compute-lab-play"
+                onClick={() => setPlaying(current => !current)}
                 disabled={!run?.frames.length}
               >
-                &gt;|
+                {t(playing ? 'compute_lab.pause' : 'compute_lab.play')}
+              </button>
+              <button
+                data-testid="compute-lab-pace"
+                onClick={() => setPace(current => (current === 'read' ? 'fast' : 'read'))}
+                disabled={!run?.frames.length}
+              >
+                {t(pace === 'read' ? 'compute_lab.pace_read' : 'compute_lab.pace_fast')}
               </button>
             </div>
             {frame ? (
               <>
-                <StepCard frame={frame} source={source} stale={stale} t={t} />
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
-                  {Object.entries(frame.locals || {}).map(([name, value]) => (
-                    <code
-                      key={name}
-                      style={{
-                        border: `1px solid ${frame.changed?.includes(name) ? 'var(--accent)' : 'var(--border-bright)'}`,
-                        padding: 6,
-                      }}
-                    >
-                      {name}: {JSON.stringify(value)}
-                    </code>
-                  ))}
+                <StepCard frame={frame} source={source} stale={stale} t={t} frames={frames} index={frameIndex} />
+                <div
+                  data-testid="compute-lab-stage"
+                  data-animated={animated}
+                  style={{ display: 'grid', gap: 14, marginTop: 14 }}
+                >
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>
+                      {t('compute_lab.stage.variables')}
+                    </div>
+                    <VariableBoxes boxes={boxes} churning={churning} frozen={frozen} animated={animated} t={t} />
+                  </div>
+                  {chain.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>
+                        {t('compute_lab.stage.loops')}
+                      </div>
+                      <LoopTracks
+                        chain={chain}
+                        frames={frames}
+                        frameIndex={frameIndex}
+                        animated={animated}
+                        onSeek={seek}
+                        t={t}
+                        endOf={endOf}
+                      />
+                    </div>
+                  )}
+                </div>
+                {/* One sentence per step: what happened, where in the loop, and
+                    what changed — the picture said in words, for a player who
+                    cannot see it. */}
+                <div role="status" data-testid="compute-lab-announcement" className="sr-only">
+                  {announcement}
                 </div>
                 {frameError && (
                   <div role="alert">

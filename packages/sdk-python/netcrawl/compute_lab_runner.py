@@ -152,6 +152,27 @@ SUITE_FIELDS = frozenset({"body", "orelse", "finalbody", "handlers"})
 # must not be shown.
 MAX_STACK_ENTRIES = 8
 
+# How long a repeating statement will run, when that is knowable *without running
+# any of the player's own code*.
+#
+# Since players may define `__len__`, a duck-typed `len()` from inside the tracer
+# would execute a player method in the tracer's own frame — a sandbox change, and
+# not one this layer is allowed to make. So the question is asked only of the
+# built-in sized types, whose length is a C-level slot and cannot re-enter Python.
+# Anything else — a `while`, a generator, a player's own object — has no total,
+# and "no total" is a first-class answer the screen has an honest shape for.
+MEASURABLE_TYPES = (range, list, tuple, str, dict, set, frozenset, bytes)
+
+
+def type_name(value: Any) -> str:
+    """The word the player would use for this value's type.
+
+    `NoneType` is the one substitution: it is CPython's internal spelling of a
+    thing the player writes, reads and thinks of as `None`, and no player program
+    can ever name it.
+    """
+    return "None" if value is None else type(value).__name__
+
 
 class Validator(ast.NodeVisitor):
     """The two locks that hold the sandbox, and the one thing that may pass them.
@@ -502,6 +523,16 @@ class InstrumentExecution(ast.NodeTransformer):
                 after.append(self._event(node, "block_exit"))
         if "repeats" in roles:
             target = getattr(node, "target", None)
+            # How far this loop will go, asked of the iterable object itself and
+            # nowhere else. `block_enter` fires *before* the iterable is
+            # evaluated, so there is nothing to measure there; correlating with a
+            # neighbouring `value` frame does not work either, because a bare
+            # `Name` iterable — `for value in nums`, the commonest form a player
+            # writes — is excluded from the generic expression pass and emits no
+            # `value` frame at all. The iterable expression is the only place the
+            # object is in hand, so that is where the question is asked.
+            if getattr(node, "iter", None) is not None:
+                node.iter = self._extent(node, node.iter)
             node.body.insert(0, self._event(node, "repetition", names=self._target_names(target) if target else []))
         if "decision" in roles:
             node.test = self._decision(node, node.test)
@@ -625,6 +656,26 @@ class InstrumentExecution(ast.NodeTransformer):
         )
         return ast.copy_location(call, test)
 
+    def _extent(self, statement: ast.stmt, iterable: ast.expr) -> ast.Call:
+        """`for x in nums:` → `for x in _lab_extent(<where>, nums):`.
+
+        The iterable is passed through unchanged, so the loop's own semantics are
+        untouched — the wrapper only looks at what it is handed.
+
+        It *carries* the statement's range, because that range is what identifies
+        the loop instance being measured, but every node it introduces is located
+        on the **iterable**. A block's header ends at the furthest reach of its
+        non-suite fields, so a synthetic node located on the whole `for` statement
+        would drag that header down over the loop body — the loop would report
+        itself as its own contents.
+        """
+        call = ast.Call(
+            func=ast.Name(id="_lab_extent", ctx=ast.Load()),
+            args=[self._literal(self._metadata_value(statement), iterable), iterable],
+            keywords=[],
+        )
+        return ast.copy_location(call, iterable)
+
     def _event(self, node: ast.AST, kind: str, **fields: Any) -> ast.Expr:
         call = ast.Call(
             func=ast.Name(id="_lab_event", ctx=ast.Load()),
@@ -719,7 +770,22 @@ def execute(payload: dict, on_frame: Callable[[dict], None] | None = None) -> di
     # frame happens to be when it leaves: a `finally` moves the line, and the
     # player needs the statement that broke, not the one that cleaned up.
     unwinding: dict[str, Any] | None = None
-    repetitions: dict[tuple[int | None, int | None], int] = {}
+    # One record per *live loop instance*, not per source location.
+    #
+    # The previous counter was keyed by `(lineno, col_offset)` alone and never
+    # reset, so an inner `range(3)` inside an outer `range(30)` reported
+    # iteration 87 of 3 — invisible on a card, and a marker past the end of its
+    # own loop on a track. A loop instance is a location *within one live call
+    # frame*: recursion gives every level its own frame, and re-entering the same
+    # loop in the same frame clears the record at its `block_exit`.
+    loop_instances: dict[tuple[int, int | None, int | None], dict[str, Any]] = {}
+    loop_serial = 0
+    # An extent measured at the iterable, waiting for the first `repetition` of
+    # the instance it belongs to. Keyed by location alone, and that is sound: the
+    # loop's own body is the only thing that can run between the measurement and
+    # the first repetition, and the body cannot reach this location again without
+    # first passing through it.
+    pending_extents: dict[tuple[int | None, int | None], int] = {}
     # One record per live player call, innermost last: the frame, that frame's own
     # previously reported locals, and how to name it. `previous` is per call and
     # not per run because a shared one reports every local of the function you
@@ -756,10 +822,16 @@ def execute(payload: dict, on_frame: Callable[[dict], None] | None = None) -> di
         # every real variable for the whole run. Recognised by its code object
         # rather than its name, so it can never hide a variable that merely
         # shares a name with a helper in another scope.
-        locals_snapshot = json_value({
+        held = {
             key: value for key, value in dict(active_frame.f_locals).items()
             if key != "self" and getattr(value, "__code__", None) not in player_codes
-        }) if active_frame else {}
+        } if active_frame else {}
+        locals_snapshot = json_value(held)
+        # Sent in full alongside `locals`, not as a delta. A delta would be
+        # smaller than a map of short type names but strictly larger than
+        # nothing, and it would make the state at step N depend on steps 1..N-1 —
+        # which is the one property the scrubber cannot afford.
+        types_snapshot = {key: type_name(value) for key, value in held.items()}
         previous = record["previous"] if record else {}
         changed = sorted(key for key, value in locals_snapshot.items() if previous.get(key) != value)
         if record is not None:
@@ -770,6 +842,7 @@ def execute(payload: dict, on_frame: Callable[[dict], None] | None = None) -> di
             "kind": kind,
             "line": (located["location"]["lineno"] if located else None) or (active_frame.f_lineno if active_frame else None),
             "locals": locals_snapshot,
+            "types": types_snapshot,
             "changed": changed,
             **({"source": located["source"], "location": located["location"]} if located else {}),
             # Only when there is a chain to read. A program that never calls its
@@ -821,6 +894,14 @@ def execute(payload: dict, on_frame: Callable[[dict], None] | None = None) -> di
                 # `exception` event in the caller, and each frame it leaves is a
                 # step out the player watched happen.
                 emit("unwind", unwinding["metadata"], detail={"error": unwinding["error"]})
+            # A `return` out of a loop body never reaches that loop's
+            # `block_exit` — the exit is emitted as a statement *after* the loop,
+            # which a `break` reaches and a `return` does not. Left behind, the
+            # instance record outlives its frame, and under recursion a later
+            # frame reusing the same `id()` would inherit its count. The frame is
+            # leaving, so every loop it was running is over.
+            for key in [key for key in loop_instances if key[0] == id(frame)]:
+                del loop_instances[key]
             if calls and calls[-1]["frame"] is frame:
                 calls.pop()
             # The outermost return leaves nothing to go back to, and this frame's
@@ -834,6 +915,40 @@ def execute(payload: dict, on_frame: Callable[[dict], None] | None = None) -> di
         emit("value", metadata, value=json_value(value))
         return value
 
+    def instance_key(metadata: dict) -> tuple[int, int | None, int | None]:
+        location = metadata["location"]
+        return (id(active_frame), location["lineno"], location["col_offset"])
+
+    def loop_instance(metadata: dict, create: bool) -> dict[str, Any] | None:
+        nonlocal loop_serial
+        key = instance_key(metadata)
+        record = loop_instances.get(key)
+        if record is None and create:
+            loop_serial += 1
+            location = metadata["location"]
+            record = {
+                "id": loop_serial,
+                "count": 0,
+                "extent": pending_extents.pop((location["lineno"], location["col_offset"]), None),
+            }
+            loop_instances[key] = record
+        return record
+
+    def trace_extent(metadata: dict, iterable: Any) -> Any:
+        """Measure the iterable if it is safe to, then hand it back untouched.
+
+        Safe means: a built-in sized type, whose `len` is a C slot. A player's own
+        object with a `__len__` is deliberately *not* asked — running player code
+        inside the tracer's own frame is a sandbox change, and an unmeasurable
+        loop already has an honest shape on screen.
+        """
+        # Exact type, not `isinstance`: a subclass may override `__len__`, and
+        # that override is player code.
+        if type(iterable) in MEASURABLE_TYPES:
+            location = metadata["location"]
+            pending_extents[(location["lineno"], location["col_offset"])] = len(iterable)
+        return iterable
+
     def trace_event(metadata: dict, kind: str, names: list[str] | None = None):
         nonlocal unwinding
         detail: dict[str, Any] = {}
@@ -843,9 +958,24 @@ def execute(payload: dict, on_frame: Callable[[dict], None] | None = None) -> di
             # `finally` exists, and it is what the player is here to learn.
             detail["error"] = unwinding["error"]
         if kind == "repetition":
-            key = (metadata["location"]["lineno"], metadata["location"]["col_offset"])
-            repetitions[key] = repetitions.get(key, 0) + 1
-            detail["iteration"] = repetitions[key]
+            instance = loop_instance(metadata, create=True)
+            instance["count"] += 1
+            detail["iteration"] = instance["count"]
+            detail["loop"] = instance["id"]
+            if instance["extent"] is not None:
+                # Carried on every repetition, not only the first. It is one small
+                # integer, and it is what lets the screen draw a track from any
+                # step the player drags to without walking the frames before it.
+                detail["extent"] = instance["extent"]
+        if kind == "block_exit":
+            # Only a *loop* block has a record here; a `with` or a `try` at some
+            # other location finds nothing and is untouched. This is the same
+            # identity the track was opened with, which is what matches a closing
+            # block to the right track when loops nest.
+            closing = loop_instance(metadata, create=False)
+            if closing is not None:
+                detail["loop"] = closing["id"]
+                loop_instances.pop(instance_key(metadata), None)
         if names:
             detail["bindings"] = {
                 name: json_value(active_frame.f_locals[name])
@@ -873,6 +1003,7 @@ def execute(payload: dict, on_frame: Callable[[dict], None] | None = None) -> di
         "__builtins__": {**{name: getattr(builtins, name) for name in ALLOWED_BUILTINS}, "__build_class__": builtins.__build_class__},
         "_lab_eval": trace_eval,
         "_lab_event": trace_event,
+        "_lab_extent": trace_extent,
         "_lab_decision": trace_decision,
         "__name__": "__compute_lab__",
     }

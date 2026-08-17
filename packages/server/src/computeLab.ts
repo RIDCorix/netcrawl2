@@ -50,6 +50,15 @@ export type ComputeLabFrame = {
   source?: string;
   location?: SourceLocation;
   locals?: Record<string, unknown>;
+  /**
+   * The player's word for each held value's type, parallel to `locals`.
+   *
+   * Sent whole on every frame rather than as a delta, because the screen must be
+   * able to draw the state at any step the player drags to without walking the
+   * steps before it. Type names are short and there is one per variable already
+   * being sent in full, so this costs a fraction of the map it accompanies.
+   */
+  types?: Record<string, string>;
   changed?: string[];
   stack?: CallStackEntry[];
   detail?: Record<string, unknown>;
@@ -64,6 +73,7 @@ const FRAME_PROPERTIES = new Set([
   'source',
   'location',
   'locals',
+  'types',
   'changed',
   'stack',
   'detail',
@@ -183,6 +193,21 @@ export function normalizeComputeLabFrame(value: unknown): ComputeLabFrame | unde
   if (typeof value.kind !== 'string' || !value.kind) return undefined;
   if (value.line !== undefined && !isInteger(value.line, 1)) return undefined;
   if (value.locals !== undefined && !isRecord(value.locals)) return undefined;
+  // A type name is the runner's own vocabulary, so its *shape* fails closed like
+  // a location does — a map of anything but strings is a protocol change, not a
+  // new construct. Its *size* is the player's, because the name can be a class
+  // they wrote, so an over-budget map costs the type row and never the frame.
+  if (
+    value.types !== undefined &&
+    (!isRecord(value.types) || !Object.values(value.types).every(name => typeof name === 'string'))
+  )
+    return undefined;
+  const types =
+    value.types === undefined
+      ? undefined
+      : Buffer.byteLength(JSON.stringify(value.types), 'utf8') <= TRACE_LIMITS.maxValueBytes
+        ? (value.types as Record<string, string>)
+        : {};
   if (value.detail !== undefined && !isRecord(value.detail)) return undefined;
   if (
     value.changed !== undefined &&
@@ -222,6 +247,7 @@ export function normalizeComputeLabFrame(value: unknown): ComputeLabFrame | unde
             Object.entries(value.locals).map(([name, held]) => [name, withinValueBudget(held)]),
           ),
         }),
+    ...(types === undefined ? {} : { types }),
     ...(value.changed === undefined ? {} : { changed: value.changed }),
     ...(stack === undefined ? {} : { stack }),
     ...(value.detail === undefined ? {} : { detail: withinValueBudget(value.detail) as Record<string, unknown> }),

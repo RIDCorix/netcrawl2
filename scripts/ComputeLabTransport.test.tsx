@@ -252,7 +252,15 @@ const showFrame = async (index: number) => {
 await showFrame(0);
 assert.match(text(renderer!.toJSON()), /Set 合計 = a \+ b/);
 assert.match(text(renderer!.toJSON()), /Now holding/);
-assert.match(text(renderer!.toJSON()), /a: 3/);
+// R-33 #18/#19: a local is a box of name, value and type, and the one that
+// changed at this step is the one — and the only one — marked as changed.
+const boxes = renderer!.root.findAllByProps({ 'data-testid': 'compute-lab-variable' });
+assert.equal(text(boxes[0].children), 'a3changed at this step');
+assert.equal(
+  boxes.filter(box => box.props['data-state'] === 'changed').length,
+  1,
+  '#19: only the variable that changed carries the changed mark',
+);
 
 await showFrame(1);
 assert.match(text(renderer!.toJSON()), /Worked out a \+ b/);
@@ -273,7 +281,7 @@ await showFrame(3);
 assert.match(text(renderer!.toJSON()), /Repeated for left, right in \[\(a, b\)\]/);
 assert.match(text(renderer!.toJSON()), /Repeat number/);
 assert.match(text(renderer!.toJSON()), /Now holding/);
-assert.match(text(renderer!.toJSON()), /"left":3/);
+assert.match(text(renderer!.toJSON()), /'left': 3/, 'a value is spelled the way the player wrote it, not the way JSON did');
 
 // R-21 #14, as a code property: an unfamiliar kind renders through the same card,
 // with the same source, range, value and detail. Only the word is less specific.

@@ -1953,3 +1953,33 @@ body::after {
     transition: none !important;
   }
 }
+
+/*
+ * The Compute Lab stage says in words what it says in geometry, for a player who
+ * is not looking at it. Visually hidden, never `display: none` — the latter is
+ * not read out either.
+ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/*
+ * Motion on the stage is a layer over an already-correct screen, so removing it
+ * costs decoration and never information. Enforced here as well as in the
+ * component, so the guarantee does not depend on one hook running.
+ */
+@media (prefers-reduced-motion: reduce) {
+  [data-testid='compute-lab-stage'] *,
+  [data-testid='compute-lab-loops'] * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
