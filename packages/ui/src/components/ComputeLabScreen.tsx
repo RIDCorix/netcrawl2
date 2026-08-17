@@ -279,8 +279,19 @@ function StepCard(props: StepCardProps & { frames: readonly TraceFrame[]; index:
   const { frame, t, frames, index, source, stale } = props;
   const detail = Object.entries(frame.detail || {}).filter(([name]) => !detailIsDrawn(frame, name));
   return (
-    <div data-testid="compute-lab-step" style={{ border: '1px solid var(--accent)', padding: 8, marginTop: 8 }}>
-      <strong>
+    <div
+      data-testid="compute-lab-step"
+      className="compute-lab-card compute-lab-card-current"
+      style={{ padding: 10, marginTop: 8, display: 'grid', gap: 4 }}
+    >
+      <strong
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 12,
+          letterSpacing: '0.06em',
+          color: 'var(--accent)',
+        }}
+      >
         {word(t, 'step', frame.kind, t('compute_lab.step.unknown'))}
         {frame.source === undefined ? '' : ` ${frame.source}`}
       </strong>
@@ -288,7 +299,9 @@ function StepCard(props: StepCardProps & { frames: readonly TraceFrame[]; index:
       <ReducingExpression frames={frames} index={index} source={source} stale={stale} t={t} />
       {Object.prototype.hasOwnProperty.call(frame, 'value') && (
         <div>
-          <code>→ {pythonValue(frame.value, t('compute_lab.stage.truncated'))}</code>
+          <code style={{ color: 'var(--accent)', fontWeight: 700 }}>
+            → {pythonValue(frame.value, t('compute_lab.stage.truncated'))}
+          </code>
         </div>
       )}
       {detail.length > 0 && (
@@ -651,6 +664,7 @@ export function ComputeLabScreen() {
   return (
     <div
       ref={dialogRef}
+      className="compute-lab"
       role="dialog"
       aria-modal="true"
       aria-label={t('compute_lab.title')}
@@ -666,7 +680,11 @@ export function ComputeLabScreen() {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        background: 'rgba(3, 8, 15, .98)',
+        // The game's own modal-over-the-map treatment, not a hand-mixed navy:
+        // eight themes ship and three are light, so a literal here is a screen
+        // that belongs to the game in exactly one of them.
+        background: 'var(--bg-glass-heavy)',
+        backdropFilter: 'blur(24px)',
         padding: '10px max(18px, 4vw)',
         color: 'var(--text-primary)',
       }}
@@ -682,15 +700,19 @@ export function ComputeLabScreen() {
         }}
       >
         <div>
-          <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>{t('compute_lab.title')}</strong>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('compute_lab.workspace_subtitle')}</div>
+          <strong className="compute-lab-title">{t('compute_lab.title')}</strong>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+            {t('compute_lab.workspace_subtitle')}
+          </div>
         </div>
         <button ref={closeRef} onClick={closeComputeLab} style={{ minWidth: 44, minHeight: 44 }}>
           {t('compute_lab.exit')}
         </button>
       </header>
       {!available ? (
-        <main role="status">{t('compute_lab.locked')}</main>
+        <main role="status" className="compute-lab-status" style={{ alignSelf: 'start' }}>
+          {t('compute_lab.locked')}
+        </main>
       ) : (
         <main
           style={{
@@ -704,30 +726,30 @@ export function ComputeLabScreen() {
           }}
         >
           <section style={{ display: 'grid', gap: 12, alignContent: 'start', minHeight: 0, overflowY: 'auto' }}>
-            <div>
-              <strong>{t('compute_lab.challenge')}</strong>
-              <p>{t('compute_lab.task_description', { description: task?.description || '' })}</p>
+            <div className="compute-lab-panel" style={{ padding: 12, display: 'grid', gap: 8 }}>
+              <strong className="compute-lab-heading">{t('compute_lab.challenge')}</strong>
+              <p style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--text-secondary)' }}>
+                {t('compute_lab.task_description', { description: task?.description || '' })}
+              </p>
               <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(task?.params || {}, null, 2)}</pre>
             </div>
             <label htmlFor="compute-lab-editor">
-              <pre style={{ whiteSpace: 'pre-wrap' }}>{task?.functionSignature || 'class ProblemSolver:'}</pre>
+              <pre style={{ whiteSpace: 'pre-wrap', color: 'var(--accent)' }}>
+                {task?.functionSignature || 'class ProblemSolver:'}
+              </pre>
             </label>
             <textarea
               id="compute-lab-editor"
               value={source}
               onChange={event => updateSource(event.target.value)}
               spellCheck={false}
-              style={{
-                minHeight: 300,
-                resize: 'vertical',
-                fontFamily: 'var(--font-mono)',
-                background: 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-                padding: 14,
-              }}
+              style={{ minHeight: 300, resize: 'vertical' }}
             />
             {task?.cost && (
-              <div data-testid="compute-lab-submit-cost" style={{ color: 'var(--text-muted)' }}>
+              <div
+                data-testid="compute-lab-submit-cost"
+                style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 11 }}
+              >
                 {t('compute_lab.submit_cost', {
                   cooldown: task.cost.cooldownSeconds,
                   amount: task.cost.reward,
@@ -737,29 +759,38 @@ export function ComputeLabScreen() {
             )}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button
+                className="compute-lab-button-primary"
                 onClick={startRun}
                 disabled={!task || !codeServerConnected || cooldownRemaining > 0}
-                style={{ minHeight: 44 }}
+                style={{ minHeight: 44, flex: '1 1 auto' }}
               >
                 {t('compute_lab.run')}
               </button>
               <button
                 onClick={submit}
                 disabled={!run || run.status !== 'trace_ready' || stale || cooldownRemaining > 0}
-                style={{ minHeight: 44 }}
+                style={{ minHeight: 44, flex: '1 1 auto' }}
               >
                 {t('compute_lab.submit')}
               </button>
             </div>
             {cooldownRemaining > 0 && (
-              <div role="status" data-testid="compute-lab-cooldown">
+              <div role="status" data-testid="compute-lab-cooldown" className="compute-lab-status">
                 {t('compute_lab.cooldown_remaining', { seconds: cooldownRemaining })}
               </div>
             )}
-            {!codeServerConnected && <div role="status">{t('compute_lab.runner_offline')}</div>}
-            {message && <div role="status">{t(message.key, message.vars)}</div>}
+            {!codeServerConnected && (
+              <div role="status" className="compute-lab-status compute-lab-status-alert">
+                {t('compute_lab.runner_offline')}
+              </div>
+            )}
+            {message && (
+              <div role="status" className="compute-lab-status">
+                {t(message.key, message.vars)}
+              </div>
+            )}
             {submissionSuccess && (
-              <div role="status">
+              <div role="status" className="compute-lab-status" style={{ display: 'grid', gap: 2 }}>
                 <div>{t('compute_lab.node_solve_count', { count: submissionSuccess.nodeSolveCount })}</div>
                 <div>
                   {t('compute_lab.operators_progress', {
@@ -767,14 +798,16 @@ export function ComputeLabScreen() {
                     target: submissionSuccess.quest.target,
                   })}
                 </div>
-                {submissionSuccess.quest.completed && <div>{t('compute_lab.operators_completed')}</div>}
+                {submissionSuccess.quest.completed && (
+                  <div style={{ color: 'var(--success)' }}>{t('compute_lab.operators_completed')}</div>
+                )}
               </div>
             )}
           </section>
           <section
             aria-label={t('compute_lab.trace')}
+            className="compute-lab-panel"
             style={{
-              border: '1px solid var(--border-bright)',
               padding: 12,
               display: 'flex',
               flexDirection: 'column',
@@ -797,8 +830,8 @@ export function ComputeLabScreen() {
                   marginBottom: 8,
                 }}
               >
-                <strong>{t('compute_lab.trace')}</strong>
-                <span style={{ color: 'var(--text-muted)' }}>
+                <strong className="compute-lab-heading">{t('compute_lab.trace')}</strong>
+                <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
                   {run
                     ? t('compute_lab.step_position', { current: frameIndex + 1, total: run.frames.length })
                     : t('compute_lab.run_to_trace')}
@@ -808,9 +841,20 @@ export function ComputeLabScreen() {
                 <div
                   role="status"
                   data-testid="compute-lab-outcome"
-                  style={{ border: '1px solid var(--border-bright)', padding: 8, marginBottom: 10 }}
+                  className="compute-lab-card compute-lab-card-current"
+                  style={{
+                    padding: 8,
+                    marginBottom: 10,
+                    display: 'grid',
+                    gap: 2,
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 11,
+                    color: 'var(--text-secondary)',
+                  }}
                 >
-                  <strong>{t(`compute_lab.outcome.${terminal}`)}</strong>
+                  <strong style={{ color: 'var(--text-primary)', fontSize: 12, letterSpacing: '0.06em' }}>
+                    {t(`compute_lab.outcome.${terminal}`)}
+                  </strong>
                   <div>{t(`compute_lab.outcome_action.${terminal}`)}</div>
                   {stoppedAt && stoppedAt.iteration > 0 && (
                     <div>
@@ -823,7 +867,12 @@ export function ComputeLabScreen() {
                 </div>
               )}
               {stale && (
-                <div role="status" data-testid="compute-lab-stale-trace" style={{ marginBottom: 10 }}>
+                <div
+                  role="status"
+                  data-testid="compute-lab-stale-trace"
+                  className="compute-lab-status"
+                  style={{ marginBottom: 10 }}
+                >
                   {t('compute_lab.old_trace')}
                 </div>
               )}
@@ -889,14 +938,14 @@ export function ComputeLabScreen() {
                   }}
                 >
                   <div style={{ minHeight: 0, overflowY: 'auto' }}>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>
+                    <div className="compute-lab-heading" style={{ marginBottom: 6 }}>
                       {t('compute_lab.stage.variables')}
                     </div>
                     <VariableBoxes boxes={boxes} churning={churning} frozen={frozen} animated={animated} t={t} />
                   </div>
                   {chain.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, flex: '0 0 auto' }}>
+                      <div className="compute-lab-heading" style={{ marginBottom: 6, flex: '0 0 auto' }}>
                         {t('compute_lab.stage.loops')}
                       </div>
                       {/* The measured box, not the tracks themselves: what it
@@ -933,7 +982,7 @@ export function ComputeLabScreen() {
                   {announcement}
                 </div>
                 {frameError && (
-                  <div role="alert">
+                  <div role="alert" className="compute-lab-status compute-lab-status-alert" style={{ marginTop: 8 }}>
                     {frameError.kind === 'invalid_trace_frame'
                       ? t('compute_lab.invalid_trace_frame')
                       : frameError.message}
@@ -941,7 +990,17 @@ export function ComputeLabScreen() {
                 )}
               </>
             ) : (
-              <p>{t('compute_lab.run_to_trace')}</p>
+              <p
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11,
+                  color: 'var(--text-muted)',
+                  textAlign: 'center',
+                  padding: '24px 0',
+                }}
+              >
+                {t('compute_lab.run_to_trace')}
+              </p>
             )}
           </section>
         </main>

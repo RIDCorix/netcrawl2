@@ -7,9 +7,9 @@
  * nobody has written yet all arrive here identically.
  *
  * Two rules govern every visual below:
- *   - No state is signalled by colour alone. Three themes ship, and a player who
- *     cannot separate two hues still has to read the screen — so each state also
- *     differs in shape and carries a word.
+ *   - No state is signalled by colour alone. Eight themes ship, three of them
+ *     light, and a player who cannot separate two hues still has to read the
+ *     screen — so each state also differs in shape and carries a word.
  *   - Motion is a layer on top of an already-correct screen. At frame 0 of any
  *     animation the state is already right, which is why `prefers-reduced-motion`
  *     can remove all of it and lose nothing.
@@ -218,10 +218,14 @@ function Box({
       data-state={state}
       style={{
         border: outline,
-        padding: '4px 8px',
+        borderRadius: 'var(--radius-sm)',
+        padding: '5px 8px',
         minWidth: 74,
         maxWidth: 220,
         background: 'var(--bg-secondary)',
+        // The one state that is also a glow: what just changed is what the
+        // player is looking for. Shape and word still carry it (R-33 §2).
+        boxShadow: state === 'changed' ? '0 0 10px var(--accent-glow)' : 'none',
         transform: state === 'changed' && animated ? 'translateY(-2px)' : 'none',
         transition: transition('transform', VALUE_MS, animated),
       }}
@@ -534,8 +538,9 @@ function Track({
               left: 6,
               top: 0,
               width: 4,
+              borderRadius: 2,
               height: '100%',
-              background: 'var(--border)',
+              background: 'var(--border-bright)',
               opacity: measured ? 1 : 0.35,
             }}
           />
@@ -546,8 +551,10 @@ function Track({
               left: 6,
               top: 0,
               width: 4,
+              borderRadius: 2,
               height: `${observedFraction * 100}%`,
               background: end === 'broke' ? 'var(--text-secondary)' : 'var(--accent)',
+              boxShadow: end === 'broke' ? 'none' : '0 0 6px var(--accent-glow)',
               maskImage: end === 'running' && !measured ? 'linear-gradient(var(--bg-primary), transparent)' : undefined,
             }}
           />
@@ -615,8 +622,10 @@ function Track({
               top: `calc(${markerFraction * 100}% - 5px)`,
               width: 14,
               height: 10,
+              borderRadius: 3,
               border: '2px solid var(--text-primary)',
               background: 'var(--bg-primary)',
+              boxShadow: '0 0 8px var(--accent-glow)',
               transition: transition('top', MARKER_MS, animated),
             }}
           />

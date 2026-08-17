@@ -1954,6 +1954,259 @@ body::after {
   }
 }
 
+/* ── Compute Lab ───────────────────────────────────────────────────────
+ *
+ * The Lab is a code screen, so where the game's panels and its other code
+ * screen disagree, chapter 0 is the reference: it is what the player came from
+ * and it is the only other place NetCrawl renders the player's own text. Hence
+ * a scoped block here rather than inline styles — chapter 0 is styled this way,
+ * and the elements that arrive as browser defaults (`mark`, `pre`, `code`,
+ * `dl`, a bare `button`) can only be reached by selector without editing the
+ * structure the trace criteria are written against.
+ *
+ * Every colour is a token. Eight themes ship and three of them are light, so a
+ * literal that has to contrast with text is a bug in three of them; `#000` on
+ * `--accent` is the one sanctioned literal, because the accent is bright in all
+ * eight. `--space-*` is deliberately not used: it has zero uses repo-wide, and
+ * adopting it only here would make the Lab the odd one out in a new way.
+ */
+.compute-lab {
+  font-family: var(--font-sans);
+}
+
+/*
+ * Every value, identifier, fragment of the player's code, and number.
+ *
+ * Deliberately NOT the track's end words or the loops block at large: those are
+ * prose sentences, the contract gives prose the sans face, and the identifiers
+ * inside them are already `code`. It is also load-bearing — `TRACK_END` in
+ * `computeLab/stage.tsx` is a fixed pixel budget for the end words, and mono's
+ * taller line box overruns it, which puts the answer to "why did it stop" back
+ * under the fold at 1024x720. Verified: `pnpm verify:lab-stage` fails on the
+ * nested program at that viewport with mono here, passes without it.
+ */
+.compute-lab code,
+.compute-lab pre,
+.compute-lab textarea,
+.compute-lab button,
+.compute-lab input,
+.compute-lab [data-testid='compute-lab-variable'] {
+  font-family: var(--font-mono);
+}
+
+.compute-lab-title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* The section header the whole game uses: mono, muted, tracked-out, upper. */
+.compute-lab-heading {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* A panel: the chrome every screen outside the Lab is assembled from. */
+.compute-lab-panel {
+  background: var(--bg-glass);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+/* A card inside a panel — one step above the panel it sits on. */
+.compute-lab-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+/* The thing the player is being told about right now. */
+.compute-lab-card-current {
+  border-color: var(--border-bright);
+  border-left: 2px solid var(--accent);
+}
+
+/* A code surface: the darkest layer, where the player's own text lives. */
+.compute-lab pre,
+.compute-lab textarea {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+
+.compute-lab textarea {
+  border-color: var(--border-bright);
+  caret-color: var(--accent);
+  padding: 12px;
+}
+.compute-lab textarea:focus {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/*
+ * A highlighted source range.
+ *
+ * `mark` unstyled is black-on-yellow, which is the single most-looked-at
+ * element of the feature rendering in a palette from no theme at all. Chapter 0
+ * already answers this: `.chapter0-code-range-active` is a faint wash plus a
+ * solid accent edge. Not colour alone — the edge is shape, and it survives a
+ * player who cannot separate the two hues.
+ */
+.compute-lab mark {
+  background: var(--accent-dim);
+  border-left: 2px solid var(--accent);
+  padding: 1px 4px;
+  margin-left: -2px;
+  color: var(--text-primary);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* The sub-expressions already reduced to what they produced. */
+.compute-lab mark strong {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.compute-lab code {
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.compute-lab small {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.compute-lab dt {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/*
+ * Keyboard focus, in the game's colour.
+ *
+ * The Lab autofocuses EXIT on open, so the browser's default focus ring was the
+ * first thing on the screen and it is `Highlight` blue — a colour from no theme
+ * the game ships. Replaced, never removed: the scrubbers and the rails are
+ * reachable by keyboard on purpose (R-21 #17) and a player who cannot see where
+ * focus is cannot use them.
+ */
+.compute-lab :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Primary action: the game's one filled button. */
+.compute-lab button {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease;
+}
+.compute-lab button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+.compute-lab button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Specificity rather than `!important`: this has to beat `.compute-lab button`
+   and nothing else, and the next rule that needs to win should be able to. */
+.compute-lab button.compute-lab-button-primary {
+  background: var(--accent);
+  color: #000;
+  border: 0;
+  font-weight: 800;
+}
+.compute-lab button.compute-lab-button-primary:hover:not(:disabled) {
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+/* The timeline. A range input is chrome the browser owns until it is told. */
+.compute-lab input[type='range'] {
+  flex: 1 1 120px;
+  min-width: 80px;
+  height: 4px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--border-bright);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.compute-lab input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 0;
+  cursor: pointer;
+}
+.compute-lab input[type='range']::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 0;
+  cursor: pointer;
+}
+.compute-lab input[type='range']:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* A status line the run wrote: readable, and never a bare sentence on nothing. */
+.compute-lab-status {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--border-bright);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+}
+.compute-lab-status-alert {
+  border-left-color: var(--danger);
+  color: var(--danger);
+}
+
+/*
+ * The variable boxes keep the border *style* they arrived with — solid, dashed,
+ * dotted and the thickness between them are how a state is legible without its
+ * colour, which R-33 §2 requires and this pass must not spend.
+ */
+.compute-lab [data-testid='compute-lab-variable'] {
+  border-radius: var(--radius-sm);
+}
+
 /*
  * The Compute Lab stage says in words what it says in geometry, for a player who
  * is not looking at it. Visually hidden, never `display: none` — the latter is
