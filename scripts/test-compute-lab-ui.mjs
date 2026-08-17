@@ -11,8 +11,11 @@
  *   - #14 an observer who has not read the source cannot tell which construct
  *         was anticipated — the structural half is checked here and in
  *         ComputeLabTransport.test.tsx; the human half stays human
- *   - #17 keyboard-only entry, screen-reader announcement, and no horizontal
- *         scrolling at 1280x720
+ *   - #17 keyboard-only entry and screen-reader announcement
+ * The 1280x720 layout is no longer on that list: `scripts/verify-stage-layout.mjs`
+ * drives the real Lab in a real browser and asserts, on both axes, that every
+ * track's end state is on screen. It needs a browser and a live runtime, so it
+ * runs as `pnpm verify:lab-stage` rather than here.
  * Everything else below is decided here or in the transport, runtime and Python
  * suites, and each assertion names the criterion it settles.
  */
@@ -302,6 +305,8 @@ const REQUIRED_KEYS = [
   'stage.length_unknown',
   'stage.scrub_loop',
   'stage.unwatched',
+  // R-42 #3: the track's own second reference point, named where it appears.
+  'stage.watched_to',
   'play',
   'pause',
   'pace_read',
@@ -347,11 +352,60 @@ assert.doesNotMatch(
   'there is no per-construct branch in the stage, which is what makes an unanticipated repeat draw a track',
 );
 // #24: no invented total. An unmeasurable loop has no end number anywhere.
-assert.match(stage, /measured \? extent : t\('compute_lab\.stage\.length_unknown'\)/, '#24: an unknown length is stated in words, never as a number');
+// #24: an unknown length is stated in words, never as a number — and the words
+// sit under the track with the other end words rather than in the numeric
+// gutter, which is one number wide and wrapped the sentence into six lines.
+assert.match(stage, /measured && <div[^>]*>\{extent\}<\/div>/, '#24: the gutter carries a number or nothing');
+assert.match(
+  stage,
+  /\{!measured && <div[^>]*>\{t\('compute_lab\.stage\.length_unknown'\)\}<\/div>\}/,
+  '#24: and an unmeasurable loop says so in words where there is room to read them',
+);
 assert.match(stage, /if \(target > observed\) return;/, '#26: the unwatched remainder is inert, not clamped');
 // #33: motion is a layer over an already-correct screen, removable with nothing lost.
 assert.match(stage, /usePrefersReducedMotion/);
 assert.match(styles, /prefers-reduced-motion: reduce\) \{\s*\n\s*\[data-testid='compute-lab-stage'\]/, '#33: reduced motion is enforced in CSS too, not only in a hook');
+// ── R-42: the stage at 1280x720, and the two reference points on one screen ──
+// #1: a track's height is the room the stage turned out to have, not a constant
+// the layout is then asked to accommodate. The end states are the answer to "why
+// did it stop"; a height chosen in the source puts them below the fold.
+assert.match(stage, /export function useAvailableHeight/, 'R-42 #1: the room for the tracks is measured, not assumed');
+assert.match(stage, /export function trackGeometry/, 'R-42 #1: the height that fits a nested pair is solved for, not constant');
+assert.doesNotMatch(stage, /height: TRACK_HEIGHT,/, 'R-42 #1: no rail is drawn at a fixed height');
+assert.match(screen, /available=\{tracksHeight\}/, 'R-42 #1: the screen tells the tracks how much room they have');
+assert.match(
+  screen,
+  /const \[tracksRef, tracksHeight\] = useAvailableHeight\(\)/,
+  'R-42 #1: and it measures that room from a box whose height does not depend on the tracks inside it',
+);
+// #2: the inner track hangs off the outer marker. A sibling laid out beside it
+// says the two loops are peers, which is false — an inner loop is a different
+// instance on every outer iteration.
+assert.match(
+  stage,
+  /data-testid="compute-lab-track-attached"/,
+  'R-42 #2: the inner track is attached to the outer marker, not laid out beside it',
+);
+assert.match(stage, /attachedTop/, 'R-42 #2: and it is attached at the marker position, pinned only when it would not fit');
+// #3: the marker's number and the unwatched count are different reference points.
+assert.match(
+  stage,
+  /compute_lab\.stage\.watched_to/,
+  'R-42 #3: the track names the iteration its unwatched count is measured from',
+);
+// #4: an assignment does not restate its own boxes in the transport's dict syntax.
+assert.match(
+  screen,
+  /function boxesAlreadyHold/,
+  'R-42 #4: `bindings` is dropped where a box provably says it, not wherever a kind suggests one would',
+);
+// #5: the loop variable at the marker is the mockup's three-part box.
+assert.match(
+  stage,
+  /function LoopVariableBox[\s\S]*?<Box\b/,
+  'R-42 #5: the loop variable is the same box as every other variable, because it is the same kind of thing',
+);
+
 // #37: the announcement says the step, the loop position and what changed.
 for (const part of ['{step}', '{action}', '{loop}', '{changed}'])
   assert.ok(translation(locales[0], 'compute_lab.announcement').includes(part), `#37: the announcement must carry ${part}`);

@@ -63,6 +63,7 @@ export const en: Record<string, string> = {
   'compute_lab.stage.iteration_of': 'repeat {iteration} of {extent}',
   'compute_lab.stage.length_unknown': 'how long this goes on is not known',
   'compute_lab.stage.scrub_loop': 'Move through the repeats of {loop}',
+  'compute_lab.stage.watched_to': 'watched up to repeat {iteration}',
   'compute_lab.stage.unwatched': '{count} that were never watched',
   'compute_lab.stage.end.finished': 'ran all the way to the end',
   'compute_lab.stage.end.early': 'left before the end',

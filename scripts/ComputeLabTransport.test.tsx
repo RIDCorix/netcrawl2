@@ -142,7 +142,9 @@ await act(async () => {
           line: 3,
           source: '合計 = a + b',
           location: { lineno: 3, col_offset: 8, end_lineno: 3, end_col_offset: 22 },
-          locals: { a: 3 },
+          // As the runner sends it: `locals` and `detail.bindings` are read from
+          // the same frame at the same emit, so a bound name is always also a box.
+          locals: { a: 3, 合計: 7 },
           changed: ['a'],
           detail: { bindings: { 合計: 7 } },
         },
@@ -251,11 +253,22 @@ const showFrame = async (index: number) => {
 
 await showFrame(0);
 assert.match(text(renderer!.toJSON()), /Set 合計 = a \+ b/);
-assert.match(text(renderer!.toJSON()), /Now holding/);
+// R-42 #4: an assignment does not restate its own boxes in the transport's dict
+// syntax. The box one line below already says name, value and type.
+assert.doesNotMatch(
+  text(renderer!.toJSON()),
+  /Now holding/,
+  'a binding whose names all have boxes does not repeat them as a list entry',
+);
+assert.doesNotMatch(text(renderer!.toJSON()), /\{'合計': 7\}/, "raw dict repr is never player-facing copy");
 // R-33 #18/#19: a local is a box of name, value and type, and the one that
 // changed at this step is the one — and the only one — marked as changed.
 const boxes = renderer!.root.findAllByProps({ 'data-testid': 'compute-lab-variable' });
 assert.equal(text(boxes[0].children), 'a3changed at this step');
+assert.ok(
+  boxes.some(box => text(box.children).startsWith('合計7')),
+  'R-42 #4: the bound name is still on screen — as a box, which is the better rendering',
+);
 assert.equal(
   boxes.filter(box => box.props['data-state'] === 'changed').length,
   1,

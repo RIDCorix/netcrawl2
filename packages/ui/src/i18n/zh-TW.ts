@@ -63,6 +63,7 @@ export const zhTW: Record<string, string> = {
   'compute_lab.stage.iteration_of': '第 {iteration} 次，共 {extent} 次',
   'compute_lab.stage.length_unknown': '不知道會重複到什麼時候',
   'compute_lab.stage.scrub_loop': '在 {loop} 的每一次重複之間移動',
+  'compute_lab.stage.watched_to': '看到第 {iteration} 次為止',
   'compute_lab.stage.unwatched': '有 {count} 次完全沒有被看到',
   'compute_lab.stage.end.finished': '一路跑到最後',
   'compute_lab.stage.end.early': '還沒到最後就離開了',

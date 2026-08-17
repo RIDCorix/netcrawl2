@@ -2,7 +2,13 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { type ComputeLabRunSnapshot, useGameStore } from '../store/gameStore';
 import { apiFetch } from '../lib/api';
 import { useT } from '../hooks/useT';
-import { LoopTracks, VariableBoxes, useChurningVariables, usePrefersReducedMotion } from './computeLab/stage';
+import {
+  LoopTracks,
+  VariableBoxes,
+  useAvailableHeight,
+  useChurningVariables,
+  usePrefersReducedMotion,
+} from './computeLab/stage';
 import {
   type LoopInstance,
   indexLoops,
@@ -227,14 +233,36 @@ const GEOMETRY_DETAILS = new Set(['iteration', 'bindings']);
  */
 const TRACK_IDENTITY_DETAILS = new Set(['loop', 'extent']);
 
+/** Whether every name a `bindings` detail carries already has a box of its own on screen. */
+function boxesAlreadyHold(frame: TraceFrame, bindings: unknown) {
+  if (!bindings || typeof bindings !== 'object') return false;
+  const held = frame.locals || {};
+  return Object.keys(bindings as Record<string, unknown>).every(name =>
+    Object.prototype.hasOwnProperty.call(held, name),
+  );
+}
+
 /**
- * A runner older than this build sends `repetition` with no instance id, so no
- * track can be drawn for it. Its iteration and bindings then stay in the list,
- * because dropping a fact on the grounds that a picture *would have* carried it
- * loses the fact when the picture is not there.
+ * Whether the picture has already said this detail, so the list does not say it
+ * again in the runner's spelling.
+ *
+ * On a `repetition` the marker owns both — drawn there when the runner sent a
+ * loop identity, and kept in the list when it did not, because a runner older
+ * than this build draws no track for the fact to live on.
+ *
+ * Everywhere else `bindings` is an assignment restating its own variable boxes,
+ * one line above and in the transport's `{'t': 19701}` dict syntax rather than
+ * the box's name / value / type. The boxes are the better rendering of the same
+ * fact — but only of the names they actually carry, so the test is that they do
+ * rather than that a runner of the right vintage would have made it so. A name
+ * with no box (the runner drops a helper the player assigned to a variable) has
+ * nowhere else to go and stays in the list.
  */
 function detailIsDrawn(frame: TraceFrame, name: string) {
-  return TRACK_IDENTITY_DETAILS.has(name) || (typeof frame.detail?.loop === 'number' && GEOMETRY_DETAILS.has(name));
+  if (TRACK_IDENTITY_DETAILS.has(name)) return true;
+  if (!GEOMETRY_DETAILS.has(name)) return false;
+  if (frame.kind === 'repetition') return typeof frame.detail?.loop === 'number';
+  return name === 'bindings' && boxesAlreadyHold(frame, frame.detail?.bindings);
 }
 
 /**
@@ -251,7 +279,7 @@ function StepCard(props: StepCardProps & { frames: readonly TraceFrame[]; index:
   const { frame, t, frames, index, source, stale } = props;
   const detail = Object.entries(frame.detail || {}).filter(([name]) => !detailIsDrawn(frame, name));
   return (
-    <div data-testid="compute-lab-step" style={{ border: '1px solid var(--accent)', padding: 10, marginTop: 10 }}>
+    <div data-testid="compute-lab-step" style={{ border: '1px solid var(--accent)', padding: 8, marginTop: 8 }}>
       <strong>
         {word(t, 'step', frame.kind, t('compute_lab.step.unknown'))}
         {frame.source === undefined ? '' : ` ${frame.source}`}
@@ -278,6 +306,28 @@ function StepCard(props: StepCardProps & { frames: readonly TraceFrame[]; index:
     </div>
   );
 }
+
+/**
+ * The floor the stage keeps for itself when the words above it would rather have
+ * the room.
+ *
+ * Deliberately only what one track and its end words need, not what a nested
+ * pair does: the stage takes whatever the words above it did not want anyway, so
+ * a floor set at the nested figure buys nothing and costs the step card — it
+ * forces a scroll on the run whose outcome panel runs to four lines, which is
+ * exactly the truncated run this issue is about.
+ */
+const STAGE_MIN_HEIGHT = 264;
+/**
+ * The room the tracks keep whatever the variable boxes would rather have.
+ *
+ * A run that ended in an error puts an extra word in every box, which turns one
+ * row of boxes into two and pushed the track's end off the bottom — the same
+ * defect, reached from the other side of the stage. The boxes already promote
+ * whatever changed at this step to the front, so a row that has to scroll still
+ * shows the one the player is looking for; a track's end has no such fallback.
+ */
+const TRACKS_MIN_HEIGHT = 160;
 
 const TERMINAL_STATUSES = ['trace_ready', 'syntax', 'runtime', 'timeout', 'limit', 'disconnected'] as const;
 /** A stable empty trace, so the loop index is not rebuilt on every unrelated render. */
@@ -485,6 +535,7 @@ export function ComputeLabScreen() {
   const reducedMotion = usePrefersReducedMotion();
   const animated = adjacentStep && !reducedMotion;
   const churning = useChurningVariables(frames, frameIndex);
+  const [tracksRef, tracksHeight] = useAvailableHeight();
 
   if (!computeLabOpen) return null;
   const stale = Boolean(
@@ -607,14 +658,28 @@ export function ComputeLabScreen() {
         position: 'fixed',
         inset: 0,
         zIndex: 1000,
-        overflow: 'auto',
+        // The Lab is bounded by the viewport rather than by its own content, and
+        // each column scrolls inside it. A page that grows past the fold is what
+        // put the tracks' end states — the answer to "why did it stop" — below
+        // it at 1280x720, on a screen whose own criteria only ever checked the
+        // horizontal axis.
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
         background: 'rgba(3, 8, 15, .98)',
-        padding: 'max(18px, 4vw)',
+        padding: '10px max(18px, 4vw)',
         color: 'var(--text-primary)',
       }}
     >
       <header
-        style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', marginBottom: 16 }}
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: 16,
+          alignItems: 'center',
+          marginBottom: 8,
+          flex: '0 0 auto',
+        }}
       >
         <div>
           <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>{t('compute_lab.title')}</strong>
@@ -627,8 +692,18 @@ export function ComputeLabScreen() {
       {!available ? (
         <main role="status">{t('compute_lab.locked')}</main>
       ) : (
-        <main style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 1fr) minmax(300px, 1fr)', gap: 18 }}>
-          <section style={{ display: 'grid', gap: 12 }}>
+        <main
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(280px, 1fr) minmax(300px, 1fr)',
+            gap: 18,
+            flex: '1 1 auto',
+            minHeight: 0,
+            overflowX: 'auto',
+            overflowY: 'hidden',
+          }}
+        >
+          <section style={{ display: 'grid', gap: 12, alignContent: 'start', minHeight: 0, overflowY: 'auto' }}>
             <div>
               <strong>{t('compute_lab.challenge')}</strong>
               <p>{t('compute_lab.task_description', { description: task?.description || '' })}</p>
@@ -698,104 +773,156 @@ export function ComputeLabScreen() {
           </section>
           <section
             aria-label={t('compute_lab.trace')}
-            style={{ border: '1px solid var(--border-bright)', padding: 14, minHeight: 400 }}
+            style={{
+              border: '1px solid var(--border-bright)',
+              padding: 12,
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: 0,
+            }}
           >
-            <strong>{t('compute_lab.trace')}</strong>
-            <div style={{ color: 'var(--text-muted)', margin: '8px 0' }}>
-              {run
-                ? t('compute_lab.step_position', { current: frameIndex + 1, total: run.frames.length })
-                : t('compute_lab.run_to_trace')}
-            </div>
-            {terminal && (
+            {/* Everything the run says in words scrolls; the stage below it does
+                not, because a track whose end has to be scrolled to is a track
+                that has not answered the question it exists to answer. */}
+            <div style={{ flex: '0 1 auto', minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+              {/* The panel's name and where in the run it is are one line, not
+                  two: at 1280x720 a spare line here is a line the step card's
+                  own value does not get. */}
               <div
-                role="status"
-                data-testid="compute-lab-outcome"
-                style={{ border: '1px solid var(--border-bright)', padding: 10, marginBottom: 12 }}
+                style={{
+                  display: 'flex',
+                  gap: 12,
+                  alignItems: 'baseline',
+                  flexWrap: 'wrap',
+                  marginBottom: 8,
+                }}
               >
-                <strong>{t(`compute_lab.outcome.${terminal}`)}</strong>
-                <div>{t(`compute_lab.outcome_action.${terminal}`)}</div>
-                {stoppedAt && stoppedAt.iteration > 0 && (
-                  <div>
-                    {t('compute_lab.outcome_stopped_in', { loop: stoppedAt.loop, iteration: stoppedAt.iteration })}
-                  </div>
-                )}
-                {terminal !== 'trace_ready' && frame?.line !== undefined && (
-                  <div>{t('compute_lab.outcome_last_line', { line: frame.line })}</div>
-                )}
+                <strong>{t('compute_lab.trace')}</strong>
+                <span style={{ color: 'var(--text-muted)' }}>
+                  {run
+                    ? t('compute_lab.step_position', { current: frameIndex + 1, total: run.frames.length })
+                    : t('compute_lab.run_to_trace')}
+                </span>
               </div>
-            )}
-            {stale && (
-              <div role="status" data-testid="compute-lab-stale-trace" style={{ marginBottom: 10 }}>
-                {t('compute_lab.old_trace')}
-              </div>
-            )}
-            {/* The timeline reaches steps outside every loop, so it stays even
+              {terminal && (
+                <div
+                  role="status"
+                  data-testid="compute-lab-outcome"
+                  style={{ border: '1px solid var(--border-bright)', padding: 8, marginBottom: 10 }}
+                >
+                  <strong>{t(`compute_lab.outcome.${terminal}`)}</strong>
+                  <div>{t(`compute_lab.outcome_action.${terminal}`)}</div>
+                  {stoppedAt && stoppedAt.iteration > 0 && (
+                    <div>
+                      {t('compute_lab.outcome_stopped_in', { loop: stoppedAt.loop, iteration: stoppedAt.iteration })}
+                    </div>
+                  )}
+                  {terminal !== 'trace_ready' && frame?.line !== undefined && (
+                    <div>{t('compute_lab.outcome_last_line', { line: frame.line })}</div>
+                  )}
+                </div>
+              )}
+              {stale && (
+                <div role="status" data-testid="compute-lab-stale-trace" style={{ marginBottom: 10 }}>
+                  {t('compute_lab.old_trace')}
+                </div>
+              )}
+              {/* The timeline reaches steps outside every loop, so it stays even
                 once the tracks give the run a spatial index of its own. */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-              <button onClick={() => seek(0)} disabled={!run?.frames.length}>
-                |&lt;
-              </button>
-              <button onClick={() => seek(frameIndex - 1)} disabled={!run?.frames.length}>
-                ‹
-              </button>
-              <input
-                aria-label="Trace step"
-                type="range"
-                min="0"
-                max={Math.max(0, (run?.frames.length || 1) - 1)}
-                value={frameIndex}
-                onChange={event => seek(Number(event.target.value))}
-                disabled={!run?.frames.length}
-              />
-              <button onClick={() => seek(frameIndex + 1)} disabled={!run?.frames.length}>
-                ›
-              </button>
-              <button onClick={() => seek(Math.max(0, (run?.frames.length || 1) - 1))} disabled={!run?.frames.length}>
-                &gt;|
-              </button>
-              <button
-                data-testid="compute-lab-play"
-                onClick={() => setPlaying(current => !current)}
-                disabled={!run?.frames.length}
-              >
-                {t(playing ? 'compute_lab.pause' : 'compute_lab.play')}
-              </button>
-              <button
-                data-testid="compute-lab-pace"
-                onClick={() => setPace(current => (current === 'read' ? 'fast' : 'read'))}
-                disabled={!run?.frames.length}
-              >
-                {t(pace === 'read' ? 'compute_lab.pace_read' : 'compute_lab.pace_fast')}
-              </button>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                <button onClick={() => seek(0)} disabled={!run?.frames.length}>
+                  |&lt;
+                </button>
+                <button onClick={() => seek(frameIndex - 1)} disabled={!run?.frames.length}>
+                  ‹
+                </button>
+                <input
+                  aria-label="Trace step"
+                  type="range"
+                  min="0"
+                  max={Math.max(0, (run?.frames.length || 1) - 1)}
+                  value={frameIndex}
+                  onChange={event => seek(Number(event.target.value))}
+                  disabled={!run?.frames.length}
+                />
+                <button onClick={() => seek(frameIndex + 1)} disabled={!run?.frames.length}>
+                  ›
+                </button>
+                <button onClick={() => seek(Math.max(0, (run?.frames.length || 1) - 1))} disabled={!run?.frames.length}>
+                  &gt;|
+                </button>
+                <button
+                  data-testid="compute-lab-play"
+                  onClick={() => setPlaying(current => !current)}
+                  disabled={!run?.frames.length}
+                >
+                  {t(playing ? 'compute_lab.pause' : 'compute_lab.play')}
+                </button>
+                <button
+                  data-testid="compute-lab-pace"
+                  onClick={() => setPace(current => (current === 'read' ? 'fast' : 'read'))}
+                  disabled={!run?.frames.length}
+                >
+                  {t(pace === 'read' ? 'compute_lab.pace_read' : 'compute_lab.pace_fast')}
+                </button>
+              </div>
+              {frame && (
+                <StepCard frame={frame} source={source} stale={stale} t={t} frames={frames} index={frameIndex} />
+              )}
             </div>
             {frame ? (
               <>
-                <StepCard frame={frame} source={source} stale={stale} t={t} frames={frames} index={frameIndex} />
                 <div
                   data-testid="compute-lab-stage"
                   data-animated={animated}
-                  style={{ display: 'grid', gap: 14, marginTop: 14 }}
+                  style={{
+                    display: 'grid',
+                    gridTemplateRows: chain.length > 0 ? `minmax(0, auto) minmax(${TRACKS_MIN_HEIGHT}px, 1fr)` : 'auto',
+                    gap: 10,
+                    marginTop: 10,
+                    // Grows into whatever the words above did not want, and never
+                    // shrinks below what one track and its end words need. A basis
+                    // of `auto` would make the split depend on the height the
+                    // tracks chose from the split, which is a loop.
+                    flex: `1 0 ${STAGE_MIN_HEIGHT}px`,
+                    minHeight: STAGE_MIN_HEIGHT,
+                  }}
                 >
-                  <div>
+                  <div style={{ minHeight: 0, overflowY: 'auto' }}>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>
                       {t('compute_lab.stage.variables')}
                     </div>
                     <VariableBoxes boxes={boxes} churning={churning} frozen={frozen} animated={animated} t={t} />
                   </div>
                   {chain.length > 0 && (
-                    <div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, flex: '0 0 auto' }}>
                         {t('compute_lab.stage.loops')}
                       </div>
-                      <LoopTracks
-                        chain={chain}
-                        frames={frames}
-                        frameIndex={frameIndex}
-                        animated={animated}
-                        onSeek={seek}
-                        t={t}
-                        endOf={endOf}
-                      />
+                      {/* The measured box, not the tracks themselves: what it
+                          reports is the room the layout gave the stage, and it
+                          must not depend on what the tracks inside it drew. */}
+                      {/* Vertically the tracks are sized to fit, so there is
+                          nothing to scroll to. Horizontally a nested pair is
+                          wider than a narrow window's right column, and clipping
+                          it would lose the inner track outright — so that one
+                          axis stays reachable. At 1280x720 it fits and no
+                          scrollbar appears, which R-21 #17 requires. */}
+                      <div
+                        ref={tracksRef}
+                        style={{ flex: '1 1 auto', minHeight: 0, overflowX: 'auto', overflowY: 'hidden' }}
+                      >
+                        <LoopTracks
+                          chain={chain}
+                          frames={frames}
+                          frameIndex={frameIndex}
+                          animated={animated}
+                          onSeek={seek}
+                          t={t}
+                          endOf={endOf}
+                          available={tracksHeight}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>

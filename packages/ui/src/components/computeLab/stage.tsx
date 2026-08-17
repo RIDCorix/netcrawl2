@@ -14,19 +14,49 @@
  *     animation the state is already right, which is why `prefers-reduced-motion`
  *     can remove all of it and lose nothing.
  */
-import { useEffect, useRef, useState } from 'react';
+import { type ComponentProps, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import {
   type Frame,
   type LoopInstance,
   type TrackEnd,
   iterationAt,
   pythonValue,
+  truncationOf,
   type VariableBox as VariableBoxModel,
 } from './stageModel';
 
 type Translate = (key: string, vars?: Record<string, string | number>) => string;
 
+/** The most a track is ever drawn at, however much room the stage turns out to have. */
 const TRACK_HEIGHT = 168;
+/**
+ * The height below which a rail stops being a rail.
+ *
+ * Deliberately low, and the first draft of this had it at 76 — which made a
+ * stage with room for 60 draw 76 and push its own end words off the bottom,
+ * which is the defect this issue opens with wearing a different hat. A short
+ * rail still says where the marker is; an end state nobody can see says nothing,
+ * so when the two compete the rail gives way.
+ */
+const MIN_TRACK_HEIGHT = 28;
+/** The header line above a rail, and the end words below it — measured in the layout, not drawn by it. */
+const TRACK_HEADER = 22;
+const TRACK_END = 58;
+const RAIL_WIDTH = 16;
+const RAIL_GAP = 8;
+/**
+ * The gutter the start and end numbers sit in, on the rail's own side.
+ *
+ * They shared the marker's column until a `range(10000)` label wrapped under its
+ * box on a short rail and landed on top of the extent — two facts in one place,
+ * on the track whose whole job is to be read at a glance.
+ */
+const EXTENT_WIDTH = 44;
+/** The column the marker's own label lives in, beside the rail. */
+const LABEL_WIDTH = 170;
+const ATTACH_GAP = 16;
+/** Where an inner track hangs, measured from the outer track's left edge. */
+const ATTACH_X = EXTENT_WIDTH + RAIL_WIDTH + RAIL_GAP + LABEL_WIDTH + ATTACH_GAP;
 /** How many iterations of an unmeasurable loop are on the rail before it rolls over. */
 const OPEN_TRACK_WINDOW = 12;
 const VALUE_LIMIT = 26;
@@ -60,6 +90,46 @@ export function usePrefersReducedMotion() {
     return () => query.removeEventListener('change', update);
   }, []);
   return reduced;
+}
+
+/**
+ * How much vertical room the stage actually has for its tracks.
+ *
+ * A track's end is where its five end states are written, and the end states are
+ * the answer to "why did it stop" — so a height chosen in the source and left to
+ * whatever the layout gives it puts the answer below the fold on the short
+ * viewport and calls that a pass. The element observed here is a flex child with
+ * a definite height, so what it reports never depends on what the track drawn
+ * inside it decides to be.
+ *
+ * Zero means "not measured" — a server render, a test, a browser with no
+ * `ResizeObserver` — and every caller reads that as the full height rather than
+ * as no room.
+ *
+ * A *callback* ref, not a mount effect: the box being measured only exists once
+ * the run has a loop in it, which is long after this component mounted. A
+ * `useEffect(…, [])` reading `ref.current` finds null, never runs again, and
+ * leaves every track drawn at the constant height this hook exists to replace —
+ * silently, because a track at the wrong height still looks like a track.
+ */
+export function useAvailableHeight() {
+  const [height, setHeight] = useState(0);
+  const observer = useRef<ResizeObserver | null>(null);
+  const ref = useCallback((element: HTMLDivElement | null) => {
+    observer.current?.disconnect();
+    observer.current = null;
+    if (!element) return;
+    // `clientHeight`, not the bounding box: where the tracks scrolled sideways
+    // the box includes the scrollbar's own strip, and a track sized to include
+    // it is a track whose end words sit under it.
+    const measure = () => setHeight(element.clientHeight);
+    measure();
+    if (typeof ResizeObserver !== 'function') return;
+    observer.current = new ResizeObserver(measure);
+    observer.current.observe(element);
+  }, []);
+  useEffect(() => () => observer.current?.disconnect(), []);
+  return [ref, height] as const;
 }
 
 /**
@@ -244,28 +314,92 @@ export type TrackView = {
   end: TrackEnd;
 };
 
+/**
+ * Where the marker sits, and how much of the rail was watched.
+ *
+ * Shared rather than recomputed, because the inner track hangs at exactly the
+ * outer marker's position: two copies of this arithmetic is two chances for the
+ * attachment to drift off the thing it is claiming to be attached to.
+ */
+function placement(instance: LoopInstance, iteration: number) {
+  const extent = instance.extent;
+  const measured = typeof extent === 'number' && extent > 0;
+  // An unmeasurable loop never draws a full-length bar and never shows an end
+  // number: the marker walks a fixed pitch and the numbers roll under it, so
+  // motion still means progress without implying a fraction of anything.
+  const slot = measured ? 0 : ((Math.max(1, iteration) - 1) % OPEN_TRACK_WINDOW) + 1;
+  return {
+    measured,
+    extent,
+    slot,
+    markerFraction: measured ? Math.min(1, iteration / (extent as number)) : slot / OPEN_TRACK_WINDOW,
+    observedFraction: measured ? Math.min(1, instance.iterations.length / (extent as number)) : 1,
+  };
+}
+
+export type TrackGeometry = { height: number; attachedTop: number };
+
+/**
+ * The height to draw a track at, so that its end is on screen.
+ *
+ * A nested pair costs `markerFraction × height` more than a lone track, because
+ * the inner one starts at the outer marker — so the height that fits both is the
+ * solution of `height × (1 + markerFraction) + chrome ≤ available`, not a
+ * constant with a nested case bolted on.
+ *
+ * When even the shortest readable track will not fit, the inner one is *pinned*
+ * rather than allowed to run off the bottom: its end cap and the word beside it
+ * stay in view and the connector lengthens to say so. The middle of a track is
+ * the part a player can infer; the end is the part they came for.
+ */
+export function trackGeometry(
+  available: number,
+  markerFraction: number,
+  nested: boolean,
+  noted = false,
+): TrackGeometry {
+  if (!available) {
+    const height = TRACK_HEIGHT;
+    return { height, attachedTop: nested ? markerFraction * height : 0 };
+  }
+  const chrome = TRACK_HEADER + TRACK_END + (nested ? TRACK_HEADER : 0) + (noted ? TRACK_HEADER : 0);
+  const fits = (available - chrome) / (nested ? 1 + markerFraction : 1);
+  const height = Math.max(MIN_TRACK_HEIGHT, Math.min(TRACK_HEIGHT, Math.floor(fits)));
+  if (!nested) return { height, attachedTop: 0 };
+  const room = available - TRACK_HEADER - ((noted ? TRACK_HEADER : 0) + TRACK_HEADER + height + TRACK_END);
+  return { height, attachedTop: Math.max(0, Math.min(markerFraction * height, room)) };
+}
+
+/**
+ * The loop's own variable at the marker — the same three-part box as every other
+ * variable, because it is the same kind of thing as every other variable.
+ *
+ * Corix's mockup draws `i` hanging off the marker exactly as it draws `total` in
+ * the variables row. Rendering one as a box and the other as a one-line chip
+ * would say the two are different kinds of thing.
+ */
 function LoopVariableBox({ frame, t }: { frame: Frame | undefined; t: Translate }) {
   const bindings = frame?.detail?.bindings;
   if (!bindings || typeof bindings !== 'object') return null;
   const entries = Object.entries(bindings as Record<string, unknown>);
   if (entries.length === 0) return null;
+  const truncated = t('compute_lab.stage.truncated');
   return (
     <>
       {entries.map(([name, value]) => (
-        <span
+        <Box
           key={name}
-          style={{
-            border: '1px solid var(--border-bright)',
-            background: 'var(--bg-secondary)',
-            padding: '1px 6px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 11,
-            whiteSpace: 'nowrap',
+          animated={false}
+          state="settled"
+          t={t}
+          box={{
+            name,
+            value: pythonValue(value, truncated),
+            type: frame?.types?.[name],
+            changed: false,
+            truncated: truncationOf(value) !== null,
           }}
-        >
-          {name} {pythonValue(value, t('compute_lab.stage.truncated'))}
-          <span style={{ color: 'var(--text-muted)' }}> {frame?.types?.[name] || ''}</span>
-        </span>
+        />
       ))}
     </>
   );
@@ -277,25 +411,26 @@ function Track({
   animated,
   onSeek,
   t,
+  height = TRACK_HEIGHT,
+  attached,
+  attachedTop = 0,
 }: {
   view: TrackView;
   frames: readonly Frame[];
   animated: boolean;
   onSeek: (frameIndex: number) => void;
   t: Translate;
+  height?: number;
+  attached?: ReactNode;
+  attachedTop?: number;
 }) {
   const { instance, iteration, end } = view;
   const observed = instance.iterations.length;
-  const extent = instance.extent;
-  const measured = typeof extent === 'number' && extent > 0;
-  // An unmeasurable loop never draws a full-length bar and never shows an end
-  // number: the marker walks a fixed pitch and the numbers roll under it, so
-  // motion still means progress without implying a fraction of anything.
-  const slot = measured ? 0 : ((Math.max(1, iteration) - 1) % OPEN_TRACK_WINDOW) + 1;
-  const markerFraction = measured ? Math.min(1, iteration / (extent as number)) : slot / OPEN_TRACK_WINDOW;
-  const observedFraction = measured ? Math.min(1, observed / (extent as number)) : 1;
+  const { measured, extent, slot, markerFraction, observedFraction } = placement(instance, iteration);
   const torn = end === 'cut';
   const closed = end === 'finished' || end === 'early';
+  const markerTop = markerFraction * height;
+  const [labelRef, labelHeight] = useAvailableHeight();
 
   const seekTo = (target: number) => {
     const clamped = Math.min(observed, Math.max(1, Math.round(target)));
@@ -318,11 +453,38 @@ function Track({
   };
 
   return (
-    <div style={{ minWidth: 126, flex: '0 1 auto' }}>
-      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
+    <div style={{ width: attached ? ATTACH_X * 2 : ATTACH_X, flex: '0 0 auto' }}>
+      <div
+        style={{
+          fontSize: 11,
+          color: 'var(--text-secondary)',
+          height: TRACK_HEADER,
+          overflow: 'hidden',
+          whiteSpace: 'nowrap',
+          textOverflow: 'ellipsis',
+        }}
+      >
         {t('compute_lab.step.repetition')} <code style={{ color: 'var(--text-primary)' }}>{instance.source}</code>
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div style={{ display: 'flex', gap: RAIL_GAP, position: 'relative', height }}>
+        <div
+          style={{
+            position: 'relative',
+            width: EXTENT_WIDTH,
+            height: '100%',
+            flex: '0 0 auto',
+            fontSize: 11,
+            textAlign: 'right',
+            color: 'var(--text-muted)',
+            marginRight: -RAIL_GAP + 4,
+          }}
+        >
+          <div style={{ position: 'absolute', top: -2, right: 0 }}>{measured ? 0 : iteration - slot + 1}</div>
+          {/* A number, or nothing. The gutter is as wide as a number needs to be,
+              so the sentence an unmeasurable loop ends with goes under the track
+              with the other end words, where there is room to read it. */}
+          {measured && <div style={{ position: 'absolute', bottom: -2, right: 0 }}>{extent}</div>}
+        </div>
         <div
           role="slider"
           tabIndex={0}
@@ -359,8 +521,8 @@ function Track({
           }}
           style={{
             position: 'relative',
-            width: 16,
-            height: TRACK_HEIGHT,
+            width: RAIL_WIDTH,
+            height: '100%',
             cursor: 'pointer',
             flex: '0 0 auto',
           }}
@@ -459,14 +621,18 @@ function Track({
             }}
           />
         </div>
-        <div style={{ position: 'relative', height: TRACK_HEIGHT, flex: '1 1 auto', fontSize: 11 }}>
-          <div style={{ position: 'absolute', top: -2, color: 'var(--text-muted)' }}>
-            {measured ? 0 : iteration - slot + 1}
-          </div>
+        <div style={{ position: 'relative', height: '100%', width: LABEL_WIDTH, flex: '0 0 auto', fontSize: 11 }}>
+          {/* Held inside the rail's own box rather than hung freely from the
+              marker: a three-part box is most of a short rail's height, so at
+              either end it would otherwise cover the track's header or be
+              clipped by the stage. Its own height is measured, because the
+              label is one line beside the box or two under it depending on how
+              long `repeat 399 of 10000` turns out to be. */}
           <div
+            ref={labelRef}
             style={{
               position: 'absolute',
-              top: `calc(${markerFraction * 100}% - 8px)`,
+              top: Math.max(0, Math.min(markerTop - 8, height - labelHeight)),
               display: 'flex',
               gap: 4,
               alignItems: 'center',
@@ -484,17 +650,77 @@ function Track({
                 : t('compute_lab.stage.iteration', { iteration })}
             </span>
           </div>
-          <div style={{ position: 'absolute', bottom: -2, color: 'var(--text-muted)' }}>
-            {measured ? extent : t('compute_lab.stage.length_unknown')}
-          </div>
         </div>
+        {/* An inner loop is a different instance on every outer iteration, so its
+            track hangs off this marker rather than standing beside it. The
+            connector is the containment: a track drawn as a sibling says the two
+            loops are peers, which is false. */}
+        {attached && (
+          <>
+            <div
+              aria-hidden
+              style={{
+                position: 'absolute',
+                left: ATTACH_X - ATTACH_GAP,
+                top: markerTop,
+                width: ATTACH_GAP,
+                height: 1,
+                background: 'var(--accent-secondary)',
+                transition: transition('top', MARKER_MS, animated),
+              }}
+            />
+            {/* The spine runs the length of the inner rail, so the attachment
+                reads as containment rather than as a stray dash beside two
+                tracks — and when the pair had to be pinned it is the spine that
+                lengthens, which is what says the inner one belongs further up. */}
+            <div
+              aria-hidden
+              style={{
+                position: 'absolute',
+                left: ATTACH_X - ATTACH_GAP,
+                top: Math.min(markerTop, attachedTop),
+                width: 1,
+                height: Math.abs(markerTop - attachedTop) + TRACK_HEADER + height,
+                background: 'var(--accent-secondary)',
+                transition: transition('top', MARKER_MS, animated),
+              }}
+            />
+            <div
+              data-testid="compute-lab-track-attached"
+              style={{
+                position: 'absolute',
+                left: ATTACH_X,
+                top: attachedTop,
+                width: ATTACH_X,
+                transition: transition('top', MARKER_MS, animated),
+              }}
+            >
+              {attached}
+            </div>
+          </>
+        )}
       </div>
-      <div data-testid="compute-lab-track-end" data-end={end} style={{ fontSize: 11, marginTop: 4 }}>
+      <div
+        data-testid="compute-lab-track-end"
+        data-end={end}
+        style={{ fontSize: 11, marginTop: 4, width: EXTENT_WIDTH + RAIL_WIDTH + RAIL_GAP + LABEL_WIDTH }}
+      >
         {t(`compute_lab.stage.end.${end}`)}
+        {!measured && <div style={{ color: 'var(--text-muted)' }}>{t('compute_lab.stage.length_unknown')}</div>}
+        {/* The marker's number is the playhead; this one is the last iteration
+            anyone watched. Both are true and they are different things, so the
+            second one is named where it appears rather than left for the player
+            to subtract the first from the extent and get a number that is not on
+            the screen. */}
         {torn && measured && (
-          <div style={{ color: 'var(--text-muted)' }}>
-            {t('compute_lab.stage.unwatched', { count: (extent as number) - observed })}
-          </div>
+          <>
+            <div style={{ color: 'var(--text-muted)' }}>
+              {t('compute_lab.stage.watched_to', { iteration: observed })}
+            </div>
+            <div style={{ color: 'var(--text-muted)' }}>
+              {t('compute_lab.stage.unwatched', { count: (extent as number) - observed })}
+            </div>
+          </>
         )}
         {instance.innerRuns.length > 0 && (
           <div style={{ color: 'var(--text-muted)' }}>
@@ -522,6 +748,7 @@ export function LoopTracks({
   onSeek,
   t,
   endOf,
+  available = 0,
 }: {
   chain: readonly LoopInstance[];
   frames: readonly Frame[];
@@ -530,37 +757,51 @@ export function LoopTracks({
   onSeek: (frameIndex: number) => void;
   t: Translate;
   endOf: (instance: LoopInstance) => TrackEnd;
+  /** How much vertical room the stage has for the tracks; 0 means unmeasured. */
+  available?: number;
 }) {
   if (chain.length === 0) return null;
   const drawn = chain.length <= 2 ? chain : [chain[0], chain[chain.length - 1]];
   const between = chain.length - drawn.length;
   const outer = drawn[0];
   const outerIteration = Math.max(1, iterationAt(outer, frameIndex));
-  // The inner track hangs off the outer marker rather than standing beside it,
-  // because an inner loop is a different instance on every outer iteration and
-  // drawing it as a permanent sibling would say otherwise.
-  const hangs = outer.extent && outer.extent > 0 ? Math.min(1, outerIteration / outer.extent) * (TRACK_HEIGHT - 40) : 0;
+  const inner = drawn.length > 1 ? drawn[1] : undefined;
+  const { height, attachedTop } = trackGeometry(
+    available,
+    placement(outer, outerIteration).markerFraction,
+    Boolean(inner),
+    between > 0,
+  );
+  const track = (instance: LoopInstance, extra: Partial<ComponentProps<typeof Track>> = {}) => (
+    <Track
+      view={{ instance, iteration: Math.max(1, iterationAt(instance, frameIndex)), end: endOf(instance) }}
+      frames={frames}
+      animated={animated}
+      onSeek={onSeek}
+      t={t}
+      height={height}
+      {...extra}
+    />
+  );
   return (
-    <div data-testid="compute-lab-loops" style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'start' }}>
-      {drawn.map((instance, position) => (
-        <div
-          key={instance.id}
-          style={{ display: 'flex', gap: 10, alignItems: 'start', marginTop: position > 0 ? hangs : 0 }}
-        >
-          {position > 0 && between > 0 && (
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', maxWidth: 90 }}>
-              {t('compute_lab.stage.depth', { count: between })}
-            </div>
-          )}
-          <Track
-            view={{ instance, iteration: Math.max(1, iterationAt(instance, frameIndex)), end: endOf(instance) }}
-            frames={frames}
-            animated={animated}
-            onSeek={onSeek}
-            t={t}
-          />
-        </div>
-      ))}
+    <div data-testid="compute-lab-loops" style={{ display: 'flex', alignItems: 'start' }}>
+      {track(outer, {
+        attached: inner ? (
+          <>
+            {/* Its own line above the inner track, not a suffix on that track's
+                header: the header is the player's own source, and a header that
+                has to ellipsise the source to fit a count has lost the more
+                important of the two. */}
+            {between > 0 && (
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', height: TRACK_HEADER, overflow: 'hidden' }}>
+                {t('compute_lab.stage.depth', { count: between })}
+              </div>
+            )}
+            {track(inner)}
+          </>
+        ) : undefined,
+        attachedTop,
+      })}
     </div>
   );
 }

@@ -64,6 +64,7 @@ export const ja: Record<string, string> = {
   'compute_lab.stage.iteration_of': '{extent} 回のうち {iteration} 回目',
   'compute_lab.stage.length_unknown': 'どこまで続くかはわかりません',
   'compute_lab.stage.scrub_loop': '{loop} の繰り返しの間を移動する',
+  'compute_lab.stage.watched_to': '{iteration} 回目まで見ました',
   'compute_lab.stage.unwatched': '一度も見ていない回が {count} 回',
   'compute_lab.stage.end.finished': '最後まで走りきりました',
   'compute_lab.stage.end.early': '最後まで行かずに抜けました',
