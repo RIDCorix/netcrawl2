@@ -25,6 +25,7 @@
     "test:deploy-equipment": "node scripts/generate-equipment-catalog.mjs --check && node scripts/test-deploy-equipment.mjs",
     "test:deploy-route": "pnpm --filter @netcrawl/sdk exec tsc && pnpm --filter @netcrawl/server exec tsc --declaration false --outDir .test-dist && node scripts/test-deploy-route.mjs",
     "test:runtime-route-fences": "pnpm --filter @netcrawl/server exec tsc --declaration false --outDir .test-dist && node scripts/test-runtime-route-fences.mjs",
+    "test:sdk-version-gate": "pnpm --filter @netcrawl/server exec tsc --declaration false --outDir .test-dist && node scripts/test-sdk-version-gate.mjs",
     "test:worker-edge-animation": "node scripts/test-worker-edge-animation.mjs",
     "test:mine-contention": "pnpm --filter @netcrawl/server exec tsc --declaration false --outDir .test-dist && node scripts/test-mine-contention.mjs",
     "test:sdk-js": "pnpm --filter @netcrawl/sdk exec tsc && node scripts/test-sdk-js-timeouts.mjs",

@@ -17,6 +17,9 @@ const { getWorker, getWorkers, upsertWorker } = await import('../packages/server
 const { addToPlayerInventory, getPlayerInventory } = await import('../packages/server/.test-dist/domain/inventory.js');
 const { getGameState, saveGameState } = await import('../packages/server/.test-dist/domain/gameState.js');
 const { getQuestSummary } = await import('../packages/server/.test-dist/quests.js');
+const { RUNTIME_PROTOCOL_VERSION, MIN_PYTHON_SDK_VERSION } = await import(
+  '../packages/server/.test-dist/runtimeProtocol.js'
+);
 const { incrementStat } = await import('../packages/server/.test-dist/domain/achievements.js');
 const { setQuestStatus } = await import('../packages/server/.test-dist/domain/questState.js');
 const { FLOP_COSTS } = await import('../packages/server/.test-dist/types.js');
@@ -433,7 +436,8 @@ try {
   // stale ACK, duplicate ACK, and stale process action cannot mutate state.
   const runtimeSession = 'runtime-v2-test-session';
   const registeredV2 = await request('/api/runtime/register', tokenA, {
-    protocolVersion: 2,
+    protocolVersion: RUNTIME_PROTOCOL_VERSION,
+    sdkVersion: MIN_PYTHON_SDK_VERSION,
     sessionId: runtimeSession,
     classes: [reloadedWorkerClass],
     activeExecutions: [],
@@ -616,10 +620,11 @@ try {
   assert.equal(getWorker(workerId, userA).status, 'deploying');
   assert.equal(getWorker(workerId, userA).pid, null);
 
-  // Published Python SDK 1.2.3 releases its protocol-v2 session through this
-  // leased endpoint. Only a current, unexpired session may reconcile workers.
+  // A registered Code Server releases its session through this leased endpoint.
+  // Only a current, unexpired session may reconcile workers.
   const sdkRegistration = await request('/api/runtime/register', codeServerCredential.body.token, {
-    protocolVersion: 2,
+    protocolVersion: RUNTIME_PROTOCOL_VERSION,
+    sdkVersion: MIN_PYTHON_SDK_VERSION,
     sessionId: runtimeSession,
     classes: [reloadedWorkerClass],
     activeExecutions: [],
@@ -636,7 +641,8 @@ try {
   assert.equal(getWorker(workerId, userA).pid, null);
 
   const wrongSessionRegistration = await request('/api/runtime/register', codeServerCredential.body.token, {
-    protocolVersion: 2,
+    protocolVersion: RUNTIME_PROTOCOL_VERSION,
+    sdkVersion: MIN_PYTHON_SDK_VERSION,
     sessionId: runtimeSession,
     classes: [reloadedWorkerClass],
     activeExecutions: [],

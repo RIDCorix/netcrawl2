@@ -17,6 +17,7 @@ const { startServer } = await import(serverModule('index.js'));
 const { router, runtimeCredentialPaths } = await import(serverModule('routes/index.js'));
 const { getWorkers } = await import(serverModule('domain/workers.js'));
 const { getQuestList } = await import(serverModule('quests.js'));
+const { RUNTIME_PROTOCOL_VERSION, MIN_PYTHON_SDK_VERSION } = await import(serverModule('runtimeProtocol.js'));
 const { getQuestState } = await import(serverModule('domain/questState.js'));
 const { setQuestStatus } = await import(serverModule('domain/questState.js'));
 const { server, port } = await startServer({ port: 0, dataDir: testDir });
@@ -91,7 +92,8 @@ try {
   assert.equal(disconnectedSetupQuest?.objectives[0].current, 0, 'disconnected Dev Setup must remain at 0/1');
   assert.equal(disconnectedSetupQuest?.status, 'available', 'disconnected Dev Setup must remain incomplete');
   const runtimeRegistration = await request('/api/runtime/register', codeServerToken, 'POST', {
-    protocolVersion: 2,
+    protocolVersion: RUNTIME_PROTOCOL_VERSION,
+    sdkVersion: MIN_PYTHON_SDK_VERSION,
     sessionId: 'runtime-fence-quest-session',
     classes: [workerClass],
   });

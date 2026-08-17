@@ -22,13 +22,21 @@ import {
   registerWorkerClass,
   type WorkerClassEntry,
 } from '../workerRegistry.js';
+import { RUNTIME_PROTOCOL_VERSION, isSupportedSdkVersion, sdkOutdatedMessage } from '../runtimeProtocol.js';
 
 export const runtimeRoutes = Router();
 
 runtimeRoutes.post('/runtime/register', (req: Request, res: Response) => {
   const uid = getUserId(req);
-  const { protocolVersion, sessionId, classes } = req.body || {};
-  if (protocolVersion !== 2) return res.status(400).json({ error: 'protocolVersion 2 required' });
+  const { protocolVersion, sdkVersion, sessionId, classes } = req.body || {};
+  // Both halves of the gate answer with the same actionable sentence: a runtime
+  // that cannot name a supported protocol has no way to read what it would be
+  // sent, so it is refused before a lease exists rather than after a command
+  // it cannot parse has already been blamed on the player's code.
+  if (protocolVersion !== RUNTIME_PROTOCOL_VERSION || !isSupportedSdkVersion(sdkVersion))
+    return res
+      .status(426)
+      .json({ ok: false, reason: 'sdk_outdated', error: sdkOutdatedMessage(sdkVersion, protocolVersion) });
   const lease = claimCodeServerLease(sessionId, uid);
   if (!lease.ok) return res.status(409).json({ ok: false, reason: lease.reason });
 
@@ -107,8 +115,8 @@ runtimeRoutes.post('/runtime/disconnect', (req: Request, res: Response) => {
   const released = releaseCodeServerLease(req.body?.sessionId, uid);
   if (!released) return res.status(409).json({ ok: false, reason: 'stale_execution' });
 
-  // SDK 1.2.3 shuts down through this leased endpoint. Reconcile only for a
-  // matching session whose lease has not expired.
+  // Every SDK that can hold a lease shuts down through this endpoint, so it is
+  // ungated by version — only a matching, unexpired session may reconcile.
   resetAllWorkers(uid);
   setStat('code_server_connected', 0, uid);
   checkQuests(uid);

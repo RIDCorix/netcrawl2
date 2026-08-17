@@ -19,6 +19,14 @@ from typing import Type
 from netcrawl.base import WorkerClass
 from netcrawl.client import http_post, http_get
 from netcrawl.daemon.spawner import spawn_worker, kill_worker, list_active
+from netcrawl.version import __version__, PROTOCOL_VERSION
+
+
+class OutdatedRuntimeError(RuntimeError):
+    """The server refused this SDK; only upgrading it can clear the refusal.
+
+    Carries the server's own sentence, which names the command that fixes it.
+    """
 
 
 @dataclass(frozen=True)
@@ -81,10 +89,14 @@ class NetCrawl:
             schema["language"] = "python"
             classes.append(schema)
 
-        result = self._post("/api/runtime/register", {"protocolVersion": 2, "sessionId": self._session_id, "classes": classes, "activeExecutions": list_active()})
+        result = self._post("/api/runtime/register", {"protocolVersion": PROTOCOL_VERSION, "sdkVersion": __version__, "sessionId": self._session_id, "classes": classes, "activeExecutions": list_active()})
         if result.get("ok"):
             self._session_id = result.get("sessionId", self._session_id)
             print(f"[NetCrawl] Registered {result.get('registered', 0)} worker classes")
+        elif result.get("reason") == "sdk_outdated":
+            # Retrying cannot help and polling on would only collect commands
+            # this build cannot read, so this ends the run rather than repeating.
+            raise OutdatedRuntimeError(result.get("error") or "This netcrawl-sdk is too old for the server.")
         else:
             print(f"[NetCrawl] Registration failed: {result.get('error')}")
 
@@ -93,10 +105,22 @@ class NetCrawl:
         try:
             result = self._get(f"/api/runtime/commands?sessionId={self._session_id}")
             for req in result.get("commands", []):
-                if req.get("type") == "compute_lab_run":
+                command_type = req.get("type")
+                if command_type == "compute_lab_run":
                     self._handle_compute_lab_run(req)
-                else:
+                elif command_type in (None, "start"):
                     self._handle_deploy(req)
+                else:
+                    # A shape this build has no branch for is a protocol gap, not
+                    # a fault in the player's code. Guessing at it is how an empty
+                    # classId once got reported as an unknown worker class.
+                    raise OutdatedRuntimeError(
+                        f"This server sent a '{command_type}' command that netcrawl-sdk {__version__} "
+                        'cannot run. Run "uv sync --upgrade-package netcrawl-sdk" in your workspace, '
+                        "then start the Code Server again."
+                    )
+        except OutdatedRuntimeError:
+            raise
         except Exception as e:
             pass  # Server might be temporarily unreachable
 
@@ -337,7 +361,11 @@ class NetCrawl:
             return
 
         print("[NetCrawl] Game server connected!")
-        self._register_all()
+        try:
+            self._register_all()
+        except OutdatedRuntimeError as outdated:
+            print(f"[NetCrawl] {outdated}")
+            return
         self._init_file_mtimes()
 
         print()
@@ -363,6 +391,11 @@ class NetCrawl:
                 if hot_reload_counter >= 2:
                     hot_reload_counter = 0
                     self._check_hot_reload()
+        except OutdatedRuntimeError as outdated:
+            # Said once, then the run ends. A runtime that cannot read what the
+            # server sends has nothing to gain from another poll.
+            print(f"\n[NetCrawl] {outdated}")
+            self._disconnect()
         except KeyboardInterrupt:
             print("\n[NetCrawl] Shutting down...")
             self._disconnect()

@@ -10,6 +10,15 @@ import { WorkerClass } from './base.js';
 import { spawnWorker, killWorker, listActive } from './daemon/spawner.js';
 import { randomUUID } from 'node:crypto';
 
+/**
+ * The wire protocol this SDK speaks, and the `netcrawl-sdk` release it is
+ * protocol-compatible with. The server gates registration on both, so a runtime
+ * that predates a command shape is refused rather than handed a command it
+ * would take down whatever path it does have.
+ */
+export const RUNTIME_PROTOCOL_VERSION = 3;
+export const RUNTIME_SDK_VERSION = '1.4.1';
+
 type WorkerClassConstructor = typeof WorkerClass & {
   new (
     workerId: string,
@@ -77,7 +86,8 @@ export class NetCrawl {
     }
 
     const result = await this._post('/api/runtime/register', {
-      protocolVersion: 2,
+      protocolVersion: RUNTIME_PROTOCOL_VERSION,
+      sdkVersion: RUNTIME_SDK_VERSION,
       sessionId: this._sessionId,
       classes,
       activeExecutions: listActive(),

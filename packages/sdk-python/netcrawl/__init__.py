@@ -1,3 +1,5 @@
+from netcrawl.version import __version__
+
 from netcrawl.base import WorkerClass
 from netcrawl.network.edge import Edge
 from netcrawl.network.route import Route
@@ -19,6 +21,7 @@ from netcrawl.models import (
 )
 
 __all__ = [
+    "__version__",
     "WorkerClass", "Edge", "Route", "NetCrawl", "Icon",
     "Pickaxe", "Shield", "Beacon", "SensorGadget", "BasicSensor", "AdvancedSensor",
     "CacheService", "ServiceNotReachable",
