@@ -8,7 +8,6 @@
  *   - #4  the skipped branch is shown *in place and dimmed* rather than merely
  *         named by the decision frame's `taken` detail
  *   - #6  RUN to interactive trace within 3s, and no interaction over 200ms
- *   - #12 no more than ~10 frames rendered at once in deep recursion (Stage 4)
  *   - #14 an observer who has not read the source cannot tell which construct
  *         was anticipated — the structural half is checked here and in
  *         ComputeLabTransport.test.tsx; the human half stays human
@@ -174,6 +173,52 @@ for (const [index, locale] of locales.entries())
   for (const key of ['submit_cost', 'cooldown_remaining'])
     assert.ok(translation(locale, `compute_lab.${key}`), `#15: ${localeNames[index]} is missing ${key}`);
 
+// ── R-21 #11 and #12: calls read as calls, and depth is summarised ─────────
+assert.match(screen, /data-testid="compute-lab-call-stack"/, '#12: the call chain is shown, not inferred');
+assert.match(screen, /function CallStack/);
+assert.match(
+  screen,
+  /stack\s*\n?\s*\.slice\(1, -1\)/,
+  '#12: only the outermost and the innermost are listed; the middle is a count',
+);
+assert.match(normalizer, /normalizeCallStack/, 'the call chain fails closed on a malformed shape, like a location');
+assert.match(runner, /MAX_STACK_ENTRIES/, 'the runner chooses how much of the chain to show');
+assert.ok(
+  Number(normalizer.match(/MAX_CALL_STACK_ENTRIES = (\d+)/)[1]) >
+    Number(runner.match(/^MAX_STACK_ENTRIES = (\d+)$/m)[1]),
+  'the transport bound is looser than the presentation cap, so a runner that shows more is unfamiliar, not fatal',
+);
+assert.match(
+  runner,
+  /entries\[-1\]\["count"\] = entries\[-1\]\.get\("count", 1\) \+ 1/,
+  '#12: adjacent identical calls collapse in the runner, so recursion never crosses the wire as a wall',
+);
+assert.match(
+  runner,
+  /def player_code_objects/,
+  '#11: a helper is traced by its own code object, not by a single `solution` identity check',
+);
+
+// ── the sandbox locks, which this file also has to be able to see ──────────
+assert.match(runner, /attribute access is not allowed/);
+assert.match(
+  runner,
+  /isinstance\(node\.func, ast\.Name\)/,
+  'the callee lock still requires a bare name; only *which* names widened',
+);
+assert.match(
+  runner,
+  /is a helper function and cannot be reassigned/,
+  'a `def` name is bound once, which is why calling one adds no reachable value',
+);
+assert.match(runner, /class TraceLimit\(BaseException\)/, 'the event cap is not catchable by player code');
+assert.match(runner, /ALLOWED_EXCEPTIONS/);
+assert.doesNotMatch(
+  runner,
+  /"BaseException"|"SystemExit"|"KeyboardInterrupt"/,
+  'only Exception subclasses are catchable, which is the other half of the uncatchable cap',
+);
+
 // ── "not hardcoded", as a property of each layer ───────────────────────────
 assert.match(
   normalizer,
@@ -233,6 +278,9 @@ const REQUIRED_KEYS = [
   'value.none',
   'outcome_stopped_in',
   'outcome_last_line',
+  'stack.title',
+  'stack.more',
+  'stack.repeat',
 ];
 for (const key of REQUIRED_KEYS)
   for (const [index, locale] of locales.entries())

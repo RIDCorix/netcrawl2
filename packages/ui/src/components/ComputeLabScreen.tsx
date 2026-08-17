@@ -112,6 +112,41 @@ function formatDetail(t: ReturnType<typeof useT>, value: unknown) {
   return typeof value === 'string' ? word(t, 'value', value, value) : JSON.stringify(value);
 }
 
+/**
+ * Where in its own calls the run currently is.
+ *
+ * R-21 #12: the outermost and the innermost are both visible at once, and the
+ * middle is a count rather than a list — so recursion 400 deep reads in two
+ * lines instead of scrolling past four hundred identical ones. Rendered only
+ * when the runner sent a chain, and keyed on nothing but the entry's own shape,
+ * so it is not a rendering rule per construct.
+ */
+function CallStack({ stack, t }: { stack: NonNullable<TraceFrame['stack']>; t: ReturnType<typeof useT> }) {
+  const between = stack
+    .slice(1, -1)
+    .reduce((total, entry) => total + ('hidden' in entry ? entry.hidden : (entry.count ?? 1)), 0);
+  const label = (entry: NonNullable<TraceFrame['stack']>[number]) =>
+    'hidden' in entry
+      ? t('compute_lab.stack.more', { count: entry.hidden })
+      : entry.count && entry.count > 1
+        ? `${entry.source} ${t('compute_lab.stack.repeat', { count: entry.count })}`
+        : entry.source;
+  return (
+    <div data-testid="compute-lab-call-stack" style={{ color: 'var(--text-muted)', margin: '6px 0' }}>
+      <small>{t('compute_lab.stack.title')}</small>
+      <div>
+        <code>{label(stack[0])}</code>
+      </div>
+      {between > 0 && <div>{t('compute_lab.stack.more', { count: between })}</div>}
+      {stack.length > 1 && (
+        <div>
+          <code>{label(stack[stack.length - 1])}</code>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** The whole trace. One card, every construct, anticipated or not. */
 function StepCard(props: StepCardProps) {
   const { frame, t } = props;
@@ -122,6 +157,7 @@ function StepCard(props: StepCardProps) {
         {word(t, 'step', frame.kind, t('compute_lab.step.unknown'))}
         {frame.source === undefined ? '' : ` ${frame.source}`}
       </strong>
+      {frame.stack && frame.stack.length > 0 && <CallStack stack={frame.stack} t={t} />}
       <StepSource {...props} />
       {Object.prototype.hasOwnProperty.call(frame, 'value') && (
         <div>

@@ -234,7 +234,9 @@ assert.equal(
 
 // R-21 #1: a finished run opens on the frame the player came for — the return —
 // not on step 1, and says in words that it finished.
-assert.match(text(renderer!.toJSON()), /Ended at/);
+// `result` is now a call returning, not only the program ending: a helper's
+// return uses the same word, so it must read correctly at any depth.
+assert.match(text(renderer!.toJSON()), /Came back with/);
 assert.match(text(renderer!.toJSON()), /return 合計/);
 assert.match(text(renderer!.toJSON()), /Your program finished and returned a value/);
 assert.match(text(renderer!.toJSON()), /Check the returned value/);
@@ -295,7 +297,7 @@ for (const parserWord of ['BinOp', 'BoolOp', 'Compare', 'Subscript', 'node_type'
 }
 
 await showFrame(5);
-assert.match(text(renderer!.toJSON()), /Ended at return 合計/);
+assert.match(text(renderer!.toJSON()), /Came back with return 合計/);
 assert.match(text(renderer!.toJSON()), /→ 7/);
 await act(async () => {
   renderer!.root
