@@ -40,6 +40,26 @@ ADD_STARTER = """class ProblemSolver:
 """
 
 
+def _divided_by_zero() -> str:
+    """What this interpreter calls `x // 0`, read rather than hardcoded.
+
+    CPython 3.14 reworded it to match `/`; 3.12 and 3.13 say "integer division or
+    modulo by zero". The tests using this are about which frames carry the error
+    and where they sit, not about how CPython words it — and pinning the 3.14
+    wording is exactly what made this suite green on a developer's interpreter
+    and red on the one `uv` picks in CI. `requires-python` is `>=3.10` with no
+    upper bound, so "the version that runs this" is not a fixed thing.
+    """
+    try:
+        1 // 0
+    except ZeroDivisionError as exc:
+        return str(exc)
+    raise AssertionError("1 // 0 must raise ZeroDivisionError")
+
+
+DIVIDED_BY_ZERO = _divided_by_zero()
+
+
 def run(source, params={"a": 2, "b": 3}, names=["a", "b"], max_events=300):
     return execute({"source": source, "params": params, "parameterNames": names, "limits": {"maxEvents": max_events}})
 
@@ -491,7 +511,7 @@ def test_an_error_inside_a_helper_reports_every_frame_it_left():
     assert result["status"] == "runtime"
     unwound = [frame for frame in result["frames"] if frame["kind"] == "unwind"]
     assert [frame["source"] for frame in unwound] == ["return x // 0", "return boom(a)"]
-    assert all(frame["detail"]["error"] == "division by zero" for frame in unwound)
+    assert all(frame["detail"]["error"] == DIVIDED_BY_ZERO for frame in unwound)
     assert "result" not in kinds(result), "a program that broke never reports a return"
 
 
@@ -686,7 +706,7 @@ def test_finally_releases_visibly_on_both_paths_and_in_the_same_position():
         assert result["frames"][index]["source"] == "try:"
         assert result["frames"][index - 1]["source"] == "b = 0"
     assert "detail" not in finished["frames"][closing[0]]
-    assert broke["frames"][closing[1]]["detail"] == {"error": "division by zero"}
+    assert broke["frames"][closing[1]]["detail"] == {"error": DIVIDED_BY_ZERO}
     assert kinds(broke)[-1] == "unwind", "a run a `finally` cleaned up after still broke"
     assert broke["frames"][-1]["source"] == "total = a // 0", "and it broke where it broke"
     assert broke["error"]["line"] == finished["frames"][3]["location"]["lineno"]
