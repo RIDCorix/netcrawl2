@@ -100,30 +100,67 @@ class NetCrawl:
         except Exception as e:
             pass  # Server might be temporarily unreachable
 
+    @staticmethod
+    def _read_trace_stream(stdout) -> tuple[list[dict], dict | None]:
+        """Split the runner's line-delimited output into frames and its result.
+
+        A run killed on the wall clock leaves a truncated stream, so incomplete
+        or unparseable trailing lines are skipped rather than failing the read —
+        the frames before them are exactly what the player is owed.
+        """
+        if isinstance(stdout, bytes):
+            stdout = stdout.decode("utf-8", errors="replace")
+        frames: list[dict] = []
+        result: dict | None = None
+        for line in (stdout or "").splitlines():
+            try:
+                record = json.loads(line)
+            except ValueError:
+                continue
+            if "frame" in record:
+                frames.append(record["frame"])
+            elif "result" in record:
+                result = record["result"]
+        return frames, result
+
+    def _publish_compute_lab_frames(self, run_id: str, frames: list[dict]) -> None:
+        for frame in frames:
+            self._post(f"/api/runtime/compute-lab-runs/{run_id}/events", {"sessionId": self._session_id, "frame": frame})
+
     def _handle_compute_lab_run(self, command: dict) -> None:
         """Execute a Lab script in an isolated child and report ordered trace frames."""
         command_id = command["id"]
         run_id = command["runId"]
+        published = 0
         try:
             self._post(f"/api/runtime/commands/{command_id}/ack", {"sessionId": self._session_id, "generation": 0})
             payload = json.dumps({"source": command["source"], "params": command.get("params", {}), "parameterNames": command.get("parameterNames", []), "limits": command.get("limits", {})})
-            with tempfile.TemporaryDirectory(prefix="netcrawl-lab-") as cwd:
-                result = subprocess.run(
-                    [sys.executable, "-m", "netcrawl.compute_lab_runner"], input=payload, text=True, capture_output=True,
-                    cwd=cwd, env={"PATH": os.environ.get("PATH", ""), "PYTHONPATH": os.pathsep.join(p for p in sys.path if p)},
-                    timeout=max(1, command.get("limits", {}).get("timeoutMs", 2000) / 1000),
-                )
-            output = json.loads(result.stdout)
-            for frame in output.get("frames", []):
-                self._post(f"/api/runtime/compute-lab-runs/{run_id}/events", {"sessionId": self._session_id, "frame": frame})
+            try:
+                with tempfile.TemporaryDirectory(prefix="netcrawl-lab-") as cwd:
+                    completed = subprocess.run(
+                        [sys.executable, "-m", "netcrawl.compute_lab_runner"], input=payload, text=True, capture_output=True,
+                        cwd=cwd, env={"PATH": os.environ.get("PATH", ""), "PYTHONPATH": os.pathsep.join(p for p in sys.path if p)},
+                        timeout=max(1, command.get("limits", {}).get("timeoutMs", 2000) / 1000),
+                    )
+            except subprocess.TimeoutExpired as expired:
+                # The child is gone; whatever it already reported is everything
+                # the player will ever get about this run. Deliver it, so a slow
+                # program explains itself instead of arriving as a blank panel.
+                frames, _ = self._read_trace_stream(expired.stdout)
+                self._publish_compute_lab_frames(run_id, frames)
+                self._post(f"/api/runtime/compute-lab-runs/{run_id}/complete", {"sessionId": self._session_id, "status": "timeout"})
+                return
+            frames, output = self._read_trace_stream(completed.stdout)
+            if output is None:
+                raise RuntimeError(completed.stderr.strip().splitlines()[-1] if completed.stderr.strip() else "the Compute Lab runner produced no result")
+            self._publish_compute_lab_frames(run_id, frames)
+            published = len(frames)
             body = {"sessionId": self._session_id, "status": output["status"], "returnValue": output.get("returnValue")}
             if output.get("error"):
-                body["frame"] = {"sequence": len(output.get("frames", [])), "phase": "limit" if output["status"] == "limit" else "error", "line": output["error"].get("line"), "error": output["error"]}
+                body["frame"] = {"sequence": published, "kind": "limit" if output["status"] == "limit" else "error", "line": output["error"].get("line"), "error": output["error"]}
             self._post(f"/api/runtime/compute-lab-runs/{run_id}/complete", body)
-        except subprocess.TimeoutExpired:
-            self._post(f"/api/runtime/compute-lab-runs/{run_id}/complete", {"sessionId": self._session_id, "status": "timeout"})
         except Exception as exc:
-            self._post(f"/api/runtime/compute-lab-runs/{run_id}/complete", {"sessionId": self._session_id, "status": "runtime", "frame": {"sequence": 0, "phase": "error", "error": {"message": str(exc), "kind": "runtime"}}})
+            self._post(f"/api/runtime/compute-lab-runs/{run_id}/complete", {"sessionId": self._session_id, "status": "runtime", "frame": {"sequence": published, "kind": "error", "error": {"message": str(exc), "kind": "runtime"}}})
 
     def _handle_deploy(self, deploy_req: dict) -> None:
         """Spawn a worker subprocess for a deploy request."""

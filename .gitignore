@@ -24,6 +24,12 @@ packages/docs/.astro/
 # Local player workspace (clone Starscribers/netcrawl-workspace to start)
 workspace/
 
+# Build output the test aliases produce
+packages/server/.test-dist/
+packages/sdk-python/uv.lock
+packages/sdk-python/build/
+packages/sdk-python/*.egg-info/
+
 .creative-mode/
 
 # Vercel

@@ -15,7 +15,7 @@ const { startServer } = await import('../packages/server/.test-dist/index.js');
 const { getGameState, saveGameState } = await import('../packages/server/.test-dist/domain/gameState.js');
 const { claimCodeServerLease, releaseCodeServerLease } =
   await import('../packages/server/.test-dist/codeServerTracker.js');
-const { acceptComputeLabFrame, createComputeLabRun, normalizeComputeLabFrame } =
+const { TRACE_LIMITS, acceptComputeLabFrame, createComputeLabRun, normalizeComputeLabFrame } =
   await import('../packages/server/.test-dist/computeLab.js');
 const { registerWorkerClass } = await import('../packages/server/.test-dist/workerRegistry.js');
 const { setQuestStatus } = await import('../packages/server/.test-dist/domain/questState.js');
@@ -45,23 +45,54 @@ assert.equal(contractRun.status, 'runtime', 'an unsupported legacy frame termina
 assert.deepEqual(contractRun.frames, [
   {
     sequence: 0,
-    phase: 'error',
+    kind: 'error',
     error: { message: 'Unsupported trace frame received', kind: 'invalid_trace_frame' },
   },
 ]);
-assert.equal(
-  normalizeComputeLabFrame({
+
+// The normalizer's one job: fail closed on a malformed shape, stay open to an
+// unfamiliar step. A construct nobody wrote a rule for must reach the player.
+const located = { lineno: 1, col_offset: 0, end_lineno: 1, end_col_offset: 8 };
+for (const [reason, malformed] of [
+  ['a step must say what it did', { sequence: 0, source: 'x' }],
+  ['a range with no segment cannot be shown', { sequence: 0, kind: 'value', location: located }],
+  ['a segment with no range cannot be highlighted', { sequence: 0, kind: 'value', source: 'x' }],
+  ['an inverted range is not a range', {
     sequence: 0,
-    phase: 'control',
-    control: {
-      node_type: 'While',
-      location: { lineno: 1, col_offset: 0, end_lineno: 1, end_col_offset: 8 },
-      event: 'test',
-    },
-  }),
-  undefined,
-  'each control event requires its discriminated payload',
-);
+    kind: 'value',
+    source: 'x',
+    location: { lineno: 3, col_offset: 4, end_lineno: 1, end_col_offset: 0 },
+  }],
+  ['only a terminal step carries an error', { sequence: 0, kind: 'value', error: { message: 'no' } }],
+  ['an unknown property is a protocol change, not a new construct', {
+    sequence: 0,
+    kind: 'value',
+    phase: 'eval',
+  }],
+])
+  assert.equal(normalizeComputeLabFrame(malformed), undefined, reason);
+const unfamiliar = normalizeComputeLabFrame({
+  sequence: 0,
+  kind: 'transacted',
+  line: 1,
+  source: 'x',
+  location: located,
+  detail: { ledger: 'unfamiliar' },
+  value: 7,
+});
+assert.equal(unfamiliar?.kind, 'transacted', 'a step this build has never heard of is accepted, not fatal');
+assert.deepEqual(unfamiliar?.detail, { ledger: 'unfamiliar' });
+
+// TRACE_LIMITS.maxValueBytes was declared and never enforced. An oversized open
+// payload is truncated rather than costing the player the whole run.
+const oversized = normalizeComputeLabFrame({
+  sequence: 0,
+  kind: 'value',
+  source: 'x',
+  location: located,
+  value: 'y'.repeat(TRACE_LIMITS.maxValueBytes + 1),
+});
+assert.deepEqual(oversized?.value, { truncated: true, reason: 'max_bytes' });
 const routeContractRun = createComputeLabRun({
   nodeId: 'contract-node',
   taskId: 'contract-task',
@@ -90,7 +121,7 @@ const createRouteContractRun = revision =>
 const terminalEventRun = createRouteContractRun(9);
 const terminalEventResponse = await request(`/runtime/compute-lab-runs/${terminalEventRun.id}/events`, {
   sessionId: 'contract-session',
-  frame: { sequence: 0, phase: 'error', error: { message: 'runner error' } },
+  frame: { sequence: 0, kind: 'error', error: { message: 'runner error' } },
 });
 assert.equal(terminalEventResponse.status, 400);
 assert.equal(terminalEventResponse.body.reason, 'invalid_trace_frame');
@@ -103,7 +134,7 @@ const inconsistentCompletionResponse = await request(
   {
     sessionId: 'contract-session',
     status: 'trace_ready',
-    frame: { sequence: 0, phase: 'error', error: { message: 'runner error' } },
+    frame: { sequence: 0, kind: 'error', error: { message: 'runner error' } },
   },
 );
 assert.equal(inconsistentCompletionResponse.status, 400);
@@ -113,17 +144,17 @@ assert.equal(inconsistentCompletionRun.frames.at(-1).error.kind, 'invalid_trace_
 
 const incompatibleCompletions = [
   { status: 'syntax' },
-  { status: 'runtime', phase: 'limit' },
-  { status: 'limit', phase: 'error' },
-  { status: 'timeout', phase: 'error' },
+  { status: 'runtime', kind: 'limit' },
+  { status: 'limit', kind: 'error' },
+  { status: 'timeout', kind: 'error' },
 ];
 for (const [index, completion] of incompatibleCompletions.entries()) {
   const run = createRouteContractRun(11 + index);
   const response = await request(`/runtime/compute-lab-runs/${run.id}/complete`, {
     sessionId: 'contract-session',
     status: completion.status,
-    ...(completion.phase
-      ? { frame: { sequence: 0, phase: completion.phase, error: { message: 'incompatible marker' } } }
+    ...(completion.kind
+      ? { frame: { sequence: 0, kind: completion.kind, error: { message: 'incompatible marker' } } }
       : {}),
   });
   assert.equal(response.status, 400);
@@ -134,9 +165,9 @@ for (const [index, completion] of incompatibleCompletions.entries()) {
 
 const legalCompletions = [
   { status: 'trace_ready' },
-  { status: 'syntax', phase: 'error' },
-  { status: 'runtime', phase: 'error' },
-  { status: 'limit', phase: 'limit' },
+  { status: 'syntax', kind: 'error' },
+  { status: 'runtime', kind: 'error' },
+  { status: 'limit', kind: 'limit' },
   { status: 'timeout' },
 ];
 for (const [index, completion] of legalCompletions.entries()) {
@@ -144,13 +175,13 @@ for (const [index, completion] of legalCompletions.entries()) {
   const response = await request(`/runtime/compute-lab-runs/${run.id}/complete`, {
     sessionId: 'contract-session',
     status: completion.status,
-    ...(completion.phase
-      ? { frame: { sequence: 0, phase: completion.phase, error: { message: `${completion.status} marker` } } }
+    ...(completion.kind
+      ? { frame: { sequence: 0, kind: completion.kind, error: { message: `${completion.status} marker` } } }
       : {}),
   });
   assert.equal(response.status, 200, JSON.stringify(response.body));
   assert.equal(run.status, completion.status);
-  assert.equal(run.frames.at(-1)?.phase, completion.phase);
+  assert.equal(run.frames.at(-1)?.kind, completion.kind);
 }
 assert.equal(releaseCodeServerLease('contract-session'), true);
 
@@ -241,18 +272,33 @@ try {
   }
   assert.equal(snapshot.body.run.status, 'trace_ready', JSON.stringify(snapshot.body));
   const frames = snapshot.body.run.frames;
-  assert.ok(frames.filter(frame => frame.phase === 'line').length >= 3, 'loop must emit line frames');
-  assert.ok(
-    frames.some(frame => frame.phase === 'eval'),
-    'loop must emit an eval frame',
+  // Every step is Located, Named and Valued against a real end-to-end run, and
+  // each construct in the shipped starter is identified by the player's own
+  // source rather than by the class that produced it (R-21 #2, #3, #13).
+  const sourcesOf = kind => frames.filter(frame => frame.kind === kind).map(frame => frame.source);
+  assert.ok(sourcesOf('value').includes('total + value'), 'expressions report their own source');
+  assert.ok(sourcesOf('binding').includes('index = 0'), 'a constant assignment is a step of its own');
+  assert.ok(sourcesOf('block_enter').includes('for value in nums'));
+  assert.ok(sourcesOf('repetition').includes('for value in nums'));
+  assert.ok(sourcesOf('decision').includes('if value > 0'));
+  assert.ok(sourcesOf('block_exit').includes('while index < len(nums) and nums[index] >= 0'));
+  assert.deepEqual(sourcesOf('result'), ['return total'], 'the run lands on the return it produced');
+  const iterations = frames
+    .filter(frame => frame.kind === 'repetition' && frame.source === 'for value in nums')
+    .map(frame => [frame.detail.iteration, frame.detail.bindings.value]);
+  assert.deepEqual(
+    iterations,
+    [
+      [1, task.body.params.a],
+      [2, task.body.params.b],
+    ],
+    '#2: how many times the body ran, and what value held on each of those iterations',
   );
-  assert.ok(frames.some(frame => frame.phase === 'control' && frame.control?.node_type === 'For'));
-  assert.ok(frames.some(frame => frame.phase === 'control' && frame.control?.node_type === 'While'));
-  assert.ok(frames.some(frame => frame.phase === 'control' && frame.control?.node_type === 'If'));
-  assert.ok(
-    frames.some(frame => frame.phase === 'return'),
-    'loop must emit a return frame',
-  );
+  for (const frame of frames) {
+    assert.equal('node_type' in frame, false, '#3: no AST class name crosses the wire');
+    assert.ok(frame.source === undefined || source.includes(frame.source), 'a label is the player\'s own source');
+  }
+  assert.ok(frames.length < 100, `the shipped starter stays readable (${frames.length} steps)`);
   assert.equal(frames[0].sequence, 0, 'replay starts at the first frame');
   assert.equal(frames.at(-1).sequence, frames.length - 1, 'replay can select the terminal frame');
   assert.equal(snapshot.body.run.returnValue, task.body.params.a + task.body.params.b);
@@ -290,7 +336,12 @@ try {
   const limited = await waitForTerminal(loop.body.runId);
   assert.equal(limited.status, 'limit');
   assert.equal(limited.frames.length, 1201, 'the terminal limit marker follows 1,200 execution events');
-  assert.equal(limited.frames.at(-1).phase, 'limit');
+  assert.equal(limited.frames.at(-1).kind, 'limit');
+  // #7/#8: a stopped run can name the loop it was in and how far it got, so the
+  // screen can say "we stopped watching" rather than implying the loop ended.
+  const stoppedIn = limited.frames.filter(frame => frame.kind === 'repetition').at(-1);
+  assert.equal(stoppedIn.source, 'for i in range(1000)');
+  assert.ok(stoppedIn.detail.iteration > 300, `only ${stoppedIn.detail.iteration} iterations were observed`);
 
   const submission = await request('/compute-lab/submissions', { taskId: task.body.taskId, runId: started.body.runId });
   assert.equal(submission.status, 200);

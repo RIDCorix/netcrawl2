@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { type ComputeLabRunSnapshot, useGameStore } from '../store/gameStore';
 import { apiFetch } from '../lib/api';
 import { useT } from '../hooks/useT';
@@ -11,20 +11,22 @@ type Task = {
   difficulty: string;
   functionSignature: string;
   starterSource: string;
+  cost?: { cooldownSeconds: number; reward: number; rewardType: string };
 };
 type SubmissionSuccess = {
   nodeSolveCount: number;
   quest: { current: number; target: number; completed: boolean };
 };
-type TraceExpression = Extract<Run['frames'][number], { phase: 'eval' }>['expression'];
-type ExpressionCardProps = {
-  expression: TraceExpression;
+type TraceFrame = Run['frames'][number];
+type SourceLocation = NonNullable<TraceFrame['location']>;
+type StepCardProps = {
+  frame: TraceFrame;
   source: string;
   stale: boolean;
   t: ReturnType<typeof useT>;
 };
 
-function sourceExcerpt(source: string, location: TraceExpression['location']) {
+function sourceExcerpt(source: string, location: SourceLocation) {
   const lines = source.split('\n');
   const startLine = lines[location.lineno - 1];
   const endLine = lines[location.end_lineno - 1];
@@ -64,13 +66,14 @@ function sourceExcerpt(source: string, location: TraceExpression['location']) {
   };
 }
 
-function ExpressionSource({ expression, source, stale, t }: ExpressionCardProps) {
-  const excerpt = stale ? null : sourceExcerpt(source, expression.location);
+function StepSource({ frame, source, stale, t }: StepCardProps) {
+  if (frame.source === undefined || frame.location === undefined) return null;
+  const excerpt = stale ? null : sourceExcerpt(source, frame.location);
   if (stale)
     return (
       <div>
         <small>{t('compute_lab.old_trace')}</small>
-        <pre style={{ whiteSpace: 'pre-wrap' }}>{expression.source}</pre>
+        <pre style={{ whiteSpace: 'pre-wrap' }}>{frame.source}</pre>
       </div>
     );
   return excerpt ? (
@@ -80,52 +83,104 @@ function ExpressionSource({ expression, source, stale, t }: ExpressionCardProps)
       {excerpt.after}
     </pre>
   ) : (
-    <pre style={{ whiteSpace: 'pre-wrap' }}>{expression.source}</pre>
+    <pre style={{ whiteSpace: 'pre-wrap' }}>{frame.source}</pre>
   );
 }
 
-function RegisteredExpressionCard(props: ExpressionCardProps) {
+/**
+ * Translate a semantic word, and say so plainly when there is no translation.
+ *
+ * This is the only place the screen knows any vocabulary at all. Delete every
+ * entry behind it and each card still renders the same structure with the same
+ * source, values and locals — only the words get less specific. That property,
+ * not a longer table, is what makes a construct nobody anticipated look exactly
+ * like one that was.
+ */
+function word(t: ReturnType<typeof useT>, namespace: string, name: string, fallback: string) {
+  const key = `compute_lab.${namespace}.${name}`;
+  const translated = t(key);
+  return translated === key ? fallback : translated;
+}
+
+/**
+ * Detail values are the runner's data, so a bare one reads as the runner's word:
+ * "Went to none" rather than "Went to neither part". Strings pass through the
+ * same translate-or-show-plainly rule as every other word on this card, so an
+ * unfamiliar one is still shown rather than dropped.
+ */
+function formatDetail(t: ReturnType<typeof useT>, value: unknown) {
+  return typeof value === 'string' ? word(t, 'value', value, value) : JSON.stringify(value);
+}
+
+/** The whole trace. One card, every construct, anticipated or not. */
+function StepCard(props: StepCardProps) {
+  const { frame, t } = props;
+  const detail = Object.entries(frame.detail || {});
   return (
-    <div style={{ border: '1px solid var(--accent)', padding: 10, marginTop: 10 }}>
+    <div data-testid="compute-lab-step" style={{ border: '1px solid var(--accent)', padding: 10, marginTop: 10 }}>
       <strong>
-        {props.t('compute_lab.expression')} · {props.expression.node_type}
+        {word(t, 'step', frame.kind, t('compute_lab.step.unknown'))}
+        {frame.source === undefined ? '' : ` ${frame.source}`}
       </strong>
-      <ExpressionSource {...props} />
-      <code>→ {JSON.stringify(props.expression.value)}</code>
+      <StepSource {...props} />
+      {Object.prototype.hasOwnProperty.call(frame, 'value') && (
+        <div>
+          <code>→ {typeof frame.value === 'string' ? frame.value : JSON.stringify(frame.value)}</code>
+        </div>
+      )}
+      {detail.length > 0 && (
+        <dl style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '2px 10px', margin: '8px 0 0' }}>
+          {detail.map(([name, value]) => (
+            <Fragment key={name}>
+              <dt style={{ color: 'var(--text-muted)' }}>{word(t, 'detail', name, name)}</dt>
+              <dd style={{ margin: 0 }}>
+                <code>{formatDetail(t, value)}</code>
+              </dd>
+            </Fragment>
+          ))}
+        </dl>
+      )}
     </div>
   );
 }
 
-function GenericExpressionCard(props: ExpressionCardProps) {
-  const { expression, t } = props;
-  const location = expression.location;
-  return (
-    <div
-      data-testid="compute-lab-generic-expression"
-      style={{ border: '1px dashed var(--accent)', padding: 10, marginTop: 10 }}
-    >
-      <strong>
-        {t('compute_lab.expression_fallback')} · {expression.node_type}
-      </strong>
-      <ExpressionSource {...props} />
-      <div>
-        <code>{JSON.stringify(expression.value)}</code>
-      </div>
-      <small>
-        {t('compute_lab.source_location')}: {location.lineno}:{location.col_offset}–{location.end_lineno}:
-        {location.end_col_offset}
-      </small>
-    </div>
-  );
+const TERMINAL_STATUSES = ['trace_ready', 'syntax', 'runtime', 'timeout', 'limit', 'disconnected'] as const;
+
+function lastIndexOfKind(frames: readonly TraceFrame[], kind: string) {
+  for (let index = frames.length - 1; index >= 0; index--) if (frames[index].kind === kind) return index;
+  return -1;
 }
 
-const EXPRESSION_CARD_REGISTRY: Record<string, (props: ExpressionCardProps) => JSX.Element> = {
-  BinOp: RegisteredExpressionCard,
-  BoolOp: RegisteredExpressionCard,
-  Call: RegisteredExpressionCard,
-  Compare: RegisteredExpressionCard,
-  Subscript: RegisteredExpressionCard,
-};
+/**
+ * Where a finished run should open.
+ *
+ * A run that succeeded is about its answer, so it opens on the return. A run
+ * that stopped is about where it stopped — which is the last step that names a
+ * piece of the player's code, not the terminal marker that follows it. The
+ * marker carries only a status message, and the outcome panel above already
+ * says that in words; landing on it would show the player a card with no code
+ * in it at the exact moment they need to see where things went wrong.
+ */
+function landingFrame(frames: readonly TraceFrame[]) {
+  const returned = lastIndexOfKind(frames, 'result');
+  if (returned >= 0) return returned;
+  for (let index = frames.length - 1; index >= 0; index--) if (frames[index].source !== undefined) return index;
+  return Math.max(0, frames.length - 1);
+}
+
+/**
+ * What a stopped run was doing when observation ended.
+ *
+ * R-21 #7: "the loop finished" and "we stopped watching" must be different
+ * sentences, and neither may require the reader to know what 1,200 means.
+ */
+function lastRepetition(frames: readonly TraceFrame[]) {
+  const index = lastIndexOfKind(frames, 'repetition');
+  if (index < 0) return undefined;
+  const frame = frames[index];
+  const iteration = frame.detail?.iteration;
+  return { loop: frame.source || '', iteration: typeof iteration === 'number' ? iteration : 0 };
+}
 
 /** Focused code workspace. Its only visual model is program state, never map geography. */
 export function ComputeLabScreen() {
@@ -152,6 +207,8 @@ export function ComputeLabScreen() {
   const [frameIndex, setFrameIndex] = useState(0);
   const [message, setMessage] = useState<{ key: string; vars?: Record<string, string | number> } | null>(null);
   const [submissionSuccess, setSubmissionSuccess] = useState<SubmissionSuccess | null>(null);
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
   const wasConnected = useRef(connected);
   const run = runId ? (computeLabRuns[runId] as Run | undefined) : undefined;
 
@@ -164,6 +221,9 @@ export function ComputeLabScreen() {
     setTask(null);
     setRunId(null);
     setFrameIndex(0);
+    // A cooldown belongs to the node that started it; carrying it to another
+    // node would disable RUN there for no reason the player can see.
+    setCooldownUntil(0);
     setRevision(Number.isSafeInteger(savedRevision) && savedRevision >= 0 ? savedRevision : 0);
     setDraftNodeId(sourceNode.id);
     setSource(saved ?? '');
@@ -228,9 +288,20 @@ export function ComputeLabScreen() {
   }, [computeLabOpen, closeComputeLab]);
 
   useEffect(() => {
-    if (run && ['syntax', 'runtime', 'limit', 'timeout', 'disconnected'].includes(run.status))
-      setFrameIndex(Math.max(0, run.frames.length - 1));
+    if (run && (TERMINAL_STATUSES as readonly string[]).includes(run.status)) setFrameIndex(landingFrame(run.frames));
   }, [run?.status, run?.frames.length]);
+
+  // A cooldown the player cannot see counting down is indistinguishable from a
+  // button that is broken.
+  useEffect(() => {
+    if (cooldownUntil <= Date.now()) return;
+    const timer = setInterval(() => {
+      const tick = Date.now();
+      setNow(tick);
+      if (tick >= cooldownUntil) clearInterval(timer);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownUntil]);
 
   if (!computeLabOpen) return null;
   const stale = Boolean(
@@ -238,11 +309,9 @@ export function ComputeLabScreen() {
     (!sourceNode || !task || run.nodeId !== sourceNode.id || run.taskId !== task.taskId || run.revision !== revision),
   );
   const frame = run?.frames[frameIndex];
-  const expression = frame?.phase === 'eval' ? frame.expression : undefined;
-  const control = frame?.phase === 'control' ? frame.control : undefined;
-  const returnValue = frame?.phase === 'return' ? frame.value : undefined;
-  const frameError = frame?.phase === 'error' || frame?.phase === 'limit' ? frame.error : undefined;
-  const ExpressionCard = expression ? EXPRESSION_CARD_REGISTRY[expression.node_type] || GenericExpressionCard : null;
+  const frameError = frame?.error;
+  const terminal = run && (TERMINAL_STATUSES as readonly string[]).includes(run.status) ? run.status : undefined;
+  const stoppedAt = terminal === 'limit' || terminal === 'timeout' ? lastRepetition(run?.frames || []) : undefined;
   const updateSource = (value: string) => {
     setSource(value);
     setRevision(current => current + 1);
@@ -276,8 +345,10 @@ export function ComputeLabScreen() {
     setFrameIndex(0);
   };
 
+  const cooldownRemaining = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
   const submit = async () => {
     if (!task || !run || stale) return;
+    if (task.cost) setCooldownUntil(Date.now() + task.cost.cooldownSeconds * 1000);
     const response = await apiFetch('/api/compute-lab/submissions', {
       method: 'POST',
       body: JSON.stringify({ taskId: task.taskId, runId: run.id }),
@@ -361,18 +432,36 @@ export function ComputeLabScreen() {
                 padding: 14,
               }}
             />
+            {task?.cost && (
+              <div data-testid="compute-lab-submit-cost" style={{ color: 'var(--text-muted)' }}>
+                {t('compute_lab.submit_cost', {
+                  cooldown: task.cost.cooldownSeconds,
+                  amount: task.cost.reward,
+                  type: task.cost.rewardType,
+                })}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button onClick={startRun} disabled={!task || !codeServerConnected} style={{ minHeight: 44 }}>
+              <button
+                onClick={startRun}
+                disabled={!task || !codeServerConnected || cooldownRemaining > 0}
+                style={{ minHeight: 44 }}
+              >
                 {t('compute_lab.run')}
               </button>
               <button
                 onClick={submit}
-                disabled={!run || run.status !== 'trace_ready' || stale}
+                disabled={!run || run.status !== 'trace_ready' || stale || cooldownRemaining > 0}
                 style={{ minHeight: 44 }}
               >
                 {t('compute_lab.submit')}
               </button>
             </div>
+            {cooldownRemaining > 0 && (
+              <div role="status" data-testid="compute-lab-cooldown">
+                {t('compute_lab.cooldown_remaining', { seconds: cooldownRemaining })}
+              </div>
+            )}
             {!codeServerConnected && <div role="status">{t('compute_lab.runner_offline')}</div>}
             {message && <div role="status">{t(message.key, message.vars)}</div>}
             {submissionSuccess && (
@@ -394,8 +483,28 @@ export function ComputeLabScreen() {
           >
             <strong>{t('compute_lab.trace')}</strong>
             <div style={{ color: 'var(--text-muted)', margin: '8px 0' }}>
-              {run ? `${run.status} · ${frameIndex + 1}/${run.frames.length}` : t('compute_lab.run_to_trace')}
+              {run
+                ? t('compute_lab.step_position', { current: frameIndex + 1, total: run.frames.length })
+                : t('compute_lab.run_to_trace')}
             </div>
+            {terminal && (
+              <div
+                role="status"
+                data-testid="compute-lab-outcome"
+                style={{ border: '1px solid var(--border-bright)', padding: 10, marginBottom: 12 }}
+              >
+                <strong>{t(`compute_lab.outcome.${terminal}`)}</strong>
+                <div>{t(`compute_lab.outcome_action.${terminal}`)}</div>
+                {stoppedAt && stoppedAt.iteration > 0 && (
+                  <div>
+                    {t('compute_lab.outcome_stopped_in', { loop: stoppedAt.loop, iteration: stoppedAt.iteration })}
+                  </div>
+                )}
+                {terminal !== 'trace_ready' && frame?.line !== undefined && (
+                  <div>{t('compute_lab.outcome_last_line', { line: frame.line })}</div>
+                )}
+              </div>
+            )}
             {stale && (
               <div role="status" data-testid="compute-lab-stale-trace" style={{ marginBottom: 10 }}>
                 {t('compute_lab.old_trace')}
@@ -432,49 +541,7 @@ export function ComputeLabScreen() {
             </div>
             {frame ? (
               <>
-                <div>
-                  <strong>{frame.phase.toUpperCase()}</strong>
-                  {frame.line ? ` · line ${frame.line}` : ''}
-                </div>
-                {expression && ExpressionCard && (
-                  <ExpressionCard expression={expression} source={source} stale={stale} t={t} />
-                )}
-                {control && (
-                  <div style={{ border: '1px solid var(--border-bright)', padding: 10, marginTop: 10 }}>
-                    <strong>
-                      {t('compute_lab.control')} · {control.node_type} ·{' '}
-                      {t(`compute_lab.control_event.${control.event}`)}
-                    </strong>
-                    {control.event === 'iteration' && (
-                      <div>{t('compute_lab.control_detail.iteration', { iteration: control.iteration })}</div>
-                    )}
-                    {control.event === 'test' && (
-                      <div>
-                        {t('compute_lab.control_detail.test')} → {t(`compute_lab.boolean.${String(control.test)}`)}
-                      </div>
-                    )}
-                    {control.event === 'branch' && (
-                      <div>
-                        {t('compute_lab.control_detail.branch')} → {t(`compute_lab.control_branch.${control.branch}`)}
-                      </div>
-                    )}
-                    {control.event === 'iteration' &&
-                      control.targetBindings &&
-                      Object.keys(control.targetBindings).length > 0 && (
-                        <div>
-                          {t('compute_lab.control_detail.bindings')} →{' '}
-                          {Object.entries(control.targetBindings)
-                            .map(([name, value]) => `${name}: ${JSON.stringify(value)}`)
-                            .join(', ')}
-                        </div>
-                      )}
-                  </div>
-                )}
-                {returnValue !== undefined && (
-                  <div>
-                    return: <code>{JSON.stringify(returnValue)}</code>
-                  </div>
-                )}
+                <StepCard frame={frame} source={source} stale={stale} t={t} />
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
                   {Object.entries(frame.locals || {}).map(([name, value]) => (
                     <code
@@ -494,9 +561,6 @@ export function ComputeLabScreen() {
                       ? t('compute_lab.invalid_trace_frame')
                       : frameError.message}
                   </div>
-                )}
-                {run?.status === 'limit' && frame.phase === 'limit' && (
-                  <div role="alert">{t('compute_lab.limit_reached')}</div>
                 )}
               </>
             ) : (

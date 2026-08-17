@@ -1,7 +1,7 @@
 /* global console, process */
 import assert from 'node:assert/strict';
-import { copyFileSync, mkdtempSync, rmSync } from 'node:fs';
-import { spawn } from 'node:child_process';
+import { copyFileSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -34,16 +34,44 @@ function run(command, args, options = {}) {
 
 const failures = [];
 
+/**
+ * Test a real artifact, whichever one is real right now.
+ *
+ * The workspace fixture's lock pins whatever SDK release it was built against,
+ * so in the steady state this exercises the published wheel — the point of the
+ * test. Between a version bump here and its publish there is no such release,
+ * and asserting against one would make every bump a red build until an external
+ * job caught up. In that window, build the wheel this tree produces and test
+ * that instead: it is the artifact about to be published.
+ */
+function installedSdkVersion() {
+  const probe = spawnSync(
+    'uv',
+    ['run', '--frozen', '--project', projectDir, 'python', '-c', 'import importlib.metadata as m; print(m.version("netcrawl-sdk"))'],
+    { encoding: 'utf8' },
+  );
+  return probe.status === 0 ? probe.stdout.trim() : null;
+}
+
 try {
   await run('uv', ['sync', '--frozen', '--project', projectDir]);
-  if (sdkWheel) {
-    await run('uv', ['pip', 'install', '--python', join(projectDir, '.venv'), '--reinstall', sdkWheel]);
+  let wheel = sdkWheel;
+  if (!wheel && installedSdkVersion() !== expectedVersion) {
+    const distDir = resolve('packages/sdk-python/dist');
+    await run('uv', ['build', '--wheel', '--project', 'packages/sdk-python', '-o', distDir]);
+    const built = readdirSync(distDir).find(name => name === `netcrawl_sdk-${expectedVersion}-py3-none-any.whl`);
+    assert.ok(built, `uv build did not produce a ${expectedVersion} wheel`);
+    wheel = join(distDir, built);
+    console.log(`netcrawl-sdk ${expectedVersion} is not published yet; testing the wheel this tree builds`);
+  }
+  if (wheel) {
+    await run('uv', ['pip', 'install', '--python', join(projectDir, '.venv'), '--reinstall', wheel]);
   }
   await run(
     'uv',
     [
       'run',
-      sdkWheel ? '--no-sync' : '--frozen',
+      wheel ? '--no-sync' : '--frozen',
       '--project',
       projectDir,
       'python',

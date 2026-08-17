@@ -58,39 +58,24 @@ export interface ComputeLabSourceLocation {
   end_col_offset: number;
 }
 
-interface ComputeLabFrameBase {
+/**
+ * One execution step. `kind` is what execution did, never a parser class name,
+ * and it is a plain string on purpose: a runner reporting a step this build has
+ * never heard of must still render, or a construct nobody anticipated becomes
+ * invisible to the player instead of merely unlabelled.
+ */
+export interface ComputeLabFrame {
   sequence: number;
+  kind: string;
   line?: number;
+  source?: string;
+  location?: ComputeLabSourceLocation;
   locals?: Record<string, unknown>;
   changed?: string[];
+  detail?: Record<string, unknown>;
+  value?: unknown;
+  error?: { message: string; line?: number; kind?: string };
 }
-
-type ComputeLabControl = {
-  node_type: string;
-  location: ComputeLabSourceLocation;
-} & (
-  | { event: 'enter' | 'exit' }
-  | { event: 'iteration'; iteration: number; target?: string; targetBindings?: Record<string, unknown> }
-  | { event: 'test'; test: boolean }
-  | { event: 'branch'; branch: 'body' | 'else' | 'none' }
-);
-
-export type ComputeLabFrame = ComputeLabFrameBase &
-  (
-    | { phase: 'line' }
-    | {
-        phase: 'eval';
-        expression: {
-          node_type: string;
-          source: string;
-          location: ComputeLabSourceLocation;
-          value: unknown;
-        };
-      }
-    | { phase: 'control'; control: ComputeLabControl }
-    | { phase: 'return'; value: unknown }
-    | { phase: 'error' | 'limit'; error: { message: string; line?: number; kind?: string } }
-  );
 
 export type ComputeLabRunStatus =
   | 'queued'

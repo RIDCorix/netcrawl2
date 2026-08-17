@@ -10,39 +10,43 @@ export type SourceLocation = {
   end_col_offset: number;
 };
 
-type ComputeLabFrameBase = {
+/**
+ * One execution step, as the player is shown it.
+ *
+ * `kind` says what execution *did* — it is never a parser class name, and it is
+ * deliberately typed open. A runner that reports a step this build has never
+ * heard of must still reach the screen Located, Named and Valued, because the
+ * alternative is that a construct nobody anticipated silently kills the run.
+ * What is *not* open is the shape: an unknown property, a malformed location or
+ * an error payload on a non-terminal step still fails the frame closed.
+ */
+export const TERMINAL_FRAME_KINDS = ['error', 'limit'] as const;
+
+export type ComputeLabFrame = {
   sequence: number;
+  kind: string;
   line?: number;
+  source?: string;
+  location?: SourceLocation;
   locals?: Record<string, unknown>;
   changed?: string[];
+  detail?: Record<string, unknown>;
+  value?: unknown;
+  error?: { message: string; line?: number; kind?: string };
 };
 
-type TargetBindings = Record<string, unknown>;
-
-type ComputeLabControl = {
-  node_type: 'For' | 'While' | 'If' | string;
-  location: SourceLocation;
-} & (
-  | { event: 'enter' | 'exit' }
-  | { event: 'iteration'; iteration: number; target?: string; targetBindings?: TargetBindings }
-  | { event: 'test'; test: boolean }
-  | { event: 'branch'; branch: 'body' | 'else' | 'none' }
-);
-
-export type ComputeLabFrame = ComputeLabFrameBase &
-  (
-    | { phase: 'line' }
-    | {
-        phase: 'eval';
-        expression: { node_type: string; source: string; location: SourceLocation; value: unknown };
-      }
-    | {
-        phase: 'control';
-        control: ComputeLabControl;
-      }
-    | { phase: 'return'; value: unknown }
-    | { phase: 'error' | 'limit'; error: { message: string; line?: number; kind?: string } }
-  );
+const FRAME_PROPERTIES = new Set([
+  'sequence',
+  'kind',
+  'line',
+  'source',
+  'location',
+  'locals',
+  'changed',
+  'detail',
+  'value',
+  'error',
+]);
 
 export type ComputeLabRun = {
   id: string;
@@ -89,119 +93,88 @@ function normalizeLocation(value: unknown): SourceLocation | undefined {
   return { lineno, col_offset, end_lineno, end_col_offset };
 }
 
-function normalizeFrameBase(value: Record<string, unknown>): ComputeLabFrameBase | undefined {
+/**
+ * Replace an oversized open payload rather than failing the run.
+ *
+ * `value`, `detail` and `locals` carry whatever the player's own data happens to
+ * be, so their size is not a protocol error and must not cost the player their
+ * whole trace. The runner already bounds depth and width; this bounds bytes,
+ * which is the limit `TRACE_LIMITS.maxValueBytes` has always declared.
+ */
+function withinValueBudget<T>(value: T): T | { truncated: true; reason: 'max_bytes' } {
+  let serialized: string;
+  try {
+    serialized = JSON.stringify(value) ?? '';
+  } catch {
+    return { truncated: true, reason: 'max_bytes' };
+  }
+  return Buffer.byteLength(serialized, 'utf8') <= TRACE_LIMITS.maxValueBytes
+    ? value
+    : { truncated: true, reason: 'max_bytes' };
+}
+
+/** Validate and copy the runner-owned payload before it enters replay state or WebSocket output. */
+export function normalizeComputeLabFrame(value: unknown): ComputeLabFrame | undefined {
+  if (!isRecord(value)) return undefined;
+  if (!Object.keys(value).every(key => FRAME_PROPERTIES.has(key))) return undefined;
   if (!isInteger(value.sequence)) return undefined;
+  if (typeof value.kind !== 'string' || !value.kind) return undefined;
   if (value.line !== undefined && !isInteger(value.line, 1)) return undefined;
   if (value.locals !== undefined && !isRecord(value.locals)) return undefined;
+  if (value.detail !== undefined && !isRecord(value.detail)) return undefined;
   if (
     value.changed !== undefined &&
     (!Array.isArray(value.changed) || !value.changed.every(item => typeof item === 'string'))
   )
     return undefined;
+
+  // A step is Located or it is not; a source segment with no range cannot be
+  // highlighted in the player's editor, and a range with no segment cannot be
+  // shown when the draft has moved on.
+  const location = value.location === undefined ? undefined : normalizeLocation(value.location);
+  if (value.location !== undefined && !location) return undefined;
+  if (typeof value.source !== 'string' && value.source !== undefined) return undefined;
+  if ((value.source === undefined) !== (location === undefined)) return undefined;
+
+  const terminal = (TERMINAL_FRAME_KINDS as readonly string[]).includes(value.kind);
+  if (terminal) {
+    if (!isRecord(value.error) || typeof value.error.message !== 'string') return undefined;
+    const { line, kind } = value.error;
+    if ((line !== undefined && !isInteger(line, 1)) || (kind !== undefined && typeof kind !== 'string'))
+      return undefined;
+  } else if (value.error !== undefined) return undefined;
+
   return {
     sequence: value.sequence,
+    kind: value.kind,
     ...(value.line === undefined ? {} : { line: value.line }),
-    ...(value.locals === undefined ? {} : { locals: value.locals }),
+    ...(location === undefined ? {} : { source: value.source as string, location }),
+    // Per variable, not per snapshot: one oversized list must not blank out every
+    // other value the player was holding at that step.
+    ...(value.locals === undefined
+      ? {}
+      : {
+          locals: Object.fromEntries(
+            Object.entries(value.locals).map(([name, held]) => [name, withinValueBudget(held)]),
+          ),
+        }),
     ...(value.changed === undefined ? {} : { changed: value.changed }),
-  };
-}
-
-/** Validate and copy the runner-owned payload before it enters replay state or WebSocket output. */
-export function normalizeComputeLabFrame(value: unknown): ComputeLabFrame | undefined {
-  if (!isRecord(value) || typeof value.phase !== 'string') return undefined;
-  const base = normalizeFrameBase(value);
-  if (!base) return undefined;
-
-  switch (value.phase) {
-    case 'line':
-      return { ...base, phase: 'line' };
-    case 'eval': {
-      if (!isRecord(value.expression)) return undefined;
-      const { node_type, source, location } = value.expression;
-      const normalizedLocation = normalizeLocation(location);
-      if (typeof node_type !== 'string' || !node_type || typeof source !== 'string' || !normalizedLocation)
-        return undefined;
-      if (!Object.prototype.hasOwnProperty.call(value.expression, 'value')) return undefined;
-      return {
-        ...base,
-        phase: 'eval',
-        expression: { node_type, source, location: normalizedLocation, value: value.expression.value },
-      };
-    }
-    case 'control': {
-      if (!isRecord(value.control)) return undefined;
-      const { node_type, location, event, iteration, test, branch, target, targetBindings } = value.control;
-      const normalizedLocation = normalizeLocation(location);
-      if (typeof node_type !== 'string' || !node_type || !normalizedLocation) return undefined;
-      const details = { node_type, location: normalizedLocation };
-      if (event === 'enter' || event === 'exit') {
-        if ([iteration, test, branch, target, targetBindings].some(item => item !== undefined)) return undefined;
-        return { ...base, phase: 'control', control: { ...details, event } };
-      }
-      if (event === 'iteration') {
-        if (
-          !isInteger(iteration, 1) ||
-          (node_type === 'For' && !isRecord(targetBindings)) ||
-          (node_type !== 'For' && target !== undefined) ||
-          (targetBindings !== undefined && !isRecord(targetBindings)) ||
-          (target !== undefined && typeof target !== 'string') ||
-          test !== undefined ||
-          branch !== undefined
-        )
-          return undefined;
-        return {
-          ...base,
-          phase: 'control',
-          control: {
-            ...details,
-            event,
-            iteration,
-            ...(targetBindings === undefined ? {} : { targetBindings: targetBindings as TargetBindings }),
-            ...(target === undefined ? {} : { target }),
+    ...(value.detail === undefined ? {} : { detail: withinValueBudget(value.detail) as Record<string, unknown> }),
+    ...(Object.prototype.hasOwnProperty.call(value, 'value') ? { value: withinValueBudget(value.value) } : {}),
+    ...(terminal
+      ? {
+          error: {
+            message: (value.error as Record<string, unknown>).message as string,
+            ...((value.error as Record<string, unknown>).line === undefined
+              ? {}
+              : { line: (value.error as Record<string, unknown>).line as number }),
+            ...((value.error as Record<string, unknown>).kind === undefined
+              ? {}
+              : { kind: (value.error as Record<string, unknown>).kind as string }),
           },
-        };
-      }
-      if (event === 'test') {
-        if (typeof test !== 'boolean' || [iteration, branch, target, targetBindings].some(item => item !== undefined))
-          return undefined;
-        return { ...base, phase: 'control', control: { ...details, event, test } };
-      }
-      if (event === 'branch') {
-        if (
-          !['body', 'else', 'none'].includes(String(branch)) ||
-          [iteration, test, target, targetBindings].some(item => item !== undefined)
-        )
-          return undefined;
-        return {
-          ...base,
-          phase: 'control',
-          control: { ...details, event, branch: branch as 'body' | 'else' | 'none' },
-        };
-      }
-      return undefined;
-    }
-    case 'return':
-      if (!Object.prototype.hasOwnProperty.call(value, 'value')) return undefined;
-      return { ...base, phase: 'return', value: value.value };
-    case 'error':
-    case 'limit': {
-      if (!isRecord(value.error) || typeof value.error.message !== 'string') return undefined;
-      const { message, line, kind } = value.error;
-      if ((line !== undefined && !isInteger(line, 1)) || (kind !== undefined && typeof kind !== 'string'))
-        return undefined;
-      return {
-        ...base,
-        phase: value.phase,
-        error: {
-          message,
-          ...(line === undefined ? {} : { line }),
-          ...(kind === undefined ? {} : { kind }),
-        },
-      };
-    }
-    default:
-      return undefined;
-  }
+        }
+      : {}),
+  };
 }
 
 function publish(run: ComputeLabRun) {
@@ -247,7 +220,7 @@ export function getComputeLabRun(runId: string, userId?: string) {
 function rejectInvalidFrame(run: ComputeLabRun): FrameAcceptance {
   run.frames.push({
     sequence: run.frames.length,
-    phase: 'error',
+    kind: 'error',
     error: { message: 'Unsupported trace frame received', kind: 'invalid_trace_frame' },
   });
   run.status = 'runtime';
@@ -262,7 +235,7 @@ export function acceptComputeLabFrame(runId: string, input: unknown, userId?: st
     return { ok: false, reason: 'stale_execution' };
   const frame = normalizeComputeLabFrame(input);
   if (!frame) return rejectInvalidFrame(run);
-  if (frame.phase === 'error' || frame.phase === 'limit') return rejectInvalidFrame(run);
+  if ((TERMINAL_FRAME_KINDS as readonly string[]).includes(frame.kind)) return rejectInvalidFrame(run);
   if (frame.sequence !== run.frames.length) return { ok: false, reason: 'stale_execution' };
   if (run.frames.length >= TRACE_LIMITS.maxEvents) {
     run.status = 'limit';
@@ -287,16 +260,16 @@ export function finishComputeLabRun(
     return { ok: false, reason: 'stale_execution' };
   const frame = result.frame === undefined ? undefined : normalizeComputeLabFrame(result.frame);
   if (result.frame !== undefined && !frame) return rejectInvalidFrame(run);
-  const expectedPhase =
+  const expectedKind =
     result.status === 'syntax' || result.status === 'runtime'
       ? 'error'
       : result.status === 'limit'
         ? 'limit'
         : undefined;
   if (
-    (expectedPhase === undefined && frame !== undefined) ||
-    (expectedPhase !== undefined &&
-      (!frame || frame.sequence !== run.frames.length || frame.phase !== expectedPhase || !('error' in frame)))
+    (expectedKind === undefined && frame !== undefined) ||
+    (expectedKind !== undefined &&
+      (!frame || frame.sequence !== run.frames.length || frame.kind !== expectedKind || !('error' in frame)))
   )
     return rejectInvalidFrame(run);
   if (frame) {

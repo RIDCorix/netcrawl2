@@ -1,6 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { getGameState } from '../domain/gameState.js';
-import { getActiveComputeLabTask, getComputeTask, submitComputeAnswer } from '../actions/computeActions.js';
+import {
+  getActiveComputeLabTask,
+  getComputeLabSubmitCost,
+  getComputeTask,
+  submitComputeAnswer,
+} from '../actions/computeActions.js';
 import { getUserId, sendError } from './helpers.js';
 import { isCodeServerConnected, isValidCodeServerLease } from '../codeServerTracker.js';
 import { enqueueComputeLabRun } from '../workerRegistry.js';
@@ -30,7 +35,8 @@ computeLabRoutes.post('/compute-lab/tasks', async (req: Request, res: Response) 
   const labTask = getActiveComputeLabTask(nodeId, task.taskId, uid);
   if (!labTask) return sendError(res, 409, 'Task expired; get a new task before running', 'invalid_task');
   const { hint: _hint, params: _params, ...publicTask } = task;
-  res.json({ ...publicTask, ...labTask, limits: TRACE_LIMITS });
+  const cost = getComputeLabSubmitCost(node, nodeId, task.taskId, uid);
+  res.json({ ...publicTask, ...labTask, limits: TRACE_LIMITS, ...(cost ? { cost } : {}) });
 });
 
 computeLabRoutes.post('/compute-lab/runs', (req: Request, res: Response) => {

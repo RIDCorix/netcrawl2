@@ -52,6 +52,25 @@ export function getActivePuzzleParams(
   return puzzle?.taskId === taskId ? puzzle.params : undefined;
 }
 
+/**
+ * What pressing SUBMIT costs and pays, by the same rule the submit path applies.
+ *
+ * SUBMIT is the only irreversible button on the screen: it consumes the task and
+ * starts the cooldown whether the answer is right or wrong. The player is
+ * entitled to know that before they press it, not after.
+ */
+export function getComputeLabSubmitCost(node: GameNode, nodeId: string, taskId: string, uid?: string) {
+  const puzzle = activePuzzles.get(puzzleKey(uid, nodeId));
+  if (!puzzle || puzzle.taskId !== taskId) return undefined;
+  const config = DIFFICULTY_CONFIG[(node.data.difficulty || 'easy') as keyof typeof DIFFICULTY_CONFIG];
+  const template = PUZZLE_TEMPLATES.find(candidate => candidate.id === puzzle.templateId);
+  return {
+    cooldownSeconds: Math.round((config?.cooldownMs || 10_000) / 1000),
+    reward: (config?.baseReward || 5) * (template?.rewardMultiplier || 1),
+    rewardType: String(node.data.rewardResource || 'rp'),
+  };
+}
+
 export function getActiveComputeLabTask(nodeId: string, taskId: string, uid?: string) {
   const puzzle = activePuzzles.get(puzzleKey(uid, nodeId));
   if (!puzzle || puzzle.taskId !== taskId) return undefined;

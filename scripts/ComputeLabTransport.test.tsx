@@ -41,7 +41,7 @@ Object.defineProperty(globalThis, 'fetch', {
         difficulty: 'easy',
         functionSignature: 'class ProblemSolver:\n    def solution(self, a, b):',
         starterSource:
-          'class ProblemSolver:\n    def solution(self, a, b):\n        合計 = a + b\n        return (\n            合計 +\n            b\n        )\n',
+          'class ProblemSolver:\n    def solution(self, a, b):\n        合計 = a + b\n        for left, right in [(a, b)]:\n            合計 = (\n                合計 +\n                b\n            )\n        return 合計\n',
       }),
       { status: 200 },
     );
@@ -82,6 +82,49 @@ await act(async () => {
   await Promise.resolve();
 });
 
+function text(node: unknown): string {
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(text).join('');
+  if (node && typeof node === 'object' && 'children' in node) return text((node as { children: unknown }).children);
+  return '';
+}
+
+// R-21 #10: a run that broke opens on the step that broke — the last one naming
+// the player's own code — not on the terminal marker, whose only content is a
+// status message the outcome panel already states in words.
+await act(async () => {
+  applyGameMessage({
+    type: 'COMPUTE_LAB_RUN',
+    payload: {
+      id: 'run-1',
+      nodeId: 'e_op_add',
+      taskId: 'e_op_add-task',
+      revision: 0,
+      status: 'runtime',
+      frames: [
+        {
+          sequence: 0,
+          kind: 'unwind',
+          line: 3,
+          source: '合計 = a + b',
+          location: { lineno: 3, col_offset: 8, end_lineno: 3, end_col_offset: 22 },
+          locals: { a: 3, b: 4 },
+          detail: { error: 'unsupported operand type' },
+        },
+        { sequence: 1, kind: 'error', line: 3, error: { message: 'unsupported operand type', kind: 'TypeError' } },
+      ],
+    },
+  });
+});
+assert.match(text(renderer!.toJSON()), /Your program broke part way through/);
+assert.match(text(renderer!.toJSON()), /Error reached 合計 = a \+ b/);
+assert.match(text(renderer!.toJSON()), /unsupported operand type/);
+assert.doesNotMatch(
+  text(renderer!.toJSON()),
+  /Stopped here/,
+  '#10: the view lands on the failing step, not on the contentless terminal marker',
+);
+
 await act(async () => {
   applyGameMessage({
     type: 'COMPUTE_LAB_RUN',
@@ -93,61 +136,68 @@ await act(async () => {
       status: 'trace_ready',
       returnValue: 7,
       frames: [
-        { sequence: 0, phase: 'line', line: 2, locals: { a: 3 }, changed: ['a'] },
+        {
+          sequence: 0,
+          kind: 'binding',
+          line: 3,
+          source: '合計 = a + b',
+          location: { lineno: 3, col_offset: 8, end_lineno: 3, end_col_offset: 22 },
+          locals: { a: 3 },
+          changed: ['a'],
+          detail: { bindings: { 合計: 7 } },
+        },
         {
           sequence: 1,
-          phase: 'eval',
+          kind: 'value',
           line: 3,
+          source: 'a + b',
+          location: { lineno: 3, col_offset: 17, end_lineno: 3, end_col_offset: 22 },
           locals: { a: 3, b: 4 },
-          expression: {
-            node_type: 'BinOp',
-            source: 'a + b',
-            location: { lineno: 3, col_offset: 17, end_lineno: 3, end_col_offset: 22 },
-            value: 7,
-          },
+          value: 7,
         },
         {
           sequence: 2,
-          phase: 'eval',
-          line: 5,
+          kind: 'value',
+          line: 6,
+          source: '合計 +\n                b',
+          location: { lineno: 6, col_offset: 16, end_lineno: 7, end_col_offset: 17 },
           locals: { a: 3, b: 4, 合計: 7 },
-          expression: {
-            node_type: 'BinOp',
-            source: '合計 +\n            b',
-            location: { lineno: 5, col_offset: 12, end_lineno: 6, end_col_offset: 13 },
-            value: 11,
-          },
+          value: 11,
         },
         {
           sequence: 3,
-          phase: 'control',
-          line: 3,
+          kind: 'repetition',
+          line: 4,
+          source: 'for left, right in [(a, b)]',
+          location: { lineno: 4, col_offset: 8, end_lineno: 4, end_col_offset: 35 },
           locals: { a: 3, b: 4, left: 3, right: 4 },
-          control: {
-            node_type: 'For',
-            event: 'iteration',
-            iteration: 1,
-            target: 'left, right',
-            targetBindings: { left: 3, right: 4 },
-            location: { lineno: 3, col_offset: 8, end_lineno: 3, end_col_offset: 20 },
-          },
+          detail: { iteration: 1, bindings: { left: 3, right: 4 } },
         },
+        // A kind this build has never heard of. It must render through exactly the
+        // same card as every kind above, or a construct nobody anticipated becomes
+        // invisible instead of merely unlabelled.
         {
           sequence: 4,
-          phase: 'eval',
+          kind: 'transacted',
           line: 3,
+          source: 'a + b',
+          location: { lineno: 3, col_offset: 17, end_lineno: 3, end_col_offset: 22 },
           locals: { a: 3, b: 4 },
-          expression: {
-            node_type: 'UnregisteredExpr',
-            source: 'a + b',
-            location: { lineno: 3, col_offset: 17, end_lineno: 3, end_col_offset: 22 },
-            value: 7,
-          },
+          value: 7,
+          detail: { ledger: 'unfamiliar' },
         },
-        { sequence: 5, phase: 'return', line: 7, locals: { result: 7 }, value: 7 },
+        {
+          sequence: 5,
+          kind: 'result',
+          line: 9,
+          source: 'return 合計',
+          location: { lineno: 9, col_offset: 8, end_lineno: 9, end_col_offset: 21 },
+          locals: { 合計: 7 },
+          value: 7,
+        },
         {
           sequence: 6,
-          phase: 'error',
+          kind: 'error',
           error: { kind: 'invalid_trace_frame', message: 'internal protocol detail' },
         },
       ],
@@ -163,7 +213,7 @@ useGameStore.getState().upsertComputeLabRun({
   taskId: 'e_op_add-task',
   revision: 0,
   status: 'running',
-  frames: [{ sequence: 0, phase: 'line', line: 2, locals: { a: 3 }, changed: ['a'] }],
+  frames: [{ sequence: 0, kind: 'binding', line: 3, locals: { a: 3 }, changed: ['a'] }],
 });
 assert.equal(useGameStore.getState().computeLabRuns['run-1'].status, 'trace_ready');
 assert.equal(useGameStore.getState().computeLabRuns['run-1'].frames.length, 7);
@@ -173,7 +223,7 @@ useGameStore.getState().upsertComputeLabRun({
   taskId: 'other-task',
   revision: 0,
   status: 'trace_ready',
-  frames: [{ sequence: 0, phase: 'return', value: 999 }],
+  frames: [{ sequence: 0, kind: 'result', value: 999 }],
 });
 assert.equal(
   useGameStore.getState().computeLabRuns['run-1'].nodeId,
@@ -181,51 +231,72 @@ assert.equal(
   'a reused run id cannot replace a replay from another node/task identity',
 );
 
-function text(node: unknown): string {
-  if (typeof node === 'string' || typeof node === 'number') return String(node);
-  if (Array.isArray(node)) return node.map(text).join('');
-  if (node && typeof node === 'object' && 'children' in node) return text((node as { children: unknown }).children);
-  return '';
-}
 
-assert.match(text(renderer!.toJSON()), /LINE/);
+// R-21 #1: a finished run opens on the frame the player came for — the return —
+// not on step 1, and says in words that it finished.
+assert.match(text(renderer!.toJSON()), /Ended at/);
+assert.match(text(renderer!.toJSON()), /return 合計/);
+assert.match(text(renderer!.toJSON()), /Your program finished and returned a value/);
+assert.match(text(renderer!.toJSON()), /Check the returned value/);
+assert.equal(renderer!.root.findAllByProps({ 'data-testid': 'compute-lab-outcome' }).length, 1);
+assert.doesNotMatch(text(renderer!.toJSON()), /trace_ready/, 'a terminal state is never shown as its raw status word');
+
+const showFrame = async (index: number) => {
+  await act(async () => {
+    renderer!.root.findByProps({ type: 'range' }).props.onChange({ target: { value: String(index) } });
+  });
+};
+
+await showFrame(0);
+assert.match(text(renderer!.toJSON()), /Set 合計 = a \+ b/);
+assert.match(text(renderer!.toJSON()), /Now holding/);
 assert.match(text(renderer!.toJSON()), /a: 3/);
-await act(async () => {
-  const next = renderer!.root.findAllByType('button').find(button => button.children.includes('›'))!;
-  next.props.onClick();
-});
-assert.match(text(renderer!.toJSON()), /EVAL/);
-assert.match(text(renderer!.toJSON()), /a \+ b/);
+
+await showFrame(1);
+assert.match(text(renderer!.toJSON()), /Worked out a \+ b/);
 assert.equal(
   text(renderer!.root.findByType('mark').children),
   'a + b',
   'UTF-8 byte columns highlight the exact expression',
 );
-await act(async () => {
-  renderer!.root.findByProps({ type: 'range' }).props.onChange({ target: { value: '2' } });
-});
+
+await showFrame(2);
 assert.equal(
   text(renderer!.root.findByType('mark').children),
-  '合計 +\n            b',
+  '合計 +\n                b',
   'multiline source ranges retain and highlight every selected line',
 );
-await act(async () => {
-  renderer!.root.findByProps({ type: 'range' }).props.onChange({ target: { value: '3' } });
-});
-assert.match(text(renderer!.toJSON()), /Control flow · For · iteration/);
-assert.match(text(renderer!.toJSON()), /iteration 1/);
-assert.match(text(renderer!.toJSON()), /target bindings → left: 3, right: 4/);
-await act(async () => {
-  renderer!.root.findByProps({ type: 'range' }).props.onChange({ target: { value: '4' } });
-});
-assert.equal(renderer!.root.findAllByProps({ 'data-testid': 'compute-lab-generic-expression' }).length, 1);
-assert.match(text(renderer!.toJSON()), /Expression \(generic view\) · UnregisteredExpr/);
-assert.match(text(renderer!.toJSON()), /3:17–3:22/);
-await act(async () => {
-  renderer!.root.findByProps({ type: 'range' }).props.onChange({ target: { value: '5' } });
-});
-assert.match(text(renderer!.toJSON()), /RETURN/);
-assert.match(text(renderer!.toJSON()), /return: 7/);
+
+await showFrame(3);
+assert.match(text(renderer!.toJSON()), /Repeated for left, right in \[\(a, b\)\]/);
+assert.match(text(renderer!.toJSON()), /Repeat number/);
+assert.match(text(renderer!.toJSON()), /Now holding/);
+assert.match(text(renderer!.toJSON()), /"left":3/);
+
+// R-21 #14, as a code property: an unfamiliar kind renders through the same card,
+// with the same source, range, value and detail. Only the word is less specific.
+await showFrame(4);
+const unfamiliar = text(renderer!.toJSON());
+assert.equal(renderer!.root.findAllByProps({ 'data-testid': 'compute-lab-step' }).length, 1);
+assert.match(unfamiliar, /Ran a \+ b/);
+assert.match(unfamiliar, /ledger/);
+assert.equal(text(renderer!.root.findByType('mark').children), 'a + b');
+assert.doesNotMatch(unfamiliar, /transacted/, 'a kind name is never shown to the player');
+
+for (const parserWord of ['BinOp', 'BoolOp', 'Compare', 'Subscript', 'node_type', 'col_offset', 'end_lineno']) {
+  for (const index of [0, 1, 2, 3, 4, 5]) {
+    await showFrame(index);
+    assert.doesNotMatch(
+      text(renderer!.toJSON()),
+      new RegExp(parserWord),
+      `R-21 #3: ${parserWord} must never appear in the trace panel`,
+    );
+  }
+}
+
+await showFrame(5);
+assert.match(text(renderer!.toJSON()), /Ended at return 合計/);
+assert.match(text(renderer!.toJSON()), /→ 7/);
 await act(async () => {
   renderer!.root
     .findByType('textarea')
@@ -256,6 +327,7 @@ async function assertMountedLocale(
   language: 'ja' | 'zh-TW',
   runLabel: string,
   expectedControl: RegExp,
+  expectedOutcome: RegExp,
   expectedProtocolError: RegExp,
 ) {
   storage.delete('netcrawl-compute-lab:e_op_add');
@@ -280,6 +352,7 @@ async function assertMountedLocale(
     renderer!.root.findByProps({ type: 'range' }).props.onChange({ target: { value: '3' } });
   });
   assert.match(text(renderer!.toJSON()), expectedControl, `${language} control copy is mounted and translated`);
+  assert.match(text(renderer!.toJSON()), expectedOutcome, `${language} terminal state is explained in words`);
   await act(async () => {
     renderer!.root.findByProps({ type: 'range' }).props.onChange({ target: { value: '6' } });
   });
@@ -295,13 +368,15 @@ async function assertMountedLocale(
 await assertMountedLocale(
   'ja',
   '実行',
-  /制御フロー · For · 反復.*反復 1.*ターゲットの値 → left: 3, right: 4/s,
+  /繰り返した for left, right in \[\(a, b\)\].*繰り返し回数.*現在の値/s,
+  /プログラムは最後まで実行され、値を返しました。/,
   /SDK を更新/,
 );
 await assertMountedLocale(
   'zh-TW',
   '執行',
-  /控制流程 · For · 迭代.*第 1 次迭代.*目標綁定 → left: 3, right: 4/s,
+  /重複 for left, right in \[\(a, b\)\].*重複次數.*目前的值/s,
+  /你的程式跑完了，並回傳了一個值。/,
   /請更新 SDK/,
 );
 
