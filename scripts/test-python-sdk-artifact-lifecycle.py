@@ -2,16 +2,19 @@ import importlib.metadata
 import importlib.util
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import urllib.request
 from pathlib import Path
 
+import netcrawl
 from netcrawl import NetCrawl
 
 
 BASE = os.environ["NETCRAWL_TEST_BASE"]
 EXPECTED_VERSION = os.environ["NETCRAWL_EXPECTED_SDK_VERSION"]
+REPOSITORY = Path(__file__).resolve().parents[1]
 
 
 def request(path, token="", body=None):
@@ -31,6 +34,81 @@ def worker_state(browser_token, worker_id):
 
 
 assert importlib.metadata.version("netcrawl-sdk") == EXPECTED_VERSION
+
+# The version above comes from the installed dist-info; the *code* can still come
+# from somewhere else. `netcrawl/version.py` documents exactly that trap — this
+# package is regularly run off a source tree shadowing a different installed
+# release — and a test that reads the tree while reporting the artifact's version
+# is the shape of R-50 itself. Assert where the code actually came from.
+assert REPOSITORY not in Path(netcrawl.__file__).resolve().parents, (
+    f"netcrawl was imported from {netcrawl.__file__}, inside this checkout — something is shadowing the installed "
+    f"{EXPECTED_VERSION}, so nothing below is testing the artifact a player gets."
+)
+
+
+def test_the_installed_runner_emits_the_frame_shape_the_ui_reads():
+    """R-50, asserted against the artifact a player installs rather than the tree.
+
+    `detail["loop"]` was added to the runner, the release number did not move, and
+    the 1.4.1 that stayed newest on PyPI never emitted it. Every test in the repo
+    passed: they all read the tree, and the tree was right. The loop track was
+    absent for every player and nothing anywhere failed.
+
+    This runs the *installed* `netcrawl.compute_lab_runner` — in the steady state
+    that is the published wheel, because `test:sdk-version-gate` will not accept a
+    starter lock below MIN_PYTHON_SDK_VERSION, and the floor cannot sit below the
+    frame contract's own release. That chain is what makes this line read PyPI.
+
+    Invoked exactly as `app.py` invokes it: a module, a payload on stdin, one JSON
+    line per frame on stdout.
+    """
+    contract = json.loads((REPOSITORY / "packages/sdk-python/frame_contract.json").read_text(encoding="utf-8"))
+    payload = json.dumps({
+        "source": (
+            "class ProblemSolver:\n"
+            "    def solution(self, a, b):\n"
+            "        total = 0\n"
+            "        for i in range(3):\n"
+            "            total = total + i\n"
+            "        return total\n"
+        ),
+        "params": {"a": 2, "b": 3},
+        "parameterNames": ["a", "b"],
+        "limits": {"maxEvents": 400},
+    })
+    # PYTHONPATH stripped for the same reason as the import check above: the
+    # subprocess must be able to reach only the installed package.
+    environment = {key: value for key, value in os.environ.items() if key != "PYTHONPATH"}
+    completed = subprocess.run(
+        [sys.executable, "-m", "netcrawl.compute_lab_runner"],
+        input=payload, text=True, capture_output=True, env=environment,
+    )
+    assert completed.returncode == 0, completed.stderr
+    lines = [json.loads(line) for line in completed.stdout.splitlines() if line.strip()]
+    assert lines[-1]["result"]["status"] == "trace_ready", lines[-1]
+    frames = [line["frame"] for line in lines if "frame" in line]
+
+    for frame in frames:
+        declared = set(contract["kinds"][frame["kind"]]["required"]) | set(contract["kinds"][frame["kind"]]["optional"])
+        emitted = set(frame.get("detail") or {})
+        assert emitted <= declared, f"a {frame['kind']} frame carries undeclared {sorted(emitted - declared)}"
+        missing = set(contract["kinds"][frame["kind"]]["required"]) - emitted
+        assert not missing, (
+            f"the installed netcrawl-sdk {EXPECTED_VERSION} emits a {frame['kind']} frame without {sorted(missing)}. "
+            "The published runner is older than the frame shape this repo declares — publish the release named by "
+            "packages/sdk-python/frame_contract.json before raising the floor to it."
+        )
+
+    repetitions = [frame for frame in frames if frame["kind"] == "repetition"]
+    assert len(repetitions) == 3, f"a three-iteration loop produced {len(repetitions)} repetition frames"
+    # The whole of R-50 in one line: without a numeric identity here, `indexLoops`
+    # skips the frame, the chain is empty, and the stage draws no track and no
+    # 「迴圈」 header — which is what Corix saw on a live build.
+    assert all(isinstance(frame["detail"].get("loop"), int) for frame in repetitions), repetitions
+    print(f"Installed netcrawl-sdk {EXPECTED_VERSION} emits the declared frame shape, loop identity included")
+
+
+test_the_installed_runner_emits_the_frame_shape_the_ui_reads()
 
 _, registration = request("/api/auth/register", body={
     "email": "artifact-lifecycle@example.test",

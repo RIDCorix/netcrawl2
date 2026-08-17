@@ -1,0 +1,27 @@
+{
+  "$comment": [
+    "What a trace frame's `detail` carries, per kind — the half of the Code Server wire that the version gate could not see.",
+
+    "R-50: `detail[\"loop\"]` was added to the runner and the release number was not moved. The netcrawl-sdk 1.4.1 on PyPI and the deployed UI both reported 1.4.1 and disagreed about the frame shape, so `isSupportedSdkVersion` compared equal and admitted a runtime that emits no loop identity. `indexLoops` skips any frame whose `detail.loop` is not a number, and the stage draws the track only when that index found an instance — so the whole feature, its 「迴圈」 header included, was simply absent. Nothing failed; the player read it as unbuilt.",
+
+    "RUNTIME_PROTOCOL_VERSION does not cover this. It gates the shape of commands the server sends *to* a runtime; a frame is what a runtime reports back, and the two move for different reasons. This file is what covers it: `sinceVersion` names the first release that emits the shape below, and the server's MIN_PYTHON_SDK_VERSION may not sit under it. That is the link that forces the floor, which forces the starter workspace's lock, which cannot be locked at a release that was never published.",
+
+    "Three tests read this file, and a shape change has to answer all three: the runner in this tree emits exactly these keys (packages/sdk-python/tests/test_frame_contract.py), the *installed* runner does too (scripts/test-python-sdk-artifact-lifecycle.py — in the steady state that is the artifact on PyPI, which is the assertion R-50 needed), and the UI reads no key that is not declared here (scripts/test-frame-contract.mjs).",
+
+    "`required` means every frame of that kind carries the key. Anything conditional belongs in `optional`, and the conditions are easy to miss: `taken` is absent on an `assert`, which has a `test` and no body; `bindings` is absent on `nums[0] = 9`, whose target names nothing; `extent` is absent whenever measuring the iterable would have meant running player code."
+  ],
+
+  "sinceVersion": "1.4.2",
+
+  "kinds": {
+    "block_enter": { "required": [], "optional": [] },
+    "block_exit": { "required": [], "optional": ["error", "loop"] },
+    "binding": { "required": [], "optional": ["bindings"] },
+    "decision": { "required": ["outcome"], "optional": ["taken"] },
+    "repetition": { "required": ["iteration", "loop"], "optional": ["bindings", "extent"] },
+    "result": { "required": [], "optional": [] },
+    "step": { "required": [], "optional": [] },
+    "unwind": { "required": [], "optional": ["error"] },
+    "value": { "required": [], "optional": [] }
+  }
+}

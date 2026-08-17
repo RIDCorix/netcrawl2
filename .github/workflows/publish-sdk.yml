@@ -22,6 +22,24 @@ jobs:
         with:
           python-version: '3.12'
 
+      # R-50 pushed packages/sdk-python without moving the version. This job ran,
+      # twine rejected the duplicate, and the only trace was `400 Bad Request` in
+      # a job nobody reads — so the runner the UI needed was never published and
+      # the reason was unreadable. Name the cause instead.
+      #
+      # Fails open on purpose: `curl -f` cannot tell "no such release" from "PyPI
+      # is down", and a registry outage must not block a publish that would have
+      # worked. An outage therefore lands on twine exactly as it does today.
+      - name: Refuse a version PyPI already has
+        run: |
+          version="$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2)"
+          if curl -fsS -o /dev/null "https://pypi.org/pypi/netcrawl-sdk/${version}/json"; then
+            echo "::error::netcrawl-sdk ${version} is already on PyPI, so this push publishes nothing. It changed" \
+              "packages/sdk-python without moving the release: bump pyproject.toml and netcrawl/version.py together."
+            exit 1
+          fi
+          echo "netcrawl-sdk ${version} is unpublished; continuing."
+
       - name: Install build tools
         run: pip install build twine
 
