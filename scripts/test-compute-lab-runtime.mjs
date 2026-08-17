@@ -445,7 +445,12 @@ try {
     '#9: the release is reported on the failing path too, not only when nothing went wrong',
   );
   assert.equal(released[0].detail, undefined, '#9: a clean exit says nothing broke by saying nothing');
-  assert.deepEqual(released[1].detail, { error: 'division by zero' }, '#9: both facts adjacent on one card');
+  // The fact, not CPython's wording: 3.14 reworded `//` by zero to "division by
+  // zero" where 3.12 and 3.13 say "integer division or modulo by zero", and the
+  // SDK's `requires-python` is `>=3.10` with no upper bound — so which of the
+  // two a real Code Server produces depends on the interpreter `uv` picked.
+  assert.deepEqual(Object.keys(released[1].detail), ['error'], '#9: the release carries the error and nothing else');
+  assert.match(released[1].detail.error, /\bby zero$/, '#9: both facts adjacent on one card');
   // The terminal `error` marker follows the trace; the last step that names the
   // player's own code is what the screen lands on.
   const landed = broke.frames.filter(frame => frame.source !== undefined).at(-1);
