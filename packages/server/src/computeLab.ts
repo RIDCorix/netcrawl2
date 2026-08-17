@@ -22,6 +22,27 @@ export type SourceLocation = {
  */
 export const TERMINAL_FRAME_KINDS = ['error', 'limit'] as const;
 
+/**
+ * One call the run is inside, outermost first.
+ *
+ * `count` folds adjacent identical calls — recursion is otherwise a wall of the
+ * same line — and a `hidden` entry stands for the calls between the outermost
+ * and the innermost that were left out, so the player is never shown a depth
+ * they have to scroll.
+ */
+export type CallStackEntry = { source: string; line?: number; count?: number } | { hidden: number };
+
+/**
+ * A transport guard, not the presentation choice.
+ *
+ * The runner collapses to far fewer than this before it sends anything; this
+ * only stops an unbounded array from entering replay state. Deliberately far
+ * above the runner's own cap so that a runner which chooses to show more is
+ * *unfamiliar* rather than *malformed* — a version skew must not cost the player
+ * their whole run.
+ */
+export const MAX_CALL_STACK_ENTRIES = 64;
+
 export type ComputeLabFrame = {
   sequence: number;
   kind: string;
@@ -30,6 +51,7 @@ export type ComputeLabFrame = {
   location?: SourceLocation;
   locals?: Record<string, unknown>;
   changed?: string[];
+  stack?: CallStackEntry[];
   detail?: Record<string, unknown>;
   value?: unknown;
   error?: { message: string; line?: number; kind?: string };
@@ -43,6 +65,7 @@ const FRAME_PROPERTIES = new Set([
   'location',
   'locals',
   'changed',
+  'stack',
   'detail',
   'value',
   'error',
@@ -94,6 +117,45 @@ function normalizeLocation(value: unknown): SourceLocation | undefined {
 }
 
 /**
+ * The call chain is shape, not payload, so it fails closed like a location does.
+ *
+ * A stack the screen cannot read is worse than no stack: it would render the
+ * outermost and innermost of something that is not a stack. Length and bytes are
+ * bounded separately from the shape — an over-long chain is not malformed, so it
+ * collapses to a count rather than costing the player the frame.
+ */
+function normalizeCallStack(value: unknown): CallStackEntry[] | undefined {
+  if (!Array.isArray(value) || value.length === 0 || value.length > MAX_CALL_STACK_ENTRIES) return undefined;
+  const entries: CallStackEntry[] = [];
+  for (const item of value) {
+    if (!isRecord(item)) return undefined;
+    if (typeof item.source === 'string' && item.source) {
+      if (!Object.keys(item).every(key => ['source', 'line', 'count'].includes(key))) return undefined;
+      if (item.line !== undefined && !isInteger(item.line, 1)) return undefined;
+      if (item.count !== undefined && !isInteger(item.count, 2)) return undefined;
+      entries.push({
+        source: item.source,
+        ...(item.line === undefined ? {} : { line: item.line as number }),
+        ...(item.count === undefined ? {} : { count: item.count as number }),
+      });
+      continue;
+    }
+    if (Object.keys(item).length !== 1 || !isInteger(item.hidden, 1)) return undefined;
+    entries.push({ hidden: item.hidden as number });
+  }
+  // Every entry quotes a line of the player's own file, so a chain is several
+  // times the size of the one segment the frame already carries. Over budget, it
+  // becomes the one fact that still fits: how deep the run was.
+  return Buffer.byteLength(JSON.stringify(entries), 'utf8') <= TRACE_LIMITS.maxValueBytes
+    ? entries
+    : [
+        {
+          hidden: entries.reduce((total, entry) => total + ('hidden' in entry ? entry.hidden : (entry.count ?? 1)), 0),
+        },
+      ];
+}
+
+/**
  * Replace an oversized open payload rather than failing the run.
  *
  * `value`, `detail` and `locals` carry whatever the player's own data happens to
@@ -127,6 +189,8 @@ export function normalizeComputeLabFrame(value: unknown): ComputeLabFrame | unde
     (!Array.isArray(value.changed) || !value.changed.every(item => typeof item === 'string'))
   )
     return undefined;
+  const stack = value.stack === undefined ? undefined : normalizeCallStack(value.stack);
+  if (value.stack !== undefined && !stack) return undefined;
 
   // A step is Located or it is not; a source segment with no range cannot be
   // highlighted in the player's editor, and a range with no segment cannot be
@@ -159,6 +223,7 @@ export function normalizeComputeLabFrame(value: unknown): ComputeLabFrame | unde
           ),
         }),
     ...(value.changed === undefined ? {} : { changed: value.changed }),
+    ...(stack === undefined ? {} : { stack }),
     ...(value.detail === undefined ? {} : { detail: withinValueBudget(value.detail) as Record<string, unknown> }),
     ...(Object.prototype.hasOwnProperty.call(value, 'value') ? { value: withinValueBudget(value.value) } : {}),
     ...(terminal

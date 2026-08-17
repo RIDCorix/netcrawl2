@@ -69,8 +69,42 @@ for (const [reason, malformed] of [
     kind: 'value',
     phase: 'eval',
   }],
+  ['a call chain entry is a named call or a count, never both and never neither', {
+    sequence: 0,
+    kind: 'value',
+    source: 'x',
+    location: located,
+    stack: [{ source: 'def f():', hidden: 2 }],
+  }],
+  ['a chain with no entries is not a chain', { sequence: 0, kind: 'value', source: 'x', location: located, stack: [] }],
+  ['a collapsed entry stands for more than one call', {
+    sequence: 0,
+    kind: 'value',
+    source: 'x',
+    location: located,
+    stack: [{ source: 'def f():', count: 1 }],
+  }],
 ])
   assert.equal(normalizeComputeLabFrame(malformed), undefined, reason);
+
+// A deeper chain than this build renders is unfamiliar, not malformed, so it
+// must not cost the player the frame; only its bytes are bounded.
+const deepChain = normalizeComputeLabFrame({
+  sequence: 0,
+  kind: 'value',
+  source: 'x',
+  location: located,
+  stack: Array.from({ length: 20 }, (_, index) => ({ source: `def f${index}():`, line: index + 1 })),
+});
+assert.equal(deepChain?.stack?.length, 20, 'a longer chain than the runner sends today still reaches the screen');
+const fatChain = normalizeComputeLabFrame({
+  sequence: 0,
+  kind: 'value',
+  source: 'x',
+  location: located,
+  stack: [{ source: 'z'.repeat(TRACE_LIMITS.maxValueBytes + 1) }, { source: 'def f():' }],
+});
+assert.deepEqual(fatChain?.stack, [{ hidden: 2 }], 'over budget, the chain becomes the one fact that still fits');
 const unfamiliar = normalizeComputeLabFrame({
   sequence: 0,
   kind: 'transacted',
@@ -342,6 +376,82 @@ try {
   const stoppedIn = limited.frames.filter(frame => frame.kind === 'repetition').at(-1);
   assert.equal(stoppedIn.source, 'for i in range(1000)');
   assert.ok(stoppedIn.detail.iteration > 300, `only ${stoppedIn.detail.iteration} iterations were observed`);
+
+  // R-21 #11 and #12, end to end: a helper and a recursion survive the runner,
+  // the daemon, the normalizer and the replay store. The `stack` field is what
+  // the screen needs to show the outermost and the innermost at once, and this
+  // is the only place that proves the normalizer accepts what the runner emits.
+  const recursive = await request('/compute-lab/runs', {
+    nodeId: 'e_op_add',
+    taskId: task.body.taskId,
+    revision: 4,
+    source:
+      'class ProblemSolver:\n' +
+      '    def solution(self, a, b):\n' +
+      '        def down(n):\n' +
+      '            if n <= 0:\n' +
+      '                return 0\n' +
+      '            return down(n - 1) + 1\n' +
+      '        return down(a + b)\n',
+  });
+  assert.equal(recursive.status, 202);
+  const recursed = await waitForTerminal(recursive.body.runId);
+  assert.equal(recursed.status, 'trace_ready', JSON.stringify(recursed).slice(0, 400));
+  assert.equal(recursed.returnValue, task.body.params.a + task.body.params.b);
+  const entered = recursed.frames.filter(frame => frame.kind === 'block_enter').map(frame => frame.source);
+  assert.ok(entered.includes('def solution(self, a, b):'), '#11: the outermost call is entered like any other block');
+  assert.ok(entered.includes('def down(n):'), '#11: going into a helper is a step, not an unexplained line jump');
+  const chains = recursed.frames.filter(frame => frame.stack).map(frame => frame.stack);
+  assert.ok(chains.length > 0, '#12: a run inside its own calls carries the chain it is inside');
+  assert.ok(chains.every(chain => chain.length <= 8), '#12: depth is summarised, never a wall of frames');
+  assert.ok(
+    chains.every(chain => chain[0].source === 'def solution(self, a, b):'),
+    '#12: the outermost stays visible at every depth',
+  );
+  assert.ok(
+    chains.some(chain => chain.at(-1).count > 1),
+    '#12: the repeated middle is collapsed and counted rather than listed',
+  );
+
+  // R-21 #9 as R-25 re-pointed it: the same block, released on both paths, and
+  // the failing run says what broke next to the release that happened anyway.
+  const cleanup =
+    'class ProblemSolver:\n' +
+    '    def solution(self, a, b):\n' +
+    '        total = 0\n' +
+    '        try:\n' +
+    '            total = a %s 0\n' +
+    '        finally:\n' +
+    '            b = 0\n' +
+    '        return total\n';
+  const [finished, broke] = await Promise.all(
+    ['+', '//'].map(async (operator, index) => {
+      const posted = await request('/compute-lab/runs', {
+        nodeId: 'e_op_add',
+        taskId: task.body.taskId,
+        revision: 5 + index,
+        source: cleanup.replace('%s', operator),
+      });
+      assert.equal(posted.status, 202);
+      return waitForTerminal(posted.body.runId);
+    }),
+  );
+  assert.equal(finished.status, 'trace_ready');
+  assert.equal(broke.status, 'runtime');
+  const released = [finished, broke].map(run => run.frames.find(frame => frame.kind === 'block_exit'));
+  assert.deepEqual(
+    released.map(frame => frame.source),
+    ['try:', 'try:'],
+    '#9: the release is reported on the failing path too, not only when nothing went wrong',
+  );
+  assert.equal(released[0].detail, undefined, '#9: a clean exit says nothing broke by saying nothing');
+  assert.deepEqual(released[1].detail, { error: 'division by zero' }, '#9: both facts adjacent on one card');
+  // The terminal `error` marker follows the trace; the last step that names the
+  // player's own code is what the screen lands on.
+  const landed = broke.frames.filter(frame => frame.source !== undefined).at(-1);
+  assert.equal(landed.kind, 'unwind', '#9: a run a `finally` cleaned up after still broke');
+  assert.equal(landed.source, 'total = a // 0', '#9: and it broke where it broke');
+  assert.equal(broke.frames.filter(frame => frame.kind === 'result').length, 0, '#9: a broken run never returned');
 
   const submission = await request('/compute-lab/submissions', { taskId: task.body.taskId, runId: started.body.runId });
   assert.equal(submission.status, 200);

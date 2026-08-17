@@ -11,6 +11,7 @@ import ast
 import builtins
 import json
 import sys
+from types import CodeType
 from typing import Any, Callable
 
 
@@ -20,7 +21,38 @@ class ValidationError(Exception):
         self.line = line
 
 
+class TraceLimit(BaseException):
+    """The event cap, raised as something player code provably cannot catch.
+
+    It derives from ``BaseException`` rather than ``Exception``, and that half
+    only holds because :meth:`Validator.visit_ExceptHandler` requires every
+    handler to name a class from ``ALLOWED_EXCEPTIONS`` — all of which are
+    ``Exception`` subclasses.
+
+    The previous ``RuntimeError`` sentinel was *not* exploitable, and that was
+    measured rather than assumed: a bare ``except:`` did catch it, but every
+    handler body begins with an instrumentation call, which raises again
+    immediately and escapes the same ``try``. So the cap held — by accident, on a
+    property of the instrumenter that nothing states and nothing tests. This
+    stage admits ``except Exception``, which is a far more likely thing for a
+    player to write around a runaway loop, so the guarantee is made structural
+    instead: relax either half and the cap becomes advisory, and a stopped run
+    reaches the player as a timeout rather than an honest "we stopped watching".
+    """
+
+
 ALLOWED_BUILTINS = {"abs", "all", "any", "bool", "dict", "enumerate", "float", "int", "len", "list", "max", "min", "range", "reversed", "round", "sorted", "str", "sum", "type"}
+
+# The errors an allowed operation raises on bad *data* — the case a player
+# writing a pure function actually guards against, and the reason `except` was
+# unwritable until now. Everything excluded is excluded for a stated reason:
+# `AttributeError`, `NameError` and `ImportError` are raised only by operations
+# the Validator rejects before execution; `AssertionError` is the player's own
+# deliberate failure, so catching it defeats the statement they wrote;
+# `RecursionError` is a `RuntimeError` and catching it inside the recursion that
+# is already at the limit re-raises immediately.
+ALLOWED_EXCEPTIONS = {"Exception", "IndexError", "KeyError", "TypeError", "ValueError", "ZeroDivisionError"}
+ALLOWED_BUILTINS |= ALLOWED_EXCEPTIONS
 ALLOWED_NODES = {
     "Module", "ClassDef", "FunctionDef", "arguments", "arg", "Return", "Assign", "AugAssign", "AnnAssign", "For", "While", "If", "IfExp", "Break", "Continue", "Pass",
     "Name", "Load", "Store", "Constant", "List", "Tuple", "Dict", "Set", "Subscript", "Slice", "BinOp", "UnaryOp", "BoolOp", "Compare", "Call", "keyword",
@@ -44,6 +76,11 @@ ALLOWED_NODES = {
 # these, never a new one. ``step`` is the bottom element and the reason the set
 # can stay closed: any statement that did none of the others still emits a frame,
 # so nothing a player typed can execute and leave no trace.
+#
+# Calls are the newest evidence that the set holds. Going into a helper and
+# coming back out needed no eighth kind: a function body is a block, so it is
+# entered and exited, and its return is a ``result`` like any other. What a call
+# does add is *where* — carried by each frame's ``stack``, not by a new word.
 CONTROL_KINDS = frozenset({"block_enter", "block_exit", "decision", "repetition", "binding", "unwind", "step"})
 FRAME_KINDS = CONTROL_KINDS | {"value", "result"}
 
@@ -72,10 +109,42 @@ REPEATING_STATEMENTS = frozenset({"While"})
 # reads — `for value in nums` — never at the indented body, which reports itself.
 SUITE_FIELDS = frozenset({"body", "orelse", "finalbody", "handlers"})
 
+# How many call-stack entries a frame carries after identical adjacent calls are
+# collapsed. Recursion collapses to one entry with a count, so this only bites on
+# mutual recursion, where a wall of alternating names is exactly what the player
+# must not be shown.
+MAX_STACK_ENTRIES = 8
+
 
 class Validator(ast.NodeVisitor):
+    """The two locks that hold the sandbox, and the one thing that may pass them.
+
+    ``visit_Attribute`` rejects every attribute; ``visit_Call`` rejects every
+    callee that is not a bare ``Name``. Together they are why
+    ``type([]).__base__.__subclasses__()`` is unreachable, and neither is relaxed
+    here.
+
+    What is relaxed is *which* bare names may be called: a built-in, or a
+    function the player defined with ``def`` inside ``solution``. That widening
+    adds no reachable value, and the reason is a rule rather than an argument —
+    **a name bound by a ``def`` can never be bound to anything else.** It is not
+    an assignment target, an augmented target, a ``for`` target, a comprehension
+    target, an ``except ... as`` name, a parameter, or a second ``def``. So a
+    call through a helper name provably calls a function this Validator already
+    walked, and never an arbitrary value the player computed. Admitting attribute
+    callees, or dropping the never-rebound rule, would both give a player
+    ``<anything>(...)`` — that is the pair this class exists to keep apart.
+    """
+
     def __init__(self, parameter_names: list[str]):
         self.parameter_names = parameter_names
+        # Every `def` name anywhere in the submission, so the tracer can tell the
+        # player's own code objects from the instrumentation's lambdas.
+        self.helper_names: set[str] = set()
+        # The `def` names visible in the scope being walked right now.
+        self._functions: frozenset[str] = frozenset()
+        self._depth = 0
+
     def visit(self, node: ast.AST):
         if type(node).__name__ not in ALLOWED_NODES:
             raise ValidationError(f"{type(node).__name__} is not allowed in Compute Lab", getattr(node, "lineno", None))
@@ -87,6 +156,14 @@ class Validator(ast.NodeVisitor):
         self.visit(node.body[0])
 
     def visit_ClassDef(self, node: ast.ClassDef):
+        # A class inside `solution` binds its name the way a `def` does, and
+        # `_declared_functions` does not collect it — so it could shadow a helper
+        # the callee lock has already approved. It is unreachable by accident
+        # today (its one method would have to be named `solution`, which
+        # `_check_signature` rejects at depth); saying so outright is cheaper than
+        # depending on that.
+        if self._depth > 0:
+            raise ValidationError("a class cannot be defined inside solution", node.lineno)
         if node.bases or node.keywords or node.decorator_list or len(node.body) != 1:
             raise ValidationError("ProblemSolver must contain exactly one solution method", node.lineno)
         method = node.body[0]
@@ -94,39 +171,122 @@ class Validator(ast.NodeVisitor):
             raise ValidationError("ProblemSolver must define exactly one method: solution", getattr(method, "lineno", node.lineno))
         self.visit(method)
 
+    @staticmethod
+    def _declared_functions(scope: ast.AST) -> list[str]:
+        """The `def` names bound in one scope.
+
+        Any depth of block nesting inside it — a helper defined under an ``if``
+        is still bound in the enclosing function — but never through another
+        ``def``, which owns its own scope. Collected up front so a helper may be
+        called above its own definition, exactly as Python allows.
+        """
+        names: list[str] = []
+
+        def walk(container: ast.AST) -> None:
+            for child in ast.iter_child_nodes(container):
+                if isinstance(child, ast.FunctionDef):
+                    names.append(child.name)
+                elif isinstance(child, (ast.stmt, ast.excepthandler)):
+                    walk(child)
+
+        walk(scope)
+        return names
+
     def visit_FunctionDef(self, node: ast.FunctionDef):
+        parameters = self._check_signature(node)
+        declared = self._declared_functions(node)
+        for name in declared:
+            if name in ALLOWED_BUILTINS:
+                raise ValidationError(f"a helper function cannot be named after the built-in {name}", node.lineno)
+            if name in self._functions or declared.count(name) > 1 or name in parameters:
+                raise ValidationError(f"{name} is already defined here and cannot be redefined", node.lineno)
+        for parameter in parameters:
+            if parameter in self._functions:
+                raise ValidationError(f"{parameter} is a helper function and cannot be reused as a parameter", node.lineno)
+        enclosing = self._functions
+        self._functions = enclosing | frozenset(declared)
+        self.helper_names.update(declared)
+        self._depth += 1
+        try:
+            for statement in node.body:
+                self.visit(statement)
+        finally:
+            self._depth -= 1
+            self._functions = enclosing
+
+    def _check_signature(self, node: ast.FunctionDef) -> list[str]:
         arguments = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
         if node.args.vararg is not None:
             arguments.append(node.args.vararg)
         if node.args.kwarg is not None:
             arguments.append(node.args.kwarg)
-        if any(argument.arg.startswith("_lab_") for argument in arguments):
+        # A parameter binds a local from a plain `str` field, so `visit_Name`'s
+        # reserved-prefix check never sees it — the same surface as a `def` name
+        # and an `except ... as` name. Held to the same rule as all three.
+        if any(argument.arg.startswith("_lab_") or argument.arg.startswith("__") for argument in arguments):
             raise ValidationError("reserved names are not allowed", node.lineno)
-        if node.returns is not None or any(argument.annotation is not None for argument in arguments):
-            raise ValidationError("solution annotations are not allowed", node.lineno)
         names = [argument.arg for argument in node.args.args]
-        if (node.name != "solution" or node.decorator_list or node.args.posonlyargs or node.args.vararg or
-                node.args.kwonlyargs or node.args.kwarg or node.args.defaults or node.args.kw_defaults or
-                names != ["self", *self.parameter_names]):
-            raise ValidationError(f"solution must be def solution(self, {', '.join(self.parameter_names)})", node.lineno)
-        for statement in node.body:
-            self.visit(statement)
+        # Nothing beyond plain positional parameters, at either depth. Defaults
+        # matter most: they evaluate in the *enclosing* scope, which would be a
+        # second place a player's expression runs, and nothing here needs them.
+        simple = not (node.decorator_list or node.args.posonlyargs or node.args.vararg or
+                      node.args.kwonlyargs or node.args.kwarg or node.args.defaults or node.args.kw_defaults)
+        annotated = node.returns is not None or any(argument.annotation is not None for argument in arguments)
+        if self._depth == 0:
+            if annotated:
+                raise ValidationError("solution annotations are not allowed", node.lineno)
+            if node.name != "solution" or not simple or names != ["self", *self.parameter_names]:
+                raise ValidationError(f"solution must be def solution(self, {', '.join(self.parameter_names)})", node.lineno)
+            return names
+
+        # A `def` name is a plain `str` field, exactly like `except X as name`, so
+        # `visit_Name`'s reserved-prefix check never sees it. `def _lab_eval(...)`
+        # binds a local that shadows the instrumentation helper the rewritten
+        # statements around it call — the player's function would stand where the
+        # tracer expects its own.
+        if node.name == "solution" or node.name.startswith("__") or node.name.startswith("_lab_"):
+            raise ValidationError("reserved names are not allowed", node.lineno)
+        if annotated:
+            raise ValidationError(f"def {node.name} annotations are not allowed", node.lineno)
+        if not simple:
+            raise ValidationError(
+                f"def {node.name} must take plain positional parameters, with no defaults, *args or **kwargs",
+                node.lineno,
+            )
+        return names
 
     def visit_Name(self, node: ast.Name):
         if node.id.startswith("__") or node.id.startswith("_lab_"):
             raise ValidationError("reserved names are not allowed", node.lineno)
+        if isinstance(node.ctx, (ast.Store, ast.Del)) and node.id in self._functions:
+            raise ValidationError(f"{node.id} is a helper function and cannot be reassigned", node.lineno)
 
     def visit_ExceptHandler(self, node: ast.ExceptHandler):
         if node.name is not None and (node.name.startswith("__") or node.name.startswith("_lab_")):
             raise ValidationError("reserved names are not allowed", node.lineno)
+        if node.name in self._functions:
+            raise ValidationError(f"{node.name} is a helper function and cannot be reassigned", node.lineno)
+        # A bare `except:` catches `BaseException`, which is what the event cap is
+        # raised as. Requiring a named class is what keeps the cap uncatchable —
+        # see `TraceLimit` — and it is also the only way to say which errors the
+        # sandbox can actually produce.
+        if node.type is None:
+            raise ValidationError("name the error you are catching, for example: except ZeroDivisionError:", node.lineno)
+        caught = node.type.elts if isinstance(node.type, ast.Tuple) else [node.type]
+        for entry in caught:
+            if not isinstance(entry, ast.Name) or entry.id not in ALLOWED_EXCEPTIONS:
+                raise ValidationError(
+                    f"only these errors can be caught: {', '.join(sorted(ALLOWED_EXCEPTIONS))}",
+                    getattr(entry, "lineno", node.lineno),
+                )
         self.generic_visit(node)
 
     def visit_Attribute(self, node: ast.Attribute):
         raise ValidationError("attribute access is not allowed", node.lineno)
 
     def visit_Call(self, node: ast.Call):
-        if not isinstance(node.func, ast.Name) or node.func.id not in ALLOWED_BUILTINS:
-            raise ValidationError("only safe built-in functions are allowed", node.lineno)
+        if not isinstance(node.func, ast.Name) or node.func.id not in ALLOWED_BUILTINS | self._functions:
+            raise ValidationError("only built-in functions and your own def helpers can be called", node.lineno)
         self.generic_visit(node)
 
 
@@ -146,11 +306,21 @@ class InstrumentExecution(ast.NodeTransformer):
         # Where each executable line starts, so a frame CPython hands us without
         # a node — the return, and any uncaught error — is Located like the rest.
         self.statement_metadata: dict[int, dict] = {}
+        # Keyed by the `def` line, which is what a code object reports as its
+        # `co_firstlineno`. Entering a call is the one event CPython hands us with
+        # nothing but a code object, so this is how it gets Located and Named.
+        self.function_metadata: dict[int, dict] = {}
+        # Lines that run *on the way out*. Executing one is not evidence that an
+        # error was handled, so the tracer must not read it as such — see the
+        # `line` event.
+        self.release_lines: set[int] = set()
 
     def visit(self, node: ast.AST):
         transformed = super().visit(node)
         if isinstance(transformed, ast.stmt):
             self.statement_metadata.setdefault(transformed.lineno, self._metadata_value(transformed))
+            if isinstance(transformed, ast.FunctionDef):
+                self.function_metadata.setdefault(transformed.lineno, self._function_metadata_value(transformed))
             return self._instrument_statement(transformed)
         if not isinstance(transformed, ast.expr):
             return transformed
@@ -197,7 +367,19 @@ class InstrumentExecution(ast.NodeTransformer):
         # opening a block around it would double every branch the player writes.
         if "block" in roles and ("repeats" in roles or "decision" not in roles):
             before.append(self._event(node, "block_enter"))
-            after.append(self._event(node, "block_exit"))
+            release = getattr(node, "finalbody", None)
+            if release:
+                # A statement that owns a `finalbody` reports its exit from inside
+                # that suite, because that is the one place the release provably
+                # happened on *both* paths. Reporting it after the statement — as
+                # every other block does — reports it only on the path where
+                # nothing went wrong, which is the path that teaches nothing.
+                self.release_lines.add(node.lineno)
+                for statement in release:
+                    self.release_lines.update(range(statement.lineno, (statement.end_lineno or statement.lineno) + 1))
+                release.append(self._event(node, "block_exit"))
+            else:
+                after.append(self._event(node, "block_exit"))
         if "repeats" in roles:
             target = getattr(node, "target", None)
             node.body.insert(0, self._event(node, "repetition", names=self._target_names(target) if target else []))
@@ -285,6 +467,22 @@ class InstrumentExecution(ast.NodeTransformer):
         location = self._location(node)
         return {"source": self._segment(location) or "expression", "location": location}
 
+    def _function_metadata_value(self, node: ast.FunctionDef) -> dict[str, Any]:
+        """`def helper(n):` — the whole header, colon included.
+
+        The generic block rule ends a header at its last sub-expression, which is
+        right for `for value in nums` and one character short for a signature: a
+        player reading "went into `def helper(n`" is reading a typo. The colon is
+        the header's own terminator, so the range is extended to it rather than to
+        the end of the line, which would swallow a trailing comment.
+        """
+        location = dict(self._location(node))
+        line = self.lines[location["end_lineno"] - 1] if location["end_lineno"] <= len(self.lines) else ""
+        colon = line.encode().find(b":", location["end_col_offset"])
+        if colon != -1:
+            location["end_col_offset"] = colon + 1
+        return {"source": self._segment(location) or f"def {node.name}", "location": location}
+
     def _metadata(self, node: ast.AST) -> ast.expr:
         return self._literal(self._metadata_value(node), node)
 
@@ -321,6 +519,12 @@ def json_value(value: Any, depth: int = 0, max_depth: int = 4) -> Any:
         return {"truncated": True, "reason": "max_depth", "type": type(value).__name__}
     if isinstance(value, type):
         return value.__name__
+    if isinstance(value, BaseException):
+        # `except ValueError as e` binds one of these. Rendering it as "not JSON"
+        # would make the only variable the handler is about the one variable the
+        # player cannot read.
+        message = str(value)
+        return f"{type(value).__name__}: {message}" if message else type(value).__name__
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     if isinstance(value, (list, tuple)):
@@ -333,6 +537,35 @@ def json_value(value: Any, depth: int = 0, max_depth: int = 4) -> Any:
 def describe_exception(exc: BaseException) -> str:
     """Never hand the player an empty sentence. `assert x` raises with no message."""
     return str(exc) or type(exc).__name__
+
+
+def player_code_objects(code: CodeType, helper_names: set[str]) -> set[CodeType]:
+    """Every code object the player wrote, and nothing the instrumentation wrote.
+
+    Matching on the filename would sweep in the lambdas every wrapped expression
+    is evaluated inside, and tracing those would report the instrumentation's own
+    frame as the player's. Matching on names the Validator itself collected keeps
+    the set to `solution` plus the helpers it approved.
+    """
+    found = {code}
+    for const in code.co_consts:
+        if isinstance(const, CodeType) and const.co_name in helper_names:
+            found |= player_code_objects(const, helper_names)
+    return found
+
+
+def _unnamed_call(frame) -> dict[str, Any]:
+    """Fallback naming for a code object with no recorded `def` header.
+
+    Unreachable while the Validator and the transformer agree on what a function
+    is; it exists so that a disagreement costs a vague label rather than a frame
+    the player never sees.
+    """
+    line = frame.f_code.co_firstlineno
+    return {
+        "source": f"def {frame.f_code.co_name}",
+        "location": {"lineno": line, "col_offset": 0, "end_lineno": line, "end_col_offset": 0},
+    }
 
 
 def execute(payload: dict, on_frame: Callable[[dict], None] | None = None) -> dict:
@@ -354,27 +587,63 @@ def execute(payload: dict, on_frame: Callable[[dict], None] | None = None) -> di
                 set(params) != set(parameter_names)):
             raise ValidationError("parameterNames must be unique Python identifiers matching params")
         tree = ast.parse(source, mode="exec")
-        Validator(parameter_names).visit(tree)
+        validator = Validator(parameter_names)
+        validator.visit(tree)
     except (SyntaxError, ValidationError) as exc:
         return {"status": "syntax", "frames": [], "error": {"message": str(exc), "line": getattr(exc, "line", getattr(exc, "lineno", None)), "kind": "syntax"}}
 
     frames: list[dict] = []
-    previous: dict[str, Any] = {}
     active_frame = None
-    solution_code = None
-    unwinding: str | None = None
+    player_codes: set[CodeType] = set()
+    # The error in flight, captured where it was raised rather than where the
+    # frame happens to be when it leaves: a `finally` moves the line, and the
+    # player needs the statement that broke, not the one that cleaned up.
+    unwinding: dict[str, Any] | None = None
     repetitions: dict[tuple[int | None, int | None], int] = {}
+    # One record per live player call, innermost last: the frame, that frame's own
+    # previously reported locals, and how to name it. `previous` is per call and
+    # not per run because a shared one reports every local of the function you
+    # just came back to as freshly changed.
+    calls: list[dict[str, Any]] = []
     transformer = InstrumentExecution(source)
 
+    def call_stack() -> list[dict[str, Any]]:
+        """Outermost first, adjacent identical calls collapsed to one with a count.
+
+        Recursion is a wall of the same line otherwise, and the player needs to
+        read the shape of the stack, not count it.
+        """
+        entries: list[dict[str, Any]] = []
+        for record in calls:
+            located = record["metadata"]
+            if entries and entries[-1].get("source") == located["source"]:
+                entries[-1]["count"] = entries[-1].get("count", 1) + 1
+                continue
+            entries.append({"source": located["source"], "line": located["location"]["lineno"]})
+        if len(entries) > MAX_STACK_ENTRIES:
+            hidden = len(entries) - (MAX_STACK_ENTRIES - 1)
+            entries = [entries[0], {"hidden": hidden}, *entries[-(MAX_STACK_ENTRIES - 2):]]
+        return entries
+
     def emit(kind: str, metadata: dict | None = None, **extra: Any):
-        nonlocal previous
         if len(frames) >= max_events:
-            raise RuntimeError("__lab_limit__")
+            raise TraceLimit()
+        record = calls[-1] if calls else None
         # CPython 3.14 exposes a FrameLocalsProxy; materialize it before
         # serializing so the debugger receives actual variable bindings.
-        locals_snapshot = json_value({key: value for key, value in dict(active_frame.f_locals).items() if key != "self"}) if active_frame else {}
+        # A helper the player defined is a declaration in scope, not a value they
+        # are holding — showing it would put an unreadable "not JSON" chip beside
+        # every real variable for the whole run. Recognised by its code object
+        # rather than its name, so it can never hide a variable that merely
+        # shares a name with a helper in another scope.
+        locals_snapshot = json_value({
+            key: value for key, value in dict(active_frame.f_locals).items()
+            if key != "self" and getattr(value, "__code__", None) not in player_codes
+        }) if active_frame else {}
+        previous = record["previous"] if record else {}
         changed = sorted(key for key, value in locals_snapshot.items() if previous.get(key) != value)
-        previous = dict(locals_snapshot)
+        if record is not None:
+            record["previous"] = dict(locals_snapshot)
         located = metadata or (transformer.statement_metadata.get(active_frame.f_lineno) if active_frame else None)
         frame = {
             "sequence": len(frames),
@@ -383,6 +652,9 @@ def execute(payload: dict, on_frame: Callable[[dict], None] | None = None) -> di
             "locals": locals_snapshot,
             "changed": changed,
             **({"source": located["source"], "location": located["location"]} if located else {}),
+            # Only when there is a chain to read. A program that never calls its
+            # own helper is not holding a stack the player has to think about.
+            **({"stack": call_stack()} if len(calls) > 1 else {}),
             **extra,
         }
         frames.append(frame)
@@ -391,15 +663,33 @@ def execute(payload: dict, on_frame: Callable[[dict], None] | None = None) -> di
 
     def tracer(frame, event, arg):
         nonlocal active_frame, unwinding
-        if frame.f_code is not solution_code:
+        if frame.f_code not in player_codes:
             return None
+        if event == "call":
+            # The one event CPython gives us with no node: name it from the `def`
+            # line its code object reports, so going into a helper reads as going
+            # in rather than as an unexplained jump to another part of the file.
+            located = transformer.function_metadata.get(frame.f_code.co_firstlineno)
+            calls.append({"frame": frame, "previous": {}, "metadata": located or _unnamed_call(frame)})
+            active_frame = frame
+            emit("block_enter", calls[-1]["metadata"])
+            return tracer
         active_frame = frame
         if event == "exception":
             # Provisional: an error is in flight. If the player catches it, the
             # next `line` event clears this and the run continues normally.
-            unwinding = describe_exception(arg[1])
+            unwinding = {
+                "error": describe_exception(arg[1]),
+                "line": frame.f_lineno,
+                "metadata": transformer.statement_metadata.get(frame.f_lineno),
+            }
         elif event == "line":
-            unwinding = None
+            # Reaching a new line normally means the player caught the error and
+            # the run continues. A `finally` is the exception: it runs *because*
+            # the error is still in flight, so treating it as recovery reported a
+            # broken program as one that returned a value.
+            if frame.f_lineno not in transformer.release_lines:
+                unwinding = None
         elif event == "return":
             # CPython reports a `return` when a frame is left by an exception too,
             # with arg None. Reporting that as the returned value would tell the
@@ -407,7 +697,16 @@ def execute(payload: dict, on_frame: Callable[[dict], None] | None = None) -> di
             if unwinding is None:
                 emit("result", value=json_value(arg))
             else:
-                emit("unwind", detail={"error": unwinding})
+                # Left deliberately set: the same error is about to surface as an
+                # `exception` event in the caller, and each frame it leaves is a
+                # step out the player watched happen.
+                emit("unwind", unwinding["metadata"], detail={"error": unwinding["error"]})
+            if calls and calls[-1]["frame"] is frame:
+                calls.pop()
+            # The outermost return leaves nothing to go back to, and this frame's
+            # line is the last thing that happened — which is what a terminal
+            # error payload has to report.
+            active_frame = calls[-1]["frame"] if calls else frame
         return tracer
 
     def trace_eval(metadata: dict, thunk):
@@ -416,7 +715,13 @@ def execute(payload: dict, on_frame: Callable[[dict], None] | None = None) -> di
         return value
 
     def trace_event(metadata: dict, kind: str, names: list[str] | None = None):
+        nonlocal unwinding
         detail: dict[str, Any] = {}
+        if kind == "block_exit" and unwinding is not None:
+            # Both facts on one card, adjacent: the thing that broke, and the
+            # release that happened anyway. That adjacency is the only reason
+            # `finally` exists, and it is what the player is here to learn.
+            detail["error"] = unwinding["error"]
         if kind == "repetition":
             key = (metadata["location"]["lineno"], metadata["location"]["col_offset"])
             repetitions[key] = repetitions.get(key, 0) + 1
@@ -428,6 +733,12 @@ def execute(payload: dict, on_frame: Callable[[dict], None] | None = None) -> di
                 if active_frame is not None and name in active_frame.f_locals
             }
         emit(kind, metadata, **({"detail": detail} if detail else {}))
+        if kind == "unwind":
+            # Reaching a handler *is* the player catching it — the precise signal
+            # the `line` event only approximates, and the one that survives a
+            # `try` nested inside a `finally`, where every line is a release line
+            # and so no line event may clear anything.
+            unwinding = None
 
     def trace_decision(metadata: dict, thunk, has_body: bool, has_alternative: bool):
         value = thunk()
@@ -450,19 +761,21 @@ def execute(payload: dict, on_frame: Callable[[dict], None] | None = None) -> di
         ast.fix_missing_locations(instrumented)
         exec(compile(instrumented, "<compute-lab>", "exec"), namespace)
         solver = namespace["ProblemSolver"]()
-        solution_code = solver.solution.__code__
+        player_codes = player_code_objects(solver.solution.__code__, validator.helper_names)
         sys.settrace(tracer)
         value = solver.solution(**params)
         sys.settrace(None)
         return {"status": "trace_ready", "frames": frames, "returnValue": json_value(value)}
-    except RuntimeError as exc:
+    except TraceLimit:
         sys.settrace(None)
-        if str(exc) == "__lab_limit__":
-            return {"status": "limit", "frames": frames, "error": {"message": "Trace event limit reached", "line": active_frame.f_lineno if active_frame else None, "kind": "limit"}}
-        return {"status": "runtime", "frames": frames, "error": {"message": describe_exception(exc), "line": active_frame.f_lineno if active_frame else None, "kind": "runtime"}}
+        return {"status": "limit", "frames": frames, "error": {"message": "Trace event limit reached", "line": active_frame.f_lineno if active_frame else None, "kind": "limit"}}
     except Exception as exc:
         sys.settrace(None)
-        return {"status": "runtime", "frames": frames, "error": {"message": describe_exception(exc), "line": active_frame.f_lineno if active_frame else None, "kind": type(exc).__name__}}
+        # The line the error was raised on, not the one a `finally` left the
+        # frame sitting on; the outcome panel and the landing card must name the
+        # same statement.
+        line = unwinding["line"] if unwinding else (active_frame.f_lineno if active_frame else None)
+        return {"status": "runtime", "frames": frames, "error": {"message": describe_exception(exc), "line": line, "kind": type(exc).__name__}}
 
 
 def main() -> None:

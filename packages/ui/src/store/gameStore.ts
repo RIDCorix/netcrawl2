@@ -59,6 +59,12 @@ export interface ComputeLabSourceLocation {
 }
 
 /**
+ * One call the run is inside, outermost first. `count` folds adjacent identical
+ * calls, and a `hidden` entry stands for the ones left out of the middle.
+ */
+export type ComputeLabCallStackEntry = { source: string; line?: number; count?: number } | { hidden: number };
+
+/**
  * One execution step. `kind` is what execution did, never a parser class name,
  * and it is a plain string on purpose: a runner reporting a step this build has
  * never heard of must still render, or a construct nobody anticipated becomes
@@ -72,6 +78,7 @@ export interface ComputeLabFrame {
   location?: ComputeLabSourceLocation;
   locals?: Record<string, unknown>;
   changed?: string[];
+  stack?: ComputeLabCallStackEntry[];
   detail?: Record<string, unknown>;
   value?: unknown;
   error?: { message: string; line?: number; kind?: string };

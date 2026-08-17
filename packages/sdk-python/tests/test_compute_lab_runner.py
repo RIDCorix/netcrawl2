@@ -1,8 +1,10 @@
 import ast
+import builtins
 
 import pytest
 
 from netcrawl.compute_lab_runner import (
+    ALLOWED_EXCEPTIONS,
     ALLOWED_EXPRESSION_TYPES,
     ALLOWED_NODES,
     CONTROL_KINDS,
@@ -11,6 +13,7 @@ from netcrawl.compute_lab_runner import (
     INSTRUMENTED_EXPRESSION_TYPES,
     REQUIRED_EXPRESSION_EXCLUSIONS,
     InstrumentExecution,
+    TraceLimit,
     execute,
 )
 
@@ -230,9 +233,13 @@ def test_the_add_starter_replays_the_whole_program_within_a_bounded_budget():
 
 
 def test_dropping_line_frames_lost_no_statement():
-    """R-21's "nothing vanishes": every statement still reports itself."""
+    """R-21's "nothing vanishes": every statement still reports itself.
+
+    The leading `block_enter` is `def solution(self, a, b):` — a call is entered
+    like any other block, and the outermost call is not a special case.
+    """
     result = solution("for v in [a, b]:\n            break\n        return v")
-    assert kinds(result) == ["block_enter", "value", "repetition", "step", "block_exit", "result"]
+    assert kinds(result) == ["block_enter", "block_enter", "value", "repetition", "step", "block_exit", "result"]
     assert [frame["source"] for frame in result["frames"] if frame["kind"] == "step"] == ["break"]
     for statement in ("pass", "continue"):
         body = f"for v in [a, b]:\n            {statement}\n        return v"
@@ -283,10 +290,10 @@ def test_an_error_with_no_message_still_says_something():
 
 
 def test_a_caught_error_reports_the_handler_and_still_returns():
-    result = solution("nums = [a]\n        try:\n            return nums[9]\n        except:\n            return -1")
+    result = solution("nums = [a]\n        try:\n            return nums[9]\n        except IndexError:\n            return -1")
     assert result["status"] == "trace_ready" and result["returnValue"] == -1
     unwound = next(frame for frame in result["frames"] if frame["kind"] == "unwind")
-    assert unwound["source"] == "except:"
+    assert unwound["source"] == "except IndexError"
     assert kinds(result)[-1] == "result"
 
 
@@ -354,8 +361,13 @@ def test_an_except_clause_cannot_bind_over_the_instrumentation(bound):
     so `visit_Name`'s reserved-prefix check never sees it. A local binding shadows
     the module-level helpers the instrumentation calls, which would let player
     code stand where the tracer expects its own function.
+
+    Stage 3 added this tightening against a surface nothing could reach, because
+    no exception class resolved. It is reachable now, so the clause names a real
+    class: the point is that the rule holds where it can actually be exercised,
+    not that an unresolvable type happens to be rejected first.
     """
-    result = solution(f"try:\n            return a + b\n        except _ as {bound}:\n            return 0")
+    result = solution(f"try:\n            return a + b\n        except Exception as {bound}:\n            return 0")
     assert result["status"] == "syntax"
     assert result["error"]["message"] == "reserved names are not allowed"
 
@@ -369,8 +381,9 @@ def test_with_parses_and_traces_even_though_no_legal_program_can_use_it_yet():
     """
     result = solution("with a:\n            return b")
     assert result["status"] == "runtime"
-    assert [frame["kind"] for frame in result["frames"]] == ["block_enter", "unwind"]
-    assert result["frames"][0]["source"] == "with a"
+    assert kinds(result) == ["block_enter", "block_enter", "unwind"]
+    assert result["frames"][0]["source"] == "def solution(self, a, b):"
+    assert result["frames"][1]["source"] == "with a"
 
 
 def test_synthesised_metadata_never_steals_the_first_line():
@@ -398,6 +411,279 @@ def test_the_event_budget_buys_observation_rather_than_round_trips():
     assert deep["status"] == "limit"
     observed = max(frame["detail"]["iteration"] for frame in deep["frames"] if frame["kind"] == "repetition")
     assert observed > 350, f"only {observed} iterations reached inside the cap"
+
+
+# ── methods and recursion, inside the locks (R-21 #11 and #12) ──────────────
+def test_a_helper_call_reads_as_going_in_and_coming_back_out():
+    """R-21 #11: never an unexplained jump to another part of the file."""
+    result = solution("def double(x):\n            return x * 2\n        return double(a) + double(b)")
+    assert result["status"] == "trace_ready" and result["returnValue"] == 10
+    story = [(frame["kind"], frame["source"]) for frame in result["frames"]]
+    assert story[0] == ("block_enter", "def solution(self, a, b):"), "the outermost call is not a special case"
+    assert ("block_enter", "def double(x):") in story, "going in is a step the player can see"
+    assert ("result", "return x * 2") in story, "and so is coming back out"
+    assert story[-1] == ("result", "return double(a) + double(b)")
+    entered = next(frame for frame in result["frames"] if frame["source"] == "def double(x):")
+    assert entered["detail"] if "detail" in entered else True
+    assert entered["locals"] == {"x": 2} and entered["changed"] == ["x"], "entering shows what it was called with"
+
+
+def test_locals_belong_to_the_call_they_came_from():
+    """A shared `previous` reported every local of the caller as freshly changed."""
+    result = solution("def double(x):\n            return x * 2\n        total = double(a)\n        return total + b")
+    returned = [frame for frame in result["frames"] if frame["kind"] == "value" and frame["source"] == "double(a)"]
+    assert returned[0]["locals"] == {"a": 2, "b": 3}, "back in solution, holding solution's variables"
+    assert returned[0]["changed"] == [], "coming back is not a change to anything"
+
+
+def test_recursion_collapses_to_one_stack_entry_with_its_count():
+    """R-21 #12: the repeated middle is collapsed and counted, never a wall."""
+    result = run("""class ProblemSolver:
+    def solution(self, a, b):
+        def down(n):
+            if n <= 0:
+                return 0
+            return down(n - 1) + 1
+        return down(a + b)
+""", max_events=1200)
+    assert result["status"] == "trace_ready" and result["returnValue"] == 5
+    stacks = [frame["stack"] for frame in result["frames"] if "stack" in frame]
+    assert all(len(stack) <= 8 for stack in stacks), "a deep stack is summarised, not printed"
+    assert all(stack[0]["source"] == "def solution(self, a, b):" for stack in stacks), "the outermost stays visible"
+    assert max(entry.get("count", 1) for stack in stacks for entry in stack) == 6, "down(5)..down(0)"
+    assert all(entry["source"] == "def down(n):" for stack in stacks for entry in stack[1:])
+
+
+def test_mutual_recursion_hides_the_middle_and_says_how_much_it_hid():
+    result = run("""class ProblemSolver:
+    def solution(self, a, b):
+        def ping(n):
+            if n <= 0:
+                return 0
+            return pong(n - 1)
+        def pong(n):
+            if n <= 0:
+                return 0
+            return ping(n - 1)
+        return ping(a * 10)
+""", max_events=1200)
+    assert result["status"] == "trace_ready"
+    stacks = [frame["stack"] for frame in result["frames"] if "stack" in frame]
+    assert all(len(stack) <= 8 for stack in stacks), "alternating names never collapse, so the cap is what bounds them"
+    assert all("source" in stack[0] and "source" in stack[-1] for stack in stacks), "outermost and innermost both visible"
+    # 22 live calls at the deepest point; 7 of them are shown, so 15 are counted.
+    assert max(entry["hidden"] for stack in stacks for entry in stack if "hidden" in entry) == 15
+
+
+def test_a_program_that_never_calls_its_own_helper_carries_no_stack():
+    result = run(ADD_STARTER)
+    assert all("stack" not in frame for frame in result["frames"])
+
+
+def test_an_error_inside_a_helper_reports_every_frame_it_left():
+    result = solution("def boom(x):\n            return x // 0\n        return boom(a)")
+    assert result["status"] == "runtime"
+    unwound = [frame for frame in result["frames"] if frame["kind"] == "unwind"]
+    assert [frame["source"] for frame in unwound] == ["return x // 0", "return boom(a)"]
+    assert all(frame["detail"]["error"] == "division by zero" for frame in unwound)
+    assert "result" not in kinds(result), "a program that broke never reports a return"
+
+
+# ── the sandbox locks: what a player can now reach, and what they still cannot ──
+@pytest.mark.parametrize(
+    "rebinding",
+    [
+        "helper = type",
+        "for helper in [a]:\n            pass",
+        "helper, other = a, b",
+        "helper += 1",
+        "nums = [helper for helper in [a]]",
+        "with a as helper:\n            pass",
+        "try:\n            pass\n        except Exception as helper:\n            pass",
+    ],
+)
+def test_a_helper_name_can_never_be_bound_to_anything_else(rebinding):
+    """The whole reason relaxing `visit_Call` adds no reachable value.
+
+    A call through a helper name calls a function this Validator already walked —
+    never a value the player computed — because the name is bound exactly once,
+    by the `def`. Admitting `helper = <anything>` would hand a player
+    `<anything>(...)`, which is precisely what the callee lock exists to refuse.
+    """
+    result = solution(f"def helper(x):\n            return x\n        {rebinding}\n        return helper(a)")
+    assert result["status"] == "syntax"
+    assert result["error"]["message"] == "helper is a helper function and cannot be reassigned"
+
+
+@pytest.mark.parametrize(
+    ("callee", "message"),
+    [
+        ("a.bit_length()", "only built-in functions and your own def helpers can be called"),
+        ("[helper][0]()", "only built-in functions and your own def helpers can be called"),
+        ("type([])()", "only built-in functions and your own def helpers can be called"),
+        ("helper(a)(a)", "only built-in functions and your own def helpers can be called"),
+    ],
+)
+def test_the_callee_lock_still_refuses_everything_that_is_not_a_bare_known_name(callee, message):
+    result = solution(f"def helper(x):\n            return x\n        return {callee}")
+    assert result["status"] == "syntax"
+    assert result["error"]["message"] == message
+
+
+@pytest.mark.parametrize("name", ["_lab_eval", "_lab_event", "_lab_decision", "__builtins__", "solution"])
+def test_a_def_cannot_bind_over_the_instrumentation(name):
+    """A `def` name is a plain `str` field, exactly like `except X as name`.
+
+    `visit_Name`'s reserved-prefix check never sees it, so `def _lab_eval(...)`
+    would bind a local that shadows the helper the rewritten statements around it
+    call — the player's function standing where the tracer expects its own.
+    """
+    result = solution(f"def {name}(x):\n            return x\n        return a")
+    assert result["status"] == "syntax"
+    assert result["error"]["message"] == "reserved names are not allowed"
+
+
+@pytest.mark.parametrize(
+    ("signature", "message"),
+    [
+        ("def len(x)", "a helper function cannot be named after the built-in len"),
+        ("def helper(x=1)", "def helper must take plain positional parameters, with no defaults, *args or **kwargs"),
+        ("def helper(*x)", "def helper must take plain positional parameters, with no defaults, *args or **kwargs"),
+        ("def helper(x: (1).bit_length())", "def helper annotations are not allowed"),
+    ],
+)
+def test_a_helper_signature_stays_as_narrow_as_solutions(signature, message):
+    result = solution(f"{signature}:\n            return 1\n        return a")
+    assert result["status"] == "syntax" and result["error"]["message"] == message
+
+
+def test_a_class_cannot_be_defined_inside_solution():
+    """A nested class binds its name the way a `def` does, and could shadow one."""
+    result = solution("class helper:\n            def solution(self, x):\n                return x\n        return a")
+    assert result["status"] == "syntax"
+    assert result["error"]["message"] == "a class cannot be defined inside solution"
+
+
+@pytest.mark.parametrize("bound", ["_lab_eval", "__builtins__"])
+def test_a_parameter_cannot_bind_over_the_instrumentation(bound):
+    result = solution(f"def helper({bound}):\n            return 1\n        return helper(a)")
+    assert result["status"] == "syntax"
+    assert result["error"]["message"] == "reserved names are not allowed"
+
+
+def test_an_error_caught_inside_a_finally_is_still_a_caught_error():
+    """`release_lines` stops a `finally` from reading as recovery.
+
+    Applied alone it would also stop a handler *inside* that `finally` from
+    reading as recovery, and the release would then claim an error broke out of a
+    block that in fact handled it. Reaching a handler is the precise signal, so
+    the handler clears the error itself.
+    """
+    result = solution(
+        "nums = [a]\n        try:\n            b = 1\n        finally:\n"
+        "            try:\n                b = nums[9]\n            except IndexError:\n                b = -1\n"
+        "        return b"
+    )
+    assert result["status"] == "trace_ready" and result["returnValue"] == -1
+    closing = [frame for frame in result["frames"] if frame["kind"] == "block_exit"]
+    assert all("detail" not in frame for frame in closing), "nothing broke out of either block"
+    assert kinds(result)[-1] == "result"
+
+
+def test_a_handled_error_does_not_make_the_release_look_like_a_break():
+    result = solution(
+        "total = 0\n        try:\n            total = a // 0\n        except ZeroDivisionError:\n"
+        "            total = -1\n        finally:\n            b = 0\n        return total"
+    )
+    assert result["status"] == "trace_ready" and result["returnValue"] == -1
+    closing = next(frame for frame in result["frames"] if frame["kind"] == "block_exit")
+    assert "detail" not in closing, "the error was handled, so nothing broke out of the block"
+
+
+def test_a_helper_defined_in_another_helper_is_not_visible_outside_it():
+    result = solution("def outer(x):\n            def inner(y):\n                return y\n            return inner(x)\n        return inner(a)")
+    assert result["status"] == "syntax"
+    assert result["error"]["message"] == "only built-in functions and your own def helpers can be called"
+
+
+def test_multi_method_via_self_stays_rejected():
+    """Route (B) is rejected permanently: attribute callees are the second lock."""
+    result = run("""class ProblemSolver:
+    def solution(self, a, b):
+        return self.helper(a)
+    def helper(self, x):
+        return x
+""")
+    assert result["status"] == "syntax"
+    assert result["error"]["message"] == "ProblemSolver must contain exactly one solution method"
+
+
+# ── catchable errors (R-21 #9, re-pointed from `with` to try/except/finally) ──
+def test_the_errors_a_player_can_catch_are_the_ones_the_sandbox_can_raise():
+    caught = solution("nums = [a]\n        try:\n            return nums[9]\n        except IndexError as e:\n            return len(str(e))")
+    assert caught["status"] == "trace_ready" and caught["returnValue"] == 23
+    tupled = solution("try:\n            return a // 0\n        except (ZeroDivisionError, KeyError):\n            return -1")
+    assert tupled["status"] == "trace_ready" and tupled["returnValue"] == -1
+
+
+def test_a_bound_error_is_readable_rather_than_reported_as_not_json():
+    result = solution("nums = [a]\n        try:\n            return nums[9]\n        except IndexError as e:\n            return 0")
+    handled = next(frame for frame in result["frames"] if frame["kind"] == "unwind" and "e" in frame["locals"])
+    assert handled["locals"]["e"] == "IndexError: list index out of range"
+
+
+@pytest.mark.parametrize(
+    ("clause", "message"),
+    [
+        ("except:", "name the error you are catching, for example: except ZeroDivisionError:"),
+        ("except BaseException:", "only these errors can be caught: Exception, IndexError, KeyError, TypeError, ValueError, ZeroDivisionError"),
+        ("except SystemExit:", "only these errors can be caught: Exception, IndexError, KeyError, TypeError, ValueError, ZeroDivisionError"),
+        ("except (ValueError, OSError):", "only these errors can be caught: Exception, IndexError, KeyError, TypeError, ValueError, ZeroDivisionError"),
+    ],
+)
+def test_only_named_errors_from_the_allowlist_can_be_caught(clause, message):
+    result = solution(f"try:\n            return a\n        {clause}\n            return 0")
+    assert result["status"] == "syntax" and result["error"]["message"] == message
+
+
+def test_the_event_cap_is_not_something_player_code_can_catch():
+    """Two halves, and both are load-bearing.
+
+    `TraceLimit` is not an `Exception`, and every handler must name a class from
+    `ALLOWED_EXCEPTIONS` — all of which are `Exception` subclasses. Relax either
+    and a loop can swallow the cap and spin until the wall clock kills it, which
+    reaches the player as a timeout instead of an honest "we stopped watching".
+    """
+    assert not issubclass(TraceLimit, Exception)
+    assert all(issubclass(getattr(builtins, name), Exception) for name in ALLOWED_EXCEPTIONS)
+    swallowing = solution("total = 0\n        while a > 0:\n            try:\n                total = total + 1\n            except Exception:\n                total = total\n        return total", max_events=200)
+    assert swallowing["status"] == "limit" and len(swallowing["frames"]) == 200
+
+
+def test_finally_releases_visibly_on_both_paths_and_in_the_same_position():
+    """R-21 #9 as R-25 re-pointed it: the difference is what the block says it did.
+
+    Both facts adjacent on one card — the thing that broke and the release that
+    happened anyway — and the exit in the position it would occupy on a normal
+    exit, so the two runs compare side by side.
+    """
+    body = "total = 0\n        try:\n            total = a %s 0\n        finally:\n            b = 0\n        return total"
+    finished = solution(body % "+")
+    broke = solution(body % "//")
+    assert finished["status"] == "trace_ready" and broke["status"] == "runtime"
+    closing = [next(index for index, frame in enumerate(result["frames"]) if frame["kind"] == "block_exit")
+               for result in (finished, broke)]
+    # Same position relative to the block: last thing the `finally` did, then the
+    # release — not "after the statement", which only ever happens when nothing
+    # went wrong, and not a different place on the failing path.
+    for index, result in zip(closing, (finished, broke)):
+        assert result["frames"][index]["source"] == "try:"
+        assert result["frames"][index - 1]["source"] == "b = 0"
+    assert "detail" not in finished["frames"][closing[0]]
+    assert broke["frames"][closing[1]]["detail"] == {"error": "division by zero"}
+    assert kinds(broke)[-1] == "unwind", "a run a `finally` cleaned up after still broke"
+    assert broke["frames"][-1]["source"] == "total = a // 0", "and it broke where it broke"
+    assert broke["error"]["line"] == finished["frames"][3]["location"]["lineno"]
 
 
 def test_the_runner_streams_frames_as_they_happen():
