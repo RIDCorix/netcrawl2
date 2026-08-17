@@ -71,6 +71,43 @@ ALLOWED_NODES = {
     "Try", "ExceptHandler", "With", "withitem",
 }
 
+# The fields on an allowed node whose value is *not* an AST child. They matter
+# because `generic_visit` walks children and `Validator.visit` re-checks each one
+# against `ALLOWED_NODES` — so a field made of nodes is covered by construction,
+# and a field made of anything else is invisible to that walk. Every name binder
+# that has escaped this Validator was exactly that: a plain `str` on a node whose
+# other fields looked complete. Listing the scalars that are accounted for, and
+# refusing every other, is what makes "a field nobody thought of" a refusal the
+# player can read instead of a hole. `type_comment` is deliberately absent from
+# every entry: `ast.parse` never populates it here, so nothing is lost by
+# refusing it and one more field stops being a place to hide.
+SCALAR_FIELDS = {
+    "AnnAssign": frozenset({"simple"}),
+    "ClassDef": frozenset({"name"}),
+    "Constant": frozenset({"value", "kind"}),
+    "ExceptHandler": frozenset({"name"}),
+    "FormattedValue": frozenset({"conversion"}),
+    "FunctionDef": frozenset({"name"}),
+    "Name": frozenset({"id"}),
+    "comprehension": frozenset({"is_async"}),
+    "keyword": frozenset({"arg"}),
+}
+
+# What each hand-rolled visitor actually reads. `visit_Module`, `visit_ClassDef`
+# and `_check_signature` all replace `generic_visit` with a hand-picked list of
+# fields, and a visitor that enumerates fields fails **open** on every field
+# nobody named. That is not hypothetical: PEP 695's `type_params` — an entire
+# subtree, carrying a fourth `str`-field name binder — passed unchecked on every
+# CPython ≥ 3.12 for exactly this reason. Any field outside these sets must be
+# empty; see `Validator._check_fields`.
+WALKED_FIELDS = {
+    "Module": frozenset({"body"}),
+    "ClassDef": frozenset({"name", "bases", "keywords", "body", "decorator_list"}),
+    "FunctionDef": frozenset({"name", "args", "body", "decorator_list", "returns"}),
+    "arguments": frozenset({"posonlyargs", "args", "vararg", "kwonlyargs", "kw_defaults", "kwarg", "defaults"}),
+    "arg": frozenset({"arg", "annotation"}),
+}
+
 # Semantic frame vocabulary. Closed because it describes what execution did, not
 # what syntax it was; a construct nobody anticipated is a new *arrangement* of
 # these, never a new one. ``step`` is the bottom element and the reason the set
@@ -126,14 +163,42 @@ class Validator(ast.NodeVisitor):
 
     What is relaxed is *which* bare names may be called: a built-in, or a
     function the player defined with ``def`` inside ``solution``. That widening
-    adds no reachable value, and the reason is a rule rather than an argument —
-    **a name bound by a ``def`` can never be bound to anything else.** It is not
-    an assignment target, an augmented target, a ``for`` target, a comprehension
-    target, an ``except ... as`` name, a parameter, or a second ``def``. So a
-    call through a helper name provably calls a function this Validator already
-    walked, and never an arbitrary value the player computed. Admitting attribute
-    callees, or dropping the never-rebound rule, would both give a player
-    ``<anything>(...)`` — that is the pair this class exists to keep apart.
+    adds no reachable value only while **a name bound by a ``def`` cannot be
+    bound to anything else** — because a call through a helper name is then
+    provably a call to a function this Validator already walked, never an
+    arbitrary value the player computed. Admitting attribute callees, or losing
+    that rule, would each give a player ``<anything>(...)``, and keeping those
+    two apart is what this class is for.
+
+    **The rule is a property of this allowlist, not of Python**, and it is worth
+    stating as the closure it actually has rather than as the enumeration it was
+    first written as. It holds in three places, and relaxing any one of them
+    ends it:
+
+    * ``visit_Name`` refuses a ``Store``/``Del`` on a helper name, which covers
+      every binder that produces a ``Name`` node — assignment, augmented
+      assignment, a ``for`` target, a comprehension target, ``with ... as``.
+    * ``_check_signature`` and ``visit_ExceptHandler`` cover the binders that
+      bind from a plain ``str`` field and so produce no ``Name`` node for
+      ``visit_Name`` to see: a ``def`` name, a parameter, an ``except ... as``
+      name.
+    * ``ALLOWED_NODES`` refuses the node types that would bind another way —
+      ``Import``, ``Global``, ``Nonlocal``, ``Delete``, ``NamedExpr``, ``Match``,
+      ``Lambda`` — and ``visit_ClassDef`` refuses a class nested in ``solution``.
+
+    As first written the rule was **false**, and how it broke is the part to keep
+    in view. PEP 695 ``def helper[T](x)`` binds ``helper``'s type parameter from
+    a ``str`` field inside ``type_params`` — a field that neither
+    ``visit_FunctionDef`` nor ``visit_ClassDef`` walked, so nothing inside it was
+    ever checked against ``ALLOWED_NODES``, ``visit_Attribute`` or ``visit_Call``
+    on any CPython ≥ 3.12. The listed binders were not wrong; being a list at all
+    was, in a visitor that hand-picks the fields it reads. ``_check_fields`` is
+    what closes that class rather than that instance: on ``Module``,
+    ``ClassDef``, ``FunctionDef``, ``arguments`` and ``arg``, a field this class
+    does not itself read must be empty, and ``_check_scalar_fields`` extends the
+    same refusal to every non-node field on every other allowed node. So the next
+    construct CPython adds arrives here as a refusal the player can read, not as
+    a hole nobody is looking for.
     """
 
     def __init__(self, parameter_names: list[str]):
@@ -148,9 +213,48 @@ class Validator(ast.NodeVisitor):
     def visit(self, node: ast.AST):
         if type(node).__name__ not in ALLOWED_NODES:
             raise ValidationError(f"{type(node).__name__} is not allowed in Compute Lab", getattr(node, "lineno", None))
+        self._check_scalar_fields(node)
         return super().visit(node)
 
+    @staticmethod
+    def _check_scalar_fields(node: ast.AST) -> None:
+        """Refuse any non-AST field that ``SCALAR_FIELDS`` does not account for.
+
+        The node-shaped fields need no list: ``generic_visit`` walks them and
+        ``visit`` checks each against ``ALLOWED_NODES``. Everything else is
+        invisible to that walk, which is the whole reason a plain ``str`` has now
+        been the hiding place four times — ``except X as name``, a ``def`` name,
+        a parameter, and the name inside a PEP 695 type parameter.
+        """
+        accounted = SCALAR_FIELDS.get(type(node).__name__, frozenset())
+        for field, value in ast.iter_fields(node):
+            if field in accounted:
+                continue
+            for item in value if isinstance(value, list) else [value]:
+                if item is None or isinstance(item, ast.AST):
+                    continue
+                raise ValidationError(f"{field} is not allowed in Compute Lab", getattr(node, "lineno", None))
+
+    @staticmethod
+    def _check_fields(node: ast.AST) -> None:
+        """Refuse any field the hand-rolled visitor above does not itself read.
+
+        ``type_params`` is called out by name because it is the one a player can
+        actually type today, and a message naming the syntax teaches more than
+        the field name would. The loop after it is the finding rather than the
+        instance: it is what makes a field nobody has heard of arrive as a
+        refusal instead of as an unchecked subtree.
+        """
+        if getattr(node, "type_params", None):
+            raise ValidationError("type parameters like [T] are not allowed", getattr(node, "lineno", None))
+        walked = WALKED_FIELDS[type(node).__name__]
+        for field, value in ast.iter_fields(node):
+            if field in walked or not value:
+                continue
+            raise ValidationError(f"{field} is not allowed in Compute Lab", getattr(node, "lineno", None))
+
     def visit_Module(self, node: ast.Module):
+        self._check_fields(node)
         if len(node.body) != 1 or not isinstance(node.body[0], ast.ClassDef) or node.body[0].name != "ProblemSolver":
             raise ValidationError("Define exactly one class: class ProblemSolver:")
         self.visit(node.body[0])
@@ -164,6 +268,7 @@ class Validator(ast.NodeVisitor):
         # depending on that.
         if self._depth > 0:
             raise ValidationError("a class cannot be defined inside solution", node.lineno)
+        self._check_fields(node)
         if node.bases or node.keywords or node.decorator_list or len(node.body) != 1:
             raise ValidationError("ProblemSolver must contain exactly one solution method", node.lineno)
         method = node.body[0]
@@ -220,6 +325,13 @@ class Validator(ast.NodeVisitor):
             arguments.append(node.args.vararg)
         if node.args.kwarg is not None:
             arguments.append(node.args.kwarg)
+        # This method *is* the walk for a `def` header — nothing below visits
+        # `node.args`, so every field of the signature is read here or nowhere.
+        # `_check_fields` is what makes "or nowhere" a refusal.
+        self._check_fields(node)
+        self._check_fields(node.args)
+        for argument in arguments:
+            self._check_fields(argument)
         # A parameter binds a local from a plain `str` field, so `visit_Name`'s
         # reserved-prefix check never sees it — the same surface as a `def` name
         # and an `except ... as` name. Held to the same rule as all three.
@@ -239,11 +351,19 @@ class Validator(ast.NodeVisitor):
                 raise ValidationError(f"solution must be def solution(self, {', '.join(self.parameter_names)})", node.lineno)
             return names
 
-        # A `def` name is a plain `str` field, exactly like `except X as name`, so
-        # `visit_Name`'s reserved-prefix check never sees it. `def _lab_eval(...)`
-        # binds a local that shadows the instrumentation helper the rewritten
-        # statements around it call — the player's function would stand where the
-        # tracer expects its own.
+        # A `def` name is a plain `str` field, exactly like `except X as name` and
+        # a parameter, so `visit_Name`'s reserved-prefix check never sees it.
+        # `def _lab_eval(...)` binds a local that shadows the instrumentation
+        # helper the rewritten statements around it call — the player's function
+        # would stand where the tracer expects its own.
+        #
+        # Those three are the whole `str`-field surface *of this signature*, and
+        # they are checked here because nothing else can see them. What is not
+        # provable by listing them is that no fourth exists: `type_params` was a
+        # fourth, and it was reached from a field this method did not read at
+        # all. `_check_fields` above is the answer to that, and it is the reason
+        # this comment can say "the whole surface" without meaning "the surface
+        # anyone thought of" — see the class docstring.
         if node.name == "solution" or node.name.startswith("__") or node.name.startswith("_lab_"):
             raise ValidationError("reserved names are not allowed", node.lineno)
         if annotated:

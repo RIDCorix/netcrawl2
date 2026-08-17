@@ -1,5 +1,7 @@
 import ast
 import builtins
+import sys
+import typing
 
 import pytest
 
@@ -12,8 +14,12 @@ from netcrawl.compute_lab_runner import (
     FRAME_KINDS,
     INSTRUMENTED_EXPRESSION_TYPES,
     REQUIRED_EXPRESSION_EXCLUSIONS,
+    SCALAR_FIELDS,
+    WALKED_FIELDS,
     InstrumentExecution,
     TraceLimit,
+    ValidationError,
+    Validator,
     execute,
 )
 
@@ -684,6 +690,164 @@ def test_finally_releases_visibly_on_both_paths_and_in_the_same_position():
     assert kinds(broke)[-1] == "unwind", "a run a `finally` cleaned up after still broke"
     assert broke["frames"][-1]["source"] == "total = a // 0", "and it broke where it broke"
     assert broke["error"]["line"] == finished["frames"][3]["location"]["lineno"]
+
+
+def test_the_event_cap_survives_a_finally_that_swallows_it():
+    """Why `finally: continue` cannot spin forever, stated instead of assumed.
+
+    `continue` inside a `finally` discards whatever exception is propagating, so
+    a `try` in a loop body can swallow the cap once. It cannot swallow it twice:
+    the loop's `repetition` event is inserted at `body[0]`, which is loop-body
+    level and therefore outside every `try` the player wrote *in* that body — a
+    player's `try` is itself an element of `body`. The next iteration raises
+    `TraceLimit` before re-entering the `try`, and nothing catches it there.
+
+    This is the property Stage 4 replaced the previous unstated one with, so it
+    is pinned rather than left to be re-derived by whoever moves this insert.
+    """
+    source = (
+        "class ProblemSolver:\n    def solution(self, a, b):\n"
+        "        total = 0\n        while a > 0:\n            try:\n"
+        "                total = total + 1\n            finally:\n                continue\n"
+        "        return total\n"
+    )
+    instrumented = InstrumentExecution(source).visit(ast.parse(source))
+    loop = next(node for node in ast.walk(instrumented) if isinstance(node, ast.While))
+    opening = loop.body[0]
+    assert isinstance(opening, ast.Expr) and opening.value.func.id == "_lab_event"
+    assert opening.value.args[1].value == "repetition"
+    guarded = [node for node in ast.walk(loop) if isinstance(node, ast.Try)]
+    assert guarded, "the loop body does contain a try, so the swallow is reachable"
+    assert all(opening not in ast.walk(node) for node in guarded), "and the repetition event is outside every one"
+
+    swallowing = run(source, max_events=200)
+    assert swallowing["status"] == "limit" and len(swallowing["frames"]) == 200
+
+
+# ── fields nobody named: the class the `type_params` hole belongs to ────────
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 is a SyntaxError before 3.12, so the parser refuses it first")
+@pytest.mark.parametrize(
+    "header",
+    [
+        "def second[T](x)",
+        "def second[*Ts](x)",
+        "def second[**P](x)",
+        "def second[helper](x)",
+        "def second[_lab_eval](x)",
+        "def second[T: type([]).__base__.__subclasses__()](x)",
+    ],
+)
+def test_a_type_parameter_list_is_refused_wherever_it_can_be_written(header):
+    """A fourth `str`-field binder, and an entire subtree the Validator never saw.
+
+    `visit_FunctionDef` and `visit_ClassDef` hand-pick the fields they walk and
+    never walked `type_params`, so on every CPython >= 3.12 nothing inside a type
+    parameter list was checked against `ALLOWED_NODES`, `visit_Attribute` or
+    `visit_Call`. `def second[helper](x)` rebinds an approved helper name to a
+    `TypeVar` — the never-rebound rule the callee lock rests on, disproven — and
+    `def second[_lab_eval](x)` is the instrumentation shadow again, from a field
+    with no `Name` node in it.
+    """
+    result = solution(f"def helper(x):\n            return x\n        {header}:\n            return 1\n        return a")
+    assert result["status"] == "syntax"
+    assert result["error"]["message"] == "type parameters like [T] are not allowed"
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 is a SyntaxError before 3.12, so the parser refuses it first")
+@pytest.mark.parametrize(
+    "source",
+    [
+        "class ProblemSolver[T]:\n    def solution(self, a, b):\n        return a\n",
+        "class ProblemSolver:\n    def solution[T](self, a, b):\n        return a\n",
+    ],
+)
+def test_a_type_parameter_list_is_refused_on_the_class_and_on_solution_itself(source):
+    result = run(source)
+    assert result["status"] == "syntax"
+    assert result["error"]["message"] == "type parameters like [T] are not allowed"
+
+
+def test_a_field_the_hand_rolled_visitors_do_not_read_is_refused_not_skipped():
+    """The finding, not the instance: an enumerating visitor fails *open*.
+
+    `type_params` got in because `visit_FunctionDef` walks `node.body` and
+    nothing else. Any future field arrives the same way, so the check is on the
+    shape of the node rather than on the name of the field — here a subtree
+    CPython does not have, to prove it is not `type_params` that is special.
+    """
+    tree = ast.parse(ADD_STARTER)
+    method = tree.body[0].body[0]
+    method._fields = (*method._fields, "surprise")
+    method.surprise = [ast.Pass()]
+    with pytest.raises(ValidationError) as refused:
+        Validator(["a", "b"]).visit(tree)
+    assert str(refused.value) == "surprise is not allowed in Compute Lab"
+
+
+def test_a_scalar_field_nobody_accounted_for_is_refused_on_any_node():
+    """The same closure for the nodes `generic_visit` does walk.
+
+    A walked field is re-checked against `ALLOWED_NODES` by construction; a field
+    that is not a node is invisible to that walk, and every binder that has
+    escaped this Validator — `except X as name`, a `def` name, a parameter, a
+    type parameter — was exactly that.
+    """
+    tree = ast.parse(ADD_STARTER)
+    loop = next(node for node in ast.walk(tree) if isinstance(node, ast.For))
+    loop._fields = (*loop._fields, "surprise")
+    loop.surprise = "helper"
+    with pytest.raises(ValidationError) as refused:
+        Validator(["a", "b"]).visit(tree)
+    assert str(refused.value) == "surprise is not allowed in Compute Lab"
+
+
+# Fields that exist on an allowed node and are refused on purpose rather than
+# read. `type_params` is the hole this revision closes; `type_comment` and
+# `type_ignores` are never populated by `ast.parse` as this module calls it, so
+# refusing them costs nothing and removes two more places to hide.
+REFUSED_ON_PURPOSE = frozenset({"type_params", "type_comment", "type_ignores"})
+
+
+def test_the_hand_rolled_visitors_still_account_for_every_field_they_meet():
+    """The canary for the next CPython, since the tables are hand-written.
+
+    A field added to one of these five nodes is refused at validation time
+    whatever it is — that is `_check_fields` and it needs no maintenance. What
+    needs maintenance is the judgement of whether the new field should have been
+    read instead, and this is where that question gets asked: it fails on the
+    version bump rather than on a player's program.
+    """
+    for name, walked in WALKED_FIELDS.items():
+        node_type = getattr(ast, name)
+        unexplained = set(node_type._fields) - walked - REFUSED_ON_PURPOSE
+        assert not unexplained, f"{name} grew {sorted(unexplained)} — read it or add it to REFUSED_ON_PURPOSE"
+
+
+@pytest.mark.skipif(not hasattr(ast.Name, "_field_types"), reason="ast._field_types is 3.13+; the runtime check holds regardless")
+def test_every_field_that_is_not_a_node_has_an_entry_and_every_entry_is_not_a_node():
+    """`SCALAR_FIELDS` refuses in the safe direction, which is why it needs a test.
+
+    A field this table omits is refused, so a miss cannot open the sandbox — it
+    breaks a program the Lab means to accept, in a player's editor rather than in
+    CI. And a field listed here that is *actually* made of nodes would be the
+    opposite mistake: exempted from the check that walks it.
+    """
+    def made_of_nodes(annotation) -> bool:
+        arguments = typing.get_args(annotation)
+        if arguments:
+            return any(made_of_nodes(argument) for argument in arguments)
+        return isinstance(annotation, type) and typing.get_origin(annotation) is None and issubclass(annotation, ast.AST)
+
+    for name in sorted(ALLOWED_NODES):
+        node_type = getattr(ast, name, None)
+        if node_type is None:
+            continue  # a node this interpreter is too old to have
+        accounted = SCALAR_FIELDS.get(name, frozenset()) | WALKED_FIELDS.get(name, frozenset()) | REFUSED_ON_PURPOSE
+        for field, annotation in node_type._field_types.items():
+            if made_of_nodes(annotation):
+                assert field not in SCALAR_FIELDS.get(name, frozenset()), f"{name}.{field} is made of nodes and must be walked, not exempted"
+                continue
+            assert field in accounted, f"{name}.{field} is not a node and has no entry — programs using it would be refused"
 
 
 def test_the_runner_streams_frames_as_they_happen():
