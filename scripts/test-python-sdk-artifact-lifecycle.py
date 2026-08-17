@@ -88,16 +88,26 @@ def test_the_installed_runner_emits_the_frame_shape_the_ui_reads():
     assert lines[-1]["result"]["status"] == "trace_ready", lines[-1]
     frames = [line["frame"] for line in lines if "frame" in line]
 
+    behind = (
+        f"the installed netcrawl-sdk {EXPECTED_VERSION} is older than the frame shape this repo declares — publish "
+        "the release named by packages/sdk-python/frame_contract.json before raising the floor to it."
+    )
     for frame in frames:
         declared = set(contract["kinds"][frame["kind"]]["required"]) | set(contract["kinds"][frame["kind"]]["optional"])
         emitted = set(frame.get("detail") or {})
         assert emitted <= declared, f"a {frame['kind']} frame carries undeclared {sorted(emitted - declared)}"
         missing = set(contract["kinds"][frame["kind"]]["required"]) - emitted
-        assert not missing, (
-            f"the installed netcrawl-sdk {EXPECTED_VERSION} emits a {frame['kind']} frame without {sorted(missing)}. "
-            "The published runner is older than the frame shape this repo declares — publish the release named by "
-            "packages/sdk-python/frame_contract.json before raising the floor to it."
-        )
+        assert not missing, f"a {frame['kind']} frame arrives without detail {sorted(missing)}. {behind}"
+
+        # The frame's own fields, for the same reason and against the same
+        # artifact: `frame["types"]` landed in the commit that added
+        # `detail["loop"]` and was lost to the same forgotten publish, so the type
+        # chip under every variable box was silently absent too. `detail` alone
+        # would let the next such field through.
+        top = set(contract["frame"]["required"]) - set(frame)
+        assert not top, f"a {frame['kind']} frame arrives without top-level {sorted(top)}. {behind}"
+        undeclared = set(frame) - set(contract["frame"]["required"]) - set(contract["frame"]["optional"])
+        assert not undeclared, f"a {frame['kind']} frame carries undeclared top-level {sorted(undeclared)}"
 
     repetitions = [frame for frame in frames if frame["kind"] == "repetition"]
     assert len(repetitions) == 3, f"a three-iteration loop produced {len(repetitions)} repetition frames"
@@ -105,7 +115,16 @@ def test_the_installed_runner_emits_the_frame_shape_the_ui_reads():
     # skips the frame, the chain is empty, and the stage draws no track and no
     # 「迴圈」 header — which is what Corix saw on a live build.
     assert all(isinstance(frame["detail"].get("loop"), int) for frame in repetitions), repetitions
-    print(f"Installed netcrawl-sdk {EXPECTED_VERSION} emits the declared frame shape, loop identity included")
+    # The other half of that commit, checked by name for the same reason: the type
+    # chip under each variable box is drawn from `frame["types"]`, and the runner
+    # that lost the loop identity lost this too.
+    holding = [frame for frame in frames if frame["locals"]]
+    assert holding, "no frame reported a held value"
+    assert all(set(frame["types"]) == set(frame["locals"]) for frame in holding), (
+        f"the installed netcrawl-sdk {EXPECTED_VERSION} names a type for only some held values, so some variable "
+        f"boxes draw a chip and some do not. {behind}"
+    )
+    print(f"Installed netcrawl-sdk {EXPECTED_VERSION} emits the declared frame shape — loop identity and type chips")
 
 
 test_the_installed_runner_emits_the_frame_shape_the_ui_reads()

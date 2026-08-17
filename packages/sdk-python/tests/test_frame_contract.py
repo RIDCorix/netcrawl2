@@ -22,6 +22,7 @@ from netcrawl.version import __version__
 
 CONTRACT = json.loads((Path(__file__).resolve().parents[1] / "frame_contract.json").read_text(encoding="utf-8"))
 KINDS = CONTRACT["kinds"]
+FRAME = CONTRACT["frame"]
 
 # Between them these reach every kind the runner can emit, and every optional key
 # it can attach. `test_the_fixtures_reach_every_declared_kind` is what stops a
@@ -150,6 +151,55 @@ def test_every_required_key_is_on_every_frame_of_its_kind():
             f"{fixture}: a {frame['kind']} frame is missing {sorted(missing)}. Either the runner stopped emitting a "
             "key the UI is entitled to, or the key was never unconditional and belongs in `optional`."
         )
+
+
+def test_the_runner_emits_no_top_level_field_the_contract_does_not_declare():
+    declared = set(FRAME["required"]) | set(FRAME["optional"])
+    for fixture, frame in every_frame():
+        undeclared = set(frame) - declared
+        assert not undeclared, (
+            f"{fixture}: a {frame['kind']} frame carries top-level {sorted(undeclared)}, which frame_contract.json "
+            "does not declare. Declare it and move sinceVersion — a reader on an older release never receives it, "
+            "and `detail` was only half this wire."
+        )
+
+
+def test_every_required_top_level_field_is_on_every_frame():
+    for fixture, frame in every_frame():
+        missing = set(FRAME["required"]) - set(frame)
+        assert not missing, (
+            f"{fixture}: a {frame['kind']} frame is missing top-level {sorted(missing)}. Every one of these is `?:` on "
+            "`ComputeLabFrame`, so the UI reads it as undefined and draws nothing rather than failing — which is how "
+            "`types` went missing for every player without a single error."
+        )
+
+
+def test_no_step_frame_carries_a_field_only_the_terminal_frame_may():
+    # `error` is assembled by app.py for the closing error/limit frame. A step
+    # frame carrying it would make the run look terminal to the server, which
+    # refuses exactly that shape.
+    for fixture, frame in every_frame():
+        overlap = set(frame) & set(FRAME["terminalOnly"])
+        assert not overlap, f"{fixture}: a {frame['kind']} step frame carries terminal-only {sorted(overlap)}"
+
+
+def test_every_variable_carries_the_type_chip_the_boxes_draw():
+    """R-50's second face, and the reason `detail` alone was not the contract.
+
+    `1a92eed` added `frame["types"]` in the same commit as `detail["loop"]`, and
+    the 1.4.1 on PyPI emits neither. `stage.tsx` reads `frame?.types?.[name]` for
+    the chip under each variable box; absent, it renders nothing and no error —
+    which is why the `int` labels are missing from R-50's "before" screenshot and
+    present in the "after" one, a difference the first delivery read as identical.
+    """
+    frames = frames_of(FIXTURES["nested"])
+    assert all("types" in frame for frame in frames)
+    for frame in frames:
+        # Parallel to `locals`: a box with no type chip is the failure being pinned.
+        assert set(frame["types"]) == set(frame["locals"]), frame
+        assert all(isinstance(name, str) for name in frame["types"].values()), frame
+    holding = next(frame for frame in reversed(frames) if frame["locals"])
+    assert holding["types"] == {name: "int" for name in holding["locals"]}, holding
 
 
 def test_a_for_loop_carries_the_loop_identity_the_track_is_drawn_from():

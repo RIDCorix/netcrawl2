@@ -95,6 +95,72 @@ for (const [key, files] of [...reads].sort()) {
   );
 }
 
+// ── The frame's own fields, held by the compiler rather than by a scan ──────
+/*
+ * `detail` was only half the wire. `1a92eed` added `detail["loop"]` and
+ * `frame["types"]` together, the 1.4.1 on PyPI emits neither, and `stage.tsx`
+ * reads `frame?.types?.[name]` for the chip under every variable box — so that
+ * chip was silently absent for every player too, on the same forgotten publish.
+ * A contract over `detail` alone would have called R-50 closed with its second
+ * face still live.
+ *
+ * These fields get a better check than a regex. `ComputeLabFrame` declares them,
+ * so reading one it does not name is a compile error, and CI compiles the UI —
+ * `pnpm --filter @netcrawl/desktop build` runs `pnpm --filter ui build`, which is
+ * `tsc && vite build`. All that is missing is the link from that interface to the
+ * runner, which is this: the two must name the same set. Adding a field to the
+ * interface then forces `sinceVersion`, the floor, the starter lock and the
+ * publish, instead of shipping a read of something nobody sends.
+ */
+/**
+ * The interface's own field names, by brace depth rather than by regex.
+ *
+ * `error?: { message: string; … }` is nested, and a pattern loose enough to span
+ * it picks up `message` as a frame field the moment someone wraps that line
+ * across three — a red build whose message names a field nobody wrote. Depth is
+ * the thing being asked about, so count it.
+ */
+function fieldsOfComputeLabFrame(source) {
+  const opening = source.indexOf('{', source.indexOf('export interface ComputeLabFrame'));
+  assert.notEqual(opening, -1, 'could not find interface ComputeLabFrame in gameStore.ts — teach this check');
+  const fields = new Set();
+  let depth = 0;
+  for (let index = opening, lineStart = true; index < source.length; index++) {
+    const character = source[index];
+    if (character === '{') depth++;
+    else if (character === '}' && --depth === 0) return fields;
+    else if (character === '\n') lineStart = true;
+    else if (depth === 1 && lineStart && /\S/.test(character)) {
+      lineStart = false;
+      const declaration = source.slice(index).match(/^(\w+)\??:/);
+      if (declaration) fields.add(declaration[1]);
+    }
+  }
+  throw new Error('interface ComputeLabFrame is never closed');
+}
+
+const store = readFileSync(resolve('packages/ui/src/store/gameStore.ts'), 'utf8');
+const declaredByUi = fieldsOfComputeLabFrame(store);
+const declaredByRunner = new Set([
+  ...contract.frame.required,
+  ...contract.frame.optional,
+  ...contract.frame.terminalOnly,
+]);
+assert.ok(declaredByUi.size > 5, `only parsed ${declaredByUi.size} fields off ComputeLabFrame — the parse broke`);
+for (const bucket of ['required', 'optional', 'terminalOnly'])
+  assert.ok(Array.isArray(contract.frame[bucket]), `frame.${bucket} must be a list`);
+const overlap = contract.frame.required.filter(field => contract.frame.optional.includes(field));
+assert.deepEqual(overlap, [], `frame declares ${overlap} as both required and optional`);
+
+assert.deepEqual(
+  [...declaredByUi].sort(),
+  [...declaredByRunner].sort(),
+  'interface ComputeLabFrame and frame_contract.json name different frame fields. A field the UI declares but no ' +
+    'runner sends reaches production as a read of undefined — silently, exactly as detail.loop and frame.types did. ' +
+    'Declare it in frame_contract.json, move sinceVersion to the release that will emit it, and raise ' +
+    'MIN_PYTHON_SDK_VERSION to that release.',
+);
+
 // ── The scan has to have worked ─────────────────────────────────────────────
 function assertTheScanFoundTheKeyThisIssueWasAbout() {
   // A regex that matches nothing passes every assertion above. `loop` is the key
@@ -109,5 +175,6 @@ function assertTheScanFoundTheKeyThisIssueWasAbout() {
 assertTheScanFoundTheKeyThisIssueWasAbout();
 
 console.log(
-  `Frame contract passed (declared since ${contract.sinceVersion}; the Lab UI reads ${[...reads.keys()].sort().join(', ')})`,
+  `Frame contract passed (declared since ${contract.sinceVersion}; ${declaredByRunner.size} frame fields agree with ` +
+    `ComputeLabFrame; the Lab UI reads detail.${[...reads.keys()].sort().join(', detail.')})`,
 );

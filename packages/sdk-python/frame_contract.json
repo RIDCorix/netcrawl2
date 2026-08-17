@@ -13,6 +13,25 @@
 
   "sinceVersion": "1.4.2",
 
+  "frame": {
+    "$comment": [
+      "The frame's own top-level fields. `detail` was only half the wire, and the missing half had already been bitten by the same forgotten publish: `1a92eed` added `detail[\"loop\"]` and `frame[\"types\"]` in one commit, and the 1.4.1 on PyPI emits neither. `stage.tsx` reads `frame?.types?.[name]` for the type chip under every variable box, so on the published runner that chip is `undefined` and silently absent — the identical signature as the missing track, and visible in R-50's own before/after screenshots as the `int` labels appearing and disappearing.",
+
+      "So a contract over `detail` keys alone would have declared this defect closed while its second face sat in the evidence. Both halves are declared here, and both are asserted against the installed runner.",
+
+      "The reader's half is the compiler, not a scan: `ComputeLabFrame` in `packages/ui/src/store/gameStore.ts` names these fields, and reading one it does not declare does not compile — the desktop build runs `pnpm --filter ui build`, so CI holds that. `test-frame-contract.mjs` closes the loop by requiring that interface and this declaration to name exactly the same set, which is what makes adding a field to the interface force a release rather than a silent no-op.",
+
+      "`required` is what every frame from `compute_lab_runner` carries. `source` and `location` sit in `optional` because the runner attaches them only when the statement was Located, and `ComputeLabScreen.tsx` agrees — it returns early on `frame.source === undefined`.",
+
+      "`optional` is not the cheap way past the publish. Only `required` is checked against the installed runner, so declaring a new field optional to keep CI quiet also promises the reader handles its absence — and a reader that does not is the defect this file exists to catch, one release later and harder to see. A field the UI draws unconditionally is `required`.",
+
+      "`terminalOnly` is the one field no step frame ever carries. The SDK's `app.py` builds a single closing frame of kind `error` or `limit` from the runner's terminal result, and `error` lives only there. The server already refuses a terminal frame without it (`computeLab.ts`), so it is declared here to be legible to the reader check rather than re-guarded."
+    ],
+    "required": ["changed", "kind", "line", "locals", "sequence", "types"],
+    "optional": ["detail", "location", "source", "stack", "value"],
+    "terminalOnly": ["error"]
+  },
+
   "kinds": {
     "block_enter": { "required": [], "optional": [] },
     "block_exit": { "required": [], "optional": ["error", "loop"] },
