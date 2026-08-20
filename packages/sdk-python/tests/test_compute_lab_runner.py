@@ -47,7 +47,7 @@ def _divided_by_zero() -> str:
     modulo by zero". The tests using this are about which frames carry the error
     and where they sit, not about how CPython words it — and pinning the 3.14
     wording is exactly what made this suite green on a developer's interpreter
-    and red on the one `uv` picks in CI. `requires-python` is `>=3.10` with no
+    and red on the one `uv` picks in CI. `requires-python` is `>=3.11` with no
     upper bound, so "the version that runs this" is not a fixed thing.
     """
     try:
@@ -799,6 +799,17 @@ def test_a_field_the_hand_rolled_visitors_do_not_read_is_refused_not_skipped():
     method = tree.body[0].body[0]
     method._fields = (*method._fields, "surprise")
     method.surprise = [ast.Pass()]
+    with pytest.raises(ValidationError) as refused:
+        Validator(["a", "b"]).visit(tree)
+    assert str(refused.value) == "surprise is not allowed in Compute Lab"
+
+
+def test_a_field_added_to_name_is_refused_not_skipped():
+    """`visit_Name` is held to the same closed field contract as every visitor."""
+    tree = ast.parse(ADD_STARTER)
+    name = next(node for node in ast.walk(tree) if isinstance(node, ast.Name))
+    name._fields = (*name._fields, "surprise")
+    name.surprise = ast.Pass()
     with pytest.raises(ValidationError) as refused:
         Validator(["a", "b"]).visit(tree)
     assert str(refused.value) == "surprise is not allowed in Compute Lab"

@@ -134,6 +134,8 @@ for (const [index, locale] of locales.entries()) {
   assert.equal(actions.size, TERMINAL_STATUSES.length, `#10: ${localeNames[index]} next actions must all differ`);
 }
 assert.match(screen, /data-testid="compute-lab-outcome"/);
+assert.match(screen, /compute_lab\.outcome_label/);
+assert.match(screen, /compute-lab-outcome/);
 assert.match(screen, /compute_lab\.outcome\.\$\{terminal\}/);
 assert.match(screen, /compute_lab\.outcome_action\.\$\{terminal\}/);
 assert.doesNotMatch(

@@ -1,10 +1,12 @@
 packages:
   - packages/*
 
+shamefullyHoist: true
+
 allowBuilds:
-  electron: set this to true or false
-  electron-winstaller: set this to true or false
-  esbuild: set this to true or false
-  sharp: set this to true or false
+  electron: true
+  electron-winstaller: false
+  esbuild: false
+  sharp: false
 
 onlyBuiltDependencies: electron

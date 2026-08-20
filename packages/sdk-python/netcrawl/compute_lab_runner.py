@@ -106,6 +106,7 @@ WALKED_FIELDS = {
     "FunctionDef": frozenset({"name", "args", "body", "decorator_list", "returns"}),
     "arguments": frozenset({"posonlyargs", "args", "vararg", "kwonlyargs", "kw_defaults", "kwarg", "defaults"}),
     "arg": frozenset({"arg", "annotation"}),
+    "Name": frozenset({"id", "ctx"}),
 }
 
 # Semantic frame vocabulary. Closed because it describes what execution did, not
@@ -401,6 +402,8 @@ class Validator(ast.NodeVisitor):
             raise ValidationError("reserved names are not allowed", node.lineno)
         if isinstance(node.ctx, (ast.Store, ast.Del)) and node.id in self._functions:
             raise ValidationError(f"{node.id} is a helper function and cannot be reassigned", node.lineno)
+        self._check_fields(node)
+        self.generic_visit(node)
 
     def visit_ExceptHandler(self, node: ast.ExceptHandler):
         if node.name is not None and (node.name.startswith("__") or node.name.startswith("_lab_")):

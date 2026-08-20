@@ -240,9 +240,10 @@ assert.equal(
 // return uses the same word, so it must read correctly at any depth.
 assert.match(text(renderer!.toJSON()), /Came back with/);
 assert.match(text(renderer!.toJSON()), /return 合計/);
-assert.match(text(renderer!.toJSON()), /Your program finished and returned a value/);
+assert.match(text(renderer!.toJSON()), /Run resultThis run finished and returned a value/);
 assert.match(text(renderer!.toJSON()), /Check the returned value/);
 assert.equal(renderer!.root.findAllByProps({ 'data-testid': 'compute-lab-outcome' }).length, 1);
+assert.equal(renderer!.root.findAllByProps({ className: 'compute-lab-card compute-lab-outcome' }).length, 1);
 assert.doesNotMatch(text(renderer!.toJSON()), /trace_ready/, 'a terminal state is never shown as its raw status word');
 
 const showFrame = async (index: number) => {
@@ -392,14 +393,14 @@ await assertMountedLocale(
   'ja',
   '実行',
   /繰り返した for left, right in \[\(a, b\)\].*繰り返し回数.*現在の値/s,
-  /プログラムは最後まで実行され、値を返しました。/,
+  /この実行は最後まで進み、値を返しました。/,
   /SDK を更新/,
 );
 await assertMountedLocale(
   'zh-TW',
   '執行',
   /重複 for left, right in \[\(a, b\)\].*重複次數.*目前的值/s,
-  /你的程式跑完了，並回傳了一個值。/,
+  /這次執行跑完了，並回傳了一個值。/,
   /請更新 SDK/,
 );
 

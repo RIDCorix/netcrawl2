@@ -78,13 +78,13 @@ Store this in `scenes.json` under `style.prefix` or construct it from `style.*` 
 
 For each scene with `narration`, generate `output/audio/{scene-id}.mp3`.
 
-Use sub-skill **`render-video:tts`**.
+Read [the TTS reference](references/tts.md).
 
 ### Step 2: Images — Generate Scene Images (DALL-E 3)
 
 For each scene with `imagePrompt`, generate `output/images/{scene-id}.png`.
 
-Use sub-skill **`render-video:dalle-image`**.
+Read [the image-generation reference](references/dalle-image.md).
 
 **Every prompt MUST be constructed as:** `{stylePrefix} Scene: {scene.imagePrompt}`
 
@@ -95,7 +95,7 @@ After generating all images, do a **visual consistency review**:
 
 ### Step 3: Transitions — Page-Turn Animations
 
-Generate page-turn transition clips between each pair of consecutive scenes using sub-skill **`render-video:page-turn`**.
+Generate page-turn transition clips between each pair of consecutive scenes using [the page-turn reference](references/page-turn.md).
 
 Output: `output/transitions/turn-{fromId}-to-{toId}.mp4`
 
@@ -103,13 +103,13 @@ Output: `output/transitions/turn-{fromId}-to-{toId}.mp4`
 
 ### Step 4: Subtitles — Karaoke ASS
 
-Generate `output/subtitles.ass` using sub-skill **`render-video:subtitles`**.
+Generate `output/subtitles.ass` using [the subtitles reference](references/subtitles.md).
 
 Use `ffprobe` for actual TTS audio durations when available.
 
 ### Step 5: Compose — FFmpeg Assembly
 
-Assemble everything using sub-skill **`render-video:ffmpeg-compose`**.
+Assemble everything using [the FFmpeg-composition reference](references/ffmpeg-compose.md).
 
 **Audio pipeline (CRITICAL — avoid corruption):**
 - All scene clips MUST be encoded with uniform audio settings: `-c:a aac -b:a 192k -ar 44100 -ac 2`

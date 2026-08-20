@@ -2034,6 +2034,12 @@ body::after {
   border-left: 2px solid var(--accent);
 }
 
+/* A run-level result, deliberately distinct from the selected step below it. */
+.compute-lab-outcome {
+  border-style: dashed;
+  border-color: var(--border-bright);
+}
+
 /* A code surface: the darkest layer, where the player's own text lives. */
 .compute-lab pre,
 .compute-lab textarea {

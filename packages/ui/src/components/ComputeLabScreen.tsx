@@ -841,7 +841,7 @@ export function ComputeLabScreen() {
                 <div
                   role="status"
                   data-testid="compute-lab-outcome"
-                  className="compute-lab-card compute-lab-card-current"
+                  className="compute-lab-card compute-lab-outcome"
                   style={{
                     padding: 8,
                     marginBottom: 10,
@@ -852,6 +852,7 @@ export function ComputeLabScreen() {
                     color: 'var(--text-secondary)',
                   }}
                 >
+                  <span className="compute-lab-heading">{t('compute_lab.outcome_label')}</span>
                   <strong style={{ color: 'var(--text-primary)', fontSize: 12, letterSpacing: '0.06em' }}>
                     {t(`compute_lab.outcome.${terminal}`)}
                   </strong>
