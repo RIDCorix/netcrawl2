@@ -2,7 +2,7 @@
   "name": "netcrawl-editor-bridge",
   "displayName": "NetCrawl Editor Bridge",
   "description": "Open and run NetCrawl Compute Lab problems from VS Code or GitHub Codespaces.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "ridcorix",
   "license": "MIT",
   "files": [
@@ -21,6 +21,7 @@
     "Other",
     "Education"
   ],
+  "main": "./dist/extension.js",
   "browser": "./dist/extension.js",
   "activationEvents": [
     "onCommand:netcrawl.pairEditor",

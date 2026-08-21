@@ -10,6 +10,15 @@ process.env.NETCRAWL_MULTI_USER = 'true';
 process.env.JWT_SECRET = 'editor-bridge-test-secret-that-is-long-enough';
 process.env.NETCRAWL_BUNDLED = '1';
 
+const extensionManifest = JSON.parse(fs.readFileSync('packages/vscode-extension/package.json', 'utf8'));
+for (const entry of ['main', 'browser']) {
+  assert.equal(typeof extensionManifest[entry], 'string', `the VSIX must expose a ${entry} entry point`);
+  assert.ok(
+    extensionManifest.files.includes(extensionManifest[entry].replace(/^\.\//, '')),
+    `the VSIX must include its ${entry} bundle`,
+  );
+}
+
 const serverDist = path.resolve('packages/server/.test-dist');
 const bridge = await import(pathToFileURL(path.join(serverDist, 'editorBridge.js')));
 const tracker = await import(pathToFileURL(path.join(serverDist, 'codeServerTracker.js')));
