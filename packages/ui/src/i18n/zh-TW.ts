@@ -5,9 +5,11 @@ export const zhTW: Record<string, string> = {
   'compute_lab.local_first.title': '在本機撰寫',
   'compute_lab.local_first.instructions': '在本機 workspace 開啟這個確切檔案，完成 ProblemSolver，再執行下方指令。',
   'compute_lab.local_first.path': '運算節點檔案',
-  'compute_lab.local_first.limitation': '僅限本機 · 遊戲目前無法檢查這個 workspace。本機執行不會開啟編輯器，也不會把結果同步回這裡。',
-  'compute_lab.local_first.retry': '找不到檔案？更新 workspace 後執行：uv run python scripts/bootstrap_compute_starters.py',
-  'compute_lab.local_first.trace_view_only': '僅供檢視 · 本機執行尚不會顯示在這裡。',
+  'compute_lab.local_first.limitation':
+    '直接執行只留在本機 · 請使用下方 Editor Bridge 開啟題目，並把已儲存原始碼的結果同步回此處。',
+  'compute_lab.local_first.retry':
+    '找不到檔案？更新 workspace 後執行：uv run python scripts/bootstrap_compute_starters.py',
+  'compute_lab.local_first.trace_view_only': 'Editor Bridge 執行會顯示在這裡 · 直接本機執行仍留在本機。',
   'compute_lab.challenge': '題目輸入',
   'compute_lab.task_description': '任務：{description}',
   'compute_lab.loading': '正在載入題目…',

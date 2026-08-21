@@ -3,11 +3,15 @@ export const ja: Record<string, string> = {
   'compute_lab.subtitle': '自分のローカル workspace で Compute Lab class を書いて実行します。',
   'compute_lab.workspace_subtitle': 'ローカル優先パズル作業台 · 自分の workspace で指定ファイルを編集・実行します。',
   'compute_lab.local_first.title': 'ローカルで書く',
-  'compute_lab.local_first.instructions': 'ローカル workspace でこの正確なファイルを開き、ProblemSolver を実装してから下のコマンドを実行します。',
+  'compute_lab.local_first.instructions':
+    'ローカル workspace でこの正確なファイルを開き、ProblemSolver を実装してから下のコマンドを実行します。',
   'compute_lab.local_first.path': '計算ノードファイル',
-  'compute_lab.local_first.limitation': 'ローカルのみ · ゲームはまだこの workspace を確認できません。ローカル実行ではエディタは開かず、結果もここへ同期されません。',
-  'compute_lab.local_first.retry': 'ファイルがない場合は workspace を更新してから実行：uv run python scripts/bootstrap_compute_starters.py',
-  'compute_lab.local_first.trace_view_only': '表示専用 · ローカル実行はまだここに表示されません。',
+  'compute_lab.local_first.limitation':
+    '直接実行はローカルのみ · 下の Editor Bridge で問題を開くと、保存済みソースの結果がここへ同期されます。',
+  'compute_lab.local_first.retry':
+    'ファイルがない場合は workspace を更新してから実行：uv run python scripts/bootstrap_compute_starters.py',
+  'compute_lab.local_first.trace_view_only':
+    'Editor Bridge の実行はここに表示 · 直接のローカル実行はローカルのみです。',
   'compute_lab.challenge': '問題の入力',
   'compute_lab.task_description': '課題：{description}',
   'compute_lab.loading': '問題を読み込み中…',

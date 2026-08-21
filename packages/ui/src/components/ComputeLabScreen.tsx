@@ -19,6 +19,7 @@ import {
   trackEnd,
   visibleLoops,
 } from './computeLab/stageModel';
+import { EditorBridgePanel } from './computeLab/EditorBridgePanel';
 
 type Run = ComputeLabRunSnapshot;
 type Task = {
@@ -28,11 +29,6 @@ type Task = {
   difficulty: string;
   functionSignature: string;
   starterSource: string;
-  cost?: { cooldownSeconds: number; reward: number; rewardType: string };
-};
-type SubmissionSuccess = {
-  nodeSolveCount: number;
-  quest: { current: number; target: number; completed: boolean };
 };
 type TraceFrame = Run['frames'][number];
 type SourceLocation = NonNullable<TraceFrame['location']>;
@@ -415,9 +411,6 @@ export function ComputeLabScreen() {
   // quietly re-arm motion the move had already ruled out.
   const [adjacentStep, setAdjacentStep] = useState(false);
   const [message, setMessage] = useState<{ key: string; vars?: Record<string, string | number> } | null>(null);
-  const [submissionSuccess, setSubmissionSuccess] = useState<SubmissionSuccess | null>(null);
-  const [cooldownUntil, setCooldownUntil] = useState(0);
-  const [now, setNow] = useState(() => Date.now());
   const wasConnected = useRef(connected);
   const run = runId ? (computeLabRuns[runId] as Run | undefined) : undefined;
 
@@ -430,9 +423,6 @@ export function ComputeLabScreen() {
     setTask(null);
     setRunId(null);
     setFrameIndex(0);
-    // A cooldown belongs to the node that started it; carrying it to another
-    // node would disable RUN there for no reason the player can see.
-    setCooldownUntil(0);
     setRevision(Number.isSafeInteger(savedRevision) && savedRevision >= 0 ? savedRevision : 0);
     setDraftNodeId(sourceNode.id);
     setSource(saved ?? '');
@@ -445,7 +435,6 @@ export function ComputeLabScreen() {
         setTask(body);
         if (saved === null) setSource(body.starterSource);
         setMessage(null);
-        setSubmissionSuccess(null);
       })
       .catch(() => {
         if (!cancelled) setMessage({ key: 'compute_lab.task_load_failed' });
@@ -469,7 +458,6 @@ export function ComputeLabScreen() {
     setRevision(editorRunStarted.run.revision);
     setRunId(editorRunStarted.run.id);
     setFrameIndex(0);
-    setSubmissionSuccess(null);
     setMessage({ key: 'compute_lab.editor.source_synced' });
     setEditorRunStarted(null);
   }, [editorRunStarted, sourceNode?.id, task?.taskId, setEditorRunStarted]);
@@ -499,7 +487,7 @@ export function ComputeLabScreen() {
         // through the run cannot read their own program.
         const items = Array.from(
           dialogRef.current?.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), input:not([disabled]), [role="slider"]',
+            'button:not([disabled]), input:not([disabled]), [role="slider"]',
           ) || [],
         );
         const current = items.indexOf(document.activeElement as HTMLElement);
@@ -541,18 +529,6 @@ export function ComputeLabScreen() {
     );
     return () => clearInterval(timer);
   }, [playing, pace, frameCount]);
-
-  // A cooldown the player cannot see counting down is indistinguishable from a
-  // button that is broken.
-  useEffect(() => {
-    if (cooldownUntil <= Date.now()) return;
-    const timer = setInterval(() => {
-      const tick = Date.now();
-      setNow(tick);
-      if (tick >= cooldownUntil) clearInterval(timer);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [cooldownUntil]);
 
   const frames = run?.frames || EMPTY_FRAMES;
   // Built once per trace, not once per step: the state at step 900 costs a
@@ -608,72 +584,7 @@ export function ComputeLabScreen() {
           ? t('compute_lab.announce_changed', { names: (frame.changed || []).join(', ') })
           : t('compute_lab.announce_unchanged'),
       });
-  const updateSource = (value: string) => {
-    setSource(value);
-    setRevision(current => current + 1);
-  };
   const localProblemPath = sourceNode ? `problems/${sourceNode.id}.py` : '';
-  const startRun = async () => {
-    if (!task || !sourceNode) return;
-    setMessage(null);
-    setSubmissionSuccess(null);
-    const response = await apiFetch('/api/compute-lab/runs', {
-      method: 'POST',
-      body: JSON.stringify({ taskId: task.taskId, source, revision, nodeId: sourceNode.id }),
-    });
-    const body = await response.json();
-    if (!response.ok) {
-      setMessage({
-        key: body.reason === 'disconnected' ? 'compute_lab.runner_offline' : 'compute_lab.run_start_failed',
-      });
-      return;
-    }
-    if (!useGameStore.getState().computeLabRuns[body.runId]) {
-      upsertComputeLabRun({
-        id: body.runId,
-        nodeId: sourceNode.id,
-        taskId: task.taskId,
-        revision,
-        status: body.status,
-        frames: [],
-      });
-    }
-    setRunId(body.runId);
-    setFrameIndex(0);
-  };
-
-  const cooldownRemaining = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
-  const submit = async () => {
-    if (!task || !run || stale) return;
-    if (task.cost) setCooldownUntil(Date.now() + task.cost.cooldownSeconds * 1000);
-    const response = await apiFetch('/api/compute-lab/submissions', {
-      method: 'POST',
-      body: JSON.stringify({ taskId: task.taskId, runId: run.id }),
-    });
-    const body = await response.json();
-    if (body.correct) {
-      setSubmissionSuccess({
-        nodeSolveCount: Number(body.nodeSolveCount || 0),
-        quest: {
-          current: Number(body.quest?.current || 0),
-          target: Number(body.quest?.target || 1),
-          completed: body.quest?.completed === true,
-        },
-      });
-    } else {
-      setSubmissionSuccess(null);
-    }
-    setMessage(
-      body.correct
-        ? {
-            key: 'compute_lab.submit_correct',
-            vars: { amount: body.reward?.amount || 0, type: body.reward?.type || '' },
-          }
-        : body.correct === false
-          ? { key: 'compute_lab.submit_wrong', vars: { expected: String(body.expected), got: String(body.got) } }
-          : { key: 'compute_lab.submit_failed' },
-    );
-  };
 
   return (
     <div
@@ -753,7 +664,12 @@ export function ComputeLabScreen() {
               <label className="compute-lab-path-label" htmlFor="compute-lab-local-path">
                 {t('compute_lab.local_first.path')}
               </label>
-              <input id="compute-lab-local-path" readOnly value={localProblemPath} aria-label={t('compute_lab.local_first.path')} />
+              <input
+                id="compute-lab-local-path"
+                readOnly
+                value={localProblemPath}
+                aria-label={t('compute_lab.local_first.path')}
+              />
               <pre>{task?.functionSignature || 'class ProblemSolver:'}</pre>
               <pre>{`uv run python ${localProblemPath}`}</pre>
               <div role="status" className="compute-lab-status compute-lab-status-alert">
@@ -761,23 +677,18 @@ export function ComputeLabScreen() {
               </div>
               <p className="compute-lab-local-retry">{t('compute_lab.local_first.retry')}</p>
             </div>
+            {task && sourceNode && (
+              <EditorBridgePanel
+                nodeId={sourceNode.id}
+                taskId={task.taskId}
+                source={source}
+                revision={revision}
+                selection={!stale ? frame?.location : undefined}
+              />
+            )}
             {message && (
               <div role="status" className="compute-lab-status">
                 {t(message.key, message.vars)}
-              </div>
-            )}
-            {submissionSuccess && (
-              <div role="status" className="compute-lab-status" style={{ display: 'grid', gap: 2 }}>
-                <div>{t('compute_lab.node_solve_count', { count: submissionSuccess.nodeSolveCount })}</div>
-                <div>
-                  {t('compute_lab.operators_progress', {
-                    current: submissionSuccess.quest.current,
-                    target: submissionSuccess.quest.target,
-                  })}
-                </div>
-                {submissionSuccess.quest.completed && (
-                  <div style={{ color: 'var(--success)' }}>{t('compute_lab.operators_completed')}</div>
-                )}
               </div>
             )}
           </section>

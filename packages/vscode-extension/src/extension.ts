@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import { byteColumnToCodeUnit, isSafeProblemRelativePath, uriIsInside } from './pathSecurity';
+import { byteColumnToCodeUnit } from './pathSecurity';
+import { assertProblemFileSafe, openProblemFile, type ProblemFileServices } from './problemFile';
 
 const TOKEN_SECRET = 'netcrawl.editorToken';
 const SERVER_KEY = 'netcrawl.serverUrl';
@@ -63,13 +64,25 @@ function selectedWorkspaceFolder() {
   return (preferred && folders.find(folder => folder.name === preferred)) || folders[0];
 }
 
-function resolveProblemUri(relativePath: unknown) {
-  if (!isSafeProblemRelativePath(relativePath)) throw new Error('NetCrawl refused a path outside netcrawl/problems');
-  const root = selectedWorkspaceFolder();
-  if (!root) throw new Error('Open a workspace folder before opening a NetCrawl problem');
-  const candidate = vscode.Uri.joinPath(root.uri, ...relativePath.split('/'));
-  if (!uriIsInside(root.uri, candidate)) throw new Error('NetCrawl refused a path outside the selected workspace');
-  return { root, candidate };
+function problemFileServices(): ProblemFileServices<vscode.Uri, vscode.TextDocument> {
+  return {
+    joinPath: vscode.Uri.joinPath,
+    stat: uri => vscode.workspace.fs.stat(uri),
+    createDirectory: uri => vscode.workspace.fs.createDirectory(uri),
+    readFile: uri => vscode.workspace.fs.readFile(uri),
+    writeFile: (uri, content) => vscode.workspace.fs.writeFile(uri, content),
+    openTextDocument: uri => vscode.workspace.openTextDocument(uri),
+    isFileNotFound: error => error instanceof vscode.FileSystemError && error.code === 'FileNotFound',
+    chooseSource: async () => {
+      const choice = await vscode.window.showWarningMessage(
+        'This NetCrawl problem already has workspace edits. Which source should open?',
+        { modal: true },
+        'Keep workspace file',
+        'Replace with browser draft',
+      );
+      return choice === 'Keep workspace file' ? 'keep' : choice === 'Replace with browser draft' ? 'replace' : 'cancel';
+    },
+  };
 }
 
 function selectionFor(document: vscode.TextDocument, value: SourceLocation | undefined) {
@@ -124,31 +137,14 @@ export function activate(context: vscode.ExtensionContext) {
     command: OpenProblemCommand,
   ) => {
     try {
-      const { root, candidate } = resolveProblemUri(command.relativePath);
-      const segments = command.relativePath.split('/');
-      await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(root.uri, ...segments.slice(0, -1)));
-      let wroteBrowserSource = true;
-      try {
-        const existing = new TextDecoder().decode(await vscode.workspace.fs.readFile(candidate));
-        if (existing !== command.source) {
-          const choice = await vscode.window.showWarningMessage(
-            'This NetCrawl problem already has workspace edits. Which source should open?',
-            { modal: true },
-            'Keep workspace file',
-            'Replace with browser draft',
-          );
-          if (!choice) throw new Error('Open cancelled; the workspace file was not changed');
-          wroteBrowserSource = choice === 'Replace with browser draft';
-        }
-      } catch (error) {
-        if (error instanceof vscode.FileSystemError && error.code === 'FileNotFound') {
-          wroteBrowserSource = true;
-        } else if (error instanceof Error && error.message.startsWith('Open cancelled')) {
-          throw error;
-        }
-      }
-      if (wroteBrowserSource) await vscode.workspace.fs.writeFile(candidate, new TextEncoder().encode(command.source));
-      const document = await vscode.workspace.openTextDocument(candidate);
+      const root = selectedWorkspaceFolder();
+      if (!root) throw new Error('Open a workspace folder before opening a NetCrawl problem');
+      const { candidate, document, wroteBrowserSource } = await openProblemFile(
+        root.uri,
+        command.relativePath,
+        command.source,
+        problemFileServices(),
+      );
       const editor = await vscode.window.showTextDocument(document, { preview: false });
       const selection = wroteBrowserSource ? selectionFor(document, command.selection) : undefined;
       if (selection) {
@@ -274,7 +270,9 @@ export function activate(context: vscode.ExtensionContext) {
       if (!binding)
         return void vscode.window.showWarningMessage('Open this problem from the NetCrawl Compute Lab first.');
       try {
-        const { candidate } = resolveProblemUri(binding.relativePath);
+        const root = selectedWorkspaceFolder();
+        if (!root) throw new Error('Open a workspace folder before running a NetCrawl problem');
+        const candidate = await assertProblemFileSafe(root.uri, binding.relativePath, problemFileServices());
         if (candidate.toString() !== editor.document.uri.toString())
           throw new Error('The active file is outside the paired workspace');
         if (!(await editor.document.save())) throw new Error('Save the problem file before running it');

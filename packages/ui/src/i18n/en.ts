@@ -3,11 +3,14 @@ export const en: Record<string, string> = {
   'compute_lab.subtitle': 'Write and run a Compute Lab class in your local workspace.',
   'compute_lab.workspace_subtitle': 'Local-first puzzle workspace · edit and run the named file in your own workspace.',
   'compute_lab.local_first.title': 'WRITE LOCALLY',
-  'compute_lab.local_first.instructions': 'Open this exact file in your local workspace, implement ProblemSolver, then run the command below.',
+  'compute_lab.local_first.instructions':
+    'Open this exact file in your local workspace, implement ProblemSolver, then run the command below.',
   'compute_lab.local_first.path': 'COMPUTE NODE FILE',
-  'compute_lab.local_first.limitation': 'LOCAL ONLY · The game cannot inspect this workspace yet. Running locally does not open an editor or synchronize a result back here.',
-  'compute_lab.local_first.retry': 'Missing file? Refresh the workspace, then run: uv run python scripts/bootstrap_compute_starters.py',
-  'compute_lab.local_first.trace_view_only': 'VIEW ONLY · Local runs do not appear here yet.',
+  'compute_lab.local_first.limitation':
+    'DIRECT RUNS STAY LOCAL · Use Editor Bridge below to open this problem and synchronize saved-source results back here.',
+  'compute_lab.local_first.retry':
+    'Missing file? Refresh the workspace, then run: uv run python scripts/bootstrap_compute_starters.py',
+  'compute_lab.local_first.trace_view_only': 'EDITOR BRIDGE RUNS APPEAR HERE · Direct local runs stay local.',
   'compute_lab.challenge': 'CHALLENGE INPUT',
   'compute_lab.task_description': 'Task: {description}',
   'compute_lab.loading': 'Loading task…',

@@ -15,7 +15,8 @@ Object.defineProperty(globalThis, 'window', {
 Object.defineProperty(globalThis, 'document', { configurable: true, value: { activeElement: null } });
 Object.defineProperty(globalThis, 'fetch', {
   configurable: true,
-  value: async () => new Response(JSON.stringify({ taskId: 'task', params: { a: 3, b: 4 }, difficulty: 'easy' }), { status: 200 }),
+  value: async () =>
+    new Response(JSON.stringify({ taskId: 'task', params: { a: 3, b: 4 }, difficulty: 'easy' }), { status: 200 }),
 });
 
 useGameStore.setState({
@@ -37,5 +38,7 @@ assert.equal(localPath.props.value, 'problems/e_op_add.py');
 assert.equal(localPath.props.readOnly, true);
 assert.equal(renderer.root.findAllByType('textarea').length, 0);
 assert.match(JSON.stringify(renderer.toJSON()), /uv run python problems\/e_op_add\.py/);
-assert.match(JSON.stringify(renderer.toJSON()), /cannot inspect this workspace yet/);
+assert.match(JSON.stringify(renderer.toJSON()), /Use Editor Bridge below/);
+assert.match(JSON.stringify(renderer.toJSON()), /INSTALL EXTENSION/);
+assert.match(JSON.stringify(renderer.toJSON()), /PAIR AN EDITOR/);
 console.log('Compute Lab local-first mounted flow passed');

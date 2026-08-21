@@ -155,6 +155,109 @@ assert.equal(
   'path prefix siblings are outside the workspace',
 );
 
+const problemFileBundle = path.join(serverDist, 'editor-problem-file.cjs');
+buildSync({
+  entryPoints: ['packages/vscode-extension/src/problemFile.ts'],
+  bundle: true,
+  platform: 'node',
+  format: 'cjs',
+  outfile: problemFileBundle,
+});
+const problemFiles = await import(pathToFileURL(problemFileBundle));
+const pathEscapeRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'netcrawl-editor-path-root-'));
+const pathEscapeOutside = fs.mkdtempSync(path.join(os.tmpdir(), 'netcrawl-editor-path-outside-'));
+const fileUri = filePath => ({
+  scheme: 'file',
+  authority: '',
+  path: filePath,
+  toString: () => `file://${filePath}`,
+});
+const joinFileUri = (root, ...segments) => fileUri(path.join(root.path, ...segments));
+const nodeProblemFileServices = openTextDocument => ({
+  joinPath: joinFileUri,
+  stat: async uri => {
+    const stat = await fs.promises.lstat(uri.path);
+    return { type: stat.isSymbolicLink() ? 64 : stat.isDirectory() ? 2 : stat.isFile() ? 1 : 0 };
+  },
+  createDirectory: uri => fs.promises.mkdir(uri.path, { recursive: true }),
+  readFile: uri => fs.promises.readFile(uri.path),
+  writeFile: (uri, content) => fs.promises.writeFile(uri.path, content),
+  openTextDocument,
+  isFileNotFound: error => error?.code === 'ENOENT',
+  chooseSource: async () => 'replace',
+});
+let escapedFileOpened = false;
+try {
+  fs.symlinkSync(pathEscapeOutside, path.join(pathEscapeRoot, 'netcrawl'));
+  await assert.rejects(
+    () =>
+      problemFiles.openProblemFile(
+        fileUri(pathEscapeRoot),
+        'netcrawl/problems/task.py',
+        'print("must stay inside")\n',
+        nodeProblemFileServices(async uri => {
+          escapedFileOpened = true;
+          return fs.promises.readFile(uri.path, 'utf8');
+        }),
+      ),
+    /symbolic link|outside the selected workspace/i,
+    'the actual create/write/open flow must reject an in-workspace symlink before touching its target',
+  );
+  assert.equal(fs.existsSync(path.join(pathEscapeOutside, 'problems', 'task.py')), false);
+  assert.equal(escapedFileOpened, false);
+} finally {
+  fs.rmSync(pathEscapeRoot, { recursive: true, force: true });
+  fs.rmSync(pathEscapeOutside, { recursive: true, force: true });
+}
+
+const safeFileRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'netcrawl-editor-path-safe-'));
+try {
+  const safeSource = 'print("inside")\n';
+  const opened = await problemFiles.openProblemFile(
+    fileUri(safeFileRoot),
+    'netcrawl/problems/node/task.py',
+    safeSource,
+    nodeProblemFileServices(uri => fs.promises.readFile(uri.path, 'utf8')),
+  );
+  assert.equal(
+    opened.document,
+    safeSource,
+    'the guarded production helper still creates, writes, and opens safe files',
+  );
+  assert.equal(fs.readFileSync(path.join(safeFileRoot, 'netcrawl/problems/node/task.py'), 'utf8'), safeSource);
+} finally {
+  fs.rmSync(safeFileRoot, { recursive: true, force: true });
+}
+
+let unknownProviderWrite = false;
+await assert.rejects(
+  () =>
+    problemFiles.openProblemFile(
+      { scheme: 'memfs', authority: 'provider', path: '/workspace', toString: () => 'memfs://provider/workspace' },
+      'netcrawl/problems/task.py',
+      'print("unknown")\n',
+      {
+        joinPath: (root, ...segments) => ({
+          ...root,
+          path: `${root.path}/${segments.join('/')}`,
+          toString: () => `memfs://provider${root.path}/${segments.join('/')}`,
+        }),
+        stat: async () => ({ type: 0 }),
+        createDirectory: async () => undefined,
+        readFile: async () => new Uint8Array(),
+        writeFile: async () => {
+          unknownProviderWrite = true;
+        },
+        openTextDocument: async () => undefined,
+        isFileNotFound: () => false,
+        chooseSource: async () => 'replace',
+      },
+    ),
+  /unknown or non-directory/i,
+  'a provider that cannot prove a path component type must fail closed',
+);
+assert.equal(unknownProviderWrite, false);
+
 bridge.resetEditorBridgeForTests();
 const { startServer } = await import(pathToFileURL(path.join(serverDist, 'index.js')));
 const { isAllowedWebOrigin } = await import(pathToFileURL(path.join(serverDist, 'index.js')));

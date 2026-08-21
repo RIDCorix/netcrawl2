@@ -12,9 +12,12 @@ It is deliberately narrower than a general architecture document.
   execution lease in `codeServerTracker.ts`.
 - Browser runs currently send the browser draft to `POST /api/compute-lab/runs`.
   Run snapshots are then pushed to the player's UI as `COMPUTE_LAB_RUN` events.
-- A VS Code web extension can run on desktop and in browser-based Codespaces,
-  but cannot spawn Python. Workspace files in that host must be accessed with
-  `vscode.workspace.fs`; they cannot be assumed to be local `file:` URIs.
+- Desktop VS Code and browser-based Codespaces both run the extension against a
+  workspace filesystem provider. File operations use `vscode.workspace.fs` and
+  cannot assume a local `file:` URI.
+- Compute Lab's local-first instructions and Editor Bridge are complementary:
+  direct local runs stay local, while the mounted bridge is the production path
+  that opens the generated problem file and synchronizes a saved-source run.
 - The server is multi-user in production. Browser credentials and Code Server
   credentials already have distinct JWT purposes.
 
@@ -27,8 +30,11 @@ It is deliberately narrower than a general architecture document.
   source when the editor run starts, so the UI cannot display one program while
   the runner executes another.
 - The server chooses the relative problem path. The extension rejects absolute
-  paths, traversal, backslashes, empty segments, and any resolved URI outside a
-  currently open workspace folder before it reads or writes a file.
+  paths, traversal, backslashes, empty segments, and any URI outside a currently
+  open workspace folder. Before each read, write, or open it walks every path
+  component with the provider's `FileStat`, rejects symbolic links and unknown
+  types, and rechecks the chain after creating directories. A provider that
+  cannot prove the path is a regular directory/file therefore fails closed.
 - Pairing codes are short-lived, single-use values sent only in JSON bodies.
   The server retains only their digest. The resulting editor credential is
   sent in an Authorization header and stored only with VS Code SecretStorage.

@@ -11,19 +11,27 @@ assert.match(screen, /role="dialog"/);
 assert.match(screen, /aria-modal="true"/);
 assert.match(screen, /compute-lab\/tasks/);
 assert.match(screen, /data-testid="compute-lab-local-first"/);
+assert.match(screen, /import \{ EditorBridgePanel \}/);
+assert.match(screen, /<EditorBridgePanel/);
 assert.match(screen, /`problems\/\$\{sourceNode\.id\}\.py`/);
-assert.match(screen, /readOnly value=\{localProblemPath\}/);
+assert.match(screen, /readOnly\s+value=\{localProblemPath\}/);
 assert.match(screen, /uv run python \$\{localProblemPath\}/);
 assert.match(screen, /compute_lab\.local_first\.limitation/);
 assert.match(screen, /compute_lab\.local_first\.retry/);
 assert.match(screen, /compute_lab\.local_first\.trace_view_only/);
 assert.doesNotMatch(screen, /<textarea/);
-assert.doesNotMatch(screen, /<EditorBridgePanel/);
 assert.match(styles, /\.compute-lab-local-first/);
 assert.match(styles, /var\(--bg-primary\)/);
 assert.match(styles, /var\(--border-bright\)/);
 assert.match(styles, /border-left: 2px solid var\(--accent\)/);
 for (const locale of locales)
-  for (const key of ['local_first.title', 'local_first.instructions', 'local_first.path', 'local_first.limitation', 'local_first.retry', 'local_first.trace_view_only'])
+  for (const key of [
+    'local_first.title',
+    'local_first.instructions',
+    'local_first.path',
+    'local_first.limitation',
+    'local_first.retry',
+    'local_first.trace_view_only',
+  ])
     assert.match(locale, new RegExp(`'compute_lab\\.${key.replace('.', '\\.')}':`));
 console.log('Compute Lab local-first UI contract passed');
