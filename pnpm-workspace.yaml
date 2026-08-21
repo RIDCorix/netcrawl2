@@ -9,4 +9,5 @@ allowBuilds:
   esbuild: false
   sharp: false
 
-onlyBuiltDependencies: electron
+onlyBuiltDependencies:
+  - electron
