@@ -1,0 +1,46 @@
+name: Publish VS Code extension
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'packages/vscode-extension/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-vscode-extension
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Package and publish pre-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: pnpm/action-setup@v6.0.10
+        with:
+          version: 9.15.9
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and package extension
+        working-directory: packages/vscode-extension
+        run: pnpm dlx @vscode/vsce@3.9.2 package --no-dependencies --out netcrawl-editor-bridge.vsix
+
+      - name: Publish pre-release
+        working-directory: packages/vscode-extension
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: pnpm dlx @vscode/vsce@3.9.2 publish --pre-release --packagePath netcrawl-editor-bridge.vsix
