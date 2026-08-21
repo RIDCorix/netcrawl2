@@ -19,7 +19,6 @@ import {
   trackEnd,
   visibleLoops,
 } from './computeLab/stageModel';
-import { EditorBridgePanel } from './computeLab/EditorBridgePanel';
 
 type Run = ComputeLabRunSnapshot;
 type Task = {
@@ -390,7 +389,6 @@ export function ComputeLabScreen() {
     computeLabSourceNodeId,
     nodes,
     closeComputeLab,
-    codeServerConnected,
     connected,
     computeLabRuns,
     upsertComputeLabRun,
@@ -501,7 +499,7 @@ export function ComputeLabScreen() {
         // through the run cannot read their own program.
         const items = Array.from(
           dialogRef.current?.querySelectorAll<HTMLElement>(
-            'button:not([disabled]), textarea:not([disabled]), input:not([disabled]), [role="slider"]',
+          'button:not([disabled]), input:not([disabled]), [role="slider"]',
           ) || [],
         );
         const current = items.indexOf(document.activeElement as HTMLElement);
@@ -614,6 +612,7 @@ export function ComputeLabScreen() {
     setSource(value);
     setRevision(current => current + 1);
   };
+  const localProblemPath = sourceNode ? `problems/${sourceNode.id}.py` : '';
   const startRun = async () => {
     if (!task || !sourceNode) return;
     setMessage(null);
@@ -748,66 +747,20 @@ export function ComputeLabScreen() {
               </p>
               <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(task?.params || {}, null, 2)}</pre>
             </div>
-            <label htmlFor="compute-lab-editor">
-              <pre style={{ whiteSpace: 'pre-wrap', color: 'var(--accent)' }}>
-                {task?.functionSignature || 'class ProblemSolver:'}
-              </pre>
-            </label>
-            <textarea
-              id="compute-lab-editor"
-              value={source}
-              onChange={event => updateSource(event.target.value)}
-              spellCheck={false}
-              style={{ minHeight: 300, resize: 'vertical' }}
-            />
-            {task && sourceNode && (
-              <EditorBridgePanel
-                nodeId={sourceNode.id}
-                taskId={task.taskId}
-                source={source}
-                revision={revision}
-                selection={!stale ? frame?.location : undefined}
-              />
-            )}
-            {task?.cost && (
-              <div
-                data-testid="compute-lab-submit-cost"
-                style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 11 }}
-              >
-                {t('compute_lab.submit_cost', {
-                  cooldown: task.cost.cooldownSeconds,
-                  amount: task.cost.reward,
-                  type: task.cost.rewardType,
-                })}
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button
-                className="compute-lab-button-primary"
-                onClick={startRun}
-                disabled={!task || !codeServerConnected || cooldownRemaining > 0}
-                style={{ minHeight: 44, flex: '1 1 auto' }}
-              >
-                {t('compute_lab.run')}
-              </button>
-              <button
-                onClick={submit}
-                disabled={!run || run.status !== 'trace_ready' || stale || cooldownRemaining > 0}
-                style={{ minHeight: 44, flex: '1 1 auto' }}
-              >
-                {t('compute_lab.submit')}
-              </button>
-            </div>
-            {cooldownRemaining > 0 && (
-              <div role="status" data-testid="compute-lab-cooldown" className="compute-lab-status">
-                {t('compute_lab.cooldown_remaining', { seconds: cooldownRemaining })}
-              </div>
-            )}
-            {!codeServerConnected && (
+            <div className="compute-lab-panel compute-lab-local-first" data-testid="compute-lab-local-first">
+              <strong className="compute-lab-heading">{t('compute_lab.local_first.title')}</strong>
+              <p>{t('compute_lab.local_first.instructions')}</p>
+              <label className="compute-lab-path-label" htmlFor="compute-lab-local-path">
+                {t('compute_lab.local_first.path')}
+              </label>
+              <input id="compute-lab-local-path" readOnly value={localProblemPath} aria-label={t('compute_lab.local_first.path')} />
+              <pre>{task?.functionSignature || 'class ProblemSolver:'}</pre>
+              <pre>{`uv run python ${localProblemPath}`}</pre>
               <div role="status" className="compute-lab-status compute-lab-status-alert">
-                {t('compute_lab.runner_offline')}
+                {t('compute_lab.local_first.limitation')}
               </div>
-            )}
+              <p className="compute-lab-local-retry">{t('compute_lab.local_first.retry')}</p>
+            </div>
             {message && (
               <div role="status" className="compute-lab-status">
                 {t(message.key, message.vars)}
@@ -855,6 +808,7 @@ export function ComputeLabScreen() {
                 }}
               >
                 <strong className="compute-lab-heading">{t('compute_lab.trace')}</strong>
+                <span className="compute-lab-trace-view-only">{t('compute_lab.local_first.trace_view_only')}</span>
                 <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
                   {run
                     ? t('compute_lab.step_position', { current: frameIndex + 1, total: run.frames.length })

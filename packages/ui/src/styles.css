@@ -2013,12 +2013,54 @@ body::after {
   color: var(--text-muted);
 }
 
+.compute-lab-trace-view-only {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
 /* A panel: the chrome every screen outside the Lab is assembled from. */
 .compute-lab-panel {
   background: var(--bg-glass);
   backdrop-filter: blur(24px);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+}
+
+.compute-lab-local-first {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.compute-lab-local-first p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.compute-lab-path-label {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.compute-lab-local-first input {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.compute-lab-local-retry {
+  border-left: 2px solid var(--accent);
+  padding-left: 8px;
 }
 
 /* A card inside a panel — one step above the panel it sits on. */
