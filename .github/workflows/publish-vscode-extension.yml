@@ -37,7 +37,7 @@ jobs:
 
       - name: Build and package extension
         working-directory: packages/vscode-extension
-        run: pnpm dlx @vscode/vsce@3.9.2 package --no-dependencies --out netcrawl-editor-bridge.vsix
+        run: pnpm dlx @vscode/vsce@3.9.2 package --pre-release --no-dependencies --out netcrawl-editor-bridge.vsix
 
       - name: Publish pre-release
         working-directory: packages/vscode-extension
