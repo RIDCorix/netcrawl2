@@ -105,6 +105,8 @@ export interface ComputeLabRunSnapshot {
   status: ComputeLabRunStatus;
   frames: ComputeLabFrame[];
   returnValue?: unknown;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface EditorRunStarted {

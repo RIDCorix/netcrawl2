@@ -33,12 +33,14 @@ await act(async () => {
   await Promise.resolve();
 });
 
-const localPath = renderer.root.findByProps({ id: 'compute-lab-local-path' });
-assert.equal(localPath.props.value, 'problems/e_op_add.py');
-assert.equal(localPath.props.readOnly, true);
 assert.equal(renderer.root.findAllByType('textarea').length, 0);
-assert.match(JSON.stringify(renderer.toJSON()), /uv run python problems\/e_op_add\.py/);
-assert.match(JSON.stringify(renderer.toJSON()), /Use Editor Bridge below/);
+assert.doesNotMatch(JSON.stringify(renderer.toJSON()), /uv run python/);
+assert.match(JSON.stringify(renderer.toJSON()), /Open the problem to bind its exact workspace path/);
+assert.match(JSON.stringify(renderer.toJSON()), /YOUR SOLUTION/);
+assert.match(JSON.stringify(renderer.toJSON()), /RUN SOLUTION/);
+assert.match(JSON.stringify(renderer.toJSON()), /EXECUTION TRACE/);
 assert.match(JSON.stringify(renderer.toJSON()), /INSTALL EXTENSION/);
 assert.match(JSON.stringify(renderer.toJSON()), /PAIR AN EDITOR/);
-console.log('Compute Lab local-first mounted flow passed');
+const runButton = renderer.root.findByProps({ 'data-testid': 'compute-lab-run-solution' });
+assert.equal(runButton.props.disabled, true, 'run is unavailable until an exact editor binding exists');
+console.log('Compute Lab mission → solution → results mounted flow passed');

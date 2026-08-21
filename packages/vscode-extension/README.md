@@ -19,9 +19,11 @@ pairing code expires after five minutes and cannot be reused.
 
 Choose the paired editor in the Compute Lab and press **Open in VS Code**. The
 bridge writes only below `netcrawl/problems/` inside the selected workspace.
-After editing, run **NetCrawl: Run Problem** or use the run icon in the editor
-title. The game adopts the saved workspace file as the current source and shows
-the complete execution trace.
+After editing, press **Run solution** in the Compute Lab (or run **NetCrawl: Run
+Problem** from VS Code). The bridge saves and runs that exact workspace file.
+While it runs, VS Code highlights and reveals the current server-reported source
+range. The highlight clears at the terminal outcome, while the game keeps the
+complete execution trace available for replay.
 
 If a workspace contains multiple folders, set `netcrawl.workspaceFolder` to the
 exact folder name that should hold NetCrawl problems.

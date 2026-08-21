@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
-import { ExternalLink } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ChevronDown, ExternalLink, Play } from 'lucide-react';
 import { apiFetch, SERVER_URL } from '../../lib/api';
 import { useT } from '../../hooks/useT';
+import type { ComputeLabRunSnapshot } from '../../store/gameStore';
 
 type SourceLocation = { lineno: number; col_offset: number; end_lineno: number; end_col_offset: number };
 type EditorSession = {
@@ -11,9 +12,17 @@ type EditorSession = {
   workspaceFolders: string[];
   expiresAt: number;
 };
-type CommandState = { id: string; outcome?: 'opened' | 'failed'; error?: string; expiresAt: number };
+type CommandState = {
+  id: string;
+  type: 'open_problem' | 'run_problem';
+  outcome?: 'opened' | 'run_started' | 'failed';
+  error?: string;
+  runId?: string;
+  expiresAt: number;
+};
 
 const EXTENSION_URL = 'https://github.com/RIDCorix/netcrawl2/releases/latest/download/netcrawl-editor-bridge.vsix';
+const TERMINAL_STATUSES = new Set(['trace_ready', 'syntax', 'runtime', 'timeout', 'limit', 'disconnected']);
 
 export function EditorBridgePanel({
   nodeId,
@@ -21,20 +30,26 @@ export function EditorBridgePanel({
   source,
   revision,
   selection,
+  run,
 }: {
   nodeId: string;
   taskId: string;
   source: string;
   revision: number;
   selection?: SourceLocation;
+  run?: ComputeLabRunSnapshot;
 }) {
   const t = useT();
   const [sessions, setSessions] = useState<EditorSession[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [pairing, setPairing] = useState<{ code: string; expiresAt: number } | null>(null);
   const [command, setCommand] = useState<CommandState | null>(null);
+  const [bound, setBound] = useState(false);
+  const [problemPath, setProblemPath] = useState('');
+  const [connectionOpen, setConnectionOpen] = useState(true);
   const [error, setError] = useState('');
   const [listError, setListError] = useState('');
+  const hadOnlineEditor = useRef(false);
 
   const refreshSessions = async () => {
     const response = await apiFetch('/api/editor/sessions');
@@ -42,7 +57,21 @@ export function EditorBridgePanel({
     if (!response.ok) throw new Error(body.error || 'Unable to load editors');
     const next = (body.sessions || []) as EditorSession[];
     setSessions(next);
-    setSelectedSessionId(current => (next.some(session => session.id === current) ? current : next[0]?.id || ''));
+    setSelectedSessionId(current => {
+      const nextId = next.some(session => session.id === current) ? current : next[0]?.id || '';
+      if (nextId !== current) {
+        setBound(false);
+        setProblemPath('');
+      }
+      return nextId;
+    });
+    if (next.length > 0 && !hadOnlineEditor.current) {
+      hadOnlineEditor.current = true;
+      setConnectionOpen(false);
+    } else if (next.length === 0) {
+      hadOnlineEditor.current = false;
+      setConnectionOpen(true);
+    }
   };
 
   useEffect(() => {
@@ -64,6 +93,32 @@ export function EditorBridgePanel({
   }, []);
 
   useEffect(() => {
+    if (!selectedSessionId) {
+      setBound(false);
+      setProblemPath('');
+      return;
+    }
+    setBound(false);
+    setProblemPath('');
+    let active = true;
+    const params = new URLSearchParams({ sessionId: selectedSessionId, nodeId, taskId });
+    apiFetch(`/api/editor/problem-status?${params}`)
+      .then(async response => ({ response, body: await response.json() }))
+      .then(({ response, body }) => {
+        if (!active) return;
+        if (!response.ok) throw new Error(body.error || 'Unable to read problem status');
+        setBound(Boolean(body.bound));
+        setProblemPath(String(body.relativePath || ''));
+      })
+      .catch(() => {
+        if (active) setBound(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedSessionId, nodeId, taskId]);
+
+  useEffect(() => {
     if (!command || command.outcome || command.expiresAt <= Date.now()) return;
     let active = true;
     const update = async () => {
@@ -71,11 +126,13 @@ export function EditorBridgePanel({
         const response = await apiFetch(`/api/editor/commands/${command.id}`);
         const body = await response.json();
         if (!response.ok) throw new Error(body.error || 'Unable to read editor command');
-        if (active) setCommand(body.command);
+        if (!active) return;
+        setCommand(body.command);
+        if (body.command.type === 'open_problem' && body.command.outcome === 'opened') setBound(true);
       } catch {
         if (active) {
           setCommand(current => (current ? { ...current, outcome: 'failed' } : current));
-          setError(t('compute_lab.editor.open_failed'));
+          setError(t('compute_lab.editor.command_failed'));
         }
       }
     };
@@ -94,6 +151,7 @@ export function EditorBridgePanel({
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Unable to create pairing code');
       setPairing(body);
+      setConnectionOpen(true);
     } catch {
       setError(t('compute_lab.editor.pair_failed'));
     }
@@ -118,83 +176,201 @@ export function EditorBridgePanel({
         void refreshSessions().catch(() => undefined);
         return;
       }
+      setBound(false);
+      setProblemPath(String(body.command.relativePath || ''));
       setCommand(body.command);
     } catch {
       setError(t('compute_lab.editor.open_failed'));
     }
   };
 
+  const startRun = async () => {
+    if (!selectedSessionId || !bound) return;
+    setError('');
+    setCommand(null);
+    try {
+      const response = await apiFetch('/api/editor/commands/run', {
+        method: 'POST',
+        body: JSON.stringify({ sessionId: selectedSessionId, nodeId, taskId }),
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        const key =
+          body.reason === 'editor_disconnected'
+            ? 'compute_lab.editor.disconnected'
+            : body.reason === 'invalid_editor_file'
+              ? 'compute_lab.editor.open_first'
+              : body.reason === 'run_in_progress'
+                ? 'compute_lab.editor.already_running'
+                : 'compute_lab.editor.run_failed';
+        setError(t(key));
+        if (body.reason === 'invalid_editor_file') setBound(false);
+        return;
+      }
+      setCommand(body.command);
+    } catch {
+      setError(t('compute_lab.editor.run_failed'));
+    }
+  };
+
+  const selected = sessions.find(session => session.id === selectedSessionId);
+  const commandPending = Boolean(command && !command.outcome && command.expiresAt > Date.now());
+  const commandRunActive = Boolean(
+    command?.type === 'run_problem' &&
+    (commandPending ||
+      (command.outcome === 'run_started' && (!run || run.id !== command.runId || !TERMINAL_STATUSES.has(run.status)))),
+  );
+  const runActive = Boolean(run && !TERMINAL_STATUSES.has(run.status));
+  const busy = commandRunActive || runActive;
+  const commandTerminalRun =
+    command?.type === 'run_problem' &&
+    command.outcome === 'run_started' &&
+    run &&
+    run.id === command.runId &&
+    TERMINAL_STATUSES.has(run.status)
+      ? run
+      : undefined;
   const commandStatus = !command
     ? null
     : command.outcome === 'opened'
       ? { className: 'compute-lab-editor-state compute-lab-editor-state-opened', text: t('compute_lab.editor.opened') }
-      : command.outcome === 'failed'
-        ? {
-            className: 'compute-lab-editor-state compute-lab-editor-state-failed',
-            text: t('compute_lab.editor.failed', { error: command.error || '' }),
-          }
-        : command.expiresAt <= Date.now()
+      : command.outcome === 'run_started'
+        ? commandTerminalRun
           ? {
-              className: 'compute-lab-editor-state compute-lab-editor-state-failed',
-              text: t('compute_lab.editor.expired'),
+              className: `compute-lab-editor-state ${
+                commandTerminalRun.status === 'trace_ready'
+                  ? 'compute-lab-editor-state-opened'
+                  : 'compute-lab-editor-state-failed'
+              }`,
+              text: t('compute_lab.editor.run_finished', {
+                outcome: t(`compute_lab.outcome.${commandTerminalRun.status}`),
+              }),
             }
           : {
-              className: 'compute-lab-editor-state compute-lab-editor-state-pending',
-              text: t('compute_lab.editor.opening'),
-            };
+              className: 'compute-lab-editor-state compute-lab-editor-state-running',
+              text: t('compute_lab.editor.running'),
+            }
+        : command.outcome === 'failed'
+          ? {
+              className: 'compute-lab-editor-state compute-lab-editor-state-failed',
+              text: t('compute_lab.editor.failed', { error: command.error || '' }),
+            }
+          : command.expiresAt <= Date.now()
+            ? {
+                className: 'compute-lab-editor-state compute-lab-editor-state-failed',
+                text: t('compute_lab.editor.expired'),
+              }
+            : {
+                className: 'compute-lab-editor-state compute-lab-editor-state-pending',
+                text: t(
+                  command.type === 'run_problem' ? 'compute_lab.editor.run_queued' : 'compute_lab.editor.opening',
+                ),
+              };
 
   return (
-    <section className="compute-lab-panel compute-lab-editor" aria-label={t('compute_lab.editor.title')}>
-      <div className="compute-lab-editor-heading">
-        <strong className="compute-lab-heading">{t('compute_lab.editor.title')}</strong>
-        <a href={EXTENSION_URL} target="_blank" rel="noreferrer">
-          {t('compute_lab.editor.install')} <ExternalLink size={11} aria-hidden="true" />
-        </a>
+    <section className="compute-lab-panel compute-lab-solution" aria-label={t('compute_lab.solution.title')}>
+      <div className="compute-lab-solution-heading">
+        <div>
+          <strong className="compute-lab-heading">{t('compute_lab.solution.title')}</strong>
+          <p>{t('compute_lab.solution.instructions')}</p>
+        </div>
+        <span className="compute-lab-solution-path">
+          {selected?.workspaceFolders.join(', ') || 'workspace'} / netcrawl
+        </span>
       </div>
-      {sessions.length > 0 ? (
-        <>
-          <label htmlFor="compute-lab-editor-session">{t('compute_lab.editor.choose')}</label>
-          <select
-            id="compute-lab-editor-session"
-            value={selectedSessionId}
-            onChange={event => setSelectedSessionId(event.target.value)}
-          >
-            {sessions.map(session => (
-              <option key={session.id} value={session.id}>
-                {session.label} · {session.kind}
-                {session.workspaceFolders.length ? ` · ${session.workspaceFolders.join(', ')}` : ''}
-              </option>
-            ))}
-          </select>
-          <button className="compute-lab-button-primary" onClick={() => void open()} disabled={!selectedSessionId}>
-            {t('compute_lab.editor.open')}
-          </button>
-          <div className="compute-lab-editor-state compute-lab-editor-state-online">
-            {t('compute_lab.editor.online')}
-          </div>
-        </>
-      ) : (
+      <div className="compute-lab-solution-file">
+        <span>{t('compute_lab.solution.file')}</span>
+        <code>{problemPath || t('compute_lab.solution.file_pending')}</code>
+      </div>
+      <button
+        className="compute-lab-button-primary compute-lab-run-solution"
+        data-testid="compute-lab-run-solution"
+        onClick={() => void startRun()}
+        disabled={!selectedSessionId || !bound || busy}
+      >
+        <Play size={14} aria-hidden="true" />
+        {t(busy ? 'compute_lab.solution.running' : 'compute_lab.solution.run')}
+      </button>
+      {!selectedSessionId ? (
         <div className="compute-lab-editor-state compute-lab-editor-state-offline">
           <strong>{t('compute_lab.editor.offline')}</strong>
           <span>{t('compute_lab.editor.offline_help')}</span>
         </div>
-      )}
-      <button onClick={() => void pair()}>
-        {sessions.length ? t('compute_lab.editor.pair_another') : t('compute_lab.editor.pair')}
-      </button>
-      {pairing && (
-        <div className="compute-lab-editor-pairing" role="status">
-          <span>{t('compute_lab.editor.server')}</span>
-          <code>{SERVER_URL}</code>
-          <span>{t('compute_lab.editor.code')}</span>
-          <strong>{pairing.code}</strong>
-          <small>{t('compute_lab.editor.pair_hint')}</small>
+      ) : !bound ? (
+        <div className="compute-lab-editor-state compute-lab-editor-state-pending">
+          {t('compute_lab.editor.open_first')}
+        </div>
+      ) : (
+        <div className="compute-lab-editor-state compute-lab-editor-state-online">
+          {t('compute_lab.editor.ready', { editor: selected?.label || '' })}
         </div>
       )}
       {commandStatus && <div className={commandStatus.className}>{commandStatus.text}</div>}
       {(error || listError) && (
         <div className="compute-lab-editor-state compute-lab-editor-state-failed">{error || listError}</div>
       )}
+
+      <details
+        className="compute-lab-editor-details"
+        open={connectionOpen}
+        onToggle={event => setConnectionOpen(event.currentTarget.open)}
+      >
+        <summary>
+          <span>
+            {t('compute_lab.editor.connection')} ·{' '}
+            {selected
+              ? t('compute_lab.editor.connected_as', { editor: selected.label })
+              : t('compute_lab.editor.offline_short')}
+          </span>
+          <ChevronDown size={14} aria-hidden="true" />
+        </summary>
+        <div className="compute-lab-editor-controls">
+          <div className="compute-lab-editor-heading">
+            <strong className="compute-lab-heading">{t('compute_lab.editor.title')}</strong>
+            <a href={EXTENSION_URL} target="_blank" rel="noreferrer">
+              {t('compute_lab.editor.install')} <ExternalLink size={11} aria-hidden="true" />
+            </a>
+          </div>
+          {sessions.length > 0 && (
+            <>
+              <label htmlFor="compute-lab-editor-session">{t('compute_lab.editor.choose')}</label>
+              <select
+                id="compute-lab-editor-session"
+                value={selectedSessionId}
+                onChange={event => {
+                  setBound(false);
+                  setProblemPath('');
+                  setSelectedSessionId(event.target.value);
+                  setCommand(null);
+                  setError('');
+                }}
+              >
+                {sessions.map(session => (
+                  <option key={session.id} value={session.id}>
+                    {session.label} · {session.kind}
+                    {session.workspaceFolders.length ? ` · ${session.workspaceFolders.join(', ')}` : ''}
+                  </option>
+                ))}
+              </select>
+              <button onClick={() => void open()} disabled={!selectedSessionId || commandPending}>
+                {t(bound ? 'compute_lab.editor.reopen' : 'compute_lab.editor.open')}
+              </button>
+            </>
+          )}
+          <button onClick={() => void pair()}>
+            {sessions.length ? t('compute_lab.editor.pair_another') : t('compute_lab.editor.pair')}
+          </button>
+          {pairing && (
+            <div className="compute-lab-editor-pairing" role="status">
+              <span>{t('compute_lab.editor.server')}</span>
+              <code>{SERVER_URL}</code>
+              <span>{t('compute_lab.editor.code')}</span>
+              <strong>{pairing.code}</strong>
+              <small>{t('compute_lab.editor.pair_hint')}</small>
+            </div>
+          )}
+        </div>
+      </details>
     </section>
   );
 }

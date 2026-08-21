@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { byteColumnToCodeUnit } from './pathSecurity';
 import { assertProblemFileSafe, openProblemFile, type ProblemFileServices } from './problemFile';
+import { latestLiveExecutionLocation } from './executionLocation';
 
 const TOKEN_SECRET = 'netcrawl.editorToken';
 const SERVER_KEY = 'netcrawl.serverUrl';
@@ -18,7 +19,21 @@ type OpenProblemCommand = {
   revision: number;
   selection?: SourceLocation;
 };
+type RunProblemCommand = {
+  id: string;
+  type: 'run_problem';
+  nodeId: string;
+  taskId: string;
+  relativePath: string;
+};
+type EditorCommand = OpenProblemCommand | RunProblemCommand;
 type Binding = { serverUrl: string; sessionId: string; relativePath: string; nodeId: string; taskId: string };
+type RunSnapshot = {
+  id: string;
+  status: string;
+  frames?: Array<{ sequence?: number; location?: SourceLocation }>;
+  returnValue?: unknown;
+};
 
 function normalizeServerUrl(value: string) {
   const parsed = new URL(value.trim());
@@ -103,12 +118,45 @@ export function activate(context: vscode.ExtensionContext) {
   let pollTimer: ReturnType<typeof setInterval> | undefined;
   let polling = false;
   let warnedAuth = false;
+  const executingCommands = new Set<string>();
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 20);
   status.command = 'netcrawl.pairEditor';
   status.text = '$(plug) NetCrawl: not paired';
   status.tooltip = 'Pair this editor with NetCrawl';
   status.show();
   context.subscriptions.push(status);
+  const executionDecoration = vscode.window.createTextEditorDecorationType({
+    backgroundColor: new vscode.ThemeColor('editor.wordHighlightStrongBackground'),
+    borderColor: new vscode.ThemeColor('editor.findMatchBorder'),
+    borderStyle: 'solid',
+    borderWidth: '0 0 0 2px',
+    overviewRulerColor: new vscode.ThemeColor('editorOverviewRuler.findMatchForeground'),
+    overviewRulerLane: vscode.OverviewRulerLane.Left,
+  });
+  context.subscriptions.push(executionDecoration);
+  let highlightedEditor: vscode.TextEditor | undefined;
+  let activeExecutionRunId: string | undefined;
+
+  const clearExecutionHighlight = () => {
+    highlightedEditor?.setDecorations(executionDecoration, []);
+    highlightedEditor = undefined;
+  };
+
+  const showExecutionLocation = (editor: vscode.TextEditor, run: RunSnapshot) => {
+    const location = latestLiveExecutionLocation(run.status, run.frames);
+    const selection = selectionFor(editor.document, location);
+    if (!selection) {
+      clearExecutionHighlight();
+      return;
+    }
+    if (highlightedEditor && highlightedEditor !== editor) highlightedEditor.setDecorations(executionDecoration, []);
+    editor.setDecorations(executionDecoration, [
+      { range: selection, hoverMessage: `NetCrawl is executing line ${selection.start.line + 1}` },
+    ]);
+    editor.revealRange(selection, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+    highlightedEditor = editor;
+    status.text = `$(sync~spin) NetCrawl: line ${selection.start.line + 1}`;
+  };
 
   const getConnection = async () => {
     const token = await context.secrets.get(TOKEN_SECRET);
@@ -161,11 +209,98 @@ export function activate(context: vscode.ExtensionContext) {
       };
       await context.workspaceState.update(BINDINGS_KEY, bindings);
       await acknowledge(connection, sessionId, command.id, 'opened');
-      status.text = `$(plug) NetCrawl: ${editorLabel()}`;
+      if (!activeExecutionRunId) status.text = `$(plug) NetCrawl: ${editorLabel()}`;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await acknowledge(connection, sessionId, command.id, 'failed', message).catch(() => undefined);
       void vscode.window.showErrorMessage(`NetCrawl could not open the problem: ${message}`);
+    }
+  };
+
+  const runBoundProblem = async (
+    connection: { token: string; serverUrl: string },
+    binding: Binding,
+    commandId?: string,
+  ) => {
+    const root = selectedWorkspaceFolder();
+    if (!root) throw new Error('Open a workspace folder before running a NetCrawl problem');
+    const candidate = await assertProblemFileSafe(root.uri, binding.relativePath, problemFileServices());
+    const document = await vscode.workspace.openTextDocument(candidate);
+    const editor = await vscode.window.showTextDocument(document, { preview: false });
+    if (!(await document.save())) throw new Error('Save the problem file before running it');
+    if (connection.serverUrl !== binding.serverUrl) throw new Error('Pair this editor with the problem server again');
+    const start = await request(connection.serverUrl, '/api/editor/runs', connection.token, {
+      method: 'POST',
+      body: JSON.stringify({
+        sessionId: binding.sessionId,
+        relativePath: binding.relativePath,
+        source: document.getText(),
+        revision: document.version,
+        ...(commandId ? { commandId } : {}),
+      }),
+    });
+    const runId = String(start.runId);
+    activeExecutionRunId = runId;
+    status.text = '$(sync~spin) NetCrawl: running';
+    clearExecutionHighlight();
+    let run: RunSnapshot | undefined;
+    let ownedVisualization = false;
+    try {
+      for (let attempt = 0; attempt < 80; attempt += 1) {
+        const result = await request(
+          connection.serverUrl,
+          `/api/editor/runs/${encodeURIComponent(runId)}`,
+          connection.token,
+        );
+        run = result.run as RunSnapshot | undefined;
+        if (activeExecutionRunId === runId && run && !TERMINAL_STATUSES.has(String(run.status)))
+          showExecutionLocation(editor, run);
+        if (TERMINAL_STATUSES.has(String(run?.status))) break;
+        await new Promise(resolve => setTimeout(resolve, 250));
+      }
+      if (!run || !TERMINAL_STATUSES.has(String(run.status)))
+        throw new Error('Run is still pending; check the Compute Lab');
+    } finally {
+      ownedVisualization = activeExecutionRunId === runId;
+      if (ownedVisualization) {
+        clearExecutionHighlight();
+        activeExecutionRunId = undefined;
+      }
+    }
+    if (ownedVisualization) status.text = `$(plug) NetCrawl: ${editorLabel()}`;
+    const result = Object.prototype.hasOwnProperty.call(run, 'returnValue')
+      ? ` · ${JSON.stringify(run.returnValue)}`
+      : '';
+    const show = run.status === 'trace_ready' ? vscode.window.showInformationMessage : vscode.window.showWarningMessage;
+    void show(`NetCrawl run: ${run.status}${result}. Full trace is in the game.`);
+  };
+
+  const runProblemCommand = async (connection: { token: string; serverUrl: string }, command: RunProblemCommand) => {
+    if (executingCommands.has(command.id)) return;
+    executingCommands.add(command.id);
+    try {
+      const root = selectedWorkspaceFolder();
+      if (!root) throw new Error('Open a workspace folder before running a NetCrawl problem');
+      const candidate = await assertProblemFileSafe(root.uri, command.relativePath, problemFileServices());
+      const bindings = context.workspaceState.get<Record<string, Binding>>(BINDINGS_KEY, {});
+      const binding = bindings[candidate.toString()];
+      if (
+        !binding ||
+        binding.serverUrl !== connection.serverUrl ||
+        binding.sessionId !== sessionId ||
+        binding.nodeId !== command.nodeId ||
+        binding.taskId !== command.taskId ||
+        binding.relativePath !== command.relativePath
+      )
+        throw new Error('This problem is not bound to the selected editor session');
+      await runBoundProblem(connection, binding, command.id);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await acknowledge(connection, sessionId, command.id, 'failed', message).catch(() => undefined);
+      if (!activeExecutionRunId) status.text = '$(warning) NetCrawl: run failed';
+      void vscode.window.showErrorMessage(`NetCrawl could not run this problem: ${message}`);
+    } finally {
+      executingCommands.delete(command.id);
     }
   };
 
@@ -189,11 +324,12 @@ export function activate(context: vscode.ExtensionContext) {
         `/api/editor/commands?sessionId=${encodeURIComponent(sessionId)}`,
         connection.token,
       );
-      status.text = `$(plug) NetCrawl: ${editorLabel()}`;
+      if (!activeExecutionRunId) status.text = `$(plug) NetCrawl: ${editorLabel()}`;
       status.tooltip = `Connected to ${connection.serverUrl}`;
       warnedAuth = false;
-      for (const command of (body.commands || []) as OpenProblemCommand[]) {
+      for (const command of (body.commands || []) as EditorCommand[]) {
         if (command.type === 'open_problem') await openProblem(connection, sessionId, command);
+        if (command.type === 'run_problem') void runProblemCommand(connection, command);
       }
     } catch (error) {
       const statusCode = Number((error as any)?.status || 0);
@@ -275,42 +411,11 @@ export function activate(context: vscode.ExtensionContext) {
         const candidate = await assertProblemFileSafe(root.uri, binding.relativePath, problemFileServices());
         if (candidate.toString() !== editor.document.uri.toString())
           throw new Error('The active file is outside the paired workspace');
-        if (!(await editor.document.save())) throw new Error('Save the problem file before running it');
         const connection = await getConnection();
-        if (!connection || connection.serverUrl !== binding.serverUrl)
-          throw new Error('Pair this editor with the problem server again');
-        const start = await request(connection.serverUrl, '/api/editor/runs', connection.token, {
-          method: 'POST',
-          body: JSON.stringify({
-            sessionId: binding.sessionId,
-            relativePath: binding.relativePath,
-            source: editor.document.getText(),
-            revision: editor.document.version,
-          }),
-        });
-        status.text = '$(sync~spin) NetCrawl: running';
-        let run: Record<string, any> | undefined;
-        for (let attempt = 0; attempt < 80; attempt += 1) {
-          const result = await request(
-            connection.serverUrl,
-            `/api/editor/runs/${encodeURIComponent(String(start.runId))}`,
-            connection.token,
-          );
-          run = result.run;
-          if (TERMINAL_STATUSES.has(String(run?.status))) break;
-          await new Promise(resolve => setTimeout(resolve, 250));
-        }
-        if (!run || !TERMINAL_STATUSES.has(String(run.status)))
-          throw new Error('Run is still pending; check the Compute Lab');
-        status.text = `$(plug) NetCrawl: ${editorLabel()}`;
-        const result = Object.prototype.hasOwnProperty.call(run, 'returnValue')
-          ? ` · ${JSON.stringify(run.returnValue)}`
-          : '';
-        const show =
-          run.status === 'trace_ready' ? vscode.window.showInformationMessage : vscode.window.showWarningMessage;
-        void show(`NetCrawl run: ${run.status}${result}. Full trace is in the game.`);
+        if (!connection) throw new Error('Pair this editor with the problem server again');
+        await runBoundProblem(connection, binding);
       } catch (error) {
-        status.text = '$(warning) NetCrawl: run failed';
+        if (!activeExecutionRunId) status.text = '$(warning) NetCrawl: run failed';
         const reason = String((error as any)?.reason || '');
         const message =
           reason === 'disconnected'
@@ -336,6 +441,8 @@ export function activate(context: vscode.ExtensionContext) {
       }
       await context.secrets.delete(TOKEN_SECRET);
       await context.workspaceState.update(BINDINGS_KEY, {});
+      clearExecutionHighlight();
+      activeExecutionRunId = undefined;
       if (pollTimer) clearInterval(pollTimer);
       pollTimer = undefined;
       status.text = '$(plug) NetCrawl: not paired';
@@ -344,7 +451,13 @@ export function activate(context: vscode.ExtensionContext) {
     }),
   );
 
-  context.subscriptions.push({ dispose: () => pollTimer && clearInterval(pollTimer) });
+  context.subscriptions.push({
+    dispose: () => {
+      if (pollTimer) clearInterval(pollTimer);
+      clearExecutionHighlight();
+      activeExecutionRunId = undefined;
+    },
+  });
   void getConnection().then(connection => connection && ensurePolling());
 }
 

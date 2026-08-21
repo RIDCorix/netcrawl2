@@ -11,6 +11,7 @@ process.env.JWT_SECRET = 'editor-bridge-test-secret-that-is-long-enough';
 process.env.NETCRAWL_BUNDLED = '1';
 
 const extensionManifest = JSON.parse(fs.readFileSync('packages/vscode-extension/package.json', 'utf8'));
+const extensionSource = fs.readFileSync('packages/vscode-extension/src/extension.ts', 'utf8');
 for (const entry of ['main', 'browser']) {
   assert.equal(typeof extensionManifest[entry], 'string', `the VSIX must expose a ${entry} entry point`);
   assert.ok(
@@ -18,6 +19,14 @@ for (const entry of ['main', 'browser']) {
     `the VSIX must include its ${entry} bundle`,
   );
 }
+assert.match(extensionSource, /createTextEditorDecorationType/);
+assert.match(extensionSource, /latestLiveExecutionLocation/);
+assert.match(extensionSource, /revealRange\(selection/);
+assert.match(extensionSource, /activeExecutionRunId === runId/);
+assert.match(extensionSource, /if \(ownedVisualization\)/);
+assert.match(extensionSource, /if \(!activeExecutionRunId\) status\.text/);
+assert.match(extensionSource, /clearExecutionHighlight\(\)/);
+assert.match(extensionSource, /command\.type === 'run_problem'/);
 
 const serverDist = path.resolve('packages/server/.test-dist');
 const bridge = await import(pathToFileURL(path.join(serverDist, 'editorBridge.js')));
@@ -113,6 +122,29 @@ assert.equal(
 );
 assert.equal(bridge.getPublicEditorCommand(command.id, 'user-a').outcome, 'opened');
 assert.equal(bridge.getEditorProblemBinding(desktop.id, relativePath, 'user-a', 2_007).taskId, 'task-1');
+const runCommand = bridge.enqueueRunProblem(
+  { sessionId: desktop.id, nodeId: 'e_op_add', taskId: 'task-1', relativePath },
+  'user-a',
+  2_008,
+);
+assert.ok(runCommand);
+assert.equal(runCommand.type, 'run_problem');
+assert.equal(
+  bridge.enqueueRunProblem(
+    { sessionId: desktop.id, nodeId: 'e_op_add', taskId: 'task-1', relativePath },
+    'user-a',
+    2_009,
+  ).id,
+  runCommand.id,
+  'a second browser click reuses the pending editor command',
+);
+assert.equal(
+  bridge.leaseEditorCommands(desktop.id, 'user-a', 2_010).filter(item => item.type === 'run_problem').length,
+  1,
+);
+assert.equal(bridge.markEditorRunStarted(runCommand.id, desktop.id, 'run-1', 'user-a', 2_011).duplicate, false);
+assert.equal(bridge.markEditorRunStarted(runCommand.id, desktop.id, 'run-1', 'user-a', 2_012).duplicate, true);
+assert.equal(bridge.getPublicEditorCommand(runCommand.id, 'user-a').runId, 'run-1');
 for (let now = 21_000; now < 302_100; now += 19_000) {
   bridge.registerEditorSession(
     { sessionId: desktop.id, label: desktop.label, kind: desktop.kind, workspaceFolders: desktop.workspaceFolders },
@@ -145,6 +177,39 @@ assert.equal(
   ),
   true,
   'Codespaces virtual workspace URIs remain supported',
+);
+
+const executionLocationBundle = path.join(serverDist, 'editor-execution-location.cjs');
+buildSync({
+  entryPoints: ['packages/vscode-extension/src/executionLocation.ts'],
+  bundle: true,
+  platform: 'node',
+  format: 'cjs',
+  outfile: executionLocationBundle,
+});
+const executionLocations = await import(pathToFileURL(executionLocationBundle));
+const firstLocation = { lineno: 2, col_offset: 0, end_lineno: 2, end_col_offset: 4 };
+const latestLocation = { lineno: 5, col_offset: 2, end_lineno: 6, end_col_offset: 8 };
+assert.deepEqual(
+  executionLocations.latestLiveExecutionLocation('running', [
+    { location: firstLocation },
+    { sequence: 1 },
+    { location: latestLocation },
+  ]),
+  latestLocation,
+  'the editor follows the newest located frame across generic and multiline constructs',
+);
+assert.equal(
+  executionLocations.latestLiveExecutionLocation('trace_ready', [{ location: latestLocation }]),
+  undefined,
+  'a terminal outcome clears the active execution range',
+);
+assert.equal(
+  executionLocations.latestLiveExecutionLocation('running', [
+    { location: { lineno: 0, col_offset: 0, end_lineno: 1, end_col_offset: 1 } },
+  ]),
+  undefined,
+  'a malformed source range fails closed',
 );
 assert.equal(
   extensionPaths.uriIsInside(
@@ -386,9 +451,38 @@ try {
   assert.equal(commandRead.body.command.outcome, 'opened');
   assert.equal('source' in commandRead.body.command, false, 'browser command status never echoes the source');
 
+  const problemStatusStartedAt = performance.now();
+  const problemStatus = await json(
+    `/api/editor/problem-status?sessionId=desktop-api-session&nodeId=${encodeURIComponent(computeNode.id)}&taskId=${encodeURIComponent(task.body.taskId)}`,
+    withToken(browserToken),
+  );
+  assert.equal(problemStatus.response.status, 200);
+  assert.equal(problemStatus.response.headers.get('cache-control'), 'no-store');
+  assert.equal(problemStatus.body.bound, true);
+  assert.equal(problemStatus.body.relativePath, opened.body.command.relativePath);
+  assert.ok(
+    performance.now() - problemStatusStartedAt < 250,
+    'bound-file status remains an in-memory read under 250ms',
+  );
+
   const lease = tracker.claimCodeServerLease(undefined, userId);
   assert.equal(lease.ok, true);
   const editorSource = task.body.starterSource.replace('pass', 'return 123');
+  const runQueued = await json(
+    '/api/editor/commands/run',
+    withToken(browserToken, {
+      method: 'POST',
+      body: JSON.stringify({
+        sessionId: 'desktop-api-session',
+        nodeId: computeNode.id,
+        taskId: task.body.taskId,
+      }),
+    }),
+  );
+  assert.equal(runQueued.response.status, 202);
+  assert.equal(runQueued.body.command.type, 'run_problem');
+  const runCommands = await json('/api/editor/commands?sessionId=desktop-api-session', withToken(editorToken));
+  assert.equal(runCommands.body.commands.filter(item => item.type === 'run_problem').length, 1);
   const runStarted = await json(
     '/api/editor/runs',
     withToken(editorToken, {
@@ -398,6 +492,7 @@ try {
         relativePath: opened.body.command.relativePath,
         source: editorSource,
         revision: 8,
+        commandId: runQueued.body.command.id,
       }),
     }),
   );
@@ -407,6 +502,52 @@ try {
   assert.equal(runRead.body.run.taskId, task.body.taskId);
   assert.equal(runRead.body.run.revision, 8);
   assert.equal('source' in runRead.body.run, false);
+  const duplicateRunStarted = await json(
+    '/api/editor/runs',
+    withToken(editorToken, {
+      method: 'POST',
+      body: JSON.stringify({
+        sessionId: 'desktop-api-session',
+        relativePath: opened.body.command.relativePath,
+        source: editorSource,
+        revision: 8,
+        commandId: runQueued.body.command.id,
+      }),
+    }),
+  );
+  assert.equal(duplicateRunStarted.response.status, 202);
+  assert.equal(duplicateRunStarted.body.runId, runStarted.body.runId, 'command retry is idempotent');
+  assert.equal(duplicateRunStarted.body.duplicate, true);
+  const runCommandRead = await json(`/api/editor/commands/${runQueued.body.command.id}`, withToken(browserToken));
+  assert.equal(runCommandRead.body.command.outcome, 'run_started');
+  assert.equal(runCommandRead.body.command.runId, runStarted.body.runId);
+  const concurrentRun = await json(
+    '/api/editor/commands/run',
+    withToken(browserToken, {
+      method: 'POST',
+      body: JSON.stringify({
+        sessionId: 'desktop-api-session',
+        nodeId: computeNode.id,
+        taskId: task.body.taskId,
+      }),
+    }),
+  );
+  assert.equal(concurrentRun.response.status, 409);
+  assert.equal(concurrentRun.body.reason, 'run_in_progress');
+  const manualEditorRun = await json(
+    '/api/editor/runs',
+    withToken(editorToken, {
+      method: 'POST',
+      body: JSON.stringify({
+        sessionId: 'desktop-api-session',
+        relativePath: opened.body.command.relativePath,
+        source: editorSource,
+        revision: 9,
+      }),
+    }),
+  );
+  assert.equal(manualEditorRun.response.status, 409);
+  assert.equal(manualEditorRun.body.reason, 'run_in_progress');
   tracker.releaseCodeServerLease(lease.sessionId, userId);
 } finally {
   await new Promise(resolve => started.server.close(resolve));

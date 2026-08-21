@@ -33,20 +33,30 @@ export type EditorProblemBinding = {
   relativePath: string;
 };
 
-export type EditorCommand = EditorProblemBinding & {
+type EditorCommandBase = EditorProblemBinding & {
   id: string;
   userId: string;
   sessionId: string;
+  createdAt: number;
+  expiresAt: number;
+  acknowledgedAt?: number;
+  outcome?: 'opened' | 'run_started' | 'failed';
+  error?: string;
+  runId?: string;
+};
+
+export type OpenProblemCommand = EditorCommandBase & {
   type: 'open_problem';
   source: string;
   revision: number;
   selection?: SourceLocation;
-  createdAt: number;
-  expiresAt: number;
-  acknowledgedAt?: number;
-  outcome?: 'opened' | 'failed';
-  error?: string;
 };
+
+export type RunProblemCommand = EditorCommandBase & {
+  type: 'run_problem';
+};
+
+export type EditorCommand = OpenProblemCommand | RunProblemCommand;
 
 const pairingTickets = new Map<string, PairingTicket>();
 const sessions = new Map<string, Map<string, EditorSession>>();
@@ -279,7 +289,7 @@ export function enqueueOpenProblem(
   input: EditorProblemBinding & { sessionId: string; source: string; revision: number; selection?: SourceLocation },
   userId?: string,
   now = Date.now(),
-): EditorCommand | undefined {
+): OpenProblemCommand | undefined {
   pruneExpired(now);
   if (!getEditorSession(input.sessionId, userId, now) || !isSafeProblemRelativePath(input.relativePath))
     return undefined;
@@ -296,6 +306,42 @@ export function enqueueOpenProblem(
     source: input.source,
     revision: input.revision,
     ...(input.selection ? { selection: input.selection } : {}),
+    createdAt: now,
+    expiresAt: now + COMMAND_TTL_MS,
+  };
+  commandMap(userId).set(command.id, command);
+  return command;
+}
+
+export function enqueueRunProblem(
+  input: EditorProblemBinding & { sessionId: string },
+  userId?: string,
+  now = Date.now(),
+): RunProblemCommand | undefined {
+  pruneExpired(now);
+  if (!getEditorSession(input.sessionId, userId, now) || !isSafeProblemRelativePath(input.relativePath))
+    return undefined;
+  const binding = bindings.get(userKey(userId))?.get(bindingKey(input.sessionId, input.relativePath));
+  if (!binding || binding.nodeId !== input.nodeId || binding.taskId !== input.taskId) return undefined;
+  const duplicate = Array.from(commandMap(userId).values()).find(
+    command =>
+      command.type === 'run_problem' &&
+      command.sessionId === input.sessionId &&
+      command.nodeId === input.nodeId &&
+      command.taskId === input.taskId &&
+      command.relativePath === input.relativePath &&
+      command.expiresAt > now &&
+      !command.acknowledgedAt,
+  );
+  if (duplicate) return duplicate as RunProblemCommand;
+  const command: RunProblemCommand = {
+    id: randomUUID(),
+    userId: userKey(userId),
+    sessionId: input.sessionId,
+    type: 'run_problem',
+    nodeId: input.nodeId,
+    taskId: input.taskId,
+    relativePath: input.relativePath,
     createdAt: now,
     expiresAt: now + COMMAND_TTL_MS,
   };
@@ -325,8 +371,13 @@ export function acknowledgeEditorCommand(
   const duplicate = command.acknowledgedAt !== undefined;
   if (!command.acknowledgedAt) {
     command.acknowledgedAt = now;
-    command.outcome = outcome === 'opened' ? 'opened' : 'failed';
-    if (command.outcome === 'failed') command.error = boundedText(error, 'Editor could not open the problem', 240);
+    command.outcome = command.type === 'open_problem' && outcome === 'opened' ? 'opened' : 'failed';
+    if (command.outcome === 'failed')
+      command.error = boundedText(
+        error,
+        command.type === 'open_problem' ? 'Editor could not open the problem' : 'Editor could not run the problem',
+        240,
+      );
     else {
       let entries = bindings.get(userKey(userId));
       if (!entries) {
@@ -343,11 +394,77 @@ export function acknowledgeEditorCommand(
   return { command, duplicate };
 }
 
+export function markEditorRunStarted(
+  commandId: string,
+  sessionId: string,
+  runId: string,
+  userId?: string,
+  now = Date.now(),
+) {
+  pruneExpired(now);
+  const command = commandMap(userId).get(commandId);
+  if (
+    !command ||
+    command.type !== 'run_problem' ||
+    command.sessionId !== sessionId ||
+    command.expiresAt <= now ||
+    command.outcome === 'failed'
+  )
+    return undefined;
+  const duplicate = command.outcome === 'run_started';
+  if (!duplicate) {
+    command.acknowledgedAt = now;
+    command.outcome = 'run_started';
+    command.runId = runId;
+  }
+  return { command, duplicate };
+}
+
 export function getPublicEditorCommand(commandId: string, userId?: string) {
   const command = commandMap(userId).get(commandId);
   if (!command) return undefined;
-  const { userId: _userId, source: _source, ...safe } = command;
+  if (command.type === 'open_problem') {
+    const { userId: _userId, source: _source, ...safe } = command;
+    return safe;
+  }
+  const { userId: _userId, ...safe } = command;
   return safe;
+}
+
+export function findEditorRunCommand(
+  sessionId: string,
+  nodeId: string,
+  taskId: string,
+  userId?: string,
+  now = Date.now(),
+) {
+  pruneExpired(now);
+  return Array.from(commandMap(userId).values())
+    .filter(
+      (command): command is RunProblemCommand =>
+        command.type === 'run_problem' &&
+        command.sessionId === sessionId &&
+        command.nodeId === nodeId &&
+        command.taskId === taskId &&
+        command.expiresAt > now &&
+        command.outcome !== 'failed',
+    )
+    .sort((left, right) => right.createdAt - left.createdAt)[0];
+}
+
+export function getEditorProblemStatus(
+  sessionId: string,
+  nodeId: string,
+  taskId: string,
+  userId?: string,
+  now = Date.now(),
+) {
+  const relativePath = problemRelativePath(nodeId, taskId);
+  const binding = getEditorProblemBinding(sessionId, relativePath, userId, now);
+  return {
+    relativePath,
+    bound: Boolean(binding && binding.nodeId === nodeId && binding.taskId === taskId),
+  };
 }
 
 export function getEditorProblemBinding(

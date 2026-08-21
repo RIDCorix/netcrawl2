@@ -3,7 +3,7 @@ import { getUserById, generateEditorToken } from '../auth.js';
 import { getGameState } from '../domain/gameState.js';
 import { getActiveComputeLabTask } from '../actions/computeActions.js';
 import { isCodeServerConnected } from '../codeServerTracker.js';
-import { createComputeLabRun, getComputeLabRun, publicRun } from '../computeLab.js';
+import { createComputeLabRun, findActiveEditorComputeLabRun, getComputeLabRun, publicRun } from '../computeLab.js';
 import { enqueueComputeLabRun } from '../workerRegistry.js';
 import { TRACE_LIMITS } from '../computeLab.js';
 import { broadcast } from '../websocket.js';
@@ -14,11 +14,15 @@ import {
   createEditorPairingTicket,
   disconnectEditorSession,
   enqueueOpenProblem,
+  enqueueRunProblem,
+  findEditorRunCommand,
   getEditorProblemBinding,
+  getEditorProblemStatus,
   getEditorSession,
   getPublicEditorCommand,
   leaseEditorCommands,
   listEditorSessions,
+  markEditorRunStarted,
   normalizeEditorSelection,
   problemRelativePath,
   registerEditorSession,
@@ -50,6 +54,18 @@ editorRoutes.post('/editor/pairing-tickets/consume', (req: Request, res: Respons
 editorRoutes.get('/editor/sessions', (req: Request, res: Response) => {
   res.setHeader('Cache-Control', 'no-store');
   res.json({ sessions: listEditorSessions(getUserId(req)) });
+});
+
+editorRoutes.get('/editor/problem-status', (req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const sessionId = String(req.query.sessionId || '');
+  const nodeId = String(req.query.nodeId || '');
+  const taskId = String(req.query.taskId || '');
+  if (!sessionId || !nodeId || !taskId)
+    return sendError(res, 400, 'sessionId, nodeId, and taskId required', 'invalid_editor_command');
+  if (!getEditorSession(sessionId, getUserId(req)))
+    return sendError(res, 409, 'Editor session is stale', 'editor_disconnected');
+  res.json(getEditorProblemStatus(sessionId, nodeId, taskId, getUserId(req)));
 });
 
 editorRoutes.post('/editor/sessions/register', (req: Request, res: Response) => {
@@ -100,6 +116,33 @@ editorRoutes.post('/editor/commands/open', (req: Request, res: Response) => {
   res.status(202).json({ ok: true, command: getPublicEditorCommand(command.id, uid) });
 });
 
+editorRoutes.post('/editor/commands/run', (req: Request, res: Response) => {
+  const uid = getUserId(req);
+  const sessionId = String(req.body?.sessionId || '');
+  const nodeId = String(req.body?.nodeId || '');
+  const taskId = String(req.body?.taskId || '');
+  if (!getEditorSession(sessionId, uid))
+    return sendError(res, 409, 'Choose an online editor and retry', 'editor_disconnected');
+  if (!unlockedCompute(nodeId, uid)) return sendError(res, 403, 'Compute node is locked or unavailable', 'locked_node');
+  if (!getActiveComputeLabTask(nodeId, taskId, uid))
+    return sendError(res, 409, 'Task expired; reload the Compute Lab', 'invalid_task');
+  const relativePath = problemRelativePath(nodeId, taskId);
+  const binding = getEditorProblemBinding(sessionId, relativePath, uid);
+  if (!binding || binding.nodeId !== nodeId || binding.taskId !== taskId)
+    return sendError(res, 409, 'Open this problem in the selected editor before running it', 'invalid_editor_file');
+  const existing = findEditorRunCommand(sessionId, nodeId, taskId, uid);
+  if (existing?.runId) {
+    const run = getComputeLabRun(existing.runId, uid);
+    if (run && !['trace_ready', 'syntax', 'runtime', 'timeout', 'limit', 'disconnected'].includes(run.status))
+      return sendError(res, 409, 'This editor is already running the problem', 'run_in_progress');
+  }
+  if (findActiveEditorComputeLabRun(sessionId, nodeId, taskId, uid))
+    return sendError(res, 409, 'This problem already has an active run', 'run_in_progress');
+  const command = enqueueRunProblem({ sessionId, nodeId, taskId, relativePath }, uid);
+  if (!command) return sendError(res, 409, 'Editor disconnected before the command was queued', 'editor_disconnected');
+  res.status(202).json({ ok: true, command: getPublicEditorCommand(command.id, uid) });
+});
+
 editorRoutes.post('/editor/commands/:commandId/ack', (req: Request, res: Response) => {
   const result = acknowledgeEditorCommand(
     String(req.params.commandId || ''),
@@ -125,6 +168,7 @@ editorRoutes.post('/editor/runs', (req: Request, res: Response) => {
   const relativePath = req.body?.relativePath;
   const source = req.body?.source;
   const revision = req.body?.revision;
+  const commandId = typeof req.body?.commandId === 'string' ? req.body.commandId : undefined;
   const binding = getEditorProblemBinding(sessionId, relativePath, uid);
   if (!binding)
     return sendError(res, 403, 'This file was not opened by NetCrawl in this editor', 'invalid_editor_file');
@@ -136,14 +180,38 @@ editorRoutes.post('/editor/runs', (req: Request, res: Response) => {
   if (!task) return sendError(res, 409, 'Task expired; reopen it from NetCrawl', 'invalid_task');
   if (!isCodeServerConnected(uid))
     return sendError(res, 409, 'Connect a Code Server before running code', 'disconnected');
+  const commandNow = Date.now();
+  if (commandId) {
+    const command = getPublicEditorCommand(commandId, uid);
+    if (
+      !command ||
+      command.type !== 'run_problem' ||
+      command.sessionId !== sessionId ||
+      command.relativePath !== relativePath ||
+      command.nodeId !== binding.nodeId ||
+      command.taskId !== binding.taskId ||
+      command.outcome === 'failed' ||
+      command.expiresAt <= commandNow
+    )
+      return sendError(res, 409, 'Run command is stale or belongs to another file', 'stale_editor_command');
+    if (command.runId) {
+      const existing = getComputeLabRun(command.runId, uid);
+      if (existing)
+        return res.status(202).json({ ok: true, runId: existing.id, status: existing.status, duplicate: true });
+    }
+  }
+  if (findActiveEditorComputeLabRun(sessionId, binding.nodeId, binding.taskId, uid))
+    return sendError(res, 409, 'This problem already has an active run', 'run_in_progress');
   const run = createComputeLabRun({
     userId: uid,
     nodeId: binding.nodeId,
     taskId: binding.taskId,
     source,
     revision,
-    sessionId: '',
+    sessionId,
   });
+  if (commandId && !markEditorRunStarted(commandId, sessionId, run.id, uid, commandNow))
+    return sendError(res, 409, 'Run command expired before execution began', 'stale_editor_command');
   enqueueComputeLabRun({ runId: run.id, source, ...task, limits: TRACE_LIMITS }, uid);
   broadcast(
     {

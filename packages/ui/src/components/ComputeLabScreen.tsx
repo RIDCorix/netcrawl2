@@ -584,8 +584,6 @@ export function ComputeLabScreen() {
           ? t('compute_lab.announce_changed', { names: (frame.changed || []).join(', ') })
           : t('compute_lab.announce_unchanged'),
       });
-  const localProblemPath = sourceNode ? `problems/${sourceNode.id}.py` : '';
-
   return (
     <div
       ref={dialogRef}
@@ -639,59 +637,47 @@ export function ComputeLabScreen() {
           {t('compute_lab.locked')}
         </main>
       ) : (
-        <main
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(280px, 1fr) minmax(300px, 1fr)',
-            gap: 18,
-            flex: '1 1 auto',
-            minHeight: 0,
-            overflowX: 'auto',
-            overflowY: 'hidden',
-          }}
-        >
-          <section style={{ display: 'grid', gap: 12, alignContent: 'start', minHeight: 0, overflowY: 'auto' }}>
-            <div className="compute-lab-panel" style={{ padding: 12, display: 'grid', gap: 8 }}>
-              <strong className="compute-lab-heading">{t('compute_lab.challenge')}</strong>
-              <p style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--text-secondary)' }}>
-                {t('compute_lab.task_description', { description: task?.description || '' })}
-              </p>
-              <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(task?.params || {}, null, 2)}</pre>
-            </div>
-            <div className="compute-lab-panel compute-lab-local-first" data-testid="compute-lab-local-first">
-              <strong className="compute-lab-heading">{t('compute_lab.local_first.title')}</strong>
-              <p>{t('compute_lab.local_first.instructions')}</p>
-              <label className="compute-lab-path-label" htmlFor="compute-lab-local-path">
-                {t('compute_lab.local_first.path')}
-              </label>
-              <input
-                id="compute-lab-local-path"
-                readOnly
-                value={localProblemPath}
-                aria-label={t('compute_lab.local_first.path')}
-              />
-              <pre>{task?.functionSignature || 'class ProblemSolver:'}</pre>
-              <pre>{`uv run python ${localProblemPath}`}</pre>
-              <div role="status" className="compute-lab-status compute-lab-status-alert">
-                {t('compute_lab.local_first.limitation')}
+        <main className="compute-lab-workspace">
+          <section className="compute-lab-panel compute-lab-mission" aria-label={t('compute_lab.mission.title')}>
+            <strong className="compute-lab-heading">{t('compute_lab.mission.title')}</strong>
+            <p>{t('compute_lab.task_description', { description: task?.description || '' })}</p>
+            <dl>
+              <div>
+                <dt>{t('compute_lab.mission.input')}</dt>
+                <dd>
+                  <pre>{JSON.stringify(task?.params || {}, null, 2)}</pre>
+                </dd>
               </div>
-              <p className="compute-lab-local-retry">{t('compute_lab.local_first.retry')}</p>
-            </div>
-            {task && sourceNode && (
-              <EditorBridgePanel
-                nodeId={sourceNode.id}
-                taskId={task.taskId}
-                source={source}
-                revision={revision}
-                selection={!stale ? frame?.location : undefined}
-              />
-            )}
+              <div>
+                <dt>{t('compute_lab.mission.signature')}</dt>
+                <dd>
+                  <pre>{task?.functionSignature || 'class ProblemSolver:'}</pre>
+                </dd>
+              </div>
+            </dl>
             {message && (
               <div role="status" className="compute-lab-status">
                 {t(message.key, message.vars)}
               </div>
             )}
           </section>
+          {task && sourceNode ? (
+            <EditorBridgePanel
+              nodeId={sourceNode.id}
+              taskId={task.taskId}
+              source={source}
+              revision={revision}
+              selection={!stale ? frame?.location : undefined}
+              run={run}
+            />
+          ) : (
+            <section className="compute-lab-panel compute-lab-solution" aria-label={t('compute_lab.solution.title')}>
+              <strong className="compute-lab-heading">{t('compute_lab.solution.title')}</strong>
+              <div className="compute-lab-editor-state compute-lab-editor-state-pending">
+                {t('compute_lab.loading')}
+              </div>
+            </section>
+          )}
           <section
             aria-label={t('compute_lab.trace')}
             className="compute-lab-panel"
@@ -726,7 +712,7 @@ export function ComputeLabScreen() {
                     : t('compute_lab.run_to_trace')}
                 </span>
               </div>
-              {terminal && (
+              {run && terminal && (
                 <div
                   role="status"
                   data-testid="compute-lab-outcome"
@@ -746,6 +732,10 @@ export function ComputeLabScreen() {
                     {t(`compute_lab.outcome.${terminal}`)}
                   </strong>
                   <div>{t(`compute_lab.outcome_action.${terminal}`)}</div>
+                  <div>
+                    {t('compute_lab.outcome_elapsed', { milliseconds: Math.max(0, run.updatedAt - run.createdAt) })}
+                  </div>
+                  <div>{t('compute_lab.outcome_steps', { count: run.frames.length })}</div>
                   {stoppedAt && stoppedAt.iteration > 0 && (
                     <div>
                       {t('compute_lab.outcome_stopped_in', { loop: stoppedAt.loop, iteration: stoppedAt.iteration })}

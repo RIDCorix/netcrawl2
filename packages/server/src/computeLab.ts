@@ -308,6 +308,26 @@ export function getComputeLabRun(runId: string, userId?: string) {
   return run;
 }
 
+export function findActiveEditorComputeLabRun(
+  editorSessionId: string,
+  nodeId: string,
+  taskId: string,
+  userId?: string,
+) {
+  const candidates = Array.from(runs.values())
+    .filter(
+      run =>
+        run.userId === userId && run.sessionId === editorSessionId && run.nodeId === nodeId && run.taskId === taskId,
+    )
+    .sort((left, right) => right.createdAt - left.createdAt);
+  for (const candidate of candidates) {
+    const run = getComputeLabRun(candidate.id, userId);
+    if (run && !['trace_ready', 'syntax', 'runtime', 'timeout', 'limit', 'disconnected'].includes(run.status))
+      return run;
+  }
+  return undefined;
+}
+
 function rejectInvalidFrame(run: ComputeLabRun): FrameAcceptance {
   run.frames.push({
     sequence: run.frames.length,

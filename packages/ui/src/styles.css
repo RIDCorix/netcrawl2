@@ -2028,6 +2028,114 @@ body::after {
   border-radius: var(--radius-md);
 }
 
+.compute-lab-workspace {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.75fr) minmax(300px, 0.9fr) minmax(420px, 1.6fr);
+  gap: 16px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.compute-lab-mission {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-height: 0;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.compute-lab-mission p,
+.compute-lab-solution p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.compute-lab-mission dl,
+.compute-lab-mission dd {
+  margin: 0;
+}
+
+.compute-lab-mission dl {
+  display: grid;
+  gap: 10px;
+}
+
+.compute-lab-mission dl > div {
+  display: grid;
+  gap: 4px;
+}
+
+.compute-lab-mission pre {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.compute-lab-mission dd > code {
+  display: block;
+  padding: 8px 10px;
+  overflow-wrap: anywhere;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.compute-lab-solution {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-height: 0;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.compute-lab-solution-heading {
+  display: grid;
+  gap: 8px;
+}
+
+.compute-lab-solution-path {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+.compute-lab-solution-file {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.compute-lab-solution-file span {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.compute-lab-solution-file code {
+  overflow-wrap: anywhere;
+}
+
+.compute-lab button.compute-lab-run-solution {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+}
+
 .compute-lab-local-first {
   display: grid;
   gap: 8px;
@@ -2246,10 +2354,42 @@ body::after {
   color: var(--danger);
 }
 
-.compute-lab-editor {
+.compute-lab-editor-details {
+  margin-top: 2px;
+  border-top: 1px solid var(--border);
+}
+
+.compute-lab-editor-details summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 0 2px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  list-style: none;
+}
+
+.compute-lab-editor-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.compute-lab-editor-details[open] summary svg {
+  transform: rotate(180deg);
+}
+
+.compute-lab-editor-details summary svg {
+  flex: 0 0 auto;
+  transition: transform 150ms ease;
+}
+
+.compute-lab-editor-controls {
   display: grid;
   gap: 8px;
-  padding: 12px;
+  padding-top: 10px;
 }
 
 .compute-lab-editor-heading {
@@ -2268,14 +2408,14 @@ body::after {
   font-size: 10px;
 }
 
-.compute-lab-editor label,
+.compute-lab-editor-controls label,
 .compute-lab-editor-pairing span,
 .compute-lab-editor-pairing small {
   color: var(--text-muted);
   font-size: 10px;
 }
 
-.compute-lab-editor select {
+.compute-lab-editor-controls select {
   width: 100%;
   padding: 7px 9px;
   color: var(--text-primary);
@@ -2286,7 +2426,7 @@ body::after {
   font-size: 11px;
 }
 
-.compute-lab-editor select:focus-visible {
+.compute-lab-editor-controls select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -2311,6 +2451,12 @@ body::after {
 .compute-lab-editor-state-pending {
   border-style: dashed;
   border-left: 3px dashed var(--accent);
+}
+
+.compute-lab-editor-state-running {
+  border-style: dashed;
+  border-left: 3px dashed var(--accent);
+  color: var(--text-primary);
 }
 
 .compute-lab-editor-state-failed {
@@ -2376,5 +2522,8 @@ body::after {
   [data-testid='compute-lab-loops'] * {
     transition: none !important;
     animation: none !important;
+  }
+  .compute-lab-editor-details summary svg {
+    transition: none;
   }
 }
