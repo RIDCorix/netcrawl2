@@ -17,6 +17,31 @@ export const ja: Record<string, string> = {
   'compute_lab.run': '実行',
   'compute_lab.submit': '前回の実行を提出',
   'compute_lab.runner_offline': '実行するには Code Server を接続または開始してください。下書きは保存されます。',
+  'compute_lab.editor.title': 'EDITOR BRIDGE',
+  'compute_lab.editor.install': '拡張機能をインストール',
+  'compute_lab.editor.choose': '対象エディター',
+  'compute_lab.editor.open': 'VS CODE で開く',
+  'compute_lab.editor.online': 'オンライン · このエディターで問題を開けます。',
+  'compute_lab.editor.offline': 'オフライン · ペアリング済みのエディターがありません。',
+  'compute_lab.editor.offline_help':
+    '拡張機能をインストールしてペアリングし、再試行してください。この表示は自動更新されます。',
+  'compute_lab.editor.pair': 'エディターをペアリング',
+  'compute_lab.editor.pair_another': '別のエディターをペアリング',
+  'compute_lab.editor.server': 'サーバー',
+  'compute_lab.editor.code': 'ワンタイムコード',
+  'compute_lab.editor.pair_hint':
+    'VS Code で「NetCrawl: Pair Editor」を実行してください。コードは5分後に失効し、1回だけ使えます。',
+  'compute_lab.editor.opening': '開いています · 選択したエディターの確認を待っています。',
+  'compute_lab.editor.opened': '開きました · 選択したエディターで問題ファイルにフォーカスしました。',
+  'compute_lab.editor.failed': '失敗 · {error}',
+  'compute_lab.editor.expired': '期限切れ · エディターから確認がありません。再試行または再ペアリングしてください。',
+  'compute_lab.editor.disconnected':
+    '選択したエディターがオフラインです。別のエディターを選ぶか、再ペアリングしてください。',
+  'compute_lab.editor.open_failed': '問題をエディターへ送れませんでした。再試行してください。',
+  'compute_lab.editor.pair_failed': 'ペアリングコードを作成できませんでした。再試行してください。',
+  'compute_lab.editor.list_failed': 'エディター状態を取得できません。しばらくして再試行してください。',
+  'compute_lab.editor.source_synced':
+    'ワークスペースのファイルを同期しました。このトレースはブラウザー下書きではなく保存済みのエディター内容を実行しています。',
   'compute_lab.trace': '実行トレース',
   'compute_lab.run_to_trace': '関数を実行すると、各ステップを確認できます。',
   'compute_lab.submit_cost':

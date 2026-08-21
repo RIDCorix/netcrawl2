@@ -1,0 +1,89 @@
+{
+  "name": "netcrawl-editor-bridge",
+  "displayName": "NetCrawl Editor Bridge",
+  "description": "Open and run NetCrawl Compute Lab problems from VS Code or GitHub Codespaces.",
+  "version": "0.1.0",
+  "publisher": "ridcorix",
+  "license": "MIT",
+  "files": [
+    "dist/extension.js",
+    "LICENSE",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RIDCorix/netcrawl2"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Education"
+  ],
+  "browser": "./dist/extension.js",
+  "activationEvents": [
+    "onCommand:netcrawl.pairEditor",
+    "onCommand:netcrawl.runProblem",
+    "onCommand:netcrawl.disconnectEditor",
+    "onStartupFinished"
+  ],
+  "capabilities": {
+    "virtualWorkspaces": true,
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "netcrawl.pairEditor",
+        "title": "NetCrawl: Pair Editor"
+      },
+      {
+        "command": "netcrawl.runProblem",
+        "title": "NetCrawl: Run Problem",
+        "icon": "$(run)"
+      },
+      {
+        "command": "netcrawl.disconnectEditor",
+        "title": "NetCrawl: Disconnect Editor"
+      }
+    ],
+    "menus": {
+      "editor/title/run": [
+        {
+          "command": "netcrawl.runProblem",
+          "when": "resourceLangId == python",
+          "group": "navigation@20"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "NetCrawl",
+      "properties": {
+        "netcrawl.serverUrl": {
+          "type": "string",
+          "default": "",
+          "description": "NetCrawl server URL. Pairing fills this automatically."
+        },
+        "netcrawl.workspaceFolder": {
+          "type": "string",
+          "default": "",
+          "description": "Optional exact workspace folder name for NetCrawl problem files."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "compile": "pnpm check-types && node esbuild.cjs",
+    "package": "pnpm check-types && node esbuild.cjs --production && pnpm dlx @vscode/vsce package --no-dependencies --out netcrawl-editor-bridge.vsix",
+    "vscode:prepublish": "pnpm compile"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "esbuild": "0.21.5",
+    "typescript": "^5.0.0"
+  }
+}

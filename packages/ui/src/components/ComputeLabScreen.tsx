@@ -19,6 +19,7 @@ import {
   trackEnd,
   visibleLoops,
 } from './computeLab/stageModel';
+import { EditorBridgePanel } from './computeLab/EditorBridgePanel';
 
 type Run = ComputeLabRunSnapshot;
 type Task = {
@@ -393,6 +394,8 @@ export function ComputeLabScreen() {
     connected,
     computeLabRuns,
     upsertComputeLabRun,
+    editorRunStarted,
+    setEditorRunStarted,
   } = useGameStore();
   const t = useT();
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -460,6 +463,18 @@ export function ComputeLabScreen() {
     localStorage.setItem(key, source);
     localStorage.setItem(`${key}:revision`, String(revision));
   }, [source, revision, sourceNode?.id, computeLabOpen, draftNodeId]);
+
+  useEffect(() => {
+    if (!editorRunStarted || !sourceNode || !task) return;
+    if (editorRunStarted.run.nodeId !== sourceNode.id || editorRunStarted.run.taskId !== task.taskId) return;
+    setSource(editorRunStarted.source);
+    setRevision(editorRunStarted.run.revision);
+    setRunId(editorRunStarted.run.id);
+    setFrameIndex(0);
+    setSubmissionSuccess(null);
+    setMessage({ key: 'compute_lab.editor.source_synced' });
+    setEditorRunStarted(null);
+  }, [editorRunStarted, sourceNode?.id, task?.taskId, setEditorRunStarted]);
 
   useEffect(() => {
     const reconnected = !wasConnected.current && connected;
@@ -745,6 +760,15 @@ export function ComputeLabScreen() {
               spellCheck={false}
               style={{ minHeight: 300, resize: 'vertical' }}
             />
+            {task && sourceNode && (
+              <EditorBridgePanel
+                nodeId={sourceNode.id}
+                taskId={task.taskId}
+                source={source}
+                revision={revision}
+                selection={!stale ? frame?.location : undefined}
+              />
+            )}
             {task?.cost && (
               <div
                 data-testid="compute-lab-submit-cost"

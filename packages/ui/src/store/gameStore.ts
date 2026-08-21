@@ -107,6 +107,13 @@ export interface ComputeLabRunSnapshot {
   returnValue?: unknown;
 }
 
+export interface EditorRunStarted {
+  run: ComputeLabRunSnapshot;
+  source: string;
+  relativePath: string;
+  editorSessionId: string;
+}
+
 const TERMINAL_COMPUTE_LAB_STATUSES = new Set(['trace_ready', 'syntax', 'runtime', 'timeout', 'limit', 'disconnected']);
 
 function maxFrameSequence(run: ComputeLabRunSnapshot): number {
@@ -388,6 +395,7 @@ export interface GameState {
   computeLabOpen: boolean;
   computeLabSourceNodeId: string | null;
   computeLabRuns: Record<string, ComputeLabRunSnapshot>;
+  editorRunStarted: EditorRunStarted | null;
 }
 
 interface GameActions {
@@ -433,6 +441,7 @@ interface GameActions {
   openComputeLab: (sourceNodeId: string) => void;
   closeComputeLab: () => void;
   upsertComputeLabRun: (run: ComputeLabRunSnapshot) => void;
+  setEditorRunStarted: (started: EditorRunStarted | null) => void;
   // Recipe unlock reveal
   revealRecipe: (recipeId: string) => void;
 }
@@ -502,6 +511,7 @@ export const useGameStore = create<GameState & GameActions>(set => ({
   computeLabOpen: false,
   computeLabSourceNodeId: null,
   computeLabRuns: {},
+  editorRunStarted: null,
 
   setState: partial => set(state => ({ ...state, ...partial })),
   setConnected: connected => set({ connected }),
@@ -613,6 +623,7 @@ export const useGameStore = create<GameState & GameActions>(set => ({
       if (previous && !shouldReplaceComputeLabRun(previous, run)) return state;
       return { computeLabRuns: { ...state.computeLabRuns, [run.id]: run } };
     }),
+  setEditorRunStarted: editorRunStarted => set({ editorRunStarted }),
 
   revealRecipe: recipeId =>
     set(state => ({

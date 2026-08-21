@@ -19,6 +19,25 @@ export interface ServerOptions {
   ciWatchdog?: CiWatchdog;
 }
 
+/** Browser-hosted VS Code/Codespaces extensions use fetch and therefore need CORS. */
+export function isAllowedWebOrigin(origin: string, configured: readonly string[] = []) {
+  if (configured.includes(origin)) return true;
+  try {
+    const url = new URL(origin);
+    if (url.protocol === 'vscode-webview:') return true;
+    if (url.protocol !== 'https:') return false;
+    return (
+      url.hostname === 'vscode.dev' ||
+      url.hostname.endsWith('.vscode.dev') ||
+      url.hostname.endsWith('.github.dev') ||
+      url.hostname.endsWith('.app.github.dev') ||
+      url.hostname.endsWith('.vscode-cdn.net')
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function startServer(options: ServerOptions = {}): Promise<{
   server: http.Server;
   app: Express;
@@ -41,10 +60,14 @@ export async function startServer(options: ServerOptions = {}): Promise<{
   const ciWatchdog = options.ciWatchdog ?? new CiWatchdog({ enabled: process.env.NETCRAWL_CI_WATCHDOG === 'true' });
 
   // Middleware
-  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(s => s.trim());
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
   app.use(
     cors({
-      origin: allowedOrigins?.length ? allowedOrigins : true,
+      origin: allowedOrigins?.length
+        ? (origin, callback) => callback(null, !origin || isAllowedWebOrigin(origin, allowedOrigins))
+        : true,
       credentials: true,
     }),
   );

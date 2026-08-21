@@ -13,6 +13,7 @@ import { Request, Response, NextFunction } from 'express';
 const JWT_SECRET = process.env.JWT_SECRET || 'netcrawl-dev-secret-do-not-use-in-production';
 const TOKEN_EXPIRY = '7d';
 const CODE_SERVER_TOKEN_EXPIRY = '90d';
+const EDITOR_TOKEN_EXPIRY = '90d';
 
 export interface User {
   id: string;
@@ -128,7 +129,16 @@ export function generateCodeServerToken(user: User): { token: string; expiresAt:
   return { token, expiresAt: expiresAt.toISOString() };
 }
 
-export type TokenPurpose = 'browser' | 'code-server';
+/** Issue a credential that can only access the editor bridge. */
+export function generateEditorToken(identity: { id: string; email: string }): { token: string; expiresAt: string } {
+  const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+  const token = jwt.sign({ userId: identity.id, email: identity.email, purpose: 'editor' }, JWT_SECRET, {
+    expiresIn: EDITOR_TOKEN_EXPIRY,
+  });
+  return { token, expiresAt: expiresAt.toISOString() };
+}
+
+export type TokenPurpose = 'browser' | 'code-server' | 'editor';
 
 export function verifyToken(
   token: string,
@@ -178,6 +188,9 @@ export const authMiddleware = authMiddlewareForPurposes(['browser']);
 
 /** Runtime endpoints accept both dedicated credentials and legacy browser sessions. */
 export const runtimeAuthMiddleware = authMiddlewareForPurposes(['browser', 'code-server']);
+
+/** Editor bridge endpoints accept only the credential stored in VS Code SecretStorage. */
+export const editorAuthMiddleware = authMiddlewareForPurposes(['editor']);
 
 /** Strip sensitive fields before sending user to client */
 export function sanitizeUser(user: User): Omit<User, 'passwordHash'> {

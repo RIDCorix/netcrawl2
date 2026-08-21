@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { type ComputeLabRunSnapshot, type GameState, useGameStore } from '../store/gameStore';
+import { type ComputeLabRunSnapshot, type EditorRunStarted, type GameState, useGameStore } from '../store/gameStore';
 import { WS_URL, apiFetch } from '../lib/api';
 
 type GameMessage = { type?: string; payload?: unknown };
@@ -10,6 +10,8 @@ export function applyGameMessage(msg: GameMessage) {
     state.updateFromServer(msg.payload as Partial<GameState>);
   } else if (msg.type === 'COMPUTE_LAB_RUN') {
     state.upsertComputeLabRun(msg.payload as ComputeLabRunSnapshot);
+  } else if (msg.type === 'EDITOR_RUN_STARTED') {
+    state.setEditorRunStarted(msg.payload as EditorRunStarted);
   } else if (msg.type === 'ACHIEVEMENT_UNLOCKED') {
     state.addAchievementToast(msg.payload as Parameters<typeof state.addAchievementToast>[0]);
   } else if (msg.type === 'QUEST_AVAILABLE' || msg.type === 'QUEST_COMPLETED') {

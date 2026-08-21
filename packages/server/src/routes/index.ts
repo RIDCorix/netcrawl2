@@ -4,7 +4,7 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { setCurrentUser } from '../store.js';
-import { authMiddleware, runtimeAuthMiddleware, AuthenticatedRequest } from '../auth.js';
+import { authMiddleware, runtimeAuthMiddleware, editorAuthMiddleware, AuthenticatedRequest } from '../auth.js';
 import { authRouter } from '../authRoutes.js';
 import { handleWorkerAction } from '../actions/index.js';
 
@@ -19,6 +19,7 @@ import { layerRoutes } from './layerRoutes.js';
 import { devRoutes } from './devRoutes.js';
 import { runtimeRoutes } from './runtimeRoutes.js';
 import { computeLabRoutes } from './computeLabRoutes.js';
+import { editorRoutes } from './editorRoutes.js';
 import { getUserId } from './helpers.js';
 
 export const router: Router = Router();
@@ -33,16 +34,30 @@ export const runtimeCredentialPaths = [
   '/code-server/disconnect',
 ] as const;
 
+function isEditorCredentialPath(req: Request) {
+  if (req.path === '/editor/sessions/register') return true;
+  if (/^\/editor\/sessions\/[^/]+\/disconnect$/.test(req.path)) return true;
+  if (req.path === '/editor/commands' && req.method === 'GET') return true;
+  if (/^\/editor\/commands\/[^/]+\/ack$/.test(req.path)) return true;
+  if (req.path === '/editor/runs' && req.method === 'POST') return true;
+  return /^\/editor\/runs\/[^/]+$/.test(req.path) && req.method === 'GET';
+}
+
 // Auth routes (always public)
 router.use('/auth', authRouter);
 
 // Multi-user auth middleware
 if (process.env.NETCRAWL_MULTI_USER === 'true') {
   router.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.path === '/editor/pairing-tickets/consume' && req.method === 'POST') return next();
     const acceptsRuntimeCredential = runtimeCredentialPaths.some(path =>
       path.endsWith('/') ? req.path.startsWith(path) : req.path === path,
     );
-    const middleware = acceptsRuntimeCredential ? runtimeAuthMiddleware : authMiddleware;
+    const middleware = isEditorCredentialPath(req)
+      ? editorAuthMiddleware
+      : acceptsRuntimeCredential
+        ? runtimeAuthMiddleware
+        : authMiddleware;
     middleware(req as AuthenticatedRequest, res, () => {
       const authReq = req as AuthenticatedRequest;
       if (authReq.user) {
@@ -66,6 +81,7 @@ router.use('/', layerRoutes);
 router.use('/', devRoutes);
 router.use('/', runtimeRoutes);
 router.use('/', computeLabRoutes);
+router.use('/', editorRoutes);
 
 // Worker action dispatcher (POST /api/worker/action)
 router.post('/worker/action', async (req: Request, res: Response) => {
