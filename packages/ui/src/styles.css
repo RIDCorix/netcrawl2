@@ -2567,6 +2567,8 @@ body::after {
 }
 
 .compute-lab-assignment {
+  --compute-lab-evaluation-delay: 0ms;
+  --compute-lab-transfer-delay: 200ms;
   display: grid;
   grid-template-columns: minmax(180px, 1fr) 64px minmax(150px, 0.8fr);
   gap: 8px;
@@ -2579,6 +2581,8 @@ body::after {
 }
 
 .compute-lab-assignment-with-references {
+  --compute-lab-evaluation-delay: 160ms;
+  --compute-lab-transfer-delay: 320ms;
   grid-template-columns: minmax(150px, 0.8fr) minmax(180px, 1fr) 64px minmax(150px, 0.8fr);
 }
 
@@ -2605,6 +2609,34 @@ body::after {
   overflow-wrap: anywhere;
 }
 
+.compute-lab-assignment-reference {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: 5px 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+}
+
+.compute-lab-assignment-reference strong {
+  color: var(--text-primary);
+}
+
+.compute-lab-assignment-reference-payload {
+  position: absolute;
+  z-index: 2;
+  right: 8px;
+  bottom: 5px;
+  padding: 1px 4px;
+  color: var(--accent);
+  background: var(--bg-primary);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+}
+
 .compute-lab-assignment-evaluation strong {
   color: var(--accent);
   font-family: var(--font-mono);
@@ -2612,6 +2644,7 @@ body::after {
 }
 
 .compute-lab-assignment-arrow {
+  position: relative;
   display: flex;
   align-items: center;
   color: var(--accent);
@@ -2627,12 +2660,57 @@ body::after {
   font-size: 18px;
 }
 
-.compute-lab-assignment[data-animated='true'] .compute-lab-assignment-evaluation strong {
-  animation: compute-lab-evaluate 200ms ease-out both;
+.compute-lab-assignment-arrow code {
+  position: absolute;
+  z-index: 2;
+  left: -6px;
+  top: calc(50% + var(--compute-lab-payload-offset, 0px));
+  padding: 2px 5px;
+  color: var(--accent);
+  background: var(--bg-primary);
+  border: 2px solid var(--accent);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+  transform: translateY(-50%);
+  pointer-events: none;
 }
 
-.compute-lab-assignment[data-animated='true'] .compute-lab-assignment-arrow b {
-  animation: compute-lab-transfer 280ms 200ms ease-in-out both;
+.compute-lab-assignment-targets code {
+  display: grid;
+  gap: 2px;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+}
+
+.compute-lab-assignment-targets code small {
+  color: var(--text-secondary);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
+.compute-lab-assignment-target-pending {
+  border: 1px dashed var(--border-bright);
+  color: var(--text-secondary);
+}
+
+.compute-lab-assignment-target-complete {
+  border: 2px solid var(--accent);
+  color: var(--text-primary);
+}
+
+.compute-lab-assignment[data-animated='true'] .compute-lab-assignment-evaluation strong {
+  animation: compute-lab-evaluate 160ms var(--compute-lab-evaluation-delay) ease-out both;
+}
+
+.compute-lab-assignment[data-animated='true'] .compute-lab-assignment-reference-payload {
+  animation: compute-lab-reference-copy 160ms ease-in both;
+}
+
+.compute-lab-assignment[data-animated='true'] .compute-lab-assignment-arrow code {
+  animation: compute-lab-value-transfer 220ms var(--compute-lab-transfer-delay) ease-in-out both;
 }
 
 @keyframes compute-lab-evaluate {
@@ -2646,14 +2724,25 @@ body::after {
   }
 }
 
-@keyframes compute-lab-transfer {
+@keyframes compute-lab-reference-copy {
   from {
-    opacity: 0;
-    transform: translateX(-36px);
-  }
-  to {
     opacity: 1;
     transform: translateX(0);
+  }
+  to {
+    opacity: 0.45;
+    transform: translateX(42px);
+  }
+}
+
+@keyframes compute-lab-value-transfer {
+  from {
+    left: -6px;
+    opacity: 0;
+  }
+  to {
+    left: calc(100% + 4px);
+    opacity: 1;
   }
 }
 
@@ -2683,8 +2772,57 @@ body::after {
   }
 
   .compute-lab-assignment-arrow {
-    min-height: 28px;
+    justify-content: center;
+    min-height: 40px;
+  }
+
+  .compute-lab-assignment-arrow span {
+    width: 0;
+    height: 100%;
+    border-top: 0;
+    border-left: 2px solid var(--accent);
+  }
+
+  .compute-lab-assignment-arrow b {
+    position: absolute;
+    bottom: -3px;
     transform: rotate(90deg);
+  }
+
+  .compute-lab-assignment-arrow code {
+    left: calc(50% + var(--compute-lab-payload-offset, 0px));
+    top: -6px;
+    transform: translateX(-50%);
+  }
+
+  .compute-lab-assignment[data-animated='true'] .compute-lab-assignment-arrow code {
+    animation-name: compute-lab-value-transfer-mobile;
+  }
+
+  .compute-lab-assignment[data-animated='true'] .compute-lab-assignment-reference-payload {
+    animation-name: compute-lab-reference-copy-mobile;
+  }
+}
+
+@keyframes compute-lab-value-transfer-mobile {
+  from {
+    top: -6px;
+    opacity: 0;
+  }
+  to {
+    top: calc(100% + 4px);
+    opacity: 1;
+  }
+}
+
+@keyframes compute-lab-reference-copy-mobile {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0.45;
+    transform: translateY(28px);
   }
 }
 

@@ -389,6 +389,7 @@ export function ComputeLabScreen() {
     nodes,
     closeComputeLab,
     connected,
+    codeServerConnected,
     computeLabRuns,
     upsertComputeLabRun,
     editorRunStarted,
@@ -701,6 +702,7 @@ export function ComputeLabScreen() {
               revision={revision}
               selection={!stale ? frame?.location : undefined}
               run={run}
+              codeServerConnected={codeServerConnected}
             >
               <div className="compute-lab-trace">
                 {/* Everything the run says in words scrolls; the stage below it does

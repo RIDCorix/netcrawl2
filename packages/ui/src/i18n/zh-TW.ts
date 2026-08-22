@@ -46,6 +46,9 @@ export const zhTW: Record<string, string> = {
   'compute_lab.editor.online': '已上線 · 此 editor 已準備好接收題目。',
   'compute_lab.editor.offline': '未連線 · 沒有已配對的 editor 在線。',
   'compute_lab.editor.offline_help': '請安裝擴充套件、完成配對後重試；此區會自動更新。',
+  'compute_lab.editor.code_server_offline': '暫停 · Editor 已配對，但 Code Server 尚未執行。',
+  'compute_lab.editor.code_server_offline_help':
+    '請在已配對的 workspace 啟動 Code Server，或配對你要執行的 workspace；此區會自動更新。',
   'compute_lab.editor.pair': '配對 CODE SERVER',
   'compute_lab.editor.pair_retry': '重新配對 CODE SERVER',
   'compute_lab.editor.pair_another': '再配對一個 EDITOR',
@@ -113,6 +116,8 @@ export const zhTW: Record<string, string> = {
   'compute_lab.assignment.references': '從變數讀取',
   'compute_lab.assignment.evaluate': '計算右側',
   'compute_lab.assignment.store': '存入',
+  'compute_lab.assignment.pending': '等待值傳入',
+  'compute_lab.assignment.complete': '值已存入',
   'compute_lab.assignment.announcement': '先算出 {value}，再存入 {targets}。',
   'compute_lab.stage.churning': '每重複一次就變一次',
   'compute_lab.stage.frozen': '程式壞掉當下的樣子',

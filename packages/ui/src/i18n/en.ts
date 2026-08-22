@@ -47,6 +47,10 @@ export const en: Record<string, string> = {
   'compute_lab.editor.online': 'ONLINE · This editor is ready to receive a problem.',
   'compute_lab.editor.offline': 'OFFLINE · No paired editor is connected.',
   'compute_lab.editor.offline_help': 'Install the extension, pair it, then retry. This panel refreshes automatically.',
+  'compute_lab.editor.code_server_offline':
+    'BLOCKED · Your paired editor is online, but its Code Server is not running.',
+  'compute_lab.editor.code_server_offline_help':
+    'Start the Code Server in the paired workspace, or pair the workspace you want to run. This panel refreshes automatically.',
   'compute_lab.editor.pair': 'PAIR CODE SERVER',
   'compute_lab.editor.pair_retry': 'PAIR CODE SERVER AGAIN',
   'compute_lab.editor.pair_another': 'PAIR ANOTHER EDITOR',
@@ -116,6 +120,8 @@ export const en: Record<string, string> = {
   'compute_lab.assignment.references': 'READ FROM VARIABLES',
   'compute_lab.assignment.evaluate': 'EVALUATE RHS',
   'compute_lab.assignment.store': 'STORE IN',
+  'compute_lab.assignment.pending': 'WAITING FOR VALUE',
+  'compute_lab.assignment.complete': 'VALUE STORED',
   'compute_lab.assignment.announcement': 'Evaluated {value}, then stored it in {targets}.',
   'compute_lab.stage.churning': 'changing on every repeat',
   'compute_lab.stage.frozen': 'as it was when the program broke',

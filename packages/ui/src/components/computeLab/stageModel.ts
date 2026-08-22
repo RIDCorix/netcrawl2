@@ -309,7 +309,7 @@ export type AssignmentTransfer = {
   evaluationSource: string;
   evaluatedValue: string;
   references: { name: string; value: string }[];
-  targets: { name: string; value: string }[];
+  targets: { name: string; value: string; previousValue?: string }[];
 };
 
 /**
@@ -331,9 +331,11 @@ export function assignmentTransferAt(
   if (!binding || binding.kind !== 'binding' || !binding.location) return null;
   const rawBindings = binding.detail?.bindings;
   if (!rawBindings || typeof rawBindings !== 'object' || Array.isArray(rawBindings)) return null;
+  const heldBefore = frames[frameIndex - 1]?.locals || {};
   const targets = Object.entries(rawBindings as Record<string, unknown>).map(([name, value]) => ({
     name,
     value: format(value),
+    ...(Object.prototype.hasOwnProperty.call(heldBefore, name) ? { previousValue: format(heldBefore[name]) } : {}),
   }));
   if (targets.length === 0) return null;
 
@@ -351,11 +353,21 @@ export function assignmentTransferAt(
   const evaluationSource = source.slice(evaluationRange.start, evaluationRange.end);
   if (!evaluationSource.trim()) return null;
 
-  const heldBefore = frames[frameIndex - 1]?.locals || {};
+  // A reference is semantic only when the runner identifies a Name load and
+  // gives its exact source span. Text scanning cannot distinguish `a = b` from
+  // `a = "b"`, a comment, or future syntax with identifier-looking content.
+  const referenceEvidence = evaluation.detail?.references;
+  if (!Array.isArray(referenceEvidence)) return null;
   const references: { name: string; value: string }[] = [];
   const seen = new Set<string>();
-  for (const match of evaluationSource.matchAll(/[$_\p{ID_Start}][$\p{ID_Continue}]*/gu)) {
-    const name = match[0];
+  for (const evidence of referenceEvidence) {
+    if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence)) continue;
+    const name = (evidence as Record<string, unknown>).name;
+    const location = (evidence as Record<string, unknown>).location;
+    if (typeof name !== 'string' || !location || typeof location !== 'object' || Array.isArray(location)) continue;
+    const bounds = sourceRange(source, location as Location);
+    if (!bounds || !containsLocation(evaluation.location, location as Location)) continue;
+    if (source.slice(bounds.start, bounds.end) !== name) continue;
     if (seen.has(name) || !Object.prototype.hasOwnProperty.call(heldBefore, name)) continue;
     seen.add(name);
     references.push({ name, value: format(heldBefore[name]) });

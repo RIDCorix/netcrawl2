@@ -43,7 +43,9 @@ for (const [class_id, class_name, capabilities] of [
   });
 setQuestStatus('q_operators', 'available');
 
-const runner = spawn(process.env.NETCRAWL_UV_BINARY || 'uv', ['run', 'main.py'], {
+// The host validates the candidate SDK through PYTHONPATH before its wheel is
+// published; keep the starter lock immutable until the release workflow updates it.
+const runner = spawn(process.env.NETCRAWL_UV_BINARY || 'uv', ['run', '--frozen', 'main.py'], {
   cwd: workspace,
   env: {
     ...process.env,

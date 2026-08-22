@@ -50,6 +50,9 @@ export const ja: Record<string, string> = {
   'compute_lab.editor.offline': 'オフライン · ペアリング済みのエディターがありません。',
   'compute_lab.editor.offline_help':
     '拡張機能をインストールしてペアリングし、再試行してください。この表示は自動更新されます。',
+  'compute_lab.editor.code_server_offline': '停止中 · エディターはペアリング済みですが、Code Server が動いていません。',
+  'compute_lab.editor.code_server_offline_help':
+    'ペアリング済み workspace で Code Server を起動するか、実行する workspace をペアリングしてください。この表示は自動更新されます。',
   'compute_lab.editor.pair': 'CODE SERVER をペアリング',
   'compute_lab.editor.pair_retry': 'CODE SERVER を再ペアリング',
   'compute_lab.editor.pair_another': '別のエディターをペアリング',
@@ -122,6 +125,8 @@ export const ja: Record<string, string> = {
   'compute_lab.assignment.references': '変数から読み取る',
   'compute_lab.assignment.evaluate': '右辺を計算',
   'compute_lab.assignment.store': '保存先',
+  'compute_lab.assignment.pending': '値を待っています',
+  'compute_lab.assignment.complete': '値を保存しました',
   'compute_lab.assignment.announcement': '{value} を計算してから {targets} に保存しました。',
   'compute_lab.stage.churning': '繰り返すたびに変わっています',
   'compute_lab.stage.frozen': '壊れたときのままの状態',

@@ -14,7 +14,15 @@
  *     animation the state is already right, which is why `prefers-reduced-motion`
  *     can remove all of it and lose nothing.
  */
-import { type ComponentProps, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  type ComponentProps,
+  type CSSProperties,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   type Frame,
   type AssignmentTransfer,
@@ -280,9 +288,19 @@ export function AssignmentTransferView({
         <div className="compute-lab-assignment-references">
           <span className="compute-lab-heading">{t('compute_lab.assignment.references')}</span>
           {transfer.references.map(reference => (
-            <code key={reference.name} className="compute-lab-assignment-reference">
-              {reference.name} · {reference.value}
-            </code>
+            <div
+              key={reference.name}
+              className="compute-lab-assignment-reference"
+              data-testid="compute-lab-assignment-reference"
+            >
+              <code>{reference.name}</code>
+              <strong>{reference.value}</strong>
+              {animated && (
+                <code className="compute-lab-assignment-reference-payload" aria-hidden="true">
+                  {reference.value}
+                </code>
+              )}
+            </div>
           ))}
         </div>
       )}
@@ -293,13 +311,36 @@ export function AssignmentTransferView({
       </div>
       <div className="compute-lab-assignment-arrow" aria-hidden="true">
         <span />
+        {animated &&
+          transfer.targets.map((target, index) => (
+            <code
+              key={target.name}
+              data-testid="compute-lab-assignment-payload"
+              data-target={target.name}
+              style={
+                {
+                  '--compute-lab-payload-offset': `${(index - (transfer.targets.length - 1) / 2) * 14}px`,
+                } as CSSProperties
+              }
+            >
+              {target.value}
+            </code>
+          ))}
         <b>→</b>
       </div>
       <div className="compute-lab-assignment-targets">
         <span className="compute-lab-heading">{t('compute_lab.assignment.store')}</span>
         {transfer.targets.map(target => (
-          <code key={target.name}>
-            {target.name} · {target.value}
+          <code
+            key={target.name}
+            data-testid={`compute-lab-assignment-target-${target.name}`}
+            data-phase={animated ? 'pending' : 'complete'}
+            className={animated ? 'compute-lab-assignment-target-pending' : 'compute-lab-assignment-target-complete'}
+          >
+            <span>
+              {target.name} · {animated ? (target.previousValue ?? '—') : target.value}
+            </span>
+            <small>{t(animated ? 'compute_lab.assignment.pending' : 'compute_lab.assignment.complete')}</small>
           </code>
         ))}
       </div>

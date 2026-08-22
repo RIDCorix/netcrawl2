@@ -31,6 +31,7 @@ export function EditorBridgePanel({
   revision,
   selection,
   run,
+  codeServerConnected,
   children,
 }: {
   nodeId: string;
@@ -39,6 +40,7 @@ export function EditorBridgePanel({
   revision: number;
   selection?: SourceLocation;
   run?: ComputeLabRunSnapshot;
+  codeServerConnected: boolean;
   children: ReactNode;
 }) {
   const t = useT();
@@ -203,7 +205,7 @@ export function EditorBridgePanel({
   };
 
   const startRun = async () => {
-    if (!selectedSessionId || !bound) return;
+    if (!codeServerConnected || !selectedSessionId || !bound) return;
     setError('');
     setCommand(null);
     try {
@@ -301,12 +303,24 @@ export function EditorBridgePanel({
 
   return (
     <section className="compute-lab-panel compute-lab-visualization" aria-label={t('compute_lab.trace')}>
-      {!selectedSessionId ? (
+      {!codeServerConnected || !selectedSessionId ? (
         <div className="compute-lab-pair-blocked">
           <strong className="compute-lab-heading">{t('compute_lab.trace')}</strong>
           <div className="compute-lab-editor-state compute-lab-editor-state-offline">
-            <strong>{t('compute_lab.editor.offline')}</strong>
-            <span>{t('compute_lab.editor.offline_help')}</span>
+            <strong>
+              {t(
+                !selectedSessionId || codeServerConnected
+                  ? 'compute_lab.editor.offline'
+                  : 'compute_lab.editor.code_server_offline',
+              )}
+            </strong>
+            <span>
+              {t(
+                !selectedSessionId || codeServerConnected
+                  ? 'compute_lab.editor.offline_help'
+                  : 'compute_lab.editor.code_server_offline_help',
+              )}
+            </span>
           </div>
           <button
             className="compute-lab-button-primary compute-lab-pair-primary"

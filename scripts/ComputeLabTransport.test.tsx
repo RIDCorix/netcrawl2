@@ -14,6 +14,7 @@ Object.defineProperty(globalThis, 'window', {
 });
 Object.defineProperty(globalThis, 'document', { configurable: true, value: { activeElement: null } });
 let sessionMode = 'disconnected';
+let problemBound = false;
 Object.defineProperty(globalThis, 'fetch', {
   configurable: true,
   value: async input => {
@@ -29,7 +30,7 @@ Object.defineProperty(globalThis, 'fetch', {
         { status: 200 },
       );
     if (url.includes('/api/editor/problem-status'))
-      return new Response(JSON.stringify({ bound: false, relativePath: 'netcrawl/problems/e_op_add/task.py' }), {
+      return new Response(JSON.stringify({ bound: problemBound, relativePath: 'netcrawl/problems/e_op_add/task.py' }), {
         status: 200,
       });
     return new Response(JSON.stringify({ taskId: 'task', params: { a: 3, b: 4 }, difficulty: 'easy' }), {
@@ -43,6 +44,7 @@ useGameStore.setState({
   computeLabSourceNodeId: 'e_op_add',
   computeLabRuns: {},
   connected: true,
+  codeServerConnected: false,
   nodes: [{ id: 'e_op_add', type: 'compute', position: { x: 0, y: 0 }, data: { label: 'ADD', unlocked: true } }],
 });
 
@@ -57,10 +59,28 @@ assert.doesNotMatch(JSON.stringify(renderer.toJSON()), /uv run python/);
 assert.match(JSON.stringify(renderer.toJSON()), /EXECUTION TRACE/);
 assert.match(JSON.stringify(renderer.toJSON()), /INSTALL EXTENSION/);
 assert.match(JSON.stringify(renderer.toJSON()), /PAIR CODE SERVER/);
+assert.doesNotMatch(JSON.stringify(renderer.toJSON()), /paired editor is online/);
 assert.equal(renderer.root.findAllByProps({ 'data-testid': 'compute-lab-run-solution' }).length, 0);
 
 renderer.unmount();
 sessionMode = 'paired';
+problemBound = true;
+await act(async () => {
+  renderer = TestRenderer.create(<ComputeLabScreen />);
+  await Promise.resolve();
+  await Promise.resolve();
+});
+assert.match(JSON.stringify(renderer.toJSON()), /PAIR CODE SERVER/);
+assert.match(JSON.stringify(renderer.toJSON()), /paired editor is online/);
+assert.equal(
+  renderer.root.findAllByProps({ 'data-testid': 'compute-lab-run-solution' }).length,
+  0,
+  'an online paired editor cannot imply that the Code Server execution lease is live',
+);
+renderer.unmount();
+
+useGameStore.setState({ codeServerConnected: true });
+problemBound = false;
 await act(async () => {
   renderer = TestRenderer.create(<ComputeLabScreen />);
   await Promise.resolve();
@@ -73,4 +93,4 @@ assert.match(JSON.stringify(renderer.toJSON()), /RUN SOLUTION/);
 const runButton = renderer.root.findByProps({ 'data-testid': 'compute-lab-run-solution' });
 assert.equal(runButton.props.disabled, true, 'run is unavailable until an exact editor binding exists');
 renderer.unmount();
-console.log('Compute Lab disconnected and paired-but-unopened flows passed');
+console.log('Compute Lab disconnected, paired-offline, and paired-but-unopened flows passed');

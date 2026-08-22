@@ -245,7 +245,9 @@ registerWorkerClass({
 });
 setQuestStatus('q_operators', 'available');
 
-const runner = spawn(uv, ['run', 'main.py'], {
+// Keep the starter lock immutable while testing the candidate SDK through
+// PYTHONPATH. The release workflow updates that lock after the wheel exists.
+const runner = spawn(uv, ['run', '--frozen', 'main.py'], {
   cwd: workspace,
   env: {
     ...process.env,
@@ -269,7 +271,7 @@ try {
     connected = (await request('/state')).body.codeServerConnected === true;
     if (connected) break;
   }
-  assert.equal(connected, true, 'uv run main.py must register a live Code Server');
+  assert.equal(connected, true, 'uv run --frozen main.py must register a live Code Server');
 
   const beforeDeploy = getGameState();
   const beforeLab = await request('/deploy', { nodeId: 'e_op_add', classId: 'solver' });

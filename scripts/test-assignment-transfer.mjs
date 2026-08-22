@@ -22,7 +22,15 @@ try {
 
   const literalSource = 'a = 1 + 3';
   const literalFrames = [
-    { sequence: 0, kind: 'value', source: '1 + 3', location: location(4, 9), locals: {}, value: 4 },
+    {
+      sequence: 0,
+      kind: 'value',
+      source: '1 + 3',
+      location: location(4, 9),
+      locals: {},
+      value: 4,
+      detail: { references: [] },
+    },
     {
       sequence: 1,
       kind: 'binding',
@@ -44,7 +52,15 @@ try {
   const copySource = 'a = b';
   const copyFrames = [
     { sequence: 0, kind: 'step', source: 'before', location: location(0, 1), locals: { b: 7 } },
-    { sequence: 1, kind: 'value', source: 'b', location: location(4, 5), locals: { b: 7 }, value: 7 },
+    {
+      sequence: 1,
+      kind: 'value',
+      source: 'b',
+      location: location(4, 5),
+      locals: { b: 7 },
+      value: 7,
+      detail: { references: [{ name: 'b', location: location(4, 5) }] },
+    },
     {
       sequence: 2,
       kind: 'binding',
@@ -57,10 +73,46 @@ try {
   ];
   assert.deepEqual(assignmentTransferAt(copyFrames, 2, copySource, format)?.references, [{ name: 'b', value: '7' }]);
 
+  const stringSource = 'a = "b"';
+  const stringFrames = [
+    { sequence: 0, kind: 'step', source: 'before', location: location(0, 1), locals: { b: 7 } },
+    {
+      sequence: 1,
+      kind: 'value',
+      source: '"b"',
+      location: location(4, 7),
+      locals: { b: 7 },
+      value: 'b',
+      detail: { references: [] },
+    },
+    {
+      sequence: 2,
+      kind: 'binding',
+      source: stringSource,
+      location: location(0, stringSource.length),
+      locals: { b: 7, a: 'b' },
+      changed: ['a'],
+      detail: { bindings: { a: 'b' } },
+    },
+  ];
+  assert.deepEqual(
+    assignmentTransferAt(stringFrames, 2, stringSource, format)?.references,
+    [],
+    'identifier-looking string content is not semantic evidence of a variable read',
+  );
+
   const unicodeSource = '結果 = 起點';
   const unicodeFrames = [
     { sequence: 0, kind: 'step', source: 'before', location: location(0, 1), locals: { 起點: 9 } },
-    { sequence: 1, kind: 'value', source: '起點', location: location(9, 15), locals: { 起點: 9 }, value: 9 },
+    {
+      sequence: 1,
+      kind: 'value',
+      source: '起點',
+      location: location(9, 15),
+      locals: { 起點: 9 },
+      value: 9,
+      detail: { references: [{ name: '起點', location: location(9, 15) }] },
+    },
     {
       sequence: 2,
       kind: 'binding',
@@ -78,8 +130,24 @@ try {
   const nestedSource = 'a = (b + 1) * 2';
   const nestedFrames = [
     { sequence: 0, kind: 'step', location: location(0, 1), locals: { b: 7 } },
-    { sequence: 1, kind: 'value', source: 'b + 1', location: location(5, 10), locals: { b: 7 }, value: 8 },
-    { sequence: 2, kind: 'value', source: '(b + 1) * 2', location: location(4, 15), locals: { b: 7 }, value: 16 },
+    {
+      sequence: 1,
+      kind: 'value',
+      source: 'b + 1',
+      location: location(5, 10),
+      locals: { b: 7 },
+      value: 8,
+      detail: { references: [{ name: 'b', location: location(5, 6) }] },
+    },
+    {
+      sequence: 2,
+      kind: 'value',
+      source: '(b + 1) * 2',
+      location: location(4, 15),
+      locals: { b: 7 },
+      value: 16,
+      detail: { references: [{ name: 'b', location: location(5, 6) }] },
+    },
     {
       sequence: 3,
       kind: 'binding',
