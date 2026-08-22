@@ -2030,12 +2030,11 @@ body::after {
 
 .compute-lab-workspace {
   display: grid;
-  grid-template-columns: minmax(220px, 0.75fr) minmax(300px, 0.9fr) minmax(420px, 1.6fr);
-  gap: 16px;
+  grid-template-rows: minmax(104px, auto) minmax(0, 1fr);
+  gap: 12px;
   flex: 1 1 auto;
   min-height: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: hidden;
 }
 
 .compute-lab-mission {
@@ -2044,7 +2043,8 @@ body::after {
   align-content: start;
   min-height: 0;
   padding: 12px;
-  overflow-y: auto;
+  max-height: 172px;
+  overflow: auto;
 }
 
 .compute-lab-mission p,
@@ -2062,7 +2062,78 @@ body::after {
 
 .compute-lab-mission dl {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.compute-lab-visualization {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.compute-lab-trace-region,
+.compute-lab-trace {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.compute-lab-editor-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(360px, auto);
+  gap: 12px;
+  align-items: end;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.compute-lab-editor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.compute-lab-editor-actions .compute-lab-editor-state {
+  max-width: 360px;
+}
+
+.compute-lab-pair-blocked {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 24px;
+  text-align: center;
+}
+
+.compute-lab-pair-blocked .compute-lab-editor-state {
+  width: min(100%, 560px);
+  text-align: left;
+}
+
+.compute-lab button.compute-lab-pair-primary {
+  min-width: min(100%, 360px);
+  min-height: 56px;
+  padding: 12px 20px;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+}
+
+.compute-lab-extension-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 10px;
 }
 
 .compute-lab-mission dl > div {
@@ -2495,6 +2566,128 @@ body::after {
   border-radius: var(--radius-sm);
 }
 
+.compute-lab-assignment {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 64px minmax(150px, 0.8fr);
+  gap: 8px;
+  align-items: stretch;
+  margin-bottom: 10px;
+  padding: 8px;
+  background: var(--bg-primary);
+  border: 1px dashed var(--border-bright);
+  border-radius: var(--radius-sm);
+}
+
+.compute-lab-assignment-with-references {
+  grid-template-columns: minmax(150px, 0.8fr) minmax(180px, 1fr) 64px minmax(150px, 0.8fr);
+}
+
+.compute-lab-assignment-references,
+.compute-lab-assignment-evaluation,
+.compute-lab-assignment-targets {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.compute-lab-assignment-evaluation {
+  border-left: 2px solid var(--accent);
+}
+
+.compute-lab-assignment-evaluation code,
+.compute-lab-assignment-targets code,
+.compute-lab-assignment-reference {
+  overflow-wrap: anywhere;
+}
+
+.compute-lab-assignment-evaluation strong {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.compute-lab-assignment-arrow {
+  display: flex;
+  align-items: center;
+  color: var(--accent);
+}
+
+.compute-lab-assignment-arrow span {
+  width: 100%;
+  border-top: 2px solid var(--accent);
+}
+
+.compute-lab-assignment-arrow b {
+  font-family: var(--font-mono);
+  font-size: 18px;
+}
+
+.compute-lab-assignment[data-animated='true'] .compute-lab-assignment-evaluation strong {
+  animation: compute-lab-evaluate 200ms ease-out both;
+}
+
+.compute-lab-assignment[data-animated='true'] .compute-lab-assignment-arrow b {
+  animation: compute-lab-transfer 280ms 200ms ease-in-out both;
+}
+
+@keyframes compute-lab-evaluate {
+  from {
+    opacity: 0.35;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes compute-lab-transfer {
+  from {
+    opacity: 0;
+    transform: translateX(-36px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 720px) {
+  .compute-lab {
+    padding: 8px;
+  }
+
+  .compute-lab-workspace {
+    grid-template-rows: minmax(96px, 34vh) minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .compute-lab-mission {
+    max-height: none;
+  }
+
+  .compute-lab-mission dl,
+  .compute-lab-editor-toolbar,
+  .compute-lab-assignment {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .compute-lab-editor-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .compute-lab-assignment-arrow {
+    min-height: 28px;
+    transform: rotate(90deg);
+  }
+}
+
 /*
  * The Compute Lab stage says in words what it says in geometry, for a player who
  * is not looking at it. Visually hidden, never `display: none` — the latter is
@@ -2519,7 +2712,8 @@ body::after {
  */
 @media (prefers-reduced-motion: reduce) {
   [data-testid='compute-lab-stage'] *,
-  [data-testid='compute-lab-loops'] * {
+  [data-testid='compute-lab-loops'] *,
+  [data-testid='compute-lab-assignment'] * {
     transition: none !important;
     animation: none !important;
   }

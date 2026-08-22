@@ -2,11 +2,12 @@
   "name": "netcrawl-editor-bridge",
   "displayName": "NetCrawl Editor Bridge",
   "description": "Open and run NetCrawl Compute Lab problems from VS Code or GitHub Codespaces.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "ridcorix",
   "license": "MIT",
   "files": [
     "dist/extension.js",
+    "media/netcrawl.svg",
     "LICENSE",
     "README.md"
   ],
@@ -25,8 +26,10 @@
   "browser": "./dist/extension.js",
   "activationEvents": [
     "onCommand:netcrawl.pairEditor",
+    "onCommand:netcrawl.openComputeNode",
     "onCommand:netcrawl.runProblem",
     "onCommand:netcrawl.disconnectEditor",
+    "onView:netcrawl.computeNodes",
     "onStartupFinished"
   ],
   "capabilities": {
@@ -47,8 +50,35 @@
         "icon": "$(run)"
       },
       {
+        "command": "netcrawl.openComputeNode",
+        "title": "NetCrawl: Open Compute Node"
+      },
+      {
         "command": "netcrawl.disconnectEditor",
         "title": "NetCrawl: Disconnect Editor"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "netcrawl",
+          "title": "NetCrawl",
+          "icon": "media/netcrawl.svg"
+        }
+      ]
+    },
+    "views": {
+      "netcrawl": [
+        {
+          "id": "netcrawl.computeNodes",
+          "name": "Compute Nodes"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "netcrawl.computeNodes",
+        "contents": "Open a problem from NetCrawl first, or [pair this editor](command:netcrawl.pairEditor)."
       }
     ],
     "menus": {
@@ -67,6 +97,11 @@
           "type": "string",
           "default": "",
           "description": "NetCrawl server URL. Pairing fills this automatically."
+        },
+        "netcrawl.gameUrl": {
+          "type": "string",
+          "default": "https://netcrawl-ui.vercel.app",
+          "description": "NetCrawl game URL opened from the Compute Nodes sidebar."
         },
         "netcrawl.workspaceFolder": {
           "type": "string",

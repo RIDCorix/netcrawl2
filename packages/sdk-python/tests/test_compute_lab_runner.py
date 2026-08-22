@@ -235,6 +235,21 @@ def test_bindings_are_located_at_their_own_statement():
     assert "index" in bindings["index = 0"]["changed"]
 
 
+def test_every_assignment_rhs_emits_one_located_value_even_for_names_and_literals():
+    """The UI must not parse assignment syntax to animate `a = b` or `a = 1`."""
+    result = solution("b = 7\n        a = b\n        c = 1\n        return a + c")
+    frames = result["frames"]
+    for binding_source, rhs_source, value in (("b = 7", "7", 7), ("a = b", "b", 7), ("c = 1", "1", 1)):
+        binding_index = next(
+            index for index, frame in enumerate(frames) if frame["kind"] == "binding" and frame["source"] == binding_source
+        )
+        rhs = frames[binding_index - 1]
+        assert rhs["kind"] == "value"
+        assert rhs["source"] == rhs_source
+        assert rhs["value"] == value
+        assert rhs["location"]["lineno"] == frames[binding_index]["location"]["lineno"]
+
+
 def test_the_add_starter_replays_the_whole_program_within_a_bounded_budget():
     result = run(ADD_STARTER, max_events=1200)
     assert result["status"] == "trace_ready" and result["returnValue"] == 5
@@ -709,7 +724,12 @@ def test_finally_releases_visibly_on_both_paths_and_in_the_same_position():
     assert broke["frames"][closing[1]]["detail"] == {"error": DIVIDED_BY_ZERO}
     assert kinds(broke)[-1] == "unwind", "a run a `finally` cleaned up after still broke"
     assert broke["frames"][-1]["source"] == "total = a // 0", "and it broke where it broke"
-    assert broke["error"]["line"] == finished["frames"][3]["location"]["lineno"]
+    finished_assignment_line = next(
+        frame["location"]["lineno"]
+        for frame in finished["frames"]
+        if frame["kind"] == "binding" and frame["source"] == "total = a + 0"
+    )
+    assert broke["error"]["line"] == finished_assignment_line
 
 
 def test_the_event_cap_survives_a_finally_that_swallows_it():

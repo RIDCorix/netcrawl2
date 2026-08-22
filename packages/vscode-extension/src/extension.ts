@@ -5,6 +5,7 @@ import { latestLiveExecutionLocation } from './executionLocation';
 
 const TOKEN_SECRET = 'netcrawl.editorToken';
 const SERVER_KEY = 'netcrawl.serverUrl';
+const GAME_URL_KEY = 'netcrawl.gameUrl';
 const BINDINGS_KEY = 'netcrawl.problemBindings';
 const TERMINAL_STATUSES = new Set(['trace_ready', 'syntax', 'runtime', 'timeout', 'limit', 'disconnected']);
 
@@ -46,6 +47,53 @@ function normalizeServerUrl(value: string) {
   )
     throw new Error('Use an http(s) server origin without credentials, query, or fragment');
   return parsed.origin;
+}
+
+function normalizeGameUrl(value: string) {
+  const parsed = new URL(value);
+  if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('NetCrawl game URL must use http or https');
+  parsed.username = '';
+  parsed.password = '';
+  parsed.search = '';
+  parsed.hash = '';
+  return parsed.toString();
+}
+
+class ComputeNodeProvider implements vscode.TreeDataProvider<Binding> {
+  private readonly changes = new vscode.EventEmitter<Binding | undefined | null | void>();
+  readonly onDidChangeTreeData = this.changes.event;
+
+  constructor(
+    private readonly context: vscode.ExtensionContext,
+    private readonly sessionId: string,
+  ) {}
+
+  refresh() {
+    this.changes.fire();
+  }
+
+  getChildren(): Binding[] {
+    const bindings = Object.values(this.context.workspaceState.get<Record<string, Binding>>(BINDINGS_KEY, {}));
+    const unique = new Map<string, Binding>();
+    for (const binding of bindings) {
+      if (binding.sessionId !== this.sessionId) continue;
+      unique.set(`${binding.nodeId}\0${binding.taskId}`, binding);
+    }
+    return [...unique.values()];
+  }
+
+  getTreeItem(binding: Binding) {
+    const item = new vscode.TreeItem(`Compute Node · ${binding.nodeId}`, vscode.TreeItemCollapsibleState.None);
+    item.description = `Task ${binding.taskId}`;
+    item.tooltip = `Open ${binding.nodeId} / ${binding.taskId} in NetCrawl with this exact editor session`;
+    item.iconPath = new vscode.ThemeIcon('server-process');
+    item.command = { command: 'netcrawl.openComputeNode', title: 'Open Compute Node', arguments: [binding] };
+    return item;
+  }
+
+  dispose() {
+    this.changes.dispose();
+  }
 }
 
 async function request(serverUrl: string, path: string, token: string, init: RequestInit = {}) {
@@ -115,6 +163,11 @@ export function activate(context: vscode.ExtensionContext) {
   // One activation is one editor host/window. A persisted global ID makes two
   // simultaneous desktop windows overwrite each other on the server.
   const sessionId = crypto.randomUUID();
+  const computeNodes = new ComputeNodeProvider(context, sessionId);
+  context.subscriptions.push(
+    computeNodes,
+    vscode.window.registerTreeDataProvider('netcrawl.computeNodes', computeNodes),
+  );
   let pollTimer: ReturnType<typeof setInterval> | undefined;
   let polling = false;
   let warnedAuth = false;
@@ -208,6 +261,7 @@ export function activate(context: vscode.ExtensionContext) {
         taskId: command.taskId,
       };
       await context.workspaceState.update(BINDINGS_KEY, bindings);
+      computeNodes.refresh();
       await acknowledge(connection, sessionId, command.id, 'opened');
       if (!activeExecutionRunId) status.text = `$(plug) NetCrawl: ${editorLabel()}`;
     } catch (error) {
@@ -350,6 +404,37 @@ export function activate(context: vscode.ExtensionContext) {
   };
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('netcrawl.openComputeNode', async (binding?: Binding) => {
+      if (!binding || binding.sessionId !== sessionId)
+        return void vscode.window.showWarningMessage('Open a Compute Node problem from NetCrawl in this editor first.');
+      try {
+        const connection = await getConnection();
+        if (!connection || connection.serverUrl !== binding.serverUrl)
+          throw new Error('Pair this editor with NetCrawl again');
+        const created = await request(connection.serverUrl, '/api/editor/handoffs', connection.token, {
+          method: 'POST',
+          body: JSON.stringify({ sessionId, nodeId: binding.nodeId, taskId: binding.taskId }),
+        });
+        const configuredGameUrl = vscode.workspace.getConfiguration('netcrawl').get<string>(GAME_URL_KEY, '');
+        const gameUrl = normalizeGameUrl(configuredGameUrl || 'https://netcrawl-ui.vercel.app');
+        const target = new URL(gameUrl);
+        target.hash = new URLSearchParams({
+          'editor-handoff': String(created.handoff),
+          node: binding.nodeId,
+          task: binding.taskId,
+        }).toString();
+        await vscode.env.openExternal(vscode.Uri.parse(target.toString()));
+      } catch (error) {
+        void vscode.window.showWarningMessage(
+          `NetCrawl could not open this Compute Node automatically: ${
+            error instanceof Error ? error.message : String(error)
+          }. Open the game and use Pair Code Server instead.`,
+        );
+      }
+    }),
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('netcrawl.pairEditor', async () => {
       const configured = vscode.workspace.getConfiguration('netcrawl').get<string>('serverUrl', '');
       const stored = context.globalState.get<string>(SERVER_KEY, '');
@@ -441,6 +526,7 @@ export function activate(context: vscode.ExtensionContext) {
       }
       await context.secrets.delete(TOKEN_SECRET);
       await context.workspaceState.update(BINDINGS_KEY, {});
+      computeNodes.refresh();
       clearExecutionHighlight();
       activeExecutionRunId = undefined;
       if (pollTimer) clearInterval(pollTimer);

@@ -11,6 +11,7 @@ import { getUserId, sendError } from './helpers.js';
 import {
   acknowledgeEditorCommand,
   consumeEditorPairingTicket,
+  createEditorHandoff,
   createEditorPairingTicket,
   disconnectEditorSession,
   enqueueOpenProblem,
@@ -26,6 +27,7 @@ import {
   normalizeEditorSelection,
   problemRelativePath,
   registerEditorSession,
+  redeemEditorHandoff,
 } from '../editorBridge.js';
 
 export const editorRoutes = Router();
@@ -49,6 +51,34 @@ editorRoutes.post('/editor/pairing-tickets/consume', (req: Request, res: Respons
     result.userId === '__default__' ? { id: '__default__', email: 'local@netcrawl' } : getUserById(result.userId);
   if (!user) return sendError(res, 404, 'Pairing account no longer exists', 'pairing_invalid');
   res.json(generateEditorToken(user));
+});
+
+editorRoutes.post('/editor/handoffs', (req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const uid = getUserId(req);
+  const sessionId = String(req.body?.sessionId || '');
+  const nodeId = String(req.body?.nodeId || '');
+  const taskId = String(req.body?.taskId || '');
+  if (!getActiveComputeLabTask(nodeId, taskId, uid))
+    return sendError(res, 409, 'Task expired; reopen it from NetCrawl', 'invalid_task');
+  const handoff = createEditorHandoff({ sessionId, nodeId, taskId }, uid);
+  if (!handoff) return sendError(res, 409, 'This problem is not bound to this editor session', 'handoff_wrong_session');
+  res.status(201).json(handoff);
+});
+
+editorRoutes.post('/editor/handoffs/redeem', (req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const result = redeemEditorHandoff(req.body?.handoff, getUserId(req));
+  if (!result.ok) {
+    const status = result.reason === 'handoff_invalid' ? 404 : result.reason === 'handoff_wrong_user' ? 403 : 410;
+    return sendError(res, status, 'Editor handoff is not usable', result.reason);
+  }
+  if (
+    !unlockedCompute(result.nodeId, getUserId(req)) ||
+    !getActiveComputeLabTask(result.nodeId, result.taskId, getUserId(req))
+  )
+    return sendError(res, 409, 'Compute Node task is no longer available', 'invalid_task');
+  res.json({ ok: true, sessionId: result.sessionId, nodeId: result.nodeId, taskId: result.taskId });
 });
 
 editorRoutes.get('/editor/sessions', (req: Request, res: Response) => {

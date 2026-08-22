@@ -396,6 +396,7 @@ export interface GameState {
   hubDeposits: Array<{ id: number; ts: number; goodCount: number; badCount: number }>;
   computeLabOpen: boolean;
   computeLabSourceNodeId: string | null;
+  computeLabRequestedTaskId: string | null;
   computeLabRuns: Record<string, ComputeLabRunSnapshot>;
   editorRunStarted: EditorRunStarted | null;
 }
@@ -440,7 +441,7 @@ interface GameActions {
   // Hub deposit VFX
   pushHubDeposit: (deposit: { goodCount: number; badCount: number }) => void;
   removeHubDeposit: (id: number) => void;
-  openComputeLab: (sourceNodeId: string) => void;
+  openComputeLab: (sourceNodeId: string, taskId?: string) => void;
   closeComputeLab: () => void;
   upsertComputeLabRun: (run: ComputeLabRunSnapshot) => void;
   setEditorRunStarted: (started: EditorRunStarted | null) => void;
@@ -512,6 +513,7 @@ export const useGameStore = create<GameState & GameActions>(set => ({
   hubDeposits: [],
   computeLabOpen: false,
   computeLabSourceNodeId: null,
+  computeLabRequestedTaskId: null,
   computeLabRuns: {},
   editorRunStarted: null,
 
@@ -617,8 +619,9 @@ export const useGameStore = create<GameState & GameActions>(set => ({
       hubDeposits: state.hubDeposits.filter(d => d.id !== id),
     })),
 
-  openComputeLab: sourceNodeId => set({ computeLabOpen: true, computeLabSourceNodeId: sourceNodeId }),
-  closeComputeLab: () => set({ computeLabOpen: false, computeLabSourceNodeId: null }),
+  openComputeLab: (sourceNodeId, taskId) =>
+    set({ computeLabOpen: true, computeLabSourceNodeId: sourceNodeId, computeLabRequestedTaskId: taskId || null }),
+  closeComputeLab: () => set({ computeLabOpen: false, computeLabSourceNodeId: null, computeLabRequestedTaskId: null }),
   upsertComputeLabRun: run =>
     set(state => {
       const previous = state.computeLabRuns[run.id];

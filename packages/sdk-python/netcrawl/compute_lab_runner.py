@@ -505,6 +505,14 @@ class InstrumentExecution(ast.NodeTransformer):
         if "step" in roles:
             before.append(self._event(node, "step"))
         if "binding" in roles:
+            # Names and constants are deliberately quiet in ordinary expressions,
+            # but an assignment's RHS needs one semantic value frame even when it
+            # is only `b` or `1`. The UI can then use the same located frame for
+            # every assignment instead of parsing Python or special-casing AST
+            # shapes. The thunk evaluates the RHS exactly once.
+            value = getattr(node, "value", None)
+            if isinstance(value, ast.expr) and type(value).__name__ in EXCLUDED_EXPRESSION_TYPES:
+                node.value = self._wrap(value)
             targets = node.targets if hasattr(node, "targets") else [node.target]
             after.append(self._event(node, "binding", names=[name for target in targets for name in self._target_names(target)]))
         # A pure decision (`if`) is already fully described by its own test frame;

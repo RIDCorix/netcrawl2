@@ -35,6 +35,7 @@ export const runtimeCredentialPaths = [
 ] as const;
 
 function isEditorCredentialPath(req: Request) {
+  if (req.path === '/editor/handoffs' && req.method === 'POST') return true;
   if (req.path === '/editor/sessions/register') return true;
   if (/^\/editor\/sessions\/[^/]+\/disconnect$/.test(req.path)) return true;
   if (req.path === '/editor/commands' && req.method === 'GET') return true;

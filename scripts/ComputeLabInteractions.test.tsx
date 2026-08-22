@@ -5,8 +5,9 @@ const source = readFileSync('packages/ui/src/components/ComputeLabScreen.tsx', '
 const bridge = readFileSync('packages/ui/src/components/computeLab/EditorBridgePanel.tsx', 'utf8');
 
 assert.match(source, /compute-lab-mission/);
-assert.match(source, /compute-lab-solution/);
+assert.match(source, /compute-lab-visualization/);
 assert.match(bridge, /data-testid="compute-lab-run-solution"/);
+assert.match(bridge, /data-testid="compute-lab-pair-primary"/);
 assert.match(source, /import \{ EditorBridgePanel \}/);
 assert.match(source, /<EditorBridgePanel/);
 assert.match(bridge, /problem-status/);

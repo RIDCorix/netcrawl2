@@ -17,6 +17,7 @@
 import { type ComponentProps, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import {
   type Frame,
+  type AssignmentTransfer,
   type LoopInstance,
   type TrackEnd,
   iterationAt,
@@ -216,6 +217,7 @@ function Box({
     <div
       data-testid="compute-lab-variable"
       data-state={state}
+      aria-label={`${box.name}: ${shown}${state === 'changed' ? `. ${t('compute_lab.stage.changed')}` : ''}`}
       style={{
         border: outline,
         borderRadius: 'var(--radius-sm)',
@@ -246,9 +248,61 @@ function Box({
           )}
         </div>
       )}
-      {state !== 'settled' && (
+      {state !== 'settled' && state !== 'changed' && (
         <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{t(`compute_lab.stage.${state}`)}</div>
       )}
+    </div>
+  );
+}
+
+// ── assignment transfer ───────────────────────────────────────────────────
+
+export function AssignmentTransferView({
+  transfer,
+  animated,
+  t,
+}: {
+  transfer: AssignmentTransfer;
+  animated: boolean;
+  t: Translate;
+}) {
+  return (
+    <div
+      className={`compute-lab-assignment${transfer.references.length ? ' compute-lab-assignment-with-references' : ''}`}
+      data-testid="compute-lab-assignment"
+      data-animated={animated}
+      aria-label={t('compute_lab.assignment.announcement', {
+        value: transfer.evaluatedValue,
+        targets: transfer.targets.map(target => target.name).join(', '),
+      })}
+    >
+      {transfer.references.length > 0 && (
+        <div className="compute-lab-assignment-references">
+          <span className="compute-lab-heading">{t('compute_lab.assignment.references')}</span>
+          {transfer.references.map(reference => (
+            <code key={reference.name} className="compute-lab-assignment-reference">
+              {reference.name} · {reference.value}
+            </code>
+          ))}
+        </div>
+      )}
+      <div className="compute-lab-assignment-evaluation">
+        <span className="compute-lab-heading">{t('compute_lab.assignment.evaluate')}</span>
+        <code>{transfer.evaluationSource}</code>
+        <strong>{transfer.evaluatedValue}</strong>
+      </div>
+      <div className="compute-lab-assignment-arrow" aria-hidden="true">
+        <span />
+        <b>→</b>
+      </div>
+      <div className="compute-lab-assignment-targets">
+        <span className="compute-lab-heading">{t('compute_lab.assignment.store')}</span>
+        {transfer.targets.map(target => (
+          <code key={target.name}>
+            {target.name} · {target.value}
+          </code>
+        ))}
+      </div>
     </div>
   );
 }

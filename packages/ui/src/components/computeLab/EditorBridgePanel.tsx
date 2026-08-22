@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { ChevronDown, ExternalLink, Play } from 'lucide-react';
 import { apiFetch, SERVER_URL } from '../../lib/api';
 import { useT } from '../../hooks/useT';
@@ -31,6 +31,7 @@ export function EditorBridgePanel({
   revision,
   selection,
   run,
+  children,
 }: {
   nodeId: string;
   taskId: string;
@@ -38,11 +39,14 @@ export function EditorBridgePanel({
   revision: number;
   selection?: SourceLocation;
   run?: ComputeLabRunSnapshot;
+  children: ReactNode;
 }) {
   const t = useT();
   const [sessions, setSessions] = useState<EditorSession[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState('');
-  const [pairing, setPairing] = useState<{ code: string; expiresAt: number } | null>(null);
+  const [pairing, setPairing] = useState<{ code: string; expiresAt: number; sessionIds: string[] } | null>(null);
+  const [clock, setClock] = useState(Date.now());
+  const [pairingSuccess, setPairingSuccess] = useState(false);
   const [command, setCommand] = useState<CommandState | null>(null);
   const [bound, setBound] = useState(false);
   const [problemPath, setProblemPath] = useState('');
@@ -91,6 +95,19 @@ export function EditorBridgePanel({
       clearInterval(timer);
     };
   }, []);
+
+  useEffect(() => {
+    if (!pairing) return;
+    const timer = setInterval(() => setClock(Date.now()), 1_000);
+    return () => clearInterval(timer);
+  }, [pairing]);
+
+  useEffect(() => {
+    if (!pairing || !sessions.some(session => !pairing.sessionIds.includes(session.id))) return;
+    setPairing(null);
+    setPairingSuccess(true);
+    setConnectionOpen(false);
+  }, [pairing, sessions]);
 
   useEffect(() => {
     if (!selectedSessionId) {
@@ -150,7 +167,8 @@ export function EditorBridgePanel({
       const response = await apiFetch('/api/editor/pairing-tickets', { method: 'POST' });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || 'Unable to create pairing code');
-      setPairing(body);
+      setPairing({ ...body, sessionIds: sessions.map(session => session.id) });
+      setPairingSuccess(false);
       setConnectionOpen(true);
     } catch {
       setError(t('compute_lab.editor.pair_failed'));
@@ -214,6 +232,7 @@ export function EditorBridgePanel({
   };
 
   const selected = sessions.find(session => session.id === selectedSessionId);
+  const pairingExpired = Boolean(pairing && pairing.expiresAt <= clock);
   const commandPending = Boolean(command && !command.outcome && command.expiresAt > Date.now());
   const commandRunActive = Boolean(
     command?.type === 'run_problem' &&
@@ -267,72 +286,94 @@ export function EditorBridgePanel({
                 ),
               };
 
+  const pairingCard = pairing && (
+    <div
+      className={`compute-lab-editor-pairing${pairingExpired ? ' compute-lab-editor-state-failed' : ''}`}
+      role="status"
+    >
+      <span>{t('compute_lab.editor.server')}</span>
+      <code>{SERVER_URL}</code>
+      <span>{t('compute_lab.editor.code')}</span>
+      <strong>{pairingExpired ? t('compute_lab.editor.pairing_expired') : pairing.code}</strong>
+      <small>{t(pairingExpired ? 'compute_lab.editor.pairing_retry' : 'compute_lab.editor.pair_hint')}</small>
+    </div>
+  );
+
   return (
-    <section className="compute-lab-panel compute-lab-solution" aria-label={t('compute_lab.solution.title')}>
-      <div className="compute-lab-solution-heading">
-        <div>
-          <strong className="compute-lab-heading">{t('compute_lab.solution.title')}</strong>
-          <p>{t('compute_lab.solution.instructions')}</p>
-        </div>
-        <span className="compute-lab-solution-path">
-          {selected?.workspaceFolders.join(', ') || 'workspace'} / netcrawl
-        </span>
-      </div>
-      <div className="compute-lab-solution-file">
-        <span>{t('compute_lab.solution.file')}</span>
-        <code>{problemPath || t('compute_lab.solution.file_pending')}</code>
-      </div>
-      <button
-        className="compute-lab-button-primary compute-lab-run-solution"
-        data-testid="compute-lab-run-solution"
-        onClick={() => void startRun()}
-        disabled={!selectedSessionId || !bound || busy}
-      >
-        <Play size={14} aria-hidden="true" />
-        {t(busy ? 'compute_lab.solution.running' : 'compute_lab.solution.run')}
-      </button>
+    <section className="compute-lab-panel compute-lab-visualization" aria-label={t('compute_lab.trace')}>
       {!selectedSessionId ? (
-        <div className="compute-lab-editor-state compute-lab-editor-state-offline">
-          <strong>{t('compute_lab.editor.offline')}</strong>
-          <span>{t('compute_lab.editor.offline_help')}</span>
-        </div>
-      ) : !bound ? (
-        <div className="compute-lab-editor-state compute-lab-editor-state-pending">
-          {t('compute_lab.editor.open_first')}
+        <div className="compute-lab-pair-blocked">
+          <strong className="compute-lab-heading">{t('compute_lab.trace')}</strong>
+          <div className="compute-lab-editor-state compute-lab-editor-state-offline">
+            <strong>{t('compute_lab.editor.offline')}</strong>
+            <span>{t('compute_lab.editor.offline_help')}</span>
+          </div>
+          <button
+            className="compute-lab-button-primary compute-lab-pair-primary"
+            data-testid="compute-lab-pair-primary"
+            onClick={() => void pair()}
+          >
+            {t(pairingExpired ? 'compute_lab.editor.pair_retry' : 'compute_lab.editor.pair')}
+          </button>
+          {pairingCard}
+          {(error || listError) && (
+            <div className="compute-lab-editor-state compute-lab-editor-state-failed">{error || listError}</div>
+          )}
+          <a className="compute-lab-extension-link" href={EXTENSION_URL} target="_blank" rel="noreferrer">
+            {t('compute_lab.editor.install')} <ExternalLink size={11} aria-hidden="true" />
+          </a>
         </div>
       ) : (
-        <div className="compute-lab-editor-state compute-lab-editor-state-online">
-          {t('compute_lab.editor.ready', { editor: selected?.label || '' })}
-        </div>
-      )}
-      {commandStatus && <div className={commandStatus.className}>{commandStatus.text}</div>}
-      {(error || listError) && (
-        <div className="compute-lab-editor-state compute-lab-editor-state-failed">{error || listError}</div>
-      )}
-
-      <details
-        className="compute-lab-editor-details"
-        open={connectionOpen}
-        onToggle={event => setConnectionOpen(event.currentTarget.open)}
-      >
-        <summary>
-          <span>
-            {t('compute_lab.editor.connection')} ·{' '}
-            {selected
-              ? t('compute_lab.editor.connected_as', { editor: selected.label })
-              : t('compute_lab.editor.offline_short')}
-          </span>
-          <ChevronDown size={14} aria-hidden="true" />
-        </summary>
-        <div className="compute-lab-editor-controls">
-          <div className="compute-lab-editor-heading">
-            <strong className="compute-lab-heading">{t('compute_lab.editor.title')}</strong>
-            <a href={EXTENSION_URL} target="_blank" rel="noreferrer">
-              {t('compute_lab.editor.install')} <ExternalLink size={11} aria-hidden="true" />
-            </a>
+        <>
+          <div className="compute-lab-editor-toolbar">
+            <div className="compute-lab-solution-heading">
+              <div>
+                <strong className="compute-lab-heading">{t('compute_lab.solution.title')}</strong>
+                <p>{t('compute_lab.solution.instructions')}</p>
+              </div>
+              <span className="compute-lab-solution-path">{problemPath || t('compute_lab.solution.file_pending')}</span>
+            </div>
+            <div className="compute-lab-editor-actions">
+              <div
+                className={`compute-lab-editor-state ${bound ? 'compute-lab-editor-state-online' : 'compute-lab-editor-state-pending'}`}
+              >
+                {bound
+                  ? t('compute_lab.editor.ready', { editor: selected?.label || '' })
+                  : t('compute_lab.editor.open_first')}
+              </div>
+              <button onClick={() => void open()} disabled={commandPending}>
+                {t(bound ? 'compute_lab.editor.reopen' : 'compute_lab.editor.open')}
+              </button>
+              <button
+                className="compute-lab-button-primary compute-lab-run-solution"
+                data-testid="compute-lab-run-solution"
+                onClick={() => void startRun()}
+                disabled={!bound || busy}
+              >
+                <Play size={14} aria-hidden="true" />
+                {t(busy ? 'compute_lab.solution.running' : 'compute_lab.solution.run')}
+              </button>
+            </div>
           </div>
-          {sessions.length > 0 && (
-            <>
+          {commandStatus && <div className={commandStatus.className}>{commandStatus.text}</div>}
+          {pairingSuccess && (
+            <div className="compute-lab-editor-state compute-lab-editor-state-online" role="status">
+              {t('compute_lab.editor.pair_success')}
+            </div>
+          )}
+          {(error || listError) && (
+            <div className="compute-lab-editor-state compute-lab-editor-state-failed">{error || listError}</div>
+          )}
+          <details
+            className="compute-lab-editor-details"
+            open={connectionOpen}
+            onToggle={event => setConnectionOpen(event.currentTarget.open)}
+          >
+            <summary>
+              <span>{t('compute_lab.editor.connected_as', { editor: selected?.label || '' })}</span>
+              <ChevronDown size={14} aria-hidden="true" />
+            </summary>
+            <div className="compute-lab-editor-controls">
               <label htmlFor="compute-lab-editor-session">{t('compute_lab.editor.choose')}</label>
               <select
                 id="compute-lab-editor-session"
@@ -352,25 +393,13 @@ export function EditorBridgePanel({
                   </option>
                 ))}
               </select>
-              <button onClick={() => void open()} disabled={!selectedSessionId || commandPending}>
-                {t(bound ? 'compute_lab.editor.reopen' : 'compute_lab.editor.open')}
-              </button>
-            </>
-          )}
-          <button onClick={() => void pair()}>
-            {sessions.length ? t('compute_lab.editor.pair_another') : t('compute_lab.editor.pair')}
-          </button>
-          {pairing && (
-            <div className="compute-lab-editor-pairing" role="status">
-              <span>{t('compute_lab.editor.server')}</span>
-              <code>{SERVER_URL}</code>
-              <span>{t('compute_lab.editor.code')}</span>
-              <strong>{pairing.code}</strong>
-              <small>{t('compute_lab.editor.pair_hint')}</small>
+              <button onClick={() => void pair()}>{t('compute_lab.editor.pair_another')}</button>
+              {pairingCard}
             </div>
-          )}
-        </div>
-      </details>
+          </details>
+          <div className="compute-lab-trace-region">{children}</div>
+        </>
+      )}
     </section>
   );
 }

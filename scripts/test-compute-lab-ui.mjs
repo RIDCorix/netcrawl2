@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
+const app = readFileSync(new URL('../packages/ui/src/App.tsx', import.meta.url), 'utf8');
 const screen = readFileSync(new URL('../packages/ui/src/components/ComputeLabScreen.tsx', import.meta.url), 'utf8');
 const bridge = readFileSync(
   new URL('../packages/ui/src/components/computeLab/EditorBridgePanel.tsx', import.meta.url),
@@ -15,7 +16,13 @@ assert.match(screen, /role="dialog"/);
 assert.match(screen, /aria-modal="true"/);
 assert.match(screen, /compute-lab\/tasks/);
 assert.match(screen, /compute-lab-mission/);
-assert.match(screen, /compute-lab-solution/);
+assert.match(screen, /compute-lab-visualization/);
+assert.match(app, /openComputeLab\(nodeId\)/, 'failed handoffs keep manual pairing available on the same node');
+assert.match(
+  app,
+  /openComputeLab\(String\(body\.nodeId\), String\(body\.taskId\)\)/,
+  'valid handoffs preserve the exact authoritative task',
+);
 assert.match(bridge, /data-testid="compute-lab-run-solution"/);
 assert.match(screen, /import \{ EditorBridgePanel \}/);
 assert.match(screen, /<EditorBridgePanel/);
@@ -28,7 +35,8 @@ assert.match(screen, /<LoopTracks/);
 assert.match(screen, /<VariableBoxes/);
 assert.doesNotMatch(screen, /<textarea/);
 assert.match(styles, /\.compute-lab-workspace/);
-assert.match(styles, /\.compute-lab-solution/);
+assert.match(styles, /grid-template-rows:/);
+assert.match(styles, /\.compute-lab-visualization/);
 assert.match(styles, /\.compute-lab-editor-details/);
 assert.match(styles, /var\(--bg-primary\)/);
 assert.match(styles, /var\(--border-bright\)/);
@@ -40,6 +48,8 @@ for (const locale of locales)
     'solution.run',
     'editor.connection',
     'editor.running',
+    'editor.pair_retry',
+    'assignment.evaluate',
     'outcome_elapsed',
   ])
     assert.match(locale, new RegExp(`'compute_lab\\.${key.replace('.', '\\.')}':`));

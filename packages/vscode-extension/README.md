@@ -25,5 +25,13 @@ While it runs, VS Code highlights and reveals the current server-reported source
 range. The highlight clears at the terminal outcome, while the game keeps the
 complete execution trace available for replay.
 
+The NetCrawl Activity Bar sidebar lists the Compute Node and task currently
+bound to this editor window. Selecting one opens that exact task in the game and
+redeems a short-lived, single-use handoff for the same signed-in player and
+editor session. If the handoff expires or cannot be redeemed, the game opens the
+same Compute Node with the normal **Pair Code Server** flow. Set
+`netcrawl.gameUrl` when the game is hosted somewhere other than the production
+URL; route paths in that setting are preserved.
+
 If a workspace contains multiple folders, set `netcrawl.workspaceFolder` to the
 exact folder name that should hold NetCrawl problems.

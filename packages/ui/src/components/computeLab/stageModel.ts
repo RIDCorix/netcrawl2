@@ -188,7 +188,7 @@ export function sourceRange(source: string, location: Location): { start: number
   return start === null || end === null || end < start ? null : { start, end };
 }
 
-function contains(outer: Location, inner: Location) {
+export function containsLocation(outer: Location, inner: Location) {
   const startsBefore =
     outer.lineno < inner.lineno || (outer.lineno === inner.lineno && outer.col_offset <= inner.col_offset);
   const endsAfter =
@@ -245,11 +245,11 @@ export function reduceExpression(
   for (let position = frameIndex + 1; position < Math.min(frames.length, frameIndex + ENCLOSING_SCAN); position++) {
     const candidate = locationOf(frames[position]);
     if (!candidate) break;
-    if (!contains(candidate, locationOf(frames[anchorIndex]) as Location)) continue;
+    if (!containsLocation(candidate, locationOf(frames[anchorIndex]) as Location)) continue;
     let enclosesEverythingBetween = true;
     for (let between = anchorIndex + 1; between < position && enclosesEverythingBetween; between++) {
       const middle = locationOf(frames[between]);
-      if (!middle || !contains(candidate, middle)) enclosesEverythingBetween = false;
+      if (!middle || !containsLocation(candidate, middle)) enclosesEverythingBetween = false;
     }
     if (enclosesEverythingBetween) anchorIndex = position;
   }
@@ -258,7 +258,7 @@ export function reduceExpression(
   let start = anchorIndex;
   while (start > 0) {
     const previous = locationOf(frames[start - 1]);
-    if (!previous || !contains(anchorLocation, previous)) break;
+    if (!previous || !containsLocation(anchorLocation, previous)) break;
     start--;
   }
 
@@ -301,6 +301,71 @@ export function reduceExpression(
     before: source.slice(lineStart, range.start),
     segments,
     after: source.slice(range.end, lineEnd === -1 ? source.length : lineEnd),
+  };
+}
+
+export type AssignmentTransfer = {
+  source: string;
+  evaluationSource: string;
+  evaluatedValue: string;
+  references: { name: string; value: string }[];
+  targets: { name: string; value: string }[];
+};
+
+/**
+ * Build the assignment animation protocol only from semantic trace evidence.
+ *
+ * The binding frame identifies destinations and final values. The closest
+ * preceding contained `value` frame identifies the RHS range and evaluated
+ * value. Exact identifier spans inside that range may point back to variable
+ * rectangles that were observed before the binding. Missing any of those facts
+ * returns null, leaving the ordinary static trace untouched.
+ */
+export function assignmentTransferAt(
+  frames: readonly Frame[],
+  frameIndex: number,
+  source: string,
+  format: (value: unknown) => string,
+): AssignmentTransfer | null {
+  const binding = frames[frameIndex];
+  if (!binding || binding.kind !== 'binding' || !binding.location) return null;
+  const rawBindings = binding.detail?.bindings;
+  if (!rawBindings || typeof rawBindings !== 'object' || Array.isArray(rawBindings)) return null;
+  const targets = Object.entries(rawBindings as Record<string, unknown>).map(([name, value]) => ({
+    name,
+    value: format(value),
+  }));
+  if (targets.length === 0) return null;
+
+  let evaluation: Frame | undefined;
+  for (let position = frameIndex - 1; position >= Math.max(0, frameIndex - ENCLOSING_SCAN); position--) {
+    const candidate = frames[position];
+    if (!candidate.location) break;
+    if (!containsLocation(binding.location, candidate.location)) break;
+    if (!evaluation && candidate.kind === 'value' && Object.prototype.hasOwnProperty.call(candidate, 'value'))
+      evaluation = candidate;
+  }
+  if (!evaluation?.location || !Object.prototype.hasOwnProperty.call(evaluation, 'value')) return null;
+  const evaluationRange = sourceRange(source, evaluation.location);
+  if (!evaluationRange) return null;
+  const evaluationSource = source.slice(evaluationRange.start, evaluationRange.end);
+  if (!evaluationSource.trim()) return null;
+
+  const heldBefore = frames[frameIndex - 1]?.locals || {};
+  const references: { name: string; value: string }[] = [];
+  const seen = new Set<string>();
+  for (const match of evaluationSource.matchAll(/[$_\p{ID_Start}][$\p{ID_Continue}]*/gu)) {
+    const name = match[0];
+    if (seen.has(name) || !Object.prototype.hasOwnProperty.call(heldBefore, name)) continue;
+    seen.add(name);
+    references.push({ name, value: format(heldBefore[name]) });
+  }
+  return {
+    source: binding.source || evaluationSource,
+    evaluationSource,
+    evaluatedValue: format(evaluation.value),
+    references,
+    targets,
   };
 }
 

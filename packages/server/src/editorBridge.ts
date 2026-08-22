@@ -5,11 +5,22 @@ const DEFAULT_USER = '__default__';
 const PAIRING_TTL_MS = 5 * 60_000;
 const SESSION_TTL_MS = 20_000;
 const COMMAND_TTL_MS = 5 * 60_000;
+const HANDOFF_TTL_MS = 60_000;
 const PAIRING_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 
 type PairingTicket = {
   digest: string;
   userId: string;
+  expiresAt: number;
+  usedAt?: number;
+};
+
+type EditorHandoff = {
+  digest: string;
+  userId: string;
+  sessionId: string;
+  nodeId: string;
+  taskId: string;
   expiresAt: number;
   usedAt?: number;
 };
@@ -59,6 +70,7 @@ export type RunProblemCommand = EditorCommandBase & {
 export type EditorCommand = OpenProblemCommand | RunProblemCommand;
 
 const pairingTickets = new Map<string, PairingTicket>();
+const editorHandoffs = new Map<string, EditorHandoff>();
 const sessions = new Map<string, Map<string, EditorSession>>();
 const commands = new Map<string, Map<string, EditorCommand>>();
 const bindings = new Map<string, Map<string, EditorProblemBinding>>();
@@ -71,6 +83,11 @@ function pruneExpired(now: number) {
   for (const [digest, ticket] of pairingTickets) {
     // Retain a terminal ticket briefly so a replay receives a useful reason.
     if (ticket.expiresAt + PAIRING_TTL_MS <= now) pairingTickets.delete(digest);
+  }
+  for (const [digest, handoff] of editorHandoffs) {
+    // Keep terminal handoffs for one extra TTL so replay and expiry remain
+    // distinguishable from a token that never existed.
+    if (handoff.expiresAt + HANDOFF_TTL_MS <= now) editorHandoffs.delete(digest);
   }
   for (const [userId, entries] of sessions) {
     for (const [sessionId, session] of entries) {
@@ -139,9 +156,69 @@ function commandMap(userId?: string) {
 
 export function resetEditorBridgeForTests() {
   pairingTickets.clear();
+  editorHandoffs.clear();
   sessions.clear();
   commands.clear();
   bindings.clear();
+}
+
+export function createEditorHandoff(
+  input: { sessionId: string; nodeId: string; taskId: string },
+  userId?: string,
+  now = Date.now(),
+  suppliedToken?: string,
+) {
+  pruneExpired(now);
+  const session = getEditorSession(input.sessionId, userId, now);
+  const relativePath = problemRelativePath(input.nodeId, input.taskId);
+  const binding = getEditorProblemBinding(input.sessionId, relativePath, userId, now);
+  if (!session || !binding || binding.nodeId !== input.nodeId || binding.taskId !== input.taskId) return undefined;
+  const token = suppliedToken || crypto.randomBytes(32).toString('base64url');
+  const digest = sha256(token);
+  const handoff: EditorHandoff = {
+    digest,
+    userId: userKey(userId),
+    sessionId: input.sessionId,
+    nodeId: input.nodeId,
+    taskId: input.taskId,
+    expiresAt: now + HANDOFF_TTL_MS,
+  };
+  editorHandoffs.set(digest, handoff);
+  return { handoff: token, expiresAt: handoff.expiresAt };
+}
+
+export function redeemEditorHandoff(
+  value: unknown,
+  userId?: string,
+  expected?: Partial<Pick<EditorHandoff, 'sessionId' | 'nodeId' | 'taskId'>>,
+  now = Date.now(),
+):
+  | { ok: true; sessionId: string; nodeId: string; taskId: string }
+  | {
+      ok: false;
+      reason: 'handoff_invalid' | 'handoff_expired' | 'handoff_used' | 'handoff_wrong_user' | 'handoff_wrong_session';
+    } {
+  pruneExpired(now);
+  if (typeof value !== 'string' || value.length < 32 || value.length > 128)
+    return { ok: false, reason: 'handoff_invalid' };
+  const handoff = editorHandoffs.get(sha256(value));
+  if (!handoff) return { ok: false, reason: 'handoff_invalid' };
+  if (handoff.usedAt !== undefined) return { ok: false, reason: 'handoff_used' };
+  if (handoff.expiresAt <= now) return { ok: false, reason: 'handoff_expired' };
+  if (handoff.userId !== userKey(userId)) return { ok: false, reason: 'handoff_wrong_user' };
+  if (
+    (expected?.sessionId !== undefined && expected.sessionId !== handoff.sessionId) ||
+    (expected?.nodeId !== undefined && expected.nodeId !== handoff.nodeId) ||
+    (expected?.taskId !== undefined && expected.taskId !== handoff.taskId) ||
+    !getEditorSession(handoff.sessionId, userId, now)
+  )
+    return { ok: false, reason: 'handoff_wrong_session' };
+  const relativePath = problemRelativePath(handoff.nodeId, handoff.taskId);
+  const binding = getEditorProblemBinding(handoff.sessionId, relativePath, userId, now);
+  if (!binding || binding.nodeId !== handoff.nodeId || binding.taskId !== handoff.taskId)
+    return { ok: false, reason: 'handoff_wrong_session' };
+  handoff.usedAt = now;
+  return { ok: true, sessionId: handoff.sessionId, nodeId: handoff.nodeId, taskId: handoff.taskId };
 }
 
 export function createEditorPairingTicket(userId?: string, now = Date.now(), suppliedCode?: string) {

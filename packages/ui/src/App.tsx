@@ -202,6 +202,7 @@ function GameView() {
       }}
     >
       <ChapterZeroInteractionGuard />
+      <EditorHandoffLaunch />
       <div
         style={{
           position: 'absolute',
@@ -237,6 +238,44 @@ function GameView() {
       <ComputeLabScreen />
     </div>
   );
+}
+
+/** Redeem an editor-created launch only after browser authentication is live. */
+function EditorHandoffLaunch() {
+  useEffect(() => {
+    const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const handoff = fragment.get('editor-handoff');
+    if (!handoff) return;
+    const nodeId = fragment.get('node') || '';
+    const taskId = fragment.get('task') || '';
+    // Fragments do not reach the server or Referer, and this removes the
+    // one-time value before any API request, render, or navigation can expose it.
+    history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+    let active = true;
+    apiFetch('/api/editor/handoffs/redeem', {
+      method: 'POST',
+      body: JSON.stringify({ handoff }),
+    })
+      .then(async response => ({ response, body: await response.json() }))
+      .then(({ response, body }) => {
+        if (!active) return;
+        if (response.ok && body.nodeId && body.taskId) {
+          useGameStore.getState().openComputeLab(String(body.nodeId), String(body.taskId));
+          return;
+        }
+        // A failed handoff proves neither account nor task ownership. The node
+        // identity is navigation only; load this browser user's own active task
+        // there so the normal manual-pair flow remains available.
+        if (nodeId) useGameStore.getState().openComputeLab(nodeId);
+      })
+      .catch(() => {
+        if (active && nodeId) useGameStore.getState().openComputeLab(nodeId);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  return null;
 }
 
 function AuthGate() {

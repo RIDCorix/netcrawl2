@@ -27,6 +27,11 @@ assert.match(extensionSource, /if \(ownedVisualization\)/);
 assert.match(extensionSource, /if \(!activeExecutionRunId\) status\.text/);
 assert.match(extensionSource, /clearExecutionHighlight\(\)/);
 assert.match(extensionSource, /command\.type === 'run_problem'/);
+assert.match(extensionSource, /registerTreeDataProvider\('netcrawl\.computeNodes'/);
+assert.match(extensionSource, /\/api\/editor\/handoffs/);
+assert.match(extensionSource, /'editor-handoff'/);
+assert.doesNotMatch(extensionSource, /editor-handoff[^\n]+connection\.token/);
+assert.ok(extensionManifest.files.includes('media/netcrawl.svg'));
 
 const serverDist = path.resolve('packages/server/.test-dist');
 const bridge = await import(pathToFileURL(path.join(serverDist, 'editorBridge.js')));
@@ -122,6 +127,30 @@ assert.equal(
 );
 assert.equal(bridge.getPublicEditorCommand(command.id, 'user-a').outcome, 'opened');
 assert.equal(bridge.getEditorProblemBinding(desktop.id, relativePath, 'user-a', 2_007).taskId, 'task-1');
+const handoff = bridge.createEditorHandoff(
+  { sessionId: desktop.id, nodeId: 'e_op_add', taskId: 'task-1' },
+  'user-a',
+  2_008,
+  'handoff-token-that-is-long-enough-0001',
+);
+assert.ok(handoff);
+assert.equal(
+  bridge.redeemEditorHandoff(handoff.handoff, 'user-b', undefined, 2_009).reason,
+  'handoff_wrong_user',
+  'a browser signed in as another user cannot claim the editor session',
+);
+assert.equal(
+  bridge.redeemEditorHandoff(handoff.handoff, 'user-a', { sessionId: codespace.id }, 2_010).reason,
+  'handoff_wrong_session',
+  'the handoff cannot be redirected to another editor session',
+);
+assert.deepEqual(bridge.redeemEditorHandoff(handoff.handoff, 'user-a', undefined, 2_011), {
+  ok: true,
+  sessionId: desktop.id,
+  nodeId: 'e_op_add',
+  taskId: 'task-1',
+});
+assert.equal(bridge.redeemEditorHandoff(handoff.handoff, 'user-a', undefined, 2_012).reason, 'handoff_used');
 const runCommand = bridge.enqueueRunProblem(
   { sessionId: desktop.id, nodeId: 'e_op_add', taskId: 'task-1', relativePath },
   'user-a',
@@ -218,6 +247,17 @@ assert.equal(
   ),
   false,
   'path prefix siblings are outside the workspace',
+);
+
+const expiredHandoff = bridge.createEditorHandoff(
+  { sessionId: desktop.id, nodeId: 'e_op_add', taskId: 'task-1' },
+  'user-a',
+  302_100,
+  'handoff-token-that-is-long-enough-0002',
+);
+assert.equal(
+  bridge.redeemEditorHandoff(expiredHandoff.handoff, 'user-a', undefined, expiredHandoff.expiresAt + 1).reason,
+  'handoff_expired',
 );
 
 const problemFileBundle = path.join(serverDist, 'editor-problem-file.cjs');
@@ -463,6 +503,57 @@ try {
   assert.ok(
     performance.now() - problemStatusStartedAt < 250,
     'bound-file status remains an in-memory read under 250ms',
+  );
+
+  const handoffCreated = await json(
+    '/api/editor/handoffs',
+    withToken(editorToken, {
+      method: 'POST',
+      body: JSON.stringify({
+        sessionId: 'desktop-api-session',
+        nodeId: computeNode.id,
+        taskId: task.body.taskId,
+      }),
+    }),
+  );
+  assert.equal(handoffCreated.response.status, 201);
+  assert.equal(handoffCreated.response.headers.get('cache-control'), 'no-store');
+  assert.equal(typeof handoffCreated.body.handoff, 'string');
+  assert.notEqual(handoffCreated.body.handoff, editorToken, 'the editor bearer token never enters the handoff');
+  assert.equal(
+    (
+      await json(
+        '/api/editor/handoffs',
+        withToken(browserToken, {
+          method: 'POST',
+          body: JSON.stringify({ sessionId: 'desktop-api-session', nodeId: computeNode.id, taskId: task.body.taskId }),
+        }),
+      )
+    ).response.status,
+    401,
+    'only an authenticated editor may create a launch handoff',
+  );
+  const handoffRedeemed = await json(
+    '/api/editor/handoffs/redeem',
+    withToken(browserToken, { method: 'POST', body: JSON.stringify({ handoff: handoffCreated.body.handoff }) }),
+  );
+  assert.equal(handoffRedeemed.response.status, 200);
+  assert.deepEqual(
+    {
+      sessionId: handoffRedeemed.body.sessionId,
+      nodeId: handoffRedeemed.body.nodeId,
+      taskId: handoffRedeemed.body.taskId,
+    },
+    { sessionId: 'desktop-api-session', nodeId: computeNode.id, taskId: task.body.taskId },
+  );
+  assert.equal(
+    (
+      await json(
+        '/api/editor/handoffs/redeem',
+        withToken(browserToken, { method: 'POST', body: JSON.stringify({ handoff: handoffCreated.body.handoff }) }),
+      )
+    ).body.reason,
+    'handoff_used',
   );
 
   const lease = tracker.claimCodeServerLease(undefined, userId);

@@ -13,10 +13,29 @@ Object.defineProperty(globalThis, 'window', {
   value: { addEventListener: () => undefined, removeEventListener: () => undefined },
 });
 Object.defineProperty(globalThis, 'document', { configurable: true, value: { activeElement: null } });
+let sessionMode = 'disconnected';
 Object.defineProperty(globalThis, 'fetch', {
   configurable: true,
-  value: async () =>
-    new Response(JSON.stringify({ taskId: 'task', params: { a: 3, b: 4 }, difficulty: 'easy' }), { status: 200 }),
+  value: async input => {
+    const url = String(input);
+    if (url.includes('/api/editor/sessions'))
+      return new Response(
+        JSON.stringify({
+          sessions:
+            sessionMode === 'paired'
+              ? [{ id: 'editor-1', label: 'Desktop VS Code', kind: 'desktop', workspaceFolders: ['game'] }]
+              : [],
+        }),
+        { status: 200 },
+      );
+    if (url.includes('/api/editor/problem-status'))
+      return new Response(JSON.stringify({ bound: false, relativePath: 'netcrawl/problems/e_op_add/task.py' }), {
+        status: 200,
+      });
+    return new Response(JSON.stringify({ taskId: 'task', params: { a: 3, b: 4 }, difficulty: 'easy' }), {
+      status: 200,
+    });
+  },
 });
 
 useGameStore.setState({
@@ -35,12 +54,23 @@ await act(async () => {
 
 assert.equal(renderer.root.findAllByType('textarea').length, 0);
 assert.doesNotMatch(JSON.stringify(renderer.toJSON()), /uv run python/);
-assert.match(JSON.stringify(renderer.toJSON()), /Open the problem to bind its exact workspace path/);
-assert.match(JSON.stringify(renderer.toJSON()), /YOUR SOLUTION/);
-assert.match(JSON.stringify(renderer.toJSON()), /RUN SOLUTION/);
 assert.match(JSON.stringify(renderer.toJSON()), /EXECUTION TRACE/);
 assert.match(JSON.stringify(renderer.toJSON()), /INSTALL EXTENSION/);
-assert.match(JSON.stringify(renderer.toJSON()), /PAIR AN EDITOR/);
+assert.match(JSON.stringify(renderer.toJSON()), /PAIR CODE SERVER/);
+assert.equal(renderer.root.findAllByProps({ 'data-testid': 'compute-lab-run-solution' }).length, 0);
+
+renderer.unmount();
+sessionMode = 'paired';
+await act(async () => {
+  renderer = TestRenderer.create(<ComputeLabScreen />);
+  await Promise.resolve();
+  await Promise.resolve();
+});
+assert.match(JSON.stringify(renderer.toJSON()), /netcrawl\/problems\/e_op_add\/task\.py/);
+assert.match(JSON.stringify(renderer.toJSON()), /OPEN REQUIRED/);
+assert.match(JSON.stringify(renderer.toJSON()), /YOUR SOLUTION/);
+assert.match(JSON.stringify(renderer.toJSON()), /RUN SOLUTION/);
 const runButton = renderer.root.findByProps({ 'data-testid': 'compute-lab-run-solution' });
 assert.equal(runButton.props.disabled, true, 'run is unavailable until an exact editor binding exists');
-console.log('Compute Lab mission → solution → results mounted flow passed');
+renderer.unmount();
+console.log('Compute Lab disconnected and paired-but-unopened flows passed');
