@@ -250,6 +250,17 @@ def test_every_assignment_rhs_emits_one_located_value_even_for_names_and_literal
         assert rhs["location"]["lineno"] == frames[binding_index]["location"]["lineno"]
 
 
+def test_value_frames_carry_exact_name_load_spans_not_identifier_looking_text():
+    result = solution('b = 7\n        copied = b\n        text = "b"\n        nested = (b + 1) * 2\n        return copied')
+    values = {frame["source"]: frame for frame in result["frames"] if frame["kind"] == "value"}
+
+    copied = values["b"]
+    assert copied["detail"]["references"] == [{"name": "b", "location": copied["location"]}]
+    assert values['"b"']["detail"]["references"] == []
+    nested = values["(b + 1) * 2"]["detail"]["references"]
+    assert nested == [{"name": "b", "location": values["b + 1"]["detail"]["references"][0]["location"]}]
+
+
 def test_the_add_starter_replays_the_whole_program_within_a_bounded_budget():
     result = run(ADD_STARTER, max_events=1200)
     assert result["status"] == "trace_ready" and result["returnValue"] == 5

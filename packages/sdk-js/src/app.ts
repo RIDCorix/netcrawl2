@@ -22,7 +22,7 @@ import { randomUUID } from 'node:crypto';
  * to this SDK; the number does.
  */
 export const RUNTIME_PROTOCOL_VERSION = 3;
-export const RUNTIME_SDK_VERSION = '1.4.2';
+export const RUNTIME_SDK_VERSION = '1.4.5';
 
 type WorkerClassConstructor = typeof WorkerClass & {
   new (

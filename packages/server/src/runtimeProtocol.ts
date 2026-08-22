@@ -50,7 +50,7 @@ export const RUNTIME_PROTOCOL_VERSION = 3;
  * that was never published — which is the chain that turns a forgotten publish
  * into a red build instead of a screen that draws nothing.
  */
-export const MIN_PYTHON_SDK_VERSION = '1.4.2';
+export const MIN_PYTHON_SDK_VERSION = '1.4.5';
 
 function parseVersion(version: string): number[] {
   return version.split('.').map(part => Number.parseInt(part, 10) || 0);

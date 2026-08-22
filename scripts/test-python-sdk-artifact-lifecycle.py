@@ -68,6 +68,7 @@ def test_the_installed_runner_emits_the_frame_shape_the_ui_reads():
             "class ProblemSolver:\n"
             "    def solution(self, a, b):\n"
             "        total = 0\n"
+            "        label = \"total\"\n"
             "        for i in range(3):\n"
             "            total = total + i\n"
             "        return total\n"
@@ -124,7 +125,18 @@ def test_the_installed_runner_emits_the_frame_shape_the_ui_reads():
         f"the installed netcrawl-sdk {EXPECTED_VERSION} names a type for only some held values, so some variable "
         f"boxes draw a chip and some do not. {behind}"
     )
-    print(f"Installed netcrawl-sdk {EXPECTED_VERSION} emits the declared frame shape — loop identity and type chips")
+    literal = next(frame for frame in frames if frame["kind"] == "value" and frame["source"] == '"total"')
+    assert literal["detail"]["references"] == [], (
+        f"the installed netcrawl-sdk {EXPECTED_VERSION} reports string content as a variable read. {behind}"
+    )
+    addition = next(frame for frame in frames if frame["kind"] == "value" and frame["source"] == "total + i")
+    assert {reference["name"] for reference in addition["detail"]["references"]} == {"total", "i"}, (
+        f"the installed netcrawl-sdk {EXPECTED_VERSION} omits semantic Name loads. {behind}"
+    )
+    print(
+        f"Installed netcrawl-sdk {EXPECTED_VERSION} emits the declared frame shape — "
+        "loop identity, type chips, and semantic reference spans"
+    )
 
 
 test_the_installed_runner_emits_the_frame_shape_the_ui_reads()

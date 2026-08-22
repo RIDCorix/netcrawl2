@@ -123,8 +123,9 @@ CONTROL_KINDS = frozenset({"block_enter", "block_exit", "decision", "repetition"
 FRAME_KINDS = CONTROL_KINDS | {"value", "result"}
 
 # These are deliberate semantic exclusions, not instrumentation gaps. Names and
-# constants are shown through their containing expression and locals snapshot;
-# assignment targets must never be evaluated a second time. `Starred` is excluded
+# constants are evaluated through their containing expression; Name loads still
+# travel as exact semantic reference spans on that value frame. Assignment
+# targets must never be evaluated a second time. `Starred` is excluded
 # because `_lab_eval(..., lambda: *nums)` is a syntax error — a starred expression
 # is illegal anywhere a call may appear. It stays Located and Valued through the
 # sub-expression it unpacks.
@@ -564,9 +565,32 @@ class InstrumentExecution(ast.NodeTransformer):
 
     # ── instrumentation primitives ──────────────────────────────────────────
     def _wrap(self, node: ast.expr):
+        # References are AST Name loads, never identifier-looking text. Their
+        # exact byte ranges let the UI prove that `a = b` read b while `a = "b"`
+        # did not, without teaching the browser to parse Python.
+        references: list[dict[str, Any]] = []
+        seen: set[tuple[str, int, int, int, int]] = set()
+        for descendant in ast.walk(node):
+            if not isinstance(descendant, ast.Name) or not isinstance(descendant.ctx, ast.Load):
+                continue
+            if descendant.id.startswith("_lab_"):
+                continue
+            location = self._location(descendant)
+            key = (
+                descendant.id,
+                location["lineno"],
+                location["col_offset"],
+                location["end_lineno"],
+                location["end_col_offset"],
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            references.append({"name": descendant.id, "location": location})
+        metadata = {**self._metadata_value(node), "references": references}
         wrapped = ast.Call(
             func=ast.Name(id="_lab_eval", ctx=ast.Load()),
-            args=[self._metadata(node), self._thunk(node)],
+            args=[self._literal(metadata, node), self._thunk(node)],
             keywords=[],
         )
         return ast.copy_location(wrapped, node)
@@ -923,7 +947,7 @@ def execute(payload: dict, on_frame: Callable[[dict], None] | None = None) -> di
 
     def trace_eval(metadata: dict, thunk):
         value = thunk()
-        emit("value", metadata, value=json_value(value))
+        emit("value", metadata, detail={"references": metadata["references"]}, value=json_value(value))
         return value
 
     def instance_key(metadata: dict) -> tuple[int, int | None, int | None]:
