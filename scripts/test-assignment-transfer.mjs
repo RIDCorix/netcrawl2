@@ -101,6 +101,118 @@ try {
     'identifier-looking string content is not semantic evidence of a variable read',
   );
 
+  const shortCircuitSource = 'answer = flag and y';
+  const shortCircuitFrames = [
+    { sequence: 0, kind: 'step', source: 'before', location: location(0, 1), locals: { flag: false, y: 7 } },
+    {
+      sequence: 1,
+      kind: 'value',
+      source: 'flag and y',
+      location: location(9, 19),
+      locals: { flag: false, y: 7 },
+      value: false,
+      detail: { references: [{ name: 'flag', location: location(9, 13) }] },
+    },
+    {
+      sequence: 2,
+      kind: 'binding',
+      source: shortCircuitSource,
+      location: location(0, shortCircuitSource.length),
+      locals: { flag: false, y: 7, answer: false },
+      changed: ['answer'],
+      detail: { bindings: { answer: false } },
+    },
+  ];
+  assert.deepEqual(assignmentTransferAt(shortCircuitFrames, 2, shortCircuitSource, format)?.references, [
+    { name: 'flag', value: 'false' },
+  ]);
+
+  const selectedShortCircuitFrames = [
+    { ...shortCircuitFrames[0], locals: { flag: true, y: 7 } },
+    {
+      ...shortCircuitFrames[1],
+      locals: { flag: true, y: 7 },
+      value: 7,
+      detail: {
+        references: [
+          { name: 'flag', location: location(9, 13) },
+          { name: 'y', location: location(18, 19) },
+        ],
+      },
+    },
+    {
+      ...shortCircuitFrames[2],
+      locals: { flag: true, y: 7, answer: 7 },
+      detail: { bindings: { answer: 7 } },
+    },
+  ];
+  assert.deepEqual(assignmentTransferAt(selectedShortCircuitFrames, 2, shortCircuitSource, format)?.references, [
+    { name: 'flag', value: 'true' },
+    { name: 'y', value: '7' },
+  ]);
+
+  const conditionalSource = 'answer = left if flag else right';
+  const conditionalFrames = [
+    {
+      sequence: 0,
+      kind: 'step',
+      source: 'before',
+      location: location(0, 1),
+      locals: { flag: true, left: 11, right: 13 },
+    },
+    {
+      sequence: 1,
+      kind: 'value',
+      source: 'left if flag else right',
+      location: location(9, 32),
+      locals: { flag: true, left: 11, right: 13 },
+      value: 11,
+      detail: {
+        references: [
+          { name: 'flag', location: location(17, 21) },
+          { name: 'left', location: location(9, 13) },
+        ],
+      },
+    },
+    {
+      sequence: 2,
+      kind: 'binding',
+      source: conditionalSource,
+      location: location(0, conditionalSource.length),
+      locals: { flag: true, left: 11, right: 13, answer: 11 },
+      changed: ['answer'],
+      detail: { bindings: { answer: 11 } },
+    },
+  ];
+  assert.deepEqual(assignmentTransferAt(conditionalFrames, 2, conditionalSource, format)?.references, [
+    { name: 'flag', value: 'true' },
+    { name: 'left', value: '11' },
+  ]);
+
+  const alternativeFrames = [
+    { ...conditionalFrames[0], locals: { flag: false, left: 11, right: 13 } },
+    {
+      ...conditionalFrames[1],
+      locals: { flag: false, left: 11, right: 13 },
+      value: 13,
+      detail: {
+        references: [
+          { name: 'flag', location: location(17, 21) },
+          { name: 'right', location: location(27, 32) },
+        ],
+      },
+    },
+    {
+      ...conditionalFrames[2],
+      locals: { flag: false, left: 11, right: 13, answer: 13 },
+      detail: { bindings: { answer: 13 } },
+    },
+  ];
+  assert.deepEqual(assignmentTransferAt(alternativeFrames, 2, conditionalSource, format)?.references, [
+    { name: 'flag', value: 'false' },
+    { name: 'right', value: '13' },
+  ]);
+
   const unicodeSource = '結果 = 起點';
   const unicodeFrames = [
     { sequence: 0, kind: 'step', source: 'before', location: location(0, 1), locals: { 起點: 9 } },

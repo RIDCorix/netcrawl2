@@ -69,6 +69,9 @@ def test_the_installed_runner_emits_the_frame_shape_the_ui_reads():
             "    def solution(self, a, b):\n"
             "        total = 0\n"
             "        label = \"total\"\n"
+            "        gate = False\n"
+            "        skipped = gate and b\n"
+            "        chosen = a if gate else b\n"
             "        for i in range(3):\n"
             "            total = total + i\n"
             "        return total\n"
@@ -132,6 +135,14 @@ def test_the_installed_runner_emits_the_frame_shape_the_ui_reads():
     addition = next(frame for frame in frames if frame["kind"] == "value" and frame["source"] == "total + i")
     assert {reference["name"] for reference in addition["detail"]["references"]} == {"total", "i"}, (
         f"the installed netcrawl-sdk {EXPECTED_VERSION} omits semantic Name loads. {behind}"
+    )
+    skipped = next(frame for frame in frames if frame["kind"] == "value" and frame["source"] == "gate and b")
+    assert [reference["name"] for reference in skipped["detail"]["references"]] == ["gate"], (
+        f"the installed netcrawl-sdk {EXPECTED_VERSION} invents a read from a short-circuited branch. {behind}"
+    )
+    chosen = next(frame for frame in frames if frame["kind"] == "value" and frame["source"] == "a if gate else b")
+    assert [reference["name"] for reference in chosen["detail"]["references"]] == ["gate", "b"], (
+        f"the installed netcrawl-sdk {EXPECTED_VERSION} invents a read from an unselected conditional branch. {behind}"
     )
     print(
         f"Installed netcrawl-sdk {EXPECTED_VERSION} emits the declared frame shape — "

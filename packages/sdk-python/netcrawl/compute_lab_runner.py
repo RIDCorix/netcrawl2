@@ -123,8 +123,8 @@ CONTROL_KINDS = frozenset({"block_enter", "block_exit", "decision", "repetition"
 FRAME_KINDS = CONTROL_KINDS | {"value", "result"}
 
 # These are deliberate semantic exclusions, not instrumentation gaps. Names and
-# constants are evaluated through their containing expression; Name loads still
-# travel as exact semantic reference spans on that value frame. Assignment
+# constants are evaluated through their containing expression; executed Name
+# loads still travel as exact semantic reference spans on that value frame. Assignment
 # targets must never be evaluated a second time. `Starred` is excluded
 # because `_lab_eval(..., lambda: *nums)` is a syntax error — a starred expression
 # is illegal anywhere a call may appear. It stays Located and Valued through the
@@ -469,6 +469,8 @@ class InstrumentExecution(ast.NodeTransformer):
             return self._instrument_statement(transformed)
         if not isinstance(transformed, ast.expr):
             return transformed
+        if isinstance(transformed, ast.Name) and isinstance(transformed.ctx, ast.Load):
+            return self._reference(transformed)
         if type(transformed).__name__ in EXCLUDED_EXPRESSION_TYPES:
             return transformed
         context = getattr(transformed, "ctx", ast.Load())
@@ -512,7 +514,7 @@ class InstrumentExecution(ast.NodeTransformer):
             # every assignment instead of parsing Python or special-casing AST
             # shapes. The thunk evaluates the RHS exactly once.
             value = getattr(node, "value", None)
-            if isinstance(value, ast.expr) and type(value).__name__ in EXCLUDED_EXPRESSION_TYPES:
+            if isinstance(value, ast.expr) and not self._helper_call(value, "_lab_eval"):
                 node.value = self._wrap(value)
             targets = node.targets if hasattr(node, "targets") else [node.target]
             after.append(self._event(node, "binding", names=[name for target in targets for name in self._target_names(target)]))
@@ -565,35 +567,31 @@ class InstrumentExecution(ast.NodeTransformer):
 
     # ── instrumentation primitives ──────────────────────────────────────────
     def _wrap(self, node: ast.expr):
-        # References are AST Name loads, never identifier-looking text. Their
-        # exact byte ranges let the UI prove that `a = b` read b while `a = "b"`
-        # did not, without teaching the browser to parse Python.
-        references: list[dict[str, Any]] = []
-        seen: set[tuple[str, int, int, int, int]] = set()
-        for descendant in ast.walk(node):
-            if not isinstance(descendant, ast.Name) or not isinstance(descendant.ctx, ast.Load):
-                continue
-            if descendant.id.startswith("_lab_"):
-                continue
-            location = self._location(descendant)
-            key = (
-                descendant.id,
-                location["lineno"],
-                location["col_offset"],
-                location["end_lineno"],
-                location["end_col_offset"],
-            )
-            if key in seen:
-                continue
-            seen.add(key)
-            references.append({"name": descendant.id, "location": location})
-        metadata = {**self._metadata_value(node), "references": references}
         wrapped = ast.Call(
             func=ast.Name(id="_lab_eval", ctx=ast.Load()),
-            args=[self._literal(metadata, node), self._thunk(node)],
+            args=[self._metadata(node), self._thunk(node)],
             keywords=[],
         )
         return ast.copy_location(wrapped, node)
+
+    def _reference(self, node: ast.Name) -> ast.Call:
+        """Report one Name load only if Python actually evaluates this node.
+
+        Passing the already-loaded value preserves evaluation count and scope;
+        putting the call at the Name's exact range lets every enclosing value
+        frame distinguish an executed load from a short-circuited branch.
+        """
+        metadata = {"name": node.id, "location": self._location(node)}
+        call = ast.Call(
+            func=ast.Name(id="_lab_reference", ctx=ast.Load()),
+            args=[self._literal(metadata, node), node],
+            keywords=[],
+        )
+        return ast.copy_location(call, node)
+
+    @staticmethod
+    def _helper_call(node: ast.expr, name: str) -> bool:
+        return isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == name
 
     def _located(self, tree: ast.AST, node: ast.AST) -> ast.AST:
         """Stamp a synthesised subtree with the player's own source location.
@@ -614,7 +612,9 @@ class InstrumentExecution(ast.NodeTransformer):
     def _location(self, node: ast.AST) -> dict[str, int]:
         """The range to highlight: a whole expression, or a block's header only."""
         end = (getattr(node, "end_lineno", None), getattr(node, "end_col_offset", None))
-        if any(field in SUITE_FIELDS for field in type(node)._fields):
+        if isinstance(node, (ast.stmt, ast.excepthandler)) and any(
+            field in SUITE_FIELDS for field in type(node)._fields
+        ):
             end = (node.lineno, node.col_offset)
             for field in type(node)._fields:
                 if field in SUITE_FIELDS:
@@ -826,6 +826,11 @@ def execute(payload: dict, on_frame: Callable[[dict], None] | None = None) -> di
     # not per run because a shared one reports every local of the function you
     # just came back to as freshly changed.
     calls: list[dict[str, Any]] = []
+    # Every currently evaluating value frame, outermost first. A Name helper
+    # records into all of them so `(b + 1) * 2` carries the executed `b` load on
+    # both the inner and outer value frames, while Python's own branch semantics
+    # decide whether the helper runs at all.
+    evaluations: list[dict[str, Any]] = []
     transformer = InstrumentExecution(source)
 
     def call_stack() -> list[dict[str, Any]]:
@@ -946,8 +951,30 @@ def execute(payload: dict, on_frame: Callable[[dict], None] | None = None) -> di
         return tracer
 
     def trace_eval(metadata: dict, thunk):
-        value = thunk()
-        emit("value", metadata, detail={"references": metadata["references"]}, value=json_value(value))
+        evaluation = {"references": [], "seen": set()}
+        evaluations.append(evaluation)
+        try:
+            value = thunk()
+        finally:
+            evaluations.pop()
+        emit("value", metadata, detail={"references": evaluation["references"]}, value=json_value(value))
+        return value
+
+    def trace_reference(metadata: dict, value: Any) -> Any:
+        location = metadata["location"]
+        key = (
+            metadata["name"],
+            location["lineno"],
+            location["col_offset"],
+            location["end_lineno"],
+            location["end_col_offset"],
+        )
+        reference = {"name": metadata["name"], "location": location}
+        for evaluation in evaluations:
+            if key in evaluation["seen"]:
+                continue
+            evaluation["seen"].add(key)
+            evaluation["references"].append(reference)
         return value
 
     def instance_key(metadata: dict) -> tuple[int, int | None, int | None]:
@@ -1037,6 +1064,7 @@ def execute(payload: dict, on_frame: Callable[[dict], None] | None = None) -> di
     namespace = {
         "__builtins__": {**{name: getattr(builtins, name) for name in ALLOWED_BUILTINS}, "__build_class__": builtins.__build_class__},
         "_lab_eval": trace_eval,
+        "_lab_reference": trace_reference,
         "_lab_event": trace_event,
         "_lab_extent": trace_extent,
         "_lab_decision": trace_decision,

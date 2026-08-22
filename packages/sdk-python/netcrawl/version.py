@@ -12,7 +12,7 @@ be talked past the very gate these values exist to trip.
 server's `MIN_PYTHON_SDK_VERSION` names the oldest release it will accept.
 """
 
-__version__ = "1.4.5"
+__version__ = "1.4.6"
 
 #: Wire protocol spoken by this SDK. The server refuses any other value.
 PROTOCOL_VERSION = 3

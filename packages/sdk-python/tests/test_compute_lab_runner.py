@@ -261,6 +261,34 @@ def test_value_frames_carry_exact_name_load_spans_not_identifier_looking_text():
     assert nested == [{"name": "b", "location": values["b + 1"]["detail"]["references"][0]["location"]}]
 
 
+@pytest.mark.parametrize(
+    ("flag", "expression", "expected"),
+    [
+        (False, "flag and y", ["flag"]),
+        (True, "flag and y", ["flag", "y"]),
+        (True, "flag or y", ["flag"]),
+        (False, "flag or y", ["flag", "y"]),
+        (True, "left if flag else right", ["flag", "left"]),
+        (False, "left if flag else right", ["flag", "right"]),
+    ],
+)
+def test_value_references_include_only_name_loads_that_execute(flag, expression, expected):
+    result = solution(
+        f"flag = {flag}\n        y = 7\n        left = 11\n        right = 13\n        answer = {expression}\n        return answer"
+    )
+    frames = result["frames"]
+    binding_index = next(
+        index
+        for index, frame in enumerate(frames)
+        if frame["kind"] == "binding" and frame["source"] == f"answer = {expression}"
+    )
+    evaluation = frames[binding_index - 1]
+
+    assert evaluation["kind"] == "value"
+    assert evaluation["source"] == expression
+    assert [reference["name"] for reference in evaluation["detail"]["references"]] == expected
+
+
 def test_the_add_starter_replays_the_whole_program_within_a_bounded_budget():
     result = run(ADD_STARTER, max_events=1200)
     assert result["status"] == "trace_ready" and result["returnValue"] == 5
@@ -405,7 +433,7 @@ def test_the_walrus_operator_is_rejected_rather_than_silently_miswired():
     assert result["error"]["message"] == "NamedExpr is not allowed in Compute Lab"
 
 
-@pytest.mark.parametrize("bound", ["_lab_eval", "_lab_event", "_lab_decision", "__builtins__"])
+@pytest.mark.parametrize("bound", ["_lab_eval", "_lab_reference", "_lab_event", "_lab_decision", "__builtins__"])
 def test_an_except_clause_cannot_bind_over_the_instrumentation(bound):
     """Admitting `Try` opened a name-binding surface the old locks did not cover.
 
@@ -582,7 +610,9 @@ def test_the_callee_lock_still_refuses_everything_that_is_not_a_bare_known_name(
     assert result["error"]["message"] == message
 
 
-@pytest.mark.parametrize("name", ["_lab_eval", "_lab_event", "_lab_decision", "__builtins__", "solution"])
+@pytest.mark.parametrize(
+    "name", ["_lab_eval", "_lab_reference", "_lab_event", "_lab_decision", "__builtins__", "solution"]
+)
 def test_a_def_cannot_bind_over_the_instrumentation(name):
     """A `def` name is a plain `str` field, exactly like `except X as name`.
 
@@ -616,7 +646,7 @@ def test_a_class_cannot_be_defined_inside_solution():
     assert result["error"]["message"] == "a class cannot be defined inside solution"
 
 
-@pytest.mark.parametrize("bound", ["_lab_eval", "__builtins__"])
+@pytest.mark.parametrize("bound", ["_lab_eval", "_lab_reference", "__builtins__"])
 def test_a_parameter_cannot_bind_over_the_instrumentation(bound):
     result = solution(f"def helper({bound}):\n            return 1\n        return helper(a)")
     assert result["status"] == "syntax"
@@ -785,6 +815,7 @@ def test_the_event_cap_survives_a_finally_that_swallows_it():
         "def second[**P](x)",
         "def second[helper](x)",
         "def second[_lab_eval](x)",
+        "def second[_lab_reference](x)",
         "def second[T: type([]).__base__.__subclasses__()](x)",
     ],
 )

@@ -8,12 +8,12 @@
 
     "Three tests read this file, and a shape change has to answer all three: the runner in this tree emits exactly these keys (packages/sdk-python/tests/test_frame_contract.py), the *installed* runner does too (scripts/test-python-sdk-artifact-lifecycle.py — in the steady state that is the artifact on PyPI, which is the assertion R-50 needed), and the UI reads no key that is not declared here (scripts/test-frame-contract.mjs).",
 
-    "R-259 adds value.detail.references as required semantic evidence: AST Name loads with exact source spans. It is what distinguishes `a = b` from identifier-looking text in `a = \"b\"`; without it the UI degrades to static state instead of guessing.",
+    "R-259 adds value.detail.references as required semantic evidence: Name loads that actually executed, with exact source spans. It distinguishes `a = b` from identifier-looking text in `a = \"b\"` and executed branches from short-circuited or unselected branches; without that evidence the UI degrades to static state instead of guessing.",
 
     "`required` means every frame of that kind carries the key. Anything conditional belongs in `optional`, and the conditions are easy to miss: `taken` is absent on an `assert`, which has a `test` and no body; `bindings` is absent on `nums[0] = 9`, whose target names nothing; `extent` is absent whenever measuring the iterable would have meant running player code."
   ],
 
-  "sinceVersion": "1.4.5",
+  "sinceVersion": "1.4.6",
 
   "frame": {
     "$comment": [
